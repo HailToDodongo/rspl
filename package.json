@@ -1,0 +1,17 @@
+{
+  "name": "rspl",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "devDependencies": {
+    "parcel": "^2.10.0"
+  },
+  "scripts": {
+    "start": "yarn parcel src/index.html",
+    "build:lang": "nearleyc src/lang/grammar.ne -o src/js/grammar.js"
+  },
+  "dependencies": {
+    "highlight.js": "^11.9.0",
+    "nearley": "^2.20.1"
+  }
+}

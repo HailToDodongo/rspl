@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>RSPL Transpiler</title>
+    <link rel="stylesheet" href="style/main.css" />
+    <link rel="stylesheet" href="../node_modules/highlight.js/styles/base16/eighties.min.css">
+
+
+    <script src="js/main.js" type="module"></script>
+  </head>
+  <body>    
+    <div class="pageContainer">
+      <h1>RSPL Transpiler</h1>
+
+      <div class="mainContainer">
+        <textarea id="inputRSPL"></textarea>
+        <pre class="noPadding"><code class="language-mipsasm" id="outputASM">T3DCmd_TriDraw:
+  move t0, a1
+  li s4, %lo(RDPQ_CMD_STAGING) # set staging buffer
+  move s3, s4
+
+  M_ExtractVertPointer a1, t0, 0
+  M_ExtractVertPointer a2, t0, 8
+  M_ExtractVertPointer a3, t0, 16
+
+  jal RDPQ_Triangle
+  li v0, 2
+
+  jal_and_j RDPQ_Send, RSPQ_Loop
+          </code></pre>
+          <pre class="noPadding"><code class="language-json" id="outputAST"></code></pre>
+      </div>
+
+      <div class="bottomContainer">
+        <pre id="outputError"></pre>
+      </div>
+    </div>
+  </body>
+</html>
