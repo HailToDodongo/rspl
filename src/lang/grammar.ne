@@ -1,15 +1,19 @@
 @{% 
 	const MAP_NULL = () => null;
 	const MAP_FIRST = d => d[0]; 
+	const MAP_ENUM = d => d[0][0]; 
 %}
 
-Function -> __ FuncName "()" _LB_ "{" FuncBody _LB_ "}" {% (d) => ({type: "function", name: d[1], body: d[5]}) %}
-
-FuncBody -> ( _ Statement _ ";"):* {% function(d) {return {type: "funcBody", statements: d[0].map(y => y[1])}} %}
-
-Statement -> (ExprVarDeclAssign | ExprVarAssign | ExprASM) {% (d) => d[0][0] %}
+# Function that translates into a function/global-label in ASM...
+Function -> __ FuncName "()" _LB_ "{" FuncBody _LB_ "}" {% d => ({type: "function", name: d[1], body: d[5]}) %}
+# ...which contains a list of statements or comments
+FuncBody -> (Statement | LineComment):* {% function(d) {return {type: "funcBody", statements: d[0].map(y => y[0])}} %}
+# Each statement can be a var-declaration, assignment (with calculations) or inline-asm
+Statement -> _ (ExprVarDeclAssign | ExprVarAssign | ExprASM) ";" {% (d) => d[1][0] %}
 
 ##### All Expressions #####
+
+LineComment -> _ "//" .:* [\n] {% (d) => ({type: "comment", comment: d[2].join("")}) %}
 
 # Declaring a variable with an optional assignment
 ExprVarDeclAssign -> (DataType RegDef __ VarName __ ExprPartAssign:?) {% 
@@ -23,24 +27,40 @@ ExprFuncCall -> FuncName "(" __ VarName __ ")"  {% d => ({type: "funcCall", func
 # Raw inline ASM
 ExprASM -> "asm(\"" [a-zA-Z0-9 ]:* "\")" {% d => ({type: "asm", asm: d[1].join("")}) %}
 
+# Assignment to a variable which calcualtes something (left-hande operator right-hand)
 ExprVarAssign -> ( VarName __ "=" __ ExprPartAssignCalc) {% 
 	([d]) => ({type: "varAssignCalc", varName: d[0], value: d[5], calc: d[4]})
 %}
-ExprPartAssignCalc -> VarName __ OpsNumeric __ VarName OpsSwizzle:?
 
-
+ExprPartAssignCalc -> VarName OpsSwizzle:? __ OpsLeftRight __ VarName OpsSwizzle:? {% 
+	d => ({type: "calc", left: d[0], swizzleLeft: d[1], op: d[3], right: d[5], swizzleRight: d[6]}) 
+%}
 
 #### Names & Keywords ####)
-VarName -> [a-zA-Z0-9_]:+ {% d => d[0].join("") %}
+VarName -> [a-zA-Z] [a-zA-Z0-9_]:* {% d => d[0][0] + d[1].join("") %}
 FuncName -> [a-zA-Z0-9_]:+ {% d => d[0].join("") %}
 
 #### Data Types ####
-DataType -> ("u32" | "s32" | "vec32" | "vec16") {% (d) => d[0][0] %}
+DataType -> (
+	"u8" | "s8" | "u16" | "s16" | "u32" | "s32" | 
+	"vec32" | "vec16"
+) {% MAP_ENUM %}
 
 #### Registers ####
 RegsAll -> RegsScalar | RegsVector
-RegsScalar -> ("$t0" | "$t1") {% (d) => d[0][0] %}
-RegsVector -> ("$v0" | "$v1") {% (d) => d[0][0] %}
+RegsScalar -> (
+	"$at" | "$zero" | "$v0" | "$v1" | "$a0" | "$a1" | "$a2" | "$a3" |
+	"$t0" | "$t1" | "$t2" | "$t3" | "$t4" | "$t5" | "$t6" | "$t7" | "$t8" | "$t9" |
+	"$s0" | "$s1" | "$s2" | "$s3" | "$s4" | "$s5" | "$s6" | "$s7" |
+	"$k0" | "$k1" | "$gp" | "$sp" | "$fp" | "$ra"
+) {% MAP_ENUM %}
+
+RegsVector -> (
+	"$v00" | "$v01" | "$v02" | "$v03" | "$v04" | "$v05" | "$v06" | "$v07" |
+	"$v08" | "$v09" | "$v10" | "$v11" | "$v12" | "$v13" | "$v14" | "$v15" |
+	"$v16" | "$v17" | "$v18" | "$v19" | "$v20" | "$v21" | "$v22" | "$v23" |
+	"$v24" | "$v25" | "$v26" | "$v27" | "$v28" | "$v29" | "$v30" | "$v31"
+) {% MAP_ENUM %}
 		  
 RegDef -> "<" RegsAll ">" {% (d) => d[1][0] %}
 
@@ -50,8 +70,12 @@ ValueInt -> [0-9]:+         {% (d) => parseInt(d[0].join("")) %}
 ValueHex -> "0x" [0-9A-F]:+ {% (d) => parseInt(d[1].join(""), 16) %}
 
 #### Operators ####
-OpsNumeric -> ("+" | "-" | "*" | "+*" | "/" | ".")
-OpsSwizzle -> (".xxxxXXXX" | ".yyyyYYYY" | ".zzzzZZZZ" | ".wwwwWWWW") {% (d) => d[0][0] %}
+OpsLeftRight -> (OpsNumeric | OpsLogic | OpsBitwise) {% MAP_ENUM %}
+OpsNumeric -> ("+" | "-" | "*" | "+*" | "/" | ".") {% MAP_ENUM %}
+OpsLogic   -> ("&&" | "||" | "!" | "==" | "!=" | "<" | ">" | "<=" | ">=") {% MAP_ENUM %}
+OpsBitwise -> ("&" | "|" | "^" | "~" | "<<" | ">>") {% MAP_ENUM %}
+
+OpsSwizzle -> (".xxxxXXXX" | ".yyyyYYYY" | ".zzzzZZZZ" | ".wwwwWWWW") {% MAP_ENUM %}
 
 #### Whitespace ####
 _ -> [\s]:*  {% MAP_NULL %}

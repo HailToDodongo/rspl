@@ -64,6 +64,11 @@ textarea, pre {
   text-align: left;
   overflow-y: scroll;
   resize: none;
+
+  outline: none;
+  -webkit-box-shadow: none;
+  -moz-box-shadow: none;
+  box-shadow: none;
 }
 
 .pageContainer {
@@ -97,7 +102,7 @@ textarea, pre {
 }
 
 .bottomContainer pre {
-  height: 200px;
+  height: 150px;
   width: 100%;
 }
 
