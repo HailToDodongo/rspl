@@ -14,7 +14,9 @@
       <h1>RSPL Transpiler</h1>
 
       <div class="mainContainer">
-        <textarea id="inputRSPL"></textarea>
+        <div>
+          <div id="inputRSPL"></div>
+        </div>
         <pre class="noPadding"><code class="language-mipsasm" id="outputASM">T3DCmd_TriDraw:
   move t0, a1
   li s4, %lo(RDPQ_CMD_STAGING) # set staging buffer

@@ -11,6 +11,7 @@
     "build:lang": "nearleyc src/lang/grammar.ne -o src/js/grammar.js"
   },
   "dependencies": {
+    "ace-builds": "^1.30.0",
     "highlight.js": "^11.9.0",
     "nearley": "^2.20.1"
   }

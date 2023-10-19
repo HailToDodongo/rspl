@@ -2,10 +2,36 @@
 	const MAP_NULL = () => null;
 	const MAP_FIRST = d => d[0]; 
 	const MAP_ENUM = d => d[0][0]; 
+	const MAP_TAKE = (d, i) => d && d.map(x => x[i]);
+
 %}
 
+# A File contains 3 main sections:
+# "Commands" : define the public API by connection an index with a function
+# "State"    : defines variables in RAM that need to be saved across code-switches
+# "Functions": can contain one or more functions (either commands or regular functions)
+File -> (_ SectionCmd):? (_ SectionState):? (_ Function):* _ {% 
+	d => ({
+		commands : d[0] && d[0][1],
+   		state    : d[1] && d[1][1],
+   		functions: MAP_TAKE(d[2], 1)
+  	}) 
+%}
+
+######### Command-Section #########
+SectionCmd -> "Commands"i _ "{" _ CommandDef:* "}" {% d => d[4] %}
+CommandDef -> ValueNumeric ":" _ VarName _ {% d => ({idx: d[0], name: d[3]}) %}
+
+######### State-Section #########
+SectionState -> "State"i _ "{" _ StateVarDef:* "}" {% d => d[4] %}
+StateVarDef -> DataType _ VarName _ ";" _  {% 
+	(d) => ({type: "varState", varType: d[0], varName: d[2]})
+%}
+
+######### Function-Section #########
+
 # Function that translates into a function/global-label in ASM...
-Function -> __ FuncName "()" _LB_ "{" FuncBody _LB_ "}" {% d => ({type: "function", name: d[1], body: d[5]}) %}
+Function -> FuncName "()" _LB_ "{" FuncBody _LB_ "}" {% d => ({type: "function", name: d[0], body: d[4]}) %}
 # ...which contains a list of statements or comments
 FuncBody -> (Statement | LineComment):* {% function(d) {return {type: "funcBody", statements: d[0].map(y => y[0])}} %}
 # Each statement can be a var-declaration, assignment (with calculations) or inline-asm
@@ -16,23 +42,23 @@ Statement -> _ (ExprVarDeclAssign | ExprVarAssign | ExprASM) ";" {% (d) => d[1][
 LineComment -> _ "//" .:* [\n] {% (d) => ({type: "comment", comment: d[2].join("")}) %}
 
 # Declaring a variable with an optional assignment
-ExprVarDeclAssign -> (DataType RegDef __ VarName __ ExprPartAssign:?) {% 
+ExprVarDeclAssign -> (DataType RegDef _ VarName _ ExprPartAssign:?) {% 
 	([d]) => ({type: "varDeclAssign", varType: d[0], reg: d[1], varName: d[3], value: d[5]})
 %}
 
-ExprPartAssign -> "=" __ (ValueNumeric | ExprFuncCall) __ OpsSwizzle:? {% d => ({type: "value", value: d[2][0], swizzle: d[4]}) %}
+ExprPartAssign -> "=" _ (ValueNumeric | ExprFuncCall) _ OpsSwizzle:? {% d => ({type: "value", value: d[2][0], swizzle: d[4]}) %}
 
-ExprFuncCall -> FuncName "(" __ VarName __ ")"  {% d => ({type: "funcCall", func: d[0], args: d[3]}) %}
+ExprFuncCall -> FuncName "(" _ VarName _ ")"  {% d => ({type: "funcCall", func: d[0], args: d[3]}) %}
 
 # Raw inline ASM
 ExprASM -> "asm(\"" [a-zA-Z0-9 ]:* "\")" {% d => ({type: "asm", asm: d[1].join("")}) %}
 
 # Assignment to a variable which calcualtes something (left-hande operator right-hand)
-ExprVarAssign -> ( VarName __ "=" __ ExprPartAssignCalc) {% 
+ExprVarAssign -> ( VarName _ "=" _ ExprPartAssignCalc) {% 
 	([d]) => ({type: "varAssignCalc", varName: d[0], value: d[5], calc: d[4]})
 %}
 
-ExprPartAssignCalc -> VarName OpsSwizzle:? __ OpsLeftRight __ VarName OpsSwizzle:? {% 
+ExprPartAssignCalc -> VarName OpsSwizzle:? _ OpsLeftRight _ VarName OpsSwizzle:? {% 
 	d => ({type: "calc", left: d[0], swizzleLeft: d[1], op: d[3], right: d[5], swizzleRight: d[6]}) 
 %}
 
@@ -79,5 +105,5 @@ OpsSwizzle -> (".xxxxXXXX" | ".yyyyYYYY" | ".zzzzZZZZ" | ".wwwwWWWW") {% MAP_ENU
 
 #### Whitespace ####
 _ -> [\s]:*  {% MAP_NULL %}
-__ -> [ +]:* {% MAP_NULL %}
 _LB_ -> [ \t\n]:* {% MAP_NULL %}
+

@@ -50,7 +50,7 @@ export function ast2asm(ast)
   const res = [];
   console.log(ast);
 
-  for(const block of ast)
+  for(const block of ast.functions)
   {
     if(block.type === "function") {
       console.log(block);

@@ -6,11 +6,41 @@ function id(x) { return x[0]; }
 	const MAP_NULL = () => null;
 	const MAP_FIRST = d => d[0]; 
 	const MAP_ENUM = d => d[0][0]; 
+	const MAP_TAKE = (d, i) => d && d.map(x => x[i]);
+
 var grammar = {
     Lexer: undefined,
     ParserRules: [
+    {"name": "File$ebnf$1$subexpression$1", "symbols": ["_", "SectionCmd"]},
+    {"name": "File$ebnf$1", "symbols": ["File$ebnf$1$subexpression$1"], "postprocess": id},
+    {"name": "File$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "File$ebnf$2$subexpression$1", "symbols": ["_", "SectionState"]},
+    {"name": "File$ebnf$2", "symbols": ["File$ebnf$2$subexpression$1"], "postprocess": id},
+    {"name": "File$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "File$ebnf$3", "symbols": []},
+    {"name": "File$ebnf$3$subexpression$1", "symbols": ["_", "Function"]},
+    {"name": "File$ebnf$3", "symbols": ["File$ebnf$3", "File$ebnf$3$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "File", "symbols": ["File$ebnf$1", "File$ebnf$2", "File$ebnf$3", "_"], "postprocess":  
+        d => ({
+        	commands : d[0] && d[0][1],
+           		state    : d[1] && d[1][1],
+           		functions: MAP_TAKE(d[2], 1)
+          	}) 
+        },
+    {"name": "SectionCmd$subexpression$1", "symbols": [/[cC]/, /[oO]/, /[mM]/, /[mM]/, /[aA]/, /[nN]/, /[dD]/, /[sS]/], "postprocess": function(d) {return d.join(""); }},
+    {"name": "SectionCmd$ebnf$1", "symbols": []},
+    {"name": "SectionCmd$ebnf$1", "symbols": ["SectionCmd$ebnf$1", "CommandDef"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "SectionCmd", "symbols": ["SectionCmd$subexpression$1", "_", {"literal":"{"}, "_", "SectionCmd$ebnf$1", {"literal":"}"}], "postprocess": d => d[4]},
+    {"name": "CommandDef", "symbols": ["ValueNumeric", {"literal":":"}, "_", "VarName", "_"], "postprocess": d => ({idx: d[0], name: d[3]})},
+    {"name": "SectionState$subexpression$1", "symbols": [/[sS]/, /[tT]/, /[aA]/, /[tT]/, /[eE]/], "postprocess": function(d) {return d.join(""); }},
+    {"name": "SectionState$ebnf$1", "symbols": []},
+    {"name": "SectionState$ebnf$1", "symbols": ["SectionState$ebnf$1", "StateVarDef"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "SectionState", "symbols": ["SectionState$subexpression$1", "_", {"literal":"{"}, "_", "SectionState$ebnf$1", {"literal":"}"}], "postprocess": d => d[4]},
+    {"name": "StateVarDef", "symbols": ["DataType", "_", "VarName", "_", {"literal":";"}, "_"], "postprocess":  
+        (d) => ({type: "varState", varType: d[0], varName: d[2]})
+        },
     {"name": "Function$string$1", "symbols": [{"literal":"("}, {"literal":")"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "Function", "symbols": ["__", "FuncName", "Function$string$1", "_LB_", {"literal":"{"}, "FuncBody", "_LB_", {"literal":"}"}], "postprocess": d => ({type: "function", name: d[1], body: d[5]})},
+    {"name": "Function", "symbols": ["FuncName", "Function$string$1", "_LB_", {"literal":"{"}, "FuncBody", "_LB_", {"literal":"}"}], "postprocess": d => ({type: "function", name: d[0], body: d[4]})},
     {"name": "FuncBody$ebnf$1", "symbols": []},
     {"name": "FuncBody$ebnf$1$subexpression$1", "symbols": ["Statement"]},
     {"name": "FuncBody$ebnf$1$subexpression$1", "symbols": ["LineComment"]},
@@ -26,7 +56,7 @@ var grammar = {
     {"name": "LineComment", "symbols": ["_", "LineComment$string$1", "LineComment$ebnf$1", /[\n]/], "postprocess": (d) => ({type: "comment", comment: d[2].join("")})},
     {"name": "ExprVarDeclAssign$subexpression$1$ebnf$1", "symbols": ["ExprPartAssign"], "postprocess": id},
     {"name": "ExprVarDeclAssign$subexpression$1$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "ExprVarDeclAssign$subexpression$1", "symbols": ["DataType", "RegDef", "__", "VarName", "__", "ExprVarDeclAssign$subexpression$1$ebnf$1"]},
+    {"name": "ExprVarDeclAssign$subexpression$1", "symbols": ["DataType", "RegDef", "_", "VarName", "_", "ExprVarDeclAssign$subexpression$1$ebnf$1"]},
     {"name": "ExprVarDeclAssign", "symbols": ["ExprVarDeclAssign$subexpression$1"], "postprocess":  
         ([d]) => ({type: "varDeclAssign", varType: d[0], reg: d[1], varName: d[3], value: d[5]})
         },
@@ -34,14 +64,14 @@ var grammar = {
     {"name": "ExprPartAssign$subexpression$1", "symbols": ["ExprFuncCall"]},
     {"name": "ExprPartAssign$ebnf$1", "symbols": ["OpsSwizzle"], "postprocess": id},
     {"name": "ExprPartAssign$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "ExprPartAssign", "symbols": [{"literal":"="}, "__", "ExprPartAssign$subexpression$1", "__", "ExprPartAssign$ebnf$1"], "postprocess": d => ({type: "value", value: d[2][0], swizzle: d[4]})},
-    {"name": "ExprFuncCall", "symbols": ["FuncName", {"literal":"("}, "__", "VarName", "__", {"literal":")"}], "postprocess": d => ({type: "funcCall", func: d[0], args: d[3]})},
+    {"name": "ExprPartAssign", "symbols": [{"literal":"="}, "_", "ExprPartAssign$subexpression$1", "_", "ExprPartAssign$ebnf$1"], "postprocess": d => ({type: "value", value: d[2][0], swizzle: d[4]})},
+    {"name": "ExprFuncCall", "symbols": ["FuncName", {"literal":"("}, "_", "VarName", "_", {"literal":")"}], "postprocess": d => ({type: "funcCall", func: d[0], args: d[3]})},
     {"name": "ExprASM$string$1", "symbols": [{"literal":"a"}, {"literal":"s"}, {"literal":"m"}, {"literal":"("}, {"literal":"\""}], "postprocess": function joiner(d) {return d.join('');}},
     {"name": "ExprASM$ebnf$1", "symbols": []},
     {"name": "ExprASM$ebnf$1", "symbols": ["ExprASM$ebnf$1", /[a-zA-Z0-9 ]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "ExprASM$string$2", "symbols": [{"literal":"\""}, {"literal":")"}], "postprocess": function joiner(d) {return d.join('');}},
     {"name": "ExprASM", "symbols": ["ExprASM$string$1", "ExprASM$ebnf$1", "ExprASM$string$2"], "postprocess": d => ({type: "asm", asm: d[1].join("")})},
-    {"name": "ExprVarAssign$subexpression$1", "symbols": ["VarName", "__", {"literal":"="}, "__", "ExprPartAssignCalc"]},
+    {"name": "ExprVarAssign$subexpression$1", "symbols": ["VarName", "_", {"literal":"="}, "_", "ExprPartAssignCalc"]},
     {"name": "ExprVarAssign", "symbols": ["ExprVarAssign$subexpression$1"], "postprocess":  
         ([d]) => ({type: "varAssignCalc", varName: d[0], value: d[5], calc: d[4]})
         },
@@ -49,7 +79,7 @@ var grammar = {
     {"name": "ExprPartAssignCalc$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
     {"name": "ExprPartAssignCalc$ebnf$2", "symbols": ["OpsSwizzle"], "postprocess": id},
     {"name": "ExprPartAssignCalc$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "ExprPartAssignCalc", "symbols": ["VarName", "ExprPartAssignCalc$ebnf$1", "__", "OpsLeftRight", "__", "VarName", "ExprPartAssignCalc$ebnf$2"], "postprocess":  
+    {"name": "ExprPartAssignCalc", "symbols": ["VarName", "ExprPartAssignCalc$ebnf$1", "_", "OpsLeftRight", "_", "VarName", "ExprPartAssignCalc$ebnf$2"], "postprocess":  
         d => ({type: "calc", left: d[0], swizzleLeft: d[1], op: d[3], right: d[5], swizzleRight: d[6]}) 
         },
     {"name": "VarName$ebnf$1", "symbols": []},
@@ -267,14 +297,11 @@ var grammar = {
     {"name": "_$ebnf$1", "symbols": []},
     {"name": "_$ebnf$1", "symbols": ["_$ebnf$1", /[\s]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "_", "symbols": ["_$ebnf$1"], "postprocess": MAP_NULL},
-    {"name": "__$ebnf$1", "symbols": []},
-    {"name": "__$ebnf$1", "symbols": ["__$ebnf$1", /[ +]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "__", "symbols": ["__$ebnf$1"], "postprocess": MAP_NULL},
     {"name": "_LB_$ebnf$1", "symbols": []},
     {"name": "_LB_$ebnf$1", "symbols": ["_LB_$ebnf$1", /[ \t\n]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "_LB_", "symbols": ["_LB_$ebnf$1"], "postprocess": MAP_NULL}
 ]
-  , ParserStart: "Function"
+  , ParserStart: "File"
 }
 if (typeof module !== 'undefined'&& typeof module.exports !== 'undefined') {
    module.exports = grammar;

@@ -11,7 +11,7 @@ export function transpile(ast)
 {
   console.log("AST", ast);
 
-  ast = astNormalize(ast);
+  ast.functions = astNormalize(ast.functions);
 
   // @TODO: optimize AST
   

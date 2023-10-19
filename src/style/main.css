@@ -50,7 +50,7 @@ code {
   border-radius: 10px;
 }
 
-textarea, pre {
+pre {
   width: 400px;
   max-height: 100%;
   
@@ -87,8 +87,14 @@ textarea, pre {
   min-height: 0;
 }
 
-.mainContainer > textarea, .mainContainer  > pre {
+.mainContainer > div, .mainContainer  > pre {
   flex-grow: 1;
+}
+
+#inputRSPL {
+  height: 100%;
+  border-radius: 10px;
+  font-family: FiraCode, monospace;
 }
 
 .mainContainer  > pre:last-child {
