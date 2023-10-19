@@ -3,7 +3,6 @@
 	const MAP_FIRST = d => d[0]; 
 	const MAP_ENUM = d => d[0][0]; 
 	const MAP_TAKE = (d, i) => d && d.map(x => x[i]);
-
 %}
 
 # A File contains 3 main sections:
@@ -101,7 +100,12 @@ OpsNumeric -> ("+" | "-" | "*" | "+*" | "/" | ".") {% MAP_ENUM %}
 OpsLogic   -> ("&&" | "||" | "!" | "==" | "!=" | "<" | ">" | "<=" | ">=") {% MAP_ENUM %}
 OpsBitwise -> ("&" | "|" | "^" | "~" | "<<" | ">>") {% MAP_ENUM %}
 
-OpsSwizzle -> (".xxxxXXXX" | ".yyyyYYYY" | ".zzzzZZZZ" | ".wwwwWWWW") {% MAP_ENUM %}
+OpsSwizzle -> (
+  ".xxzzXXZZ" | ".yywwYYWW" |
+  ".xxxxXXXX" | ".yyyyYYYY" | ".zzzzZZZZ" | ".wwwwWWWW" |
+  ".xxxxxxxx" | ".yyyyyyyy" | ".zzzzzzzz" | ".wwwwwwww" |
+  ".XXXXXXXX" | ".YYYYYYYY" | ".ZZZZZZZZ" | ".WWWWWWWW"
+) {% d => d[0][0].substring(1) %}
 
 #### Whitespace ####
 _ -> [\s]:*  {% MAP_NULL %}

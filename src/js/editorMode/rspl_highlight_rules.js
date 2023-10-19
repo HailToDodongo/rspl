@@ -34,7 +34,7 @@ const rsplHighlightRules = function() {
           "s8","u8","s16","u16","s32","u32", 
           "vec16","vec32",
 
-          ".xxxxXXXX", ".yyyyYYYY", ".zzzzZZZZ", ".wwwwWWWW"
+          "xxxxXXXX", "yyyyYYYY", "zzzzZZZZ", "wwwwWWWW"
         ].join("|");
 
     const buildinConstants =

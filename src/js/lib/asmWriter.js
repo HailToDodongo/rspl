@@ -3,21 +3,24 @@
 * @license GPL-3.0
 */
 
-// for whatever reason, the ASM uses "$" for vector regs, and no dollar for "normal" registers
-const regNorm = {
-  "$t0": "t0",
-  "$t1": "t1",
-};
+import {REGS_SCALAR} from "./syntax/registers";
 
+// for whatever reason, the ASM uses "$" for vector regs, and no dollar for "normal" registers
 function normReg(regName) {
-  return regNorm[regName] || regName;
+  return REGS_SCALAR.includes(regName) ? regName.substring(1) : regName;
+}
+
+function stringifyInstr(parts) {
+  if(!parts || parts.length === 0)return "";
+
+  return parts[0]  + " " +
+    parts.slice(1).map(normReg).join(", ")
 }
 
 function functionToASM(func)
 {
   return func.name + ":\n"
-    + func.asm.map(parts => "  " + parts.map(x => normReg(x)).join(", ")).join("\n")
-
+    + func.asm.map(parts => "  " + stringifyInstr(parts)).join("\n")
 }
 
 export function writeASM(asm)
