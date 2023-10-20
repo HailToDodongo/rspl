@@ -3,10 +3,10 @@
 * @license GPL-3.0
 */
 
-export function astNormalize(ast)
+export function astNormalize(astFunctions)
 {
-  for(const block of ast) {
-    if(block.type !== "function")continue;
+  for(const block of astFunctions) {
+    if(!["function", "command"].includes(block.type))continue;
 
     const statements = [];
     for(const st of block.body.statements) 
@@ -25,5 +25,5 @@ export function astNormalize(ast)
     block.body.statements = statements;
   }
 
-  return ast;
+  return astFunctions;
 }

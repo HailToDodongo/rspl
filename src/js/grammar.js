@@ -7,39 +7,47 @@ function id(x) { return x[0]; }
 	const MAP_FIRST = d => d[0]; 
 	const MAP_ENUM = d => d[0][0]; 
 	const MAP_TAKE = (d, i) => d && d.map(x => x[i]);
+	const MAP_FLATTEN_TREE = (d, idxLeft, idxRight) => [
+		...(Array.isArray(d[idxLeft]) ? d[idxLeft] : [d[idxLeft]]),
+		...(Array.isArray(d[idxRight]) ? d[idxRight] : [d[idxRight]])
+	];
+	const FORCE_ARRAY = d => Array.isArray(d) ? d : (d ? [d] : []);
 var grammar = {
     Lexer: undefined,
     ParserRules: [
-    {"name": "File$ebnf$1$subexpression$1", "symbols": ["_", "SectionCmd"]},
+    {"name": "File$ebnf$1$subexpression$1", "symbols": ["_", "SectionState"]},
     {"name": "File$ebnf$1", "symbols": ["File$ebnf$1$subexpression$1"], "postprocess": id},
     {"name": "File$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "File$ebnf$2$subexpression$1", "symbols": ["_", "SectionState"]},
-    {"name": "File$ebnf$2", "symbols": ["File$ebnf$2$subexpression$1"], "postprocess": id},
-    {"name": "File$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "File$ebnf$3", "symbols": []},
-    {"name": "File$ebnf$3$subexpression$1", "symbols": ["_", "Function"]},
-    {"name": "File$ebnf$3", "symbols": ["File$ebnf$3", "File$ebnf$3$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "File", "symbols": ["File$ebnf$1", "File$ebnf$2", "File$ebnf$3", "_"], "postprocess":  
+    {"name": "File$ebnf$2", "symbols": []},
+    {"name": "File$ebnf$2$subexpression$1", "symbols": ["_", "Function"]},
+    {"name": "File$ebnf$2", "symbols": ["File$ebnf$2", "File$ebnf$2$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "File", "symbols": ["File$ebnf$1", "File$ebnf$2", "_"], "postprocess": 
         d => ({
-        	commands : d[0] && d[0][1],
-           		state    : d[1] && d[1][1],
-           		functions: MAP_TAKE(d[2], 1)
-          	}) 
+           		state    : d[0] && d[0][1],
+           		functions: MAP_TAKE(d[1], 1)
+          	})
         },
-    {"name": "SectionCmd$subexpression$1", "symbols": [/[cC]/, /[oO]/, /[mM]/, /[mM]/, /[aA]/, /[nN]/, /[dD]/, /[sS]/], "postprocess": function(d) {return d.join(""); }},
-    {"name": "SectionCmd$ebnf$1", "symbols": []},
-    {"name": "SectionCmd$ebnf$1", "symbols": ["SectionCmd$ebnf$1", "CommandDef"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "SectionCmd", "symbols": ["SectionCmd$subexpression$1", "_", {"literal":"{"}, "_", "SectionCmd$ebnf$1", {"literal":"}"}], "postprocess": d => d[4]},
-    {"name": "CommandDef", "symbols": ["ValueNumeric", {"literal":":"}, "_", "VarName", "_"], "postprocess": d => ({idx: d[0], name: d[3]})},
     {"name": "SectionState$subexpression$1", "symbols": [/[sS]/, /[tT]/, /[aA]/, /[tT]/, /[eE]/], "postprocess": function(d) {return d.join(""); }},
     {"name": "SectionState$ebnf$1", "symbols": []},
     {"name": "SectionState$ebnf$1", "symbols": ["SectionState$ebnf$1", "StateVarDef"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "SectionState", "symbols": ["SectionState$subexpression$1", "_", {"literal":"{"}, "_", "SectionState$ebnf$1", {"literal":"}"}], "postprocess": d => d[4]},
-    {"name": "StateVarDef", "symbols": ["DataType", "_", "VarName", "_", {"literal":";"}, "_"], "postprocess":  
+    {"name": "StateVarDef", "symbols": ["DataType", "_", "VarName", "_", {"literal":";"}, "_"], "postprocess": 
         (d) => ({type: "varState", varType: d[0], varName: d[2]})
         },
-    {"name": "Function$string$1", "symbols": [{"literal":"("}, {"literal":")"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "Function", "symbols": ["FuncName", "Function$string$1", "_LB_", {"literal":"{"}, "FuncBody", "_LB_", {"literal":"}"}], "postprocess": d => ({type: "function", name: d[0], body: d[4]})},
+    {"name": "Function$ebnf$1", "symbols": []},
+    {"name": "Function$ebnf$1", "symbols": ["Function$ebnf$1", "FunctionArgs"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "Function", "symbols": ["FunctionType", "_", "FuncName", {"literal":"("}, "_", "Function$ebnf$1", "_", {"literal":")"}, "_", {"literal":"{"}, "FuncBody", "_", {"literal":"}"}], "postprocess": 
+        d => ({
+        	...d[0],
+        	name: d[2],
+        	args: FORCE_ARRAY(d[5][0]),
+        	body: d[10]
+        })
+        },
+    {"name": "FunctonArg", "symbols": ["DataType", "_", "VarName"], "postprocess": d => ({type: d[0], name: d[2]})},
+    {"name": "FunctionArgs", "symbols": ["FunctonArg"], "postprocess": MAP_FIRST},
+    {"name": "FunctionArgs$subexpression$1", "symbols": ["FunctionArgs", "_", {"literal":","}, "_", "FunctonArg"]},
+    {"name": "FunctionArgs", "symbols": ["FunctionArgs$subexpression$1"], "postprocess": d => MAP_FLATTEN_TREE(d[0], 0, 4)},
     {"name": "FuncBody$ebnf$1", "symbols": []},
     {"name": "FuncBody$ebnf$1$subexpression$1", "symbols": ["Statement"]},
     {"name": "FuncBody$ebnf$1$subexpression$1", "symbols": ["LineComment"]},
@@ -47,8 +55,18 @@ var grammar = {
     {"name": "FuncBody", "symbols": ["FuncBody$ebnf$1"], "postprocess": function(d) {return {type: "funcBody", statements: d[0].map(y => y[0])}}},
     {"name": "Statement$subexpression$1", "symbols": ["ExprVarDeclAssign"]},
     {"name": "Statement$subexpression$1", "symbols": ["ExprVarAssign"]},
-    {"name": "Statement$subexpression$1", "symbols": ["ExprASM"]},
     {"name": "Statement", "symbols": ["_", "Statement$subexpression$1", {"literal":";"}], "postprocess": (d) => d[1][0]},
+    {"name": "FunctionType$subexpression$1$subexpression$1$subexpression$1", "symbols": [/[cC]/, /[oO]/, /[mM]/, /[mM]/, /[aA]/, /[nN]/, /[dD]/], "postprocess": function(d) {return d.join(""); }},
+    {"name": "FunctionType$subexpression$1$subexpression$1", "symbols": ["FunctionType$subexpression$1$subexpression$1$subexpression$1", "RegNumDef"]},
+    {"name": "FunctionType$subexpression$1", "symbols": ["FunctionType$subexpression$1$subexpression$1"]},
+    {"name": "FunctionType$subexpression$1$subexpression$2$subexpression$1", "symbols": [/[fF]/, /[uU]/, /[nN]/, /[cC]/, /[tT]/, /[iI]/, /[oO]/, /[nN]/], "postprocess": function(d) {return d.join(""); }},
+    {"name": "FunctionType$subexpression$1$subexpression$2$ebnf$1", "symbols": ["RegDef"], "postprocess": id},
+    {"name": "FunctionType$subexpression$1$subexpression$2$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "FunctionType$subexpression$1$subexpression$2", "symbols": ["FunctionType$subexpression$1$subexpression$2$subexpression$1", "FunctionType$subexpression$1$subexpression$2$ebnf$1"]},
+    {"name": "FunctionType$subexpression$1", "symbols": ["FunctionType$subexpression$1$subexpression$2"]},
+    {"name": "FunctionType", "symbols": ["FunctionType$subexpression$1"], "postprocess": 
+        d => ({type: d[0][0][0], resultType: d[0][0][1]})
+        },
     {"name": "LineComment$string$1", "symbols": [{"literal":"/"}, {"literal":"/"}], "postprocess": function joiner(d) {return d.join('');}},
     {"name": "LineComment$ebnf$1", "symbols": []},
     {"name": "LineComment$ebnf$1", "symbols": ["LineComment$ebnf$1", /./], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
@@ -56,30 +74,32 @@ var grammar = {
     {"name": "ExprVarDeclAssign$subexpression$1$ebnf$1", "symbols": ["ExprPartAssign"], "postprocess": id},
     {"name": "ExprVarDeclAssign$subexpression$1$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
     {"name": "ExprVarDeclAssign$subexpression$1", "symbols": ["DataType", "RegDef", "_", "VarName", "_", "ExprVarDeclAssign$subexpression$1$ebnf$1"]},
-    {"name": "ExprVarDeclAssign", "symbols": ["ExprVarDeclAssign$subexpression$1"], "postprocess":  
+    {"name": "ExprVarDeclAssign", "symbols": ["ExprVarDeclAssign$subexpression$1"], "postprocess": 
         ([d]) => ({type: "varDeclAssign", varType: d[0], reg: d[1], varName: d[3], value: d[5]})
         },
     {"name": "ExprPartAssign$subexpression$1", "symbols": ["ValueNumeric"]},
     {"name": "ExprPartAssign$subexpression$1", "symbols": ["ExprFuncCall"]},
     {"name": "ExprPartAssign$ebnf$1", "symbols": ["OpsSwizzle"], "postprocess": id},
     {"name": "ExprPartAssign$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "ExprPartAssign", "symbols": [{"literal":"="}, "_", "ExprPartAssign$subexpression$1", "_", "ExprPartAssign$ebnf$1"], "postprocess": d => ({type: "value", value: d[2][0], swizzle: d[4]})},
+    {"name": "ExprPartAssign", "symbols": [{"literal":"="}, "_", "ExprPartAssign$subexpression$1", "_", "ExprPartAssign$ebnf$1"], "postprocess": d => ({type: "value", value: d[2][0][0], swizzle: d[4]})},
     {"name": "ExprFuncCall", "symbols": ["FuncName", {"literal":"("}, "_", "VarName", "_", {"literal":")"}], "postprocess": d => ({type: "funcCall", func: d[0], args: d[3]})},
-    {"name": "ExprASM$string$1", "symbols": [{"literal":"a"}, {"literal":"s"}, {"literal":"m"}, {"literal":"("}, {"literal":"\""}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "ExprASM$ebnf$1", "symbols": []},
-    {"name": "ExprASM$ebnf$1", "symbols": ["ExprASM$ebnf$1", /[a-zA-Z0-9 ]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "ExprASM$string$2", "symbols": [{"literal":"\""}, {"literal":")"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "ExprASM", "symbols": ["ExprASM$string$1", "ExprASM$ebnf$1", "ExprASM$string$2"], "postprocess": d => ({type: "asm", asm: d[1].join("")})},
-    {"name": "ExprVarAssign$subexpression$1", "symbols": ["VarName", "_", {"literal":"="}, "_", "ExprPartAssignCalc"]},
-    {"name": "ExprVarAssign", "symbols": ["ExprVarAssign$subexpression$1"], "postprocess":  
-        ([d]) => ({type: "varAssignCalc", varName: d[0], value: d[5], calc: d[4]})
+    {"name": "ExprVarAssign$subexpression$1$subexpression$1", "symbols": ["ExprCalcVarVar"]},
+    {"name": "ExprVarAssign$subexpression$1$subexpression$1", "symbols": ["ExprCalcVarNum"]},
+    {"name": "ExprVarAssign$subexpression$1", "symbols": ["VarName", "_", {"literal":"="}, "_", "ExprVarAssign$subexpression$1$subexpression$1"]},
+    {"name": "ExprVarAssign", "symbols": ["ExprVarAssign$subexpression$1"], "postprocess": 
+        ([d]) => ({type: "varAssignCalc", varName: d[0], value: d[5], calc: d[4][0]})
         },
-    {"name": "ExprPartAssignCalc$ebnf$1", "symbols": ["OpsSwizzle"], "postprocess": id},
-    {"name": "ExprPartAssignCalc$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "ExprPartAssignCalc$ebnf$2", "symbols": ["OpsSwizzle"], "postprocess": id},
-    {"name": "ExprPartAssignCalc$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "ExprPartAssignCalc", "symbols": ["VarName", "ExprPartAssignCalc$ebnf$1", "_", "OpsLeftRight", "_", "VarName", "ExprPartAssignCalc$ebnf$2"], "postprocess":  
-        d => ({type: "calc", left: d[0], swizzleLeft: d[1], op: d[3], right: d[5], swizzleRight: d[6]}) 
+    {"name": "ExprCalcVarVar$ebnf$1", "symbols": ["OpsSwizzle"], "postprocess": id},
+    {"name": "ExprCalcVarVar$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "ExprCalcVarVar$ebnf$2", "symbols": ["OpsSwizzle"], "postprocess": id},
+    {"name": "ExprCalcVarVar$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "ExprCalcVarVar", "symbols": ["VarName", "ExprCalcVarVar$ebnf$1", "_", "OpsLeftRight", "_", "VarName", "ExprCalcVarVar$ebnf$2"], "postprocess": 
+        d => ({type: "calcVarVar", left: d[0], swizzleLeft: d[1], op: d[3], right: d[5], swizzleRight: d[6]})
+        },
+    {"name": "ExprCalcVarNum$ebnf$1", "symbols": ["OpsSwizzle"], "postprocess": id},
+    {"name": "ExprCalcVarNum$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "ExprCalcVarNum", "symbols": ["VarName", "ExprCalcVarNum$ebnf$1", "_", "OpsLeftRight", "_", "ValueNumeric"], "postprocess": 
+        d => ({type: "calcVarNum", left: d[0], swizzleLeft: d[1], op: d[3], right: d[5]})
         },
     {"name": "VarName$ebnf$1", "symbols": []},
     {"name": "VarName$ebnf$1", "symbols": ["VarName$ebnf$1", /[a-zA-Z0-9_]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
@@ -237,6 +257,7 @@ var grammar = {
     {"name": "RegsVector$subexpression$1", "symbols": ["RegsVector$subexpression$1$string$32"]},
     {"name": "RegsVector", "symbols": ["RegsVector$subexpression$1"], "postprocess": MAP_ENUM},
     {"name": "RegDef", "symbols": [{"literal":"<"}, "RegsAll", {"literal":">"}], "postprocess": (d) => d[1][0]},
+    {"name": "RegNumDef", "symbols": [{"literal":"<"}, "ValueNumeric", {"literal":">"}], "postprocess": (d) => d[1]},
     {"name": "ValueNumeric$subexpression$1", "symbols": ["ValueInt"]},
     {"name": "ValueNumeric$subexpression$1", "symbols": ["ValueHex"]},
     {"name": "ValueNumeric", "symbols": ["ValueNumeric$subexpression$1"], "postprocess": (d) => d[0][0]},
@@ -257,7 +278,6 @@ var grammar = {
     {"name": "OpsNumeric$subexpression$1$string$1", "symbols": [{"literal":"+"}, {"literal":"*"}], "postprocess": function joiner(d) {return d.join('');}},
     {"name": "OpsNumeric$subexpression$1", "symbols": ["OpsNumeric$subexpression$1$string$1"]},
     {"name": "OpsNumeric$subexpression$1", "symbols": [{"literal":"/"}]},
-    {"name": "OpsNumeric$subexpression$1", "symbols": [{"literal":"."}]},
     {"name": "OpsNumeric", "symbols": ["OpsNumeric$subexpression$1"], "postprocess": MAP_ENUM},
     {"name": "OpsLogic$subexpression$1$string$1", "symbols": [{"literal":"&"}, {"literal":"&"}], "postprocess": function joiner(d) {return d.join('');}},
     {"name": "OpsLogic$subexpression$1", "symbols": ["OpsLogic$subexpression$1$string$1"]},
@@ -315,10 +335,7 @@ var grammar = {
     {"name": "OpsSwizzle", "symbols": ["OpsSwizzle$subexpression$1"], "postprocess": d => d[0][0].substring(1)},
     {"name": "_$ebnf$1", "symbols": []},
     {"name": "_$ebnf$1", "symbols": ["_$ebnf$1", /[\s]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "_", "symbols": ["_$ebnf$1"], "postprocess": MAP_NULL},
-    {"name": "_LB_$ebnf$1", "symbols": []},
-    {"name": "_LB_$ebnf$1", "symbols": ["_LB_$ebnf$1", /[ \t\n]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "_LB_", "symbols": ["_LB_$ebnf$1"], "postprocess": MAP_NULL}
+    {"name": "_", "symbols": ["_$ebnf$1"], "postprocess": MAP_NULL}
 ]
   , ParserStart: "File"
 }

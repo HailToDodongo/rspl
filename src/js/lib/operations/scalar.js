@@ -3,16 +3,15 @@
 * @license GPL-3.0
 */
 import state from "../state";
-
-const isSigned = (type) => type.startsWith("s");
+import {isSigned, toHex} from "../types/types";
 
 function opAdd(varRes, varLeft, varRight)
 {
-  if(isSigned(varRes.type)) {
-    return [["add", varRes.reg, varLeft.reg, varRight.reg]];
-  } else {
-    return [["addu", varRes.reg, varLeft.reg, varRight.reg]];
-  }
+  let instr = varRight.reg ? "add" : "addi";
+  if(!isSigned(varRes.type))instr += "u";
+
+  const valRight = varRight.reg ? varRight.reg : varRight.value;
+  return [[instr, varRes.reg, varLeft.reg, valRight]];
 }
 
 function opMul(varRes, varLeft, varRight)
@@ -20,4 +19,29 @@ function opMul(varRes, varLeft, varRight)
   state.throwError("Scalar-Multiplication not implemented!");
 }
 
-export default {opAdd, opMul};
+function opShiftLeft(varRes, varLeft, varRight)
+{
+  return [varRight.reg
+    ? ["sllv", varRes.reg, varLeft.reg, varRight.reg]
+    : ["sll",  varRes.reg, varLeft.reg, varRight.value],
+  ];
+}
+
+function opShiftRight(varRes, varLeft, varRight)
+{
+  let instr = isSigned(varRes.type) ? "sra" : "srl";
+  if(varRight.reg)instr += "v";
+
+  const valRight = varRight.reg ? varRight.reg : varRight.value;
+  return [[instr, varRes.reg, varLeft.reg, valRight]];
+}
+
+function opAnd(varRes, varLeft, varRight)
+{
+  return [varRight.reg
+    ? ["and",  varRes.reg, varLeft.reg, varRight.reg]
+    : ["andi", varRes.reg, varLeft.reg, toHex(varRight.value)],
+  ];
+}
+
+export default {opAdd, opMul, opShiftLeft, opShiftRight, opAnd};

@@ -15,6 +15,9 @@ function opAdd(varRes, varLeft, varRight, clearAccum)
 
 function opMul(varRes, varLeft, varRight, clearAccum)
 {
+  if(!varRight.reg) {
+    state.throwError("Multiplication cannot be done with a constant!");
+  }
   if(varRes.swizzle || varLeft.swizzle) {
     state.throwError("Multiplication only allows swizzle on the right side!");
   }
@@ -23,11 +26,11 @@ function opMul(varRes, varLeft, varRight, clearAccum)
   const firstIn = clearAccum ? "vmudl" : "vmadl";
 
   return [
-    [],
     [firstIn,  nextVecReg(varRes.reg), nextVecReg(varLeft.reg), nextVecReg(varRight.reg), swizzleRight],
     ["vmadm",  nextVecReg(varRes.reg),            varLeft.reg,  nextVecReg(varRight.reg), swizzleRight],
     ["vmadn",  nextVecReg(varRes.reg), nextVecReg(varLeft.reg), varRight.reg,             swizzleRight],
     ["vmadh",             varRes.reg,             varLeft.reg,  varRight.reg,             swizzleRight],
+    [],
   ];
 }
 

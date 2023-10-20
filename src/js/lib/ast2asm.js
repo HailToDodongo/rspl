@@ -12,8 +12,9 @@ const VECTOR_TYPES = ["vec16", "vec32"];
 const toHex16 = v => "0x" + v.toString(16).padStart(4, '0').toUpperCase();
 const toHex32 = v => "0x" + v.toString(16).padStart(8, '0').toUpperCase();
 
-function calcToAsm(op, varRes, varLeft, varRight)
+function calcToAsm(calc, varRes, varLeft, varRight)
 {
+  const op = calc.op;
   if(varLeft.type !== varRight.type || varLeft.type !== varRes.type) {
     state.throwError("Type mismatch!");
   }
@@ -25,16 +26,35 @@ function calcToAsm(op, varRes, varLeft, varRight)
     case "++":  return opsHandler.opAdd(varRes, varLeft, varRight, false);
     case  "*":  return opsHandler.opMul(varRes, varLeft, varRight, true);
     case "+*":  return opsHandler.opMul(varRes, varLeft, varRight, false);
+
+    case "&":  return opsHandler.opAnd(varRes, varLeft, varRight);
+
+    case "<<":  return opsHandler.opShiftLeft(varRes, varLeft, varRight);
+    case ">>":  return opsHandler.opShiftRight(varRes, varLeft, varRight);
+
     default: state.throwError("Unknown operator: " + op);
   }
 }
 
-function functionToAsm(func)
+function functionToAsm(func, args)
 {
   const res = [];
   
   const varMap = {};
   const regVarMap = {};
+
+  const declareVar = (name, type, reg) => {
+    // @TODO: check for conflicts
+    varMap[name] = {reg, type};
+    regVarMap[reg] = name;
+  };
+
+  let argIdx = 0;
+  for(const arg of args) {
+    console.log("arg", arg);
+    declareVar(arg.name, arg.type, "$a"+argIdx);
+    ++argIdx;
+  }
 
   for(const st of func.statements) 
   {
@@ -44,10 +64,12 @@ function functionToAsm(func)
         res.push(["##" + (st.comment || "")]);
       break;
 
+      case "asm":
+        res.push([st.asm]);
+      break;
+
       case "varDecl":
-        // @TODO: check for conflicts
-        varMap[st.varName] = {reg: st.reg, type: st.varType};
-        regVarMap[st.reg] = st.varName;
+        declareVar(st.varName, st.varType, st.reg);
         break;
 
       case "varAssign": {
@@ -64,15 +86,23 @@ function functionToAsm(func)
         const calc = st.calc;
         const varRes   = structuredClone(varMap[st.varName]);
         const varLeft  = structuredClone(varMap[calc.left]);
-        const varRight = structuredClone(varMap[calc.right]);
 
         if(!varRes)state.throwError("Destination Variable "+st.varName+" not known!", st);
         if(!varLeft)state.throwError("Left Variable "+calc.left+" not known!", st);
-        if(!varRight)state.throwError("Right Variable "+calc.right+" not known!", st);
+
+        let varRight = undefined;
+        if(calc.type === "calcVarVar") {
+          varRight = structuredClone(varMap[calc.left]);
+          if(!varRight)state.throwError("Right Variable "+calc.right+" not known!", st);
+        } else if(calc.type === "calcVarNum") {
+          varRight = {type: varLeft.type, value: calc.right};
+        } else {
+          state.throwError("Unknown calculation type: " + calc.type, st);
+        }
 
         varLeft.swizzle = calc.swizzleLeft;
         varRight.swizzle = calc.swizzleRight;
-        res.push(...calcToAsm(calc.op, varRes, varLeft, varRight));
+        res.push(...calcToAsm(calc, varRes, varLeft, varRight));
       } break;
 
       default:
@@ -82,23 +112,29 @@ function functionToAsm(func)
   return res;
 }
 
+function getArgSize(block)
+{
+  if(block.type !== "command")return 0;
+  // each arg is always 4-bytes, the first one is implicitly set
+  return Math.max(block.args.length * 4, 4);
+}
+
 export function ast2asm(ast)
 {
   const res = [];
-  console.log(ast);
 
   for(const block of ast.functions)
   {
-    if(block.type === "function") {
+    if(["function", "command"].includes(block.type)) {
       console.log(block);
 
       res.push({
-        type: "function",
-        name: block.name,
-        asm: functionToAsm(block.body)
+        ...block,
+        asm: functionToAsm(block.body, block.args),
+        argSize: getArgSize(block),
+        body: undefined
       });
     }
   }
-
   return res;
 }

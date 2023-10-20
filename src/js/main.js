@@ -64,7 +64,11 @@ function update()
     console.clear();
     const source = editor.getValue();
     const parser = new Parser(Grammar.fromCompiled(grammarDef));
-    const res = parser.feed(source);  
+
+    console.time("parse");
+    const res = parser.feed(source);
+    console.timeEnd("parse");
+
     outputError.innerHTML = "";
     writeAST(JSON.stringify(res.results, null, 2));
     outputError.innerHTML += "Code parsed without errors.\n";
@@ -73,13 +77,18 @@ function update()
       outputError.innerHTML += "Warning: ambiguous syntax!";
     }
 
+    console.time("transpile");
     const asm = transpile(res.results[0]);
+    console.timeEnd("transpile");
     outputError.innerHTML += "Transpiled successfully!\n";
     writeASM(asm);
 
     localStorage.setItem("lastCode", source);
   } catch(e) {
     outputError.innerHTML = e.message;
+    if(!e.message.includes("Syntax error")) {
+      console.error(e);
+    }
   }
 
 };
