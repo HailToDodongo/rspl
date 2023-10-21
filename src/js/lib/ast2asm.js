@@ -6,6 +6,7 @@
 import opsScalar from "./operations/scalar";
 import opsVector from "./operations/vector";
 import state from "./state";
+import builtins from "./builtins/functions";
 
 const VECTOR_TYPES = ["vec16", "vec32"];
 
@@ -39,6 +40,12 @@ function calcToAsm(calc, varRes)
       const varRight = {type: varLeft.type, value: calc.right};
 
       return calcLRToAsm(calc, varRes, varLeft, varRight);
+    }
+
+    case "calcFunc": {
+      const builtinFunc = builtins[calc.funcName];
+      if(!builtinFunc)state.throwError("Unknown builtin: " + calc.funcName, calc);
+      return builtinFunc(varRes, calc.args, calc.swizzleRight);
     }
 
     default: state.throwError("Unknown calculation type: " + calc.type, calc);
@@ -134,7 +141,10 @@ function functionToAsm(func, args)
           const asm = st.args.value;
           res.push([asm.substring(1, asm.length-1)]); // remove quotes
         } else {
-          state.throwError("Unknown function: " + st.func, st);
+          const builtinFunc = builtins[st.func];
+          console.log("args", st.args);
+          if(!builtinFunc)state.throwError("Unknown function/builtin: " + st.func, st);
+          //return builtinFunc(varRes, calc.args, undefined);
         }
       } break;
 
@@ -164,9 +174,15 @@ export function ast2asm(ast)
     if(["function", "command"].includes(block.type)) {
       state.enterFunction(block.name);
 
+      const asm = functionToAsm(block.body, block.args);
+      if(block.type === "command") {
+        asm.push(["jr", "ra"]); // @TODO
+      } else {
+        asm.push(["jr", "ra"]);
+      }
+
       res.push({
-        ...block,
-        asm: functionToAsm(block.body, block.args),
+        ...block, asm,
         argSize: getArgSize(block),
         body: undefined
       });

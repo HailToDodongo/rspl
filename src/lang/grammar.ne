@@ -32,6 +32,7 @@ const lexer = moo.compile({
 	  ".xxxxXXXX", ".yyyyYYYY", ".zzzzZZZZ", ".wwwwWWWW",
 	  ".xxxxxxxx", ".yyyyyyyy", ".zzzzzzzz", ".wwwwwwww",
 	  ".XXXXXXXX", ".YYYYYYYY", ".ZZZZZZZZ", ".WWWWWWWW",
+	  ".xyzwxyzw",
 	  ".x", ".y", ".z", ".w", ".X", ".Y", ".Z", ".W",
 	], value: s => s.substr(1)},
 
@@ -177,7 +178,7 @@ ExprCalcVarNum -> %VarName %Swizzle:? _ OperatorLR _ ValueNumeric {% d => ({
 ExprCalcFunc -> %VarName %ArgsStart _ FuncArgs:* _ %ArgsEnd %Swizzle:? {% d => ({
 	type: "calcFunc",
 	funcName: d[0].value,
-	args: d[3],
+	args: FORCE_ARRAY(d[3][0]),
 	swizzleRight: SAFE_VAL(d[6])
 })%}
 

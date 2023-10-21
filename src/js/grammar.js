@@ -36,6 +36,7 @@ const lexer = moo.compile({
 	  ".xxxxXXXX", ".yyyyYYYY", ".zzzzZZZZ", ".wwwwWWWW",
 	  ".xxxxxxxx", ".yyyyyyyy", ".zzzzzzzz", ".wwwwwwww",
 	  ".XXXXXXXX", ".YYYYYYYY", ".ZZZZZZZZ", ".WWWWWWWW",
+	  ".xyzwxyzw",
 	  ".x", ".y", ".z", ".w", ".X", ".Y", ".Z", ".W",
 	], value: s => s.substr(1)},
 
@@ -204,7 +205,7 @@ var grammar = {
     {"name": "ExprCalcFunc", "symbols": [(lexer.has("VarName") ? {type: "VarName"} : VarName), (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "_", "ExprCalcFunc$ebnf$1", "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd), "ExprCalcFunc$ebnf$2"], "postprocess":  d => ({
         	type: "calcFunc",
         	funcName: d[0].value,
-        	args: d[3],
+        	args: FORCE_ARRAY(d[3][0]),
         	swizzleRight: SAFE_VAL(d[6])
         })},
     {"name": "OperatorLR$subexpression$1", "symbols": [(lexer.has("OperatorLR") ? {type: "OperatorLR"} : OperatorLR)]},

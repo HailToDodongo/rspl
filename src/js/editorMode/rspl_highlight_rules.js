@@ -58,7 +58,7 @@ const rsplHighlightRules = function() {
     ].join("|");
 
     const functions = [
-      "load", "store",
+      "load", "store", "asm",
     ].join("|");
 
     var keywordMapper = this.createKeywordMapper({

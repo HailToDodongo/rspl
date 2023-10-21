@@ -29,7 +29,7 @@ const state =
     state.regVarMap[reg] = name;
   },
 
-  getRequiredVar: (name, contextName, context) => {
+  getRequiredVar: (name, contextName, context = {}) => {
     const res = structuredClone(state.varMap[name]);
     if(!res)state.throwError(contextName + " Variable "+name+" not known!", context);
     return res;
