@@ -14,7 +14,21 @@ export const TYPE_SIZE = {
   vec32: 4*8, // 16bit per lane @ 8 lanes, two register (int, fract)
 };
 
+export const TYPE_ALIGNMENT = {
+  s8   : 1,
+  u8   : 1,
+  s16  : 2,
+  u16  : 2,
+  s32  : 4,
+  u32  : 4,
+  vec16: 8,
+  vec32: 8,
+};
+
 export const isSigned = (type) => type.startsWith("s");
 
 export const toHex = (val, pad = 4) =>
   "0x" + val.toString(16).padStart(pad, '0').toUpperCase();
+
+export const toHexSafe = (val, pad = 4)=>
+  typeof(val) === "number" ? toHex(val, pad) : val;

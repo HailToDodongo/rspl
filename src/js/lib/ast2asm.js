@@ -129,6 +129,15 @@ function functionToAsm(func, args)
         res.push(...calcToAsm(calc, varRes));
       } break;
 
+      case "funcCall": {
+        if(st.func === "asm") {
+          const asm = st.args.value;
+          res.push([asm.substring(1, asm.length-1)]); // remove quotes
+        } else {
+          state.throwError("Unknown function: " + st.func, st);
+        }
+      } break;
+
       default:
         res.push(["#### UNKNOWN: " + JSON.stringify(st)])
     }

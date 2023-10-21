@@ -3,8 +3,9 @@
 * @license GPL-3.0
 */
 
-export function astNormalize(astFunctions)
+export function astNormalizeFunctions(ast)
 {
+  const astFunctions = ast.functions;
   for(const block of astFunctions) {
     if(!["function", "command"].includes(block.type))continue;
 
@@ -20,6 +21,19 @@ export function astNormalize(astFunctions)
       } else {
         statements.push(st);
       }
+    }
+
+    // convert constants from seemingly being variables to immediate-values
+    // this changes the calc. type, instructions need to handle both numbers and strings
+    for(const st of statements) {
+      if(st.type === "varAssignCalc" && (["calcVar", "calcVarVar"].includes(st.calc.type))) {
+        const stateVar = ast.state.find(s => s.varName === st.calc.right);
+        if(stateVar) {
+          st.calc.type = st.calc.type === "calcVar" ? "calcNum" : "calcVarNum";
+          st.calc.right = `%lo(${st.calc.right})`;
+        }
+      }
+
     }
 
     block.body.statements = statements;

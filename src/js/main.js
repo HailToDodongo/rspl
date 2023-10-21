@@ -4,11 +4,9 @@
 */
 
 import { Parser, Grammar } from "nearley";
-//import grammarDef from './grammar';
-import grammarDef from './grammarMoo';
+import grammarDef from './grammar';
 
 // Syntax Highlighting
-//import 'highlight.js/styles/github.css';
 import hljs from 'highlight.js/lib/core';
 import mipsasm from 'highlight.js/lib/languages/mipsasm';
 import json from 'highlight.js/lib/languages/json';
@@ -23,7 +21,24 @@ import "ace-builds/src-min-noconflict/mode-glsl";
 import { transpile } from "./lib/transpiler";
 
 // Restore old code from last session
-const oldSource = localStorage.getItem("lastCode") || "";
+let oldSource = localStorage.getItem("lastCode") || "";
+if(oldSource === "") {
+  oldSource = `state
+{ 
+  vec32 someData;
+}
+
+command<0x0> Cmd_Test(u32 vec_out, u32 mat_in)
+{
+  u32<$t0> trans_mtx = mat_in >> 16;
+  trans_mtx = trans_mtx & 0xFF0;
+  
+  u32<$t1> trans_vec = mat_in & 0xFF0;
+  u32<$t2> trans_out = vec_out & 0xFF0; 
+  trans_out = trans_vec; 
+}
+`;
+}
 
 // Register code-highlighting
 hljs.registerLanguage('mipsasm', mipsasm);
@@ -102,3 +117,13 @@ editor.getSession().on('change', () => {
   clearTimeout(timerUpdate);
   timerUpdate = setTimeout(() => update(), 100);
 });
+
+copyASM.onclick = async () => {
+  console.log('Copying to clipboard');
+  try {
+    await navigator.clipboard.writeText(outputASM.textContent);
+    console.log('Content copied to clipboard');
+  } catch (err) {
+    console.error('Failed to copy: ', err);
+  }
+};

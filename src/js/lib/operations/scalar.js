@@ -3,7 +3,7 @@
 * @license GPL-3.0
 */
 import state from "../state";
-import {isSigned, toHex} from "../types/types";
+import {isSigned, toHex, toHexSafe} from "../types/types";
 
 function opMove(varRes, varRight)
 {
@@ -12,10 +12,7 @@ function opMove(varRes, varRight)
     return [["move", varRes.reg, varRight.reg]];
   }
 
-  return [["li", varRes.reg, varRight.value > 0xFFFF
-    ? toHex(varRight.value.toString(16))
-    : `%lo(${toHex(varRight.value)})`
-  ]];
+  return [["li", varRes.reg, toHexSafe(varRight.value)]];
 }
 
 function opAdd(varRes, varLeft, varRight)
@@ -53,7 +50,7 @@ function opAnd(varRes, varLeft, varRight)
 {
   return [varRight.reg
     ? ["and",  varRes.reg, varLeft.reg, varRight.reg]
-    : ["andi", varRes.reg, varLeft.reg, toHex(varRight.value)],
+    : ["andi", varRes.reg, varLeft.reg, toHexSafe(varRight.value)],
   ];
 }
 

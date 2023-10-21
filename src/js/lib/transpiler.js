@@ -5,19 +5,19 @@
 
 import { ast2asm } from "./ast2asm";
 import { writeASM } from "./asmWriter";
-import { astNormalize } from "./astNormalize";
+import {astNormalizeFunctions} from "./astNormalize";
 
 export function transpile(ast)
 {
   console.log("AST", ast);
 
-  ast.functions = astNormalize(ast.functions);
+  ast.functions = astNormalizeFunctions(ast);
 
   // @TODO: optimize AST
   
-  const asm = ast2asm(ast);
+  const functionsAsm = ast2asm(ast);
   
   // @TODO: optimize ASM
   
-  return writeASM(asm);
+  return writeASM(ast, functionsAsm);
 }

@@ -4,6 +4,7 @@
 */
 
 import {REGS_SCALAR} from "./syntax/registers";
+import {TYPE_ALIGNMENT, TYPE_SIZE} from "./types/types";
 
 // for whatever reason, the ASM uses "$" for vector regs, and no dollar for "normal" registers
 function normReg(regName) {
@@ -23,14 +24,21 @@ function functionToASM(func)
     + func.asm.map(parts => "  " + stringifyInstr(parts)).join("\n")
 }
 
-export function writeASM(asm)
+export function writeASM(ast, functionsAsm)
 {
-  console.log("ASM", asm);
+  console.log("ASM", ast, functionsAsm);
   let text = "";
   let commandList = [];
   let savedState = "";
 
-  for(const block of asm) 
+  for(const stateVar of ast.state) {
+    const byteSize = TYPE_SIZE[stateVar.varType] * stateVar.arraySize;
+    const align = TYPE_ALIGNMENT[stateVar.varType];
+    savedState += `    .align ${align}\n`;
+    savedState += `    ${stateVar.varName}: .ds.b ${byteSize} \n`;
+  }
+
+  for(const block of functionsAsm)
   {
     if(["function", "command"].includes(block.type)) {
       text += functionToASM(block) + "\n\n";
@@ -62,7 +70,7 @@ ${commandList.join("\n")}
   RSPQ_EndOverlayHeader
 
   ${savedState 
-    ? "RSPQ_BeginSavedState"+savedState+"RSPQ_EndSavedState"
+    ? "RSPQ_BeginSavedState\n"+savedState+"  RSPQ_EndSavedState"
     : "RSPQ_EmptySavedState"
   }
 
