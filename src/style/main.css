@@ -95,6 +95,7 @@ pre {
   height: 100%;
   border-radius: 10px;
   font-family: FiraCode, monospace;
+  min-width: 200px;
 }
 
 .mainContainer  > pre:last-child {

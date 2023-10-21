@@ -14,8 +14,8 @@ export function astNormalize(astFunctions)
       // Split up declaration and assignment
       if(st.type === "varDeclAssign") {
         statements.push({...st, type: "varDecl"});
-        if(st.value !== null) { // ... and ignore empty assignments
-          statements.push({type: "varAssign", varName: st.varName, value: st.value});
+        if(st.calc) { // ... and ignore empty assignments
+          statements.push({type: "varAssignCalc", varName: st.varName, calc: st.calc});
         }
       } else {
         statements.push(st);

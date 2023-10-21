@@ -9,17 +9,66 @@ import state from "./state";
 
 const VECTOR_TYPES = ["vec16", "vec32"];
 
-const toHex16 = v => "0x" + v.toString(16).padStart(4, '0').toUpperCase();
-const toHex32 = v => "0x" + v.toString(16).padStart(8, '0').toUpperCase();
+function calcToAsm(calc, varRes)
+{
+  switch(calc.type)
+  {
+    case "calcVar": {
+      const varRight = state.getRequiredVar(calc.right, "right", calc);
+      varRight.swizzle = calc.swizzleRight;
+      return calcAssignToAsm(calc, varRes, varRight);
+    }
 
-function calcToAsm(calc, varRes, varLeft, varRight)
+    case "calcNum": {
+      const varRight = {type: varRes.type, value: calc.right};
+      return calcAssignToAsm(calc, varRes, varRight);
+    }
+
+    case "calcVarVar": {
+      const varLeft = state.getRequiredVar(calc.left, "Left", calc);
+      const varRight = state.getRequiredVar(calc.right, "right", calc);
+      varLeft.swizzle = calc.swizzleLeft;
+      varRight.swizzle = calc.swizzleRight;
+
+      return calcLRToAsm(calc, varRes, varLeft, varRight);
+    }
+
+    case "calcVarNum": {
+      const varLeft = state.getRequiredVar(calc.left, "Left", calc);
+      varLeft.swizzle = calc.swizzleLeft;
+      const varRight = {type: varLeft.type, value: calc.right};
+
+      return calcLRToAsm(calc, varRes, varLeft, varRight);
+    }
+
+    default: state.throwError("Unknown calculation type: " + calc.type, calc);
+  }
+}
+
+function calcAssignToAsm(calc, varRes, varRight) {
+  const isVector = VECTOR_TYPES.includes(varRes.type);
+  const opsHandler = isVector ? opsVector : opsScalar;
+
+  if(!isVector && (calc.swizzleLeft || calc.swizzleRight)) {
+    state.throwError("Swizzling not allowed for scalar operations!");
+  }
+
+  return opsHandler.opMove(varRes, varRight);
+}
+
+function calcLRToAsm(calc, varRes, varLeft, varRight)
 {
   const op = calc.op;
   if(varLeft.type !== varRight.type || varLeft.type !== varRes.type) {
     state.throwError("Type mismatch!");
   }
 
-  const opsHandler = VECTOR_TYPES.includes(varRes.type) ? opsVector : opsScalar;
+  const isVector = VECTOR_TYPES.includes(varRes.type);
+  const opsHandler = isVector ? opsVector : opsScalar;
+
+  if(!isVector && (calc.swizzleLeft || calc.swizzleRight)) {
+    state.throwError("Swizzling not allowed for scalar operations!");
+  }
 
   switch (op) {
     case  "+":  return opsHandler.opAdd(varRes, varLeft, varRight, true);
@@ -39,25 +88,24 @@ function calcToAsm(calc, varRes, varLeft, varRight)
 function functionToAsm(func, args)
 {
   const res = [];
-  
-  const varMap = {};
-  const regVarMap = {};
+
 
   const declareVar = (name, type, reg) => {
     // @TODO: check for conflicts
-    varMap[name] = {reg, type};
-    regVarMap[reg] = name;
+    state.varMap[name] = {reg, type};
+    state.regVarMap[reg] = name;
   };
 
   let argIdx = 0;
   for(const arg of args) {
-    console.log("arg", arg);
     declareVar(arg.name, arg.type, "$a"+argIdx);
     ++argIdx;
   }
 
   for(const st of func.statements) 
   {
+    state.line = st.line || 0;
+
     switch(st.type) 
     {
       case "comment":
@@ -72,37 +120,13 @@ function functionToAsm(func, args)
         declareVar(st.varName, st.varType, st.reg);
         break;
 
-      case "varAssign": {
-        if(st.value.type !== "value") {
-          throw new Error("Invalid value! " + JSON.stringify(st));
-        }
-
-        const refVar = varMap[st.varName];
-        const val = st.value.value;
-        res.push(["li", refVar.reg, val > 0xFFFF ? toHex32(val.toString(16)) : `%lo(${toHex16(val)})`]);
-      } break;
-
       case "varAssignCalc": {
         const calc = st.calc;
-        const varRes   = structuredClone(varMap[st.varName]);
-        const varLeft  = structuredClone(varMap[calc.left]);
-
+        const varRes = structuredClone(state.varMap[st.varName]);
+        varRes.swizzle = st.swizzle;
         if(!varRes)state.throwError("Destination Variable "+st.varName+" not known!", st);
-        if(!varLeft)state.throwError("Left Variable "+calc.left+" not known!", st);
 
-        let varRight = undefined;
-        if(calc.type === "calcVarVar") {
-          varRight = structuredClone(varMap[calc.left]);
-          if(!varRight)state.throwError("Right Variable "+calc.right+" not known!", st);
-        } else if(calc.type === "calcVarNum") {
-          varRight = {type: varLeft.type, value: calc.right};
-        } else {
-          state.throwError("Unknown calculation type: " + calc.type, st);
-        }
-
-        varLeft.swizzle = calc.swizzleLeft;
-        varRight.swizzle = calc.swizzleRight;
-        res.push(...calcToAsm(calc, varRes, varLeft, varRight));
+        res.push(...calcToAsm(calc, varRes));
       } break;
 
       default:
@@ -125,8 +149,11 @@ export function ast2asm(ast)
 
   for(const block of ast.functions)
   {
+    state.func = block.name || "";
+    state.line = block.line || 0;
+
     if(["function", "command"].includes(block.type)) {
-      console.log(block);
+      state.enterFunction(block.name);
 
       res.push({
         ...block,

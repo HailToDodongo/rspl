@@ -64,6 +64,8 @@ function update()
   try {
     console.clear();
     const source = editor.getValue();
+    localStorage.setItem("lastCode", source);
+
     const parser = new Parser(Grammar.fromCompiled(grammarDef));
 
     console.time("parse");
@@ -72,7 +74,7 @@ function update()
 
     outputError.innerHTML = "";
     writeAST(JSON.stringify(res.results, null, 2));
-    outputError.innerHTML += "Code parsed without errors.\n";
+    outputError.innerHTML += "Code parsed successfully.\n";
 
     if(res.results.length > 1) {
       outputError.innerHTML += "Warning: ambiguous syntax!\n";
@@ -83,8 +85,6 @@ function update()
     console.timeEnd("transpile");
     outputError.innerHTML += "Transpiled successfully!\n";
     writeASM(asm);
-
-    localStorage.setItem("lastCode", source);
   } catch(e) {
     outputError.innerHTML = e.message;
     if(!e.message.includes("Syntax error")) {
@@ -96,4 +96,9 @@ function update()
 
 //inputRSPL.oninput = () => update();
 update();
-editor.getSession().on('change', () => update());
+
+let timerUpdate = 0;
+editor.getSession().on('change', () => {
+  clearTimeout(timerUpdate);
+  timerUpdate = setTimeout(() => update(), 100);
+});

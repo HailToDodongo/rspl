@@ -5,6 +5,19 @@
 import state from "../state";
 import {isSigned, toHex} from "../types/types";
 
+function opMove(varRes, varRight)
+{
+  if(varRight.reg) {
+    if(varRes.reg === varRight.reg)return [["## NOP: self-assign!"]];
+    return [["move", varRes.reg, varRight.reg]];
+  }
+
+  return [["li", varRes.reg, varRight.value > 0xFFFF
+    ? toHex(varRight.value.toString(16))
+    : `%lo(${toHex(varRight.value)})`
+  ]];
+}
+
 function opAdd(varRes, varLeft, varRight)
 {
   let instr = varRight.reg ? "add" : "addi";
@@ -44,4 +57,4 @@ function opAnd(varRes, varLeft, varRight)
   ];
 }
 
-export default {opAdd, opMul, opShiftLeft, opShiftRight, opAnd};
+export default {opMove, opAdd, opMul, opShiftLeft, opShiftRight, opAnd};

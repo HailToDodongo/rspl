@@ -31,7 +31,8 @@ const lexer = moo.compile({
 	  ".xxzzXXZZ", ".yywwYYWW",
 	  ".xxxxXXXX", ".yyyyYYYY", ".zzzzZZZZ", ".wwwwWWWW",
 	  ".xxxxxxxx", ".yyyyyyyy", ".zzzzzzzz", ".wwwwwwww",
-	  ".XXXXXXXX", ".YYYYYYYY", ".ZZZZZZZZ", ".WWWWWWWW"
+	  ".XXXXXXXX", ".YYYYYYYY", ".ZZZZZZZZ", ".WWWWWWWW",
+	  ".x", ".y", ".z", ".w", ".X", ".Y", ".Z", ".W",
 	], value: s => s.substr(1)},
 
 
@@ -84,13 +85,13 @@ StateVarDef -> %DataType _ %VarName %StmEnd _ {%
 ######### Function-Section #########
 
 # Function that translates into a function/global-label in ASM...
-Function -> %FunctionType (RegDef | RegNumDef):? _ %VarName %ArgsStart _ FunctionArgs:* _ %ArgsEnd _ %BlockStart _ FuncBody _ %BlockEnd {%
+Function -> %FunctionType (RegDef | RegNumDef):? _ %VarName %ArgsStart _ FunctionArgs:* _ %ArgsEnd _ %BlockStart FuncBody _ %BlockEnd {%
 	d => ({
 		type: d[0].value,
 		resultType: d[1] && d[1][0],
 		name: d[3].value,
 		args: FORCE_ARRAY(d[6][0]),
-		body: d[12]
+		body: d[11]
 	})
 %}
 
@@ -107,13 +108,11 @@ LineComment -> _ %LineComment [\n] {% (d) => ({type: "comment", comment: d[1].va
 
 ExprVarDeclAssign -> (%DataType RegDef _ %VarName _ ExprPartAssign:?) {% d => ({
 	type: "varDeclAssign", varType: d[0][0].value,
-	reg: d[0][1], varName: d[0][3].value, value: d[0][5],
+	reg: d[0][1], varName: d[0][3].value,
+	calc: d[0][5],
 	line: d[0][0].line
 })%}
-
-ExprPartAssign -> "=" _ (ValueNumeric | ExprFuncCall) _ %Swizzle:? {% d => ({
-	type: "value", value: d[2][0][0], swizzle: SAFE_VAL(d[4])
-}) %}
+ExprPartAssign -> "=" _ ExprCalcAll {% d => d[2][0] %}
 
 ExprFuncCall -> %VarName %ArgsStart _ (%VarName | %String) _ %ArgsEnd  {% d => ({
 	type: "funcCall",
@@ -122,13 +121,24 @@ ExprFuncCall -> %VarName %ArgsStart _ (%VarName | %String) _ %ArgsEnd  {% d => (
 })%}
 
 # Assignment to a variable which calcualtes something (left-hande operator right-hand)
-ExprVarAssign -> ( %VarName _ "=" _ (ExprCalcVarVar | ExprCalcVarNum)) {% ([d]) => ({
+ExprVarAssign -> ( %VarName %Swizzle:? _ "=" _ ExprCalcAll) {% ([d]) => ({
 	type: "varAssignCalc",
-	varName: d[0].value, value: d[5], calc: d[4][0],
+	varName: d[0].value,
+	swizzle: SAFE_VAL(d[1]),
+	calc: d[5][0],
 	line: d[0].line
 })%}
 
 #### Calculations ####
+ExprCalcAll -> ExprCalcVarVar | ExprCalcVarNum | ExprCalcNum | ExprCalcVar
+
+ExprCalcNum -> ValueNumeric {% d => ({type: "calcNum", right: d[0][0]}) %}
+
+ExprCalcVar -> %VarName %Swizzle:? {% d => ({
+	type: "calcVar",
+	right: d[0].value, swizzleRight: SAFE_VAL(d[1])
+})%}
+
 ExprCalcVarVar -> %VarName %Swizzle:? _ OperatorLR _ %VarName %Swizzle:? {% d => ({
 	type: "calcVarVar",
 	left: d[0].value, swizzleLeft: SAFE_VAL(d[1]),

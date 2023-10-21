@@ -32,17 +32,18 @@ const rsplHighlightRules = function() {
           "state", "function", "command",
           "if", "else", "for",
 
-          "s8","u8","s16","u16","s32","u32", 
+          "s8","u8","s16","u16","s32","u32",
           "vec16","vec32",
 
-          ".xxzzXXZZ", ".yywwYYWW",
-          ".xxxxXXXX", ".yyyyYYYY", ".zzzzZZZZ", ".wwwwWWWW",
-          ".xxxxxxxx", ".yyyyyyyy", ".zzzzzzzz", ".wwwwwwww",
-          ".XXXXXXXX", ".YYYYYYYY", ".ZZZZZZZZ", ".WWWWWWWW"
+          "xxzzXXZZ", "yywwYYWW",
+          "xxxxXXXX", "yyyyYYYY", "zzzzZZZZ", "wwwwWWWW",
+          "xxxxxxxx", "yyyyyyyy", "zzzzzzzz", "wwwwwwww",
+          "XXXXXXXX", "YYYYYYYY", "ZZZZZZZZ", "WWWWWWWW",
+          "x", "y", "z", "w", "X", "Y", "Z", "W",
+
         ].join("|");
 
     const buildinConstants = [
-
     ].join("|")
 
     const variables = [
@@ -57,7 +58,7 @@ const rsplHighlightRules = function() {
     ].join("|");
 
     const functions = [
-      "load", "store"
+      "load", "store",
     ].join("|");
 
     var keywordMapper = this.createKeywordMapper({
