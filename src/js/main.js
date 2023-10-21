@@ -4,7 +4,8 @@
 */
 
 import { Parser, Grammar } from "nearley";
-import grammarDef from './grammar';
+//import grammarDef from './grammar';
+import grammarDef from './grammarMoo';
 
 // Syntax Highlighting
 //import 'highlight.js/styles/github.css';
@@ -74,7 +75,7 @@ function update()
     outputError.innerHTML += "Code parsed without errors.\n";
 
     if(res.results.length > 1) {
-      outputError.innerHTML += "Warning: ambiguous syntax!";
+      outputError.innerHTML += "Warning: ambiguous syntax!\n";
     }
 
     console.time("transpile");

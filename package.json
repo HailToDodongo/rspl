@@ -8,11 +8,13 @@
   },
   "scripts": {
     "start": "yarn parcel src/index.html",
-    "build:lang": "nearleyc src/lang/grammar.ne -o src/js/grammar.js"
+    "build:lang": "nearleyc src/lang/grammar.ne -o src/js/grammar.js",
+    "build:moo": "nearleyc src/lang/grammar.moo -o src/js/grammarMoo.js"
   },
   "dependencies": {
     "ace-builds": "^1.30.0",
     "highlight.js": "^11.9.0",
+    "moo": "^0.5.2",
     "nearley": "^2.20.1"
   }
 }
