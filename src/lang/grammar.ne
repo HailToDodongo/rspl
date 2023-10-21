@@ -36,11 +36,20 @@ const lexer = moo.compile({
 	], value: s => s.substr(1)},
 
 
-	OperatorLR: [
-		"&&", "||", "==", "!=", "!",
-		"<<", ">>",
+	OperatorSelfR: [
+		"&&=", "||=",
+		"&=", "|=",
+		"<<=", ">>=",
 		"<=", ">=",
-		"+", "-", "*", "+*", "/",
+		"+*=",
+		"+=", "-=", "*=", "/=",
+	],
+
+	OperatorLR: [
+		"&&", "||", "==", "!=",
+		"<<", ">>",
+		"+*",
+		"!", "+", "-", "*", "/",
 		"&", "|", "^", "~",
 	],
 
@@ -114,7 +123,7 @@ ExprVarDeclAssign -> (%DataType RegDef _ %VarName _ ExprPartAssign:?) {% d => ({
 	calc: d[0][5],
 	line: d[0][0].line
 })%}
-ExprPartAssign -> "=" _ ExprCalcAll {% d => d[2][0] %}
+ExprPartAssign -> %Assignment _ ExprCalcAll {% d => d[2][0] %}
 
 ExprFuncCall -> %VarName %ArgsStart _ (%VarName | %String) _ %ArgsEnd  {% d => ({
 	type: "funcCall",
@@ -123,10 +132,11 @@ ExprFuncCall -> %VarName %ArgsStart _ (%VarName | %String) _ %ArgsEnd  {% d => (
 })%}
 
 # Assignment to a variable which calcualtes something (left-hande operator right-hand)
-ExprVarAssign -> ( %VarName %Swizzle:? _ "=" _ ExprCalcAll) {% ([d]) => ({
+ExprVarAssign -> ( %VarName %Swizzle:? _ (%Assignment | %OperatorSelfR) _ ExprCalcAll) {% ([d]) => ({
 	type: "varAssignCalc",
 	varName: d[0].value,
 	swizzle: SAFE_VAL(d[1]),
+	assignType: d[3][0].value,
 	calc: d[5][0],
 	line: d[0].line
 })%}

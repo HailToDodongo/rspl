@@ -40,11 +40,20 @@ const lexer = moo.compile({
 	], value: s => s.substr(1)},
 
 
-	OperatorLR: [
-		"&&", "||", "==", "!=", "!",
-		"<<", ">>",
+	OperatorSelfR: [
+		"&&=", "||=",
+		"&=", "|=",
+		"<<=", ">>=",
 		"<=", ">=",
-		"+", "-", "*", "+*", "/",
+		"+*=",
+		"+=", "-=", "*=", "/=",
+	],
+
+	OperatorLR: [
+		"&&", "||", "==", "!=",
+		"<<", ">>",
+		"+*",
+		"!", "+", "-", "*", "/",
 		"&", "|", "^", "~",
 	],
 
@@ -130,7 +139,7 @@ var grammar = {
         	calc: d[0][5],
         	line: d[0][0].line
         })},
-    {"name": "ExprPartAssign", "symbols": [{"literal":"="}, "_", "ExprCalcAll"], "postprocess": d => d[2][0]},
+    {"name": "ExprPartAssign", "symbols": [(lexer.has("Assignment") ? {type: "Assignment"} : Assignment), "_", "ExprCalcAll"], "postprocess": d => d[2][0]},
     {"name": "ExprFuncCall$subexpression$1", "symbols": [(lexer.has("VarName") ? {type: "VarName"} : VarName)]},
     {"name": "ExprFuncCall$subexpression$1", "symbols": [(lexer.has("String") ? {type: "String"} : String)]},
     {"name": "ExprFuncCall", "symbols": [(lexer.has("VarName") ? {type: "VarName"} : VarName), (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "_", "ExprFuncCall$subexpression$1", "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd)], "postprocess":  d => ({
@@ -140,11 +149,14 @@ var grammar = {
         })},
     {"name": "ExprVarAssign$subexpression$1$ebnf$1", "symbols": [(lexer.has("Swizzle") ? {type: "Swizzle"} : Swizzle)], "postprocess": id},
     {"name": "ExprVarAssign$subexpression$1$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "ExprVarAssign$subexpression$1", "symbols": [(lexer.has("VarName") ? {type: "VarName"} : VarName), "ExprVarAssign$subexpression$1$ebnf$1", "_", {"literal":"="}, "_", "ExprCalcAll"]},
+    {"name": "ExprVarAssign$subexpression$1$subexpression$1", "symbols": [(lexer.has("Assignment") ? {type: "Assignment"} : Assignment)]},
+    {"name": "ExprVarAssign$subexpression$1$subexpression$1", "symbols": [(lexer.has("OperatorSelfR") ? {type: "OperatorSelfR"} : OperatorSelfR)]},
+    {"name": "ExprVarAssign$subexpression$1", "symbols": [(lexer.has("VarName") ? {type: "VarName"} : VarName), "ExprVarAssign$subexpression$1$ebnf$1", "_", "ExprVarAssign$subexpression$1$subexpression$1", "_", "ExprCalcAll"]},
     {"name": "ExprVarAssign", "symbols": ["ExprVarAssign$subexpression$1"], "postprocess":  ([d]) => ({
         	type: "varAssignCalc",
         	varName: d[0].value,
         	swizzle: SAFE_VAL(d[1]),
+        	assignType: d[3][0].value,
         	calc: d[5][0],
         	line: d[0].line
         })},
