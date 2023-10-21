@@ -25,6 +25,17 @@ export const TYPE_ALIGNMENT = {
   vec32: 8,
 };
 
+export const TYPE_REG_COUNT = {
+  s8   : 1,
+  u8   : 1,
+  s16  : 1,
+  u16  : 1,
+  s32  : 1,
+  u32  : 1,
+  vec16: 1,
+  vec32: 2,
+};
+
 export const isSigned = (type) => type.startsWith("s");
 
 export const toHex = (val, pad = 4) =>

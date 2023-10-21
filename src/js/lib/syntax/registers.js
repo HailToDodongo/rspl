@@ -21,3 +21,15 @@ export function nextVecReg(regName) {
   const idx = REGS_VECTOR.indexOf(regName);
   return idx === -1 ? null : REGS_VECTOR[idx+1];
 }
+
+export function nextReg(regName, offset) {
+  let idx = REGS_VECTOR.indexOf(regName);
+  if(idx >= 0) {
+    return REGS_VECTOR[idx+offset];
+  }
+  idx = REGS_SCALAR.indexOf(regName);
+  if(idx >= 0) {
+    return REGS_SCALAR[idx+offset];
+  }
+  return null;
+}

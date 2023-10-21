@@ -96,7 +96,7 @@ StateVarDef -> %DataType _ %VarName IndexDef:? %StmEnd _ {%
 ######### Function-Section #########
 
 # Function that translates into a function/global-label in ASM...
-Function -> %FunctionType (RegDef | RegNumDef):? _ %VarName %ArgsStart _ FunctionArgs:* _ %ArgsEnd _ %BlockStart FuncBody _ %BlockEnd {%
+Function -> %FunctionType (RegDef | RegNumDef):? _ %VarName %ArgsStart _ FunctionDefArgs:* _ %ArgsEnd _ %BlockStart FuncBody _ %BlockEnd {%
 	d => ({
 		type: d[0].value,
 		resultType: d[1] && d[1][0],
@@ -107,23 +107,32 @@ Function -> %FunctionType (RegDef | RegNumDef):? _ %VarName %ArgsStart _ Functio
 %}
 
 FuncBody -> (LineComment | Statement):* {% function(d) {return {type: "funcBody", statements: d[0].map(y => y[0])}} %}
-FunctionArgs -> FunctonArg {% MAP_FIRST %}
-			 | (FunctionArgs _ %Seperator _ FunctonArg) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
+FunctionDefArgs -> FunctonDefArg {% MAP_FIRST %}
+			 | (FunctionDefArgs _ %Seperator _ FunctonDefArg) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
 
-FunctonArg -> %DataType _ %VarName {% d => ({type: d[0].value, name: d[2] && d[2].value}) %}
+FunctonDefArg -> %DataType _ %VarName {% d => ({type: d[0].value, name: d[2] && d[2].value}) %}
 
-Statement ->  _ (ExprVarDeclAssign | ExprVarAssign | ExprFuncCall) %StmEnd {% (d) => d[1][0] %}
+Statement ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarAssign | ExprFuncCall) %StmEnd {% (d) => d[1][0] %}
 
 ######## Expressions ########
 LineComment -> _ %LineComment [\n] {% (d) => ({type: "comment", comment: d[1].value, line: d[1].line}) %}
 
-ExprVarDeclAssign -> (%DataType RegDef _ %VarName _ ExprPartAssign:?) {% d => ({
+ExprVarDeclAssign -> (%DataType RegDef _ %VarName _ ExprPartAssign) {% d => ({
 	type: "varDeclAssign", varType: d[0][0].value,
 	reg: d[0][1], varName: d[0][3].value,
 	calc: d[0][5],
 	line: d[0][0].line
 })%}
+
 ExprPartAssign -> %Assignment _ ExprCalcAll {% d => d[2][0] %}
+
+ExprVarDecl -> (%DataType RegDef _ VarList) {% d => ({
+	type: "varDeclMulti",
+	varType: d[0][0].value,
+	reg: d[0][1],
+	varNames: FORCE_ARRAY(d[0][3]).map(x => x.value),
+	line: d[0][0].line
+})%}
 
 ExprFuncCall -> %VarName %ArgsStart _ (%VarName | %String) _ %ArgsEnd  {% d => ({
 	type: "funcCall",
@@ -142,7 +151,7 @@ ExprVarAssign -> ( %VarName %Swizzle:? _ (%Assignment | %OperatorSelfR) _ ExprCa
 })%}
 
 #### Calculations ####
-ExprCalcAll -> ExprCalcVarVar | ExprCalcVarNum | ExprCalcNum | ExprCalcVar
+ExprCalcAll -> ExprCalcVarVar | ExprCalcVarNum | ExprCalcNum | ExprCalcVar | ExprCalcFunc
 
 ExprCalcNum -> ValueNumeric {% d => ({type: "calcNum", right: d[0][0]}) %}
 
@@ -165,7 +174,24 @@ ExprCalcVarNum -> %VarName %Swizzle:? _ OperatorLR _ ValueNumeric {% d => ({
 	right: d[5][0]
 })%}
 
+ExprCalcFunc -> %VarName %ArgsStart _ FuncArgs:* _ %ArgsEnd %Swizzle:? {% d => ({
+	type: "calcFunc",
+	funcName: d[0].value,
+	args: d[3],
+	swizzleRight: SAFE_VAL(d[6])
+})%}
+
 OperatorLR -> (%OperatorLR | %TypeStart | %TypeEnd) {% d => d[0][0] %} # "<" and ">" are overloaded (comparision & type-spec)
+
+######## Arguments ########
+FuncArgs -> FuncArg {% MAP_FIRST %}
+			 | (FuncArgs _ %Seperator _ FuncArg) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
+
+FuncArg -> %VarName {% d => ({type: "var", value: d[0].value}) %}
+	 | ValueNumeric {% d => ({type: "num", value: d[0][0]}) %}
+
+VarList -> %VarName {% MAP_FIRST %}
+			 | (VarList _ %Seperator _ %VarName) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
 
 ######## Arrays ########
 IndexDef -> %IdxStart _ ValueNumeric _ %IdxEnd {% d => d[2][0] %}

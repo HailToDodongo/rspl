@@ -2,6 +2,8 @@
 * @copyright 2023 - Max Bebök
 * @license GPL-3.0
 */
+import {TYPE_REG_COUNT} from "./types/types";
+import {nextReg} from "./syntax/registers";
 
 export function astNormalizeFunctions(ast)
 {
@@ -12,17 +14,31 @@ export function astNormalizeFunctions(ast)
     const statements = [];
     for(const st of block.body.statements) 
     {
-      // Split up declaration and assignment
-      if(st.type === "varDeclAssign") {
-        statements.push({...st, type: "varDecl"});
-        if(st.calc) { // ... and ignore empty assignments
-          statements.push({
-            type: "varAssignCalc", varName: st.varName,
-            calc: st.calc, assignType: "=",
-          });
-        }
-      } else {
-        statements.push(st);
+      switch (st.type)
+      {
+        // Split up declaration and assignment
+        case "varDeclAssign":
+          statements.push({...st, type: "varDecl"});
+          if(st.calc) { // ... and ignore empty assignments
+            statements.push({
+              type: "varAssignCalc",
+              varName: st.varName,
+              calc: st.calc, assignType: "=",
+            });
+          }
+        break;
+
+        case "varDeclMulti":
+          let regOffset = 0;
+          for(const varName of st.varNames) {
+            const reg = nextReg(st.reg, regOffset);
+            statements.push({...st, varName, reg, type: "varDecl"});
+            regOffset += TYPE_REG_COUNT[st.varType];
+          }
+        break;
+
+        default: statements.push(st); break;
+
       }
     }
 
@@ -48,7 +64,6 @@ export function astNormalizeFunctions(ast)
           st.calc.swizzleLeft = undefined; // @TODO: handle this?
           st.calc.op = expOp;
           st.assignType = "=";
-          console.log("ST", {...st}, expOp);
         }
       }
     }
