@@ -23,21 +23,15 @@ import { transpile } from "./lib/transpiler";
 // Restore old code from last session
 let oldSource = localStorage.getItem("lastCode") || "";
 if(oldSource === "") {
-  oldSource = `state
+  oldSource = `include "rsp_queue.inc"
+
+state
 { 
   vec32 VEC_SLOTS[20];
   u32 TEST_CONST;
 }
 
-function test_vec32_ops()
-{
-  vec32<$v02> a, b, c;
-  
-  // Add
-  //c = a + b;
-}
-
-function test_vector_load()
+function test_vector_load() 
 {
   vec32<$t0> src;
   vec32<$v01> dst;
@@ -121,7 +115,7 @@ function test_scalar_ops()
   // Shift-Right
   c = a >> b;
   c = a >> 2;
-  //c = a >> TEST_CONST;
+  //c = a >> TEST_CONST; 
 }
 
 command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)

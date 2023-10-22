@@ -24,6 +24,11 @@ export function writeASM(ast, functionsAsm)
   let text = "";
   let commandList = [];
   let savedState = "";
+  let includes = "";
+
+  for(const inc of ast.includes) {
+    includes += `#include <${inc.replaceAll('"', '')}>\n`;
+  }
 
   for(const stateVar of ast.state) {
     const byteSize = TYPE_SIZE[stateVar.varType] * stateVar.arraySize;
@@ -54,7 +59,7 @@ export function writeASM(ast, functionsAsm)
   }
 
   return `## Auto-generated file, transpiled with RSPL
-#include <rsp_queue.inc>
+${includes}
 .set noreorder
 .set at
 

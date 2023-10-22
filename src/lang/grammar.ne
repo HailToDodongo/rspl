@@ -74,6 +74,7 @@ const lexer = moo.compile({
 	FunctionType: ["function", "command"],
 	KWState   : "state",
 	KWGoto    : "goto",
+	KWInclude : "include",
 
 	ValueHex: /0x[0-9A-F]+/,
 	ValueBin: /0b[0-1]+/,
@@ -88,10 +89,14 @@ const lexer = moo.compile({
 # Pass your lexer with @lexer:
 @lexer lexer
 
-main -> _ SectionState:? (_ Function):* _ {% d => ({
-	state: d[1],
-	functions: MAP_TAKE(d[2], 1),
+main -> (_ SectionIncl):* _ SectionState:? (_ Function):* _ {% d => ({
+	includes: MAP_TAKE(d[0], 1),
+	state: d[2],
+	functions: MAP_TAKE(d[3], 1),
 }) %}
+
+######### Include-Section #########
+SectionIncl -> %KWInclude _ %String {% d => d[2].value %}
 
 ######### State-Section #########
 SectionState -> %KWState _ %BlockStart _ StateVarDef:* %BlockEnd {% d => d[4] %}

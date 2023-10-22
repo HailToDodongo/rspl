@@ -78,6 +78,7 @@ const lexer = moo.compile({
 	FunctionType: ["function", "command"],
 	KWState   : "state",
 	KWGoto    : "goto",
+	KWInclude : "include",
 
 	ValueHex: /0x[0-9A-F]+/,
 	ValueBin: /0b[0-1]+/,
@@ -90,15 +91,20 @@ const lexer = moo.compile({
 var grammar = {
     Lexer: lexer,
     ParserRules: [
-    {"name": "main$ebnf$1", "symbols": ["SectionState"], "postprocess": id},
-    {"name": "main$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "main$ebnf$2", "symbols": []},
-    {"name": "main$ebnf$2$subexpression$1", "symbols": ["_", "Function"]},
-    {"name": "main$ebnf$2", "symbols": ["main$ebnf$2", "main$ebnf$2$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "main", "symbols": ["_", "main$ebnf$1", "main$ebnf$2", "_"], "postprocess":  d => ({
-        	state: d[1],
-        	functions: MAP_TAKE(d[2], 1),
+    {"name": "main$ebnf$1", "symbols": []},
+    {"name": "main$ebnf$1$subexpression$1", "symbols": ["_", "SectionIncl"]},
+    {"name": "main$ebnf$1", "symbols": ["main$ebnf$1", "main$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "main$ebnf$2", "symbols": ["SectionState"], "postprocess": id},
+    {"name": "main$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "main$ebnf$3", "symbols": []},
+    {"name": "main$ebnf$3$subexpression$1", "symbols": ["_", "Function"]},
+    {"name": "main$ebnf$3", "symbols": ["main$ebnf$3", "main$ebnf$3$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "main", "symbols": ["main$ebnf$1", "_", "main$ebnf$2", "main$ebnf$3", "_"], "postprocess":  d => ({
+        	includes: MAP_TAKE(d[0], 1),
+        	state: d[2],
+        	functions: MAP_TAKE(d[3], 1),
         }) },
+    {"name": "SectionIncl", "symbols": [(lexer.has("KWInclude") ? {type: "KWInclude"} : KWInclude), "_", (lexer.has("String") ? {type: "String"} : String)], "postprocess": d => d[2].value},
     {"name": "SectionState$ebnf$1", "symbols": []},
     {"name": "SectionState$ebnf$1", "symbols": ["SectionState$ebnf$1", "StateVarDef"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "SectionState", "symbols": [(lexer.has("KWState") ? {type: "KWState"} : KWState), "_", (lexer.has("BlockStart") ? {type: "BlockStart"} : BlockStart), "_", "SectionState$ebnf$1", (lexer.has("BlockEnd") ? {type: "BlockEnd"} : BlockEnd)], "postprocess": d => d[4]},
