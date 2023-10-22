@@ -21,7 +21,6 @@ function functionToASM(func)
 
 export function writeASM(ast, functionsAsm)
 {
-  console.log("ASM", ast, functionsAsm);
   let text = "";
   let commandList = [];
   let savedState = "";

@@ -9,7 +9,7 @@ import {astNormalizeFunctions} from "./astNormalize";
 
 export function transpile(ast)
 {
-  console.log("AST", ast);
+  //console.log("AST", ast);
 
   ast.functions = astNormalizeFunctions(ast);
 

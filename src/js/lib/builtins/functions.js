@@ -12,7 +12,6 @@ import opsVector from "../operations/vector";
 function load(varRes, args, swizzle)
 {
   if(args.length === 1)args = [args[0], {type: "num", value: 0}];
-  console.log(args[1]);
 
   const argVar = state.getRequiredVarOrMem(args[0].value, "arg0");
   const argOffset = (args[1].type === "num")
