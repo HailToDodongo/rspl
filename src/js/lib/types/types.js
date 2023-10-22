@@ -38,7 +38,7 @@ export const TYPE_REG_COUNT = {
 
 export const isSigned = (type) => type.startsWith("s");
 
-export const toHex = (val, pad = 4) =>
+export const toHex = (val, pad = 2) =>
   "0x" + val.toString(16).padStart(pad, '0').toUpperCase();
 
 export const toHexSafe = (val, pad = 4)=>

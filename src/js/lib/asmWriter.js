@@ -3,13 +3,8 @@
 * @license GPL-3.0
 */
 
-import {REGS_SCALAR} from "./syntax/registers";
 import {TYPE_ALIGNMENT, TYPE_SIZE} from "./types/types";
-
-// for whatever reason, the ASM uses "$" for vector regs, and no dollar for "normal" registers
-function normReg(regName) {
-  return REGS_SCALAR.includes(regName) ? regName.substring(1) : regName;
-}
+import {normReg} from "./syntax/registers";
 
 function stringifyInstr(parts) {
   if(!parts || parts.length === 0)return "";

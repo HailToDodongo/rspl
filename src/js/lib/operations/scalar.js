@@ -4,6 +4,7 @@
 */
 import state from "../state";
 import {isSigned, toHex, toHexSafe} from "../types/types";
+import {normReg} from "../syntax/registers";
 
 function opMove(varRes, varRight)
 {
@@ -13,6 +14,17 @@ function opMove(varRes, varRight)
   }
 
   return [["li", varRes.reg, toHexSafe(varRight.value)]];
+}
+
+function opLoad(varRes, varLoc, varOffset)
+{
+  const offsetStr = varOffset.type === "num" ? varOffset.value : `%lo(${varOffset.name})`;
+  if(varLoc.reg) {
+    return [["lw", varRes.reg, `${offsetStr}(${normReg(varLoc.reg)})`]];
+  }
+
+  if(varOffset.type !== "num")state.throwError("Load args cannot both be consts!");
+  return [["lw", varRes.reg, `%lo(${varLoc.name} + ${offsetStr})`]];
 }
 
 function opAdd(varRes, varLeft, varRight)
@@ -91,4 +103,4 @@ function opBitFlip(varRes, varRight)
   return [["not", varRes.reg, varRight.reg]];
 }
 
-export default {opMove, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opXOR, opBitFlip};
+export default {opMove, opLoad, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opXOR, opBitFlip};

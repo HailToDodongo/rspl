@@ -7,6 +7,7 @@ import opsScalar from "./operations/scalar";
 import opsVector from "./operations/vector";
 import state from "./state";
 import builtins from "./builtins/functions";
+import {TYPE_ALIGNMENT, TYPE_SIZE} from "./types/types";
 
 const VECTOR_TYPES = ["vec16", "vec32"];
 
@@ -182,6 +183,10 @@ function getArgSize(block)
 export function ast2asm(ast)
 {
   const res = [];
+
+  for(const stateVar of ast.state) {
+    state.declareMemVar(stateVar.varName, stateVar.varType);
+  }
 
   for(const block of ast.functions)
   {

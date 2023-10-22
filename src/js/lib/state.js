@@ -10,6 +10,7 @@ const state =
 
   varMap: {},
   regVarMap: {},
+  memVarMap: {},
 
   throwError: (message, context) => {
     const lineStr = state.line === 0 ? "(???)" : state.line+"";
@@ -21,6 +22,7 @@ const state =
     state.func = name;
     state.varMap = {};
     state.regVarMap = {};
+    //state.memMap = {};
   },
 
   declareVar: (name, type, reg) => {
@@ -29,9 +31,27 @@ const state =
     state.regVarMap[reg] = name;
   },
 
+  declareMemVar: (name, type) => {
+    state.memVarMap[name] = {name, type};
+  },
+
   getRequiredVar: (name, contextName, context = {}) => {
     const res = structuredClone(state.varMap[name]);
     if(!res)state.throwError(contextName + " Variable "+name+" not known!", context);
+    return res;
+  },
+
+  getRequiredMem: (name, contextName, context = {}) => {
+    const res = structuredClone(state.memVarMap[name]);
+    if(!res)state.throwError(contextName + " Memory-Var "+name+" not known!", context);
+    return res;
+  },
+
+  getRequiredVarOrMem: (name, contextName, context = {}) => {
+    let res = structuredClone(state.varMap[name]) ||structuredClone(state.memVarMap[name]);
+    if(!res) {
+      state.throwError(contextName + " Variable/Memory "+name+" not known!", context);
+    }
     return res;
   }
 };

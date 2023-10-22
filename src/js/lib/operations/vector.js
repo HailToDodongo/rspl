@@ -3,9 +3,9 @@
 * @license GPL-3.0
 */
 
-import {nextVecReg} from "../syntax/registers";
+import {isVecReg, nextVecReg, normReg} from "../syntax/registers";
 import state from "../state";
-import {isScalarSwizzle, SWIZZLE_MAP} from "../syntax/swizzle";
+import {isScalarSwizzle, SWIZZLE_MAP, SWIZZLE_SCALAR_IDX} from "../syntax/swizzle";
 import {toHex} from "../types/types";
 
 function opMove(varRes, varRight)
@@ -26,9 +26,38 @@ function opMove(varRes, varRight)
   return [["vmov", varRes.reg + swizzleRes, varRight.reg + swizzleRight]];
 }
 
+function opLoad(varRes, varLoc, varOffset, swizzle)
+{
+  if(swizzle && swizzle !== "xyzwxyzw") {
+    state.throwError("Builtin load() only support '.xyzwxyzw' swizzle!", varRes);
+  }
+  if(!varLoc.reg)state.throwError("Load base-address must be a variable!");
+  if(isVecReg(varLoc.reg))state.throwError("Load base-address must be a scalar register!", varRes);
+  if(varOffset.type !== "num")state.throwError("Load offset must be a numerical-constant!");
+
+  let destOffset = varRes.swizzle ? SWIZZLE_SCALAR_IDX[varRes.swizzle] : 0;
+  if(destOffset === undefined) {
+    state.throwError("Unsupported destination swizzle (must be scalar .x to .W)!", varRes);
+  }
+  destOffset *= 2; // convert to bytes (?)
+
+  const loadInstr = swizzle ? "ldv" : "lqv";
+
+  const res = [];
+  res.push(          [loadInstr, varRes.reg, toHex(destOffset), varOffset.value, varLoc.reg]);
+  if(swizzle)res.push([loadInstr, varRes.reg, toHex(destOffset+8), varOffset.value, varLoc.reg]);
+
+  if(varRes.type === "vec32") {
+    res.push(          [loadInstr, nextVecReg(varRes.reg), toHex(destOffset), varOffset.value + " + 0x10", varLoc.reg]);
+    if(swizzle)res.push([loadInstr, nextVecReg(varRes.reg), toHex(destOffset+8), varOffset.value + " + 0x10", varLoc.reg]);
+  }
+  return res;
+}
+
 function opAdd(varRes, varLeft, varRight, clearAccum)
 {
   const res = [];
+  state.throwError("Vector-Addition not implemented!");
   return res;
 }
 
@@ -53,4 +82,4 @@ function opMul(varRes, varLeft, varRight, clearAccum)
   ];
 }
 
-export default {opMove, opMul};
+export default {opMove, opLoad, opMul};

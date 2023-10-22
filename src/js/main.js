@@ -29,6 +29,63 @@ if(oldSource === "") {
   u32 TEST_CONST;
 }
 
+function test_vec32_ops()
+{
+  vec32<$v02> a, b, c;
+  
+  // Add
+  //c = a + b;
+}
+
+function test_vector_load()
+{
+  vec32<$t0> src;
+  vec32<$v01> dst;
+  // Whole Vector
+  dst = load(src);
+  dst = load(src, 0x10);
+  dst.y = load(src);
+  dst.z = load(src, 0x10);
+  //dst = load(src, TEST_CONST); Invalid
+  //dst = load(TEST_CONST); Invalid
+  //dst = load(TEST_CONST, 0x10); Invalid
+  
+  // Swizzle
+  dst = load(src).xyzwxyzw;
+  dst = load(src, 0x10).xyzwxyzw;
+  dst.y = load(src).xyzwxyzw;
+  dst.z = load(src, 0x10).xyzwxyzw;
+  //dst = load(src, TEST_CONST).xyzwxyzw; Invalid
+  //dst = load(TEST_CONST).xyzwxyzw; Invalid
+  //dst = load(TEST_CONST, 0x10).xyzwxyzw; Invalid
+}
+
+function test_label()
+{
+  u32<$t0> a;
+  
+  label_a:
+    a += 2;
+    goto label_b;
+    a += 0xFF;
+    
+  label_b:
+    goto label_a;
+}
+
+function test_scalar_load()
+{
+  u32<$t0> src, dst;
+  // destination = load(source, offset)
+  dst = load(src);
+  dst = load(src, 0x10);
+  dst = load(src, TEST_CONST);
+  
+  dst = load(TEST_CONST);
+  dst = load(TEST_CONST, 0x10);
+  // dst = load(TEST_CONST, TEST_CONST); Invalid
+}
+
 function test_scalar_ops()
 {
   u32<$t0> a, b, c;
@@ -71,7 +128,7 @@ command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
 {
   u32<$t0> trans_mtx = mat_in >> 16;
   trans_mtx &= 0xFF0;
-  
+
   u32<$t1> trans_vec = mat_in & 0xFF0;
   u32<$t2> trans_out = vec_out & 0xFF0;
   
@@ -91,7 +148,7 @@ command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
   res = mat1 +* vecIn.yyyyYYYY;
   res = mat2 +* vecIn.zzzzZZZZ;
   res = mat3 +* vecIn.wwwwWWWW;
-  
+
   trans_out = store(res);
 }`;
 }

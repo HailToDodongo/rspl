@@ -17,6 +17,10 @@ export const REGS_VECTOR = [
   "$v24", "$v25", "$v26", "$v27", "$v28", "$v29", "$v30", "$v31",
 ];
 
+export function isVecReg(regName) {
+  return REGS_VECTOR.includes(regName);
+}
+
 export function nextVecReg(regName) {
   const idx = REGS_VECTOR.indexOf(regName);
   return idx === -1 ? null : REGS_VECTOR[idx+1];
@@ -32,4 +36,9 @@ export function nextReg(regName, offset) {
     return REGS_SCALAR[idx+offset];
   }
   return null;
+}
+
+// for whatever reason, the ASM uses "$" for vector regs, and no dollar for "normal" registers
+export function normReg(regName) {
+  return REGS_SCALAR.includes(regName) ? regName.substring(1) : regName;
 }
