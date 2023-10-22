@@ -60,7 +60,11 @@ function calcAssignToAsm(calc, varRes, varRight) {
     state.throwError("Swizzling not allowed for scalar operations!");
   }
 
-  return opsHandler.opMove(varRes, varRight);
+  switch (calc.op) {
+    case "!":  state.throwError("Unary '!'-operator not implemented!"); break;
+    case "~": return opsHandler.opBitFlip(varRes, varRight);
+    default: return opsHandler.opMove(varRes, varRight);
+  }
 }
 
 function calcLRToAsm(calc, varRes, varLeft, varRight)
@@ -79,11 +83,16 @@ function calcLRToAsm(calc, varRes, varLeft, varRight)
 
   switch (op) {
     case  "+":  return opsHandler.opAdd(varRes, varLeft, varRight, true);
+    case  "-":  return opsHandler.opSub(varRes, varLeft, varRight, true);
     case "++":  return opsHandler.opAdd(varRes, varLeft, varRight, false);
     case  "*":  return opsHandler.opMul(varRes, varLeft, varRight, true);
     case "+*":  return opsHandler.opMul(varRes, varLeft, varRight, false);
+    case  "/":  return opsHandler.opDiv(varRes, varLeft, varRight, true);
+    case "+/":  return opsHandler.opDiv(varRes, varLeft, varRight, false);
 
     case "&":  return opsHandler.opAnd(varRes, varLeft, varRight);
+    case "|":  return opsHandler.opOr(varRes, varLeft, varRight);
+    case "^":  return opsHandler.opXOR(varRes, varLeft, varRight);
 
     case "<<":  return opsHandler.opShiftLeft(varRes, varLeft, varRight);
     case ">>":  return opsHandler.opShiftRight(varRes, varLeft, varRight);
@@ -116,7 +125,7 @@ function functionToAsm(func, args)
     switch(st.type) 
     {
       case "comment":
-        res.push(["##" + (st.comment || "")]);
+        res.push(["##" + (st.comment.substring(2) || "")]);
       break;
 
       case "asm":

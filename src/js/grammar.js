@@ -54,8 +54,11 @@ const lexer = moo.compile({
 		"&&", "||", "==", "!=",
 		"<<", ">>",
 		"+*",
-		"!", "+", "-", "*", "/",
-		"&", "|", "^", "~",
+		"+", "-", "*", "/",
+		"&", "|", "^",
+	],
+	OperatorUnary: [
+		"!", "~",
 	],
 
 	BlockStart: "{",
@@ -174,11 +177,14 @@ var grammar = {
     {"name": "ExprCalcAll", "symbols": ["ExprCalcVar"]},
     {"name": "ExprCalcAll", "symbols": ["ExprCalcFunc"]},
     {"name": "ExprCalcNum", "symbols": ["ValueNumeric"], "postprocess": d => ({type: "calcNum", right: d[0][0]})},
-    {"name": "ExprCalcVar$ebnf$1", "symbols": [(lexer.has("Swizzle") ? {type: "Swizzle"} : Swizzle)], "postprocess": id},
+    {"name": "ExprCalcVar$ebnf$1", "symbols": [(lexer.has("OperatorUnary") ? {type: "OperatorUnary"} : OperatorUnary)], "postprocess": id},
     {"name": "ExprCalcVar$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "ExprCalcVar", "symbols": [(lexer.has("VarName") ? {type: "VarName"} : VarName), "ExprCalcVar$ebnf$1"], "postprocess":  d => ({
+    {"name": "ExprCalcVar$ebnf$2", "symbols": [(lexer.has("Swizzle") ? {type: "Swizzle"} : Swizzle)], "postprocess": id},
+    {"name": "ExprCalcVar$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "ExprCalcVar", "symbols": ["ExprCalcVar$ebnf$1", (lexer.has("VarName") ? {type: "VarName"} : VarName), "ExprCalcVar$ebnf$2"], "postprocess":  d => ({
         	type: "calcVar",
-        	right: d[0].value, swizzleRight: SAFE_VAL(d[1])
+        	op: SAFE_VAL(d[0]),
+        	right: d[1].value, swizzleRight: SAFE_VAL(d[2])
         })},
     {"name": "ExprCalcVarVar$ebnf$1", "symbols": [(lexer.has("Swizzle") ? {type: "Swizzle"} : Swizzle)], "postprocess": id},
     {"name": "ExprCalcVarVar$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},

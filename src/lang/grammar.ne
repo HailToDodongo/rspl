@@ -50,8 +50,11 @@ const lexer = moo.compile({
 		"&&", "||", "==", "!=",
 		"<<", ">>",
 		"+*",
-		"!", "+", "-", "*", "/",
-		"&", "|", "^", "~",
+		"+", "-", "*", "/",
+		"&", "|", "^",
+	],
+	OperatorUnary: [
+		"!", "~",
 	],
 
 	BlockStart: "{",
@@ -156,9 +159,10 @@ ExprCalcAll -> ExprCalcVarVar | ExprCalcVarNum | ExprCalcNum | ExprCalcVar | Exp
 
 ExprCalcNum -> ValueNumeric {% d => ({type: "calcNum", right: d[0][0]}) %}
 
-ExprCalcVar -> %VarName %Swizzle:? {% d => ({
+ExprCalcVar -> %OperatorUnary:? %VarName %Swizzle:? {% d => ({
 	type: "calcVar",
-	right: d[0].value, swizzleRight: SAFE_VAL(d[1])
+	op: SAFE_VAL(d[0]),
+	right: d[1].value, swizzleRight: SAFE_VAL(d[2])
 })%}
 
 ExprCalcVarVar -> %VarName %Swizzle:? _ OperatorLR _ %VarName %Swizzle:? {% d => ({

@@ -24,13 +24,27 @@ function opAdd(varRes, varLeft, varRight)
   return [[instr, varRes.reg, varLeft.reg, valRight]];
 }
 
-function opMul(varRes, varLeft, varRight)
+function opSub(varRes, varLeft, varRight)
 {
+  const signed = isSigned(varRes.type);
+  if(varRight.reg) {
+    return [[signed ? "sub" : "subu", varRes.reg, varLeft.reg, varRight.reg]];
+  }
+  if(typeof(varRight.value) === "string")state.throwError("Subtraction cannot use labels!");
+  return [[signed ? "addi" : "addiu", varRes.reg, varLeft.reg, "-" + varRight.value]];
+}
+
+function opMul(varRes, varLeft, varRight) {
   state.throwError("Scalar-Multiplication not implemented!");
+}
+
+function opDiv(varRes, varLeft, varRight) {
+  state.throwError("Scalar-Division not implemented!");
 }
 
 function opShiftLeft(varRes, varLeft, varRight)
 {
+  if(typeof(varRight.value) === "string")state.throwError("Shift-Left cannot use labels!");
   return [varRight.reg
     ? ["sllv", varRes.reg, varLeft.reg, varRight.reg]
     : ["sll",  varRes.reg, varLeft.reg, varRight.value],
@@ -39,6 +53,7 @@ function opShiftLeft(varRes, varLeft, varRight)
 
 function opShiftRight(varRes, varLeft, varRight)
 {
+  if(typeof(varRight.value) === "string")state.throwError("Shift-Right cannot use labels!");
   let instr = isSigned(varRes.type) ? "sra" : "srl";
   if(varRight.reg)instr += "v";
 
@@ -54,4 +69,26 @@ function opAnd(varRes, varLeft, varRight)
   ];
 }
 
-export default {opMove, opAdd, opMul, opShiftLeft, opShiftRight, opAnd};
+function opOr(varRes, varLeft, varRight)
+{
+  return [varRight.reg
+    ? ["or",  varRes.reg, varLeft.reg, varRight.reg]
+    : ["ori", varRes.reg, varLeft.reg, toHexSafe(varRight.value)],
+  ];
+}
+
+function opXOR(varRes, varLeft, varRight)
+{
+  return [varRight.reg
+    ? ["xor",  varRes.reg, varLeft.reg, varRight.reg]
+    : ["xori", varRes.reg, varLeft.reg, toHexSafe(varRight.value)],
+  ];
+}
+
+function opBitFlip(varRes, varRight)
+{
+  if(!varRight.reg)state.throwError("Bitflip is only supported for variables!");
+  return [["not", varRes.reg, varRight.reg]];
+}
+
+export default {opMove, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opXOR, opBitFlip};
