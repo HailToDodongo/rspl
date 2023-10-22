@@ -1,0 +1,35 @@
+image: node:20.0.0
+
+cache:
+  key:
+    files:
+      - yarn.lock
+  paths:
+    - .yarn
+    - node_modules/
+
+stages:
+    - build
+    - deploy
+
+build:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - yarn install
+    - yarn build
+  artifacts:
+    paths:
+    - dist
+
+pages:
+  image: alpine:3.18.0
+  stage: deploy
+  script:
+    - rm -rf public
+    - mv dist public
+
+  artifacts:
+    paths:
+      - public

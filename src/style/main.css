@@ -52,7 +52,7 @@ body {
 
 pre, textarea, code {
   font-family: FiraCode, monospace;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 h1 {
@@ -112,11 +112,11 @@ pre {
   height: 100%;
   border-radius: 10px;
   font-family: FiraCode, monospace;
-  min-width: 200px;
+  min-width: 300px;
 }
 
 .mainContainer  > pre:last-child {
-  flex-grow: 0.33;
+  flex-grow: 0.05;
 }
 
 .bottomContainer {

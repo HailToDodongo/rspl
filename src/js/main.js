@@ -25,19 +25,36 @@ let oldSource = localStorage.getItem("lastCode") || "";
 if(oldSource === "") {
   oldSource = `state
 { 
-  vec32 someData;
+  vec32 VEC_SLOTS[20];
 }
 
-command<0x0> Cmd_Test(u32 vec_out, u32 mat_in)
+command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
 {
   u32<$t0> trans_mtx = mat_in >> 16;
-  trans_mtx = trans_mtx & 0xFF0;
+  trans_mtx &= 0xFF0;
   
   u32<$t1> trans_vec = mat_in & 0xFF0;
-  u32<$t2> trans_out = vec_out & 0xFF0; 
-  trans_out = trans_vec; 
-}
-`;
+  u32<$t2> trans_out = vec_out & 0xFF0;
+  
+  trans_mtx += VEC_SLOTS;
+  trans_vec += VEC_SLOTS;
+  trans_out += VEC_SLOTS;
+  
+  vec32<$v01> mat0 = load(trans_mtx, 0x00).xyzwxyzw;
+  vec32<$v03> mat1 = load(trans_mtx, 0x08).xyzwxyzw;
+  vec32<$v05> mat2 = load(trans_mtx, 0x20).xyzwxyzw;
+  vec32<$v07> mat3 = load(trans_mtx, 0x28).xyzwxyzw;
+  
+  vec32<$v09> vecIn = load(trans_vec);
+  vec32<$v13> res;
+  
+  res = mat0  * vecIn.xxxxXXXX;
+  res = mat1 +* vecIn.yyyyYYYY;
+  res = mat2 +* vecIn.zzzzZZZZ;
+  res = mat3 +* vecIn.wwwwWWWW;
+  
+  trans_out = store(res);
+}`;
 }
 
 // Register code-highlighting

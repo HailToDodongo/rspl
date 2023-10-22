@@ -1,13 +1,14 @@
 {
   "name": "rspl",
   "version": "1.0.0",
-  "main": "index.js",
+  "source": "src/index.html",
   "license": "MIT",
   "devDependencies": {
     "parcel": "^2.10.0"
   },
   "scripts": {
     "start": "yarn parcel src/index.html",
+    "build": "parcel build --public-url '/rspl' src/index.html",
     "build:lang": "nearleyc src/lang/grammar.ne -o src/js/grammar.js"
   },
   "dependencies": {
