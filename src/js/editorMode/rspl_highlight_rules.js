@@ -30,7 +30,7 @@ const rsplHighlightRules = function() {
   const keywords =
         [
           "state", "function", "command",
-          "if", "else", "for",
+          "if", "else", "for", "goto",
 
           "s8","u8","s16","u16","s32","u32",
           "vec16","vec32",

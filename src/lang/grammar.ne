@@ -67,11 +67,13 @@ const lexer = moo.compile({
 	Seperator : ",",
 	IdxStart  : "[",
 	IdxEnd    : "]",
+	Colon     : ":",
 
 	Assignment: "=",
 
 	FunctionType: ["function", "command"],
 	KWState   : "state",
+	KWGoto    : "goto",
 
 	ValueHex: /0x[0-9A-F]+/,
 	ValueBin: /0b[0-1]+/,
@@ -110,13 +112,21 @@ Function -> %FunctionType (RegDef | RegNumDef):? _ %VarName %ArgsStart _ Functio
 	})
 %}
 
-FuncBody -> (LineComment | Statement):* {% function(d) {return {type: "funcBody", statements: d[0].map(y => y[0])}} %}
+# A functions body contains zero or more "statements"
+#  -> Statements can be comments, label-declarations and expressions.
+#     -> Expression can be anything that "calculates" somthing.
+#        Either as a standalone function call, or by assiging something to a variable
+#        The thing that is assigned can be a constant, unary or LR-expression
+
+FuncBody -> (LineComment | LabelDecl | Expression):* {% function(d) {return {type: "funcBody", statements: d[0].map(y => y[0])}} %}
 FunctionDefArgs -> FunctonDefArg {% MAP_FIRST %}
 			 | (FunctionDefArgs _ %Seperator _ FunctonDefArg) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
 
 FunctonDefArg -> %DataType _ %VarName {% d => ({type: d[0].value, name: d[2] && d[2].value}) %}
 
-Statement ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarAssign | ExprFuncCall) %StmEnd {% (d) => d[1][0] %}
+Expression ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarAssign | ExprFuncCall | ExprGoto) %StmEnd {% (d) => d[1][0] %}
+
+LabelDecl -> _ %VarName %Colon {% d => ({type: "labelDecl", name: d[1].value, line: d[1].line}) %}
 
 ######## Expressions ########
 LineComment -> _ %LineComment [\n] {% (d) => ({type: "comment", comment: d[1].value, line: d[1].line}) %}
@@ -142,6 +152,12 @@ ExprFuncCall -> %VarName %ArgsStart _ (%VarName | %String) _ %ArgsEnd  {% d => (
 	type: "funcCall",
 	func: d[0].value, args: d[3][0],
 	line: d[0].line
+})%}
+
+ExprGoto -> %KWGoto _ %VarName {% d => ({
+	type: "goto",
+	label: d[2].value,
+	line: d[2].line
 })%}
 
 # Assignment to a variable which calcualtes something (left-hande operator right-hand)

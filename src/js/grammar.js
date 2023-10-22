@@ -71,11 +71,13 @@ const lexer = moo.compile({
 	Seperator : ",",
 	IdxStart  : "[",
 	IdxEnd    : "]",
+	Colon     : ":",
 
 	Assignment: "=",
 
 	FunctionType: ["function", "command"],
 	KWState   : "state",
+	KWGoto    : "goto",
 
 	ValueHex: /0x[0-9A-F]+/,
 	ValueBin: /0b[0-1]+/,
@@ -122,18 +124,21 @@ var grammar = {
         },
     {"name": "FuncBody$ebnf$1", "symbols": []},
     {"name": "FuncBody$ebnf$1$subexpression$1", "symbols": ["LineComment"]},
-    {"name": "FuncBody$ebnf$1$subexpression$1", "symbols": ["Statement"]},
+    {"name": "FuncBody$ebnf$1$subexpression$1", "symbols": ["LabelDecl"]},
+    {"name": "FuncBody$ebnf$1$subexpression$1", "symbols": ["Expression"]},
     {"name": "FuncBody$ebnf$1", "symbols": ["FuncBody$ebnf$1", "FuncBody$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "FuncBody", "symbols": ["FuncBody$ebnf$1"], "postprocess": function(d) {return {type: "funcBody", statements: d[0].map(y => y[0])}}},
     {"name": "FunctionDefArgs", "symbols": ["FunctonDefArg"], "postprocess": MAP_FIRST},
     {"name": "FunctionDefArgs$subexpression$1", "symbols": ["FunctionDefArgs", "_", (lexer.has("Seperator") ? {type: "Seperator"} : Seperator), "_", "FunctonDefArg"]},
     {"name": "FunctionDefArgs", "symbols": ["FunctionDefArgs$subexpression$1"], "postprocess": d => MAP_FLATTEN_TREE(d[0], 0, 4)},
     {"name": "FunctonDefArg", "symbols": [(lexer.has("DataType") ? {type: "DataType"} : DataType), "_", (lexer.has("VarName") ? {type: "VarName"} : VarName)], "postprocess": d => ({type: d[0].value, name: d[2] && d[2].value})},
-    {"name": "Statement$subexpression$1", "symbols": ["ExprVarDeclAssign"]},
-    {"name": "Statement$subexpression$1", "symbols": ["ExprVarDecl"]},
-    {"name": "Statement$subexpression$1", "symbols": ["ExprVarAssign"]},
-    {"name": "Statement$subexpression$1", "symbols": ["ExprFuncCall"]},
-    {"name": "Statement", "symbols": ["_", "Statement$subexpression$1", (lexer.has("StmEnd") ? {type: "StmEnd"} : StmEnd)], "postprocess": (d) => d[1][0]},
+    {"name": "Expression$subexpression$1", "symbols": ["ExprVarDeclAssign"]},
+    {"name": "Expression$subexpression$1", "symbols": ["ExprVarDecl"]},
+    {"name": "Expression$subexpression$1", "symbols": ["ExprVarAssign"]},
+    {"name": "Expression$subexpression$1", "symbols": ["ExprFuncCall"]},
+    {"name": "Expression$subexpression$1", "symbols": ["ExprGoto"]},
+    {"name": "Expression", "symbols": ["_", "Expression$subexpression$1", (lexer.has("StmEnd") ? {type: "StmEnd"} : StmEnd)], "postprocess": (d) => d[1][0]},
+    {"name": "LabelDecl", "symbols": ["_", (lexer.has("VarName") ? {type: "VarName"} : VarName), (lexer.has("Colon") ? {type: "Colon"} : Colon)], "postprocess": d => ({type: "labelDecl", name: d[1].value, line: d[1].line})},
     {"name": "LineComment", "symbols": ["_", (lexer.has("LineComment") ? {type: "LineComment"} : LineComment), /[\n]/], "postprocess": (d) => ({type: "comment", comment: d[1].value, line: d[1].line})},
     {"name": "ExprVarDeclAssign$subexpression$1", "symbols": [(lexer.has("DataType") ? {type: "DataType"} : DataType), "RegDef", "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "_", "ExprPartAssign"]},
     {"name": "ExprVarDeclAssign", "symbols": ["ExprVarDeclAssign$subexpression$1"], "postprocess":  d => ({
@@ -157,6 +162,11 @@ var grammar = {
         	type: "funcCall",
         	func: d[0].value, args: d[3][0],
         	line: d[0].line
+        })},
+    {"name": "ExprGoto", "symbols": [(lexer.has("KWGoto") ? {type: "KWGoto"} : KWGoto), "_", (lexer.has("VarName") ? {type: "VarName"} : VarName)], "postprocess":  d => ({
+        	type: "goto",
+        	label: d[2].value,
+        	line: d[2].line
         })},
     {"name": "ExprVarAssign$subexpression$1$ebnf$1", "symbols": [(lexer.has("Swizzle") ? {type: "Swizzle"} : Swizzle)], "postprocess": id},
     {"name": "ExprVarAssign$subexpression$1$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},

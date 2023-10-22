@@ -26,6 +26,45 @@ if(oldSource === "") {
   oldSource = `state
 { 
   vec32 VEC_SLOTS[20];
+  u32 TEST_CONST;
+}
+
+function test_scalar_ops()
+{
+  u32<$t0> a, b, c;
+  s32<$t3> sa, sb, sc;
+  
+  // Add
+  c = a + b; sc = sa + sb;
+  c = a + 1; sc = sa + 1;
+  c = a + TEST_CONST; sc = sa + TEST_CONST;
+  // Sub
+  c = a - b; sc = sa - sb;
+  c = a - 1; sc = sa - 1;
+  //c = a - TEST_CONST; sc = sa - TEST_CONST;
+  // Mul/Div not possible
+  // And
+  c = a & b;
+  c = a & 1;
+  c = a & TEST_CONST;
+  // Or
+  c = a | b;
+  c = a | 2;
+  c = a | TEST_CONST;
+  // XOR
+  c = a ^ b;
+  c = a ^ 2;
+  c = a ^ TEST_CONST;
+  // Not
+  c = ~b;
+  // Shift-Left
+  c = a << b;
+  c = a << 2;
+  //c = a << TEST_CONST;
+  // Shift-Right
+  c = a >> b;
+  c = a >> 2;
+  //c = a >> TEST_CONST;
 }
 
 command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)

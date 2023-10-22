@@ -157,8 +157,16 @@ function functionToAsm(func, args)
         }
       } break;
 
+      case "labelDecl":
+        res.push([st.name + ":"]);
+      break;
+
+      case "goto":
+        res.push(["b", st.label], ["nop"]);
+      break;
+
       default:
-        res.push(["#### UNKNOWN: " + JSON.stringify(st)])
+        state.throwError("Unknown statement type: " + st.type, st);
     }
   }
   return res;
