@@ -4,7 +4,7 @@
 */
 
 import { Parser, Grammar } from "nearley";
-import grammarDef from './grammar';
+import grammarDef from '../../lib/grammar';
 
 // Syntax Highlighting
 import hljs from 'highlight.js/lib/core';
@@ -18,7 +18,7 @@ import { edit as aceEdit } from "ace-builds";
 import "ace-builds/src-min-noconflict/theme-tomorrow_night_eighties";
 import "ace-builds/src-min-noconflict/mode-glsl";
 
-import { transpile } from "./lib/transpiler";
+import { transpile } from "../../lib/transpiler";
 
 // Restore old code from last session
 let oldSource = localStorage.getItem("lastCode") || "";

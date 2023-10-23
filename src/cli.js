@@ -4,8 +4,8 @@
 */
 
 import { Parser, Grammar } from "nearley";
-import grammarDef from './js/grammar';
-import { transpile } from "./js/lib/transpiler";
+import grammarDef from './lib/grammar';
+import { transpile } from "./lib/transpiler";
 import { readFileSync, writeFileSync } from "fs";
 
 const source = readFileSync(process.argv[2], "utf8");

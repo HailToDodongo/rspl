@@ -1,5 +1,5 @@
 ## Auto-generated file, transpiled with RSPL
-#include <rsp_queue.inc>
+
 .set noreorder
 .set at
 

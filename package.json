@@ -19,10 +19,10 @@
     }
   },
   "scripts": {
-    "start": "yarn parcel src/index.html",
-    "build": "parcel build --public-url '/rspl' src/index.html",
+    "start": "yarn parcel src/web/index.html",
+    "build": "parcel build --public-url '/rspl' src/web/index.html",
     "build:cli": "parcel build --target cli src/cli.js",
-    "build:lang": "nearleyc src/lang/grammar.ne -o src/js/grammar.js",
+    "build:lang": "nearleyc src/lib/grammar.ne -o src/lib/grammar.js",
     "clean": "rm -rf .parcel-cache && rm -rf dist"
   },
   "dependencies": {
