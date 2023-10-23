@@ -45,13 +45,15 @@ const lexer = moo.compile({
 		"&&=", "||=",
 		"&=", "|=",
 		"<<=", ">>=",
-		"<=", ">=",
 		"+*=",
 		"+=", "-=", "*=", "/=",
 	],
-
+	OperatorCompare: [
+		"<=", ">=",
+		"==", "!=",
+	],
 	OperatorLR: [
-		"&&", "||", "==", "!=",
+		"&&", "||",
 		"<<", ">>",
 		"+*",
 		"+", "-", "*", "/",
@@ -76,6 +78,7 @@ const lexer = moo.compile({
 	Assignment: "=",
 
 	FunctionType: ["function", "command"],
+	KFIf      : "if",
 	KWState   : "state",
 	KWGoto    : "goto",
 	KWInclude : "include",
@@ -136,6 +139,7 @@ var grammar = {
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["LineComment"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["ScopedBlock"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["LabelDecl"]},
+    {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["IfStatement"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["Expression"]},
     {"name": "Statements$ebnf$1", "symbols": ["Statements$ebnf$1", "Statements$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "Statements", "symbols": ["Statements$ebnf$1"], "postprocess": d => d[0].map(y => y[0])},
@@ -150,6 +154,7 @@ var grammar = {
     {"name": "Expression$subexpression$1", "symbols": ["ExprGoto"]},
     {"name": "Expression", "symbols": ["_", "Expression$subexpression$1", (lexer.has("StmEnd") ? {type: "StmEnd"} : StmEnd)], "postprocess": (d) => d[1][0]},
     {"name": "LabelDecl", "symbols": ["_", (lexer.has("VarName") ? {type: "VarName"} : VarName), (lexer.has("Colon") ? {type: "Colon"} : Colon)], "postprocess": d => ({type: "labelDecl", name: d[1].value, line: d[1].line})},
+    {"name": "IfStatement", "symbols": ["_", (lexer.has("KFIf") ? {type: "KFIf"} : KFIf), "_", (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "ExprCompare", "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd)], "postprocess": d => ({type: "if", compare: d[4], line: d[1].line})},
     {"name": "LineComment", "symbols": ["_", (lexer.has("LineComment") ? {type: "LineComment"} : LineComment), /[\n]/], "postprocess": (d) => ({type: "comment", comment: d[1].value, line: d[1].line})},
     {"name": "ExprVarDeclAssign$subexpression$1", "symbols": [(lexer.has("DataType") ? {type: "DataType"} : DataType), "RegDef", "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "_", "ExprPartAssign"]},
     {"name": "ExprVarDeclAssign", "symbols": ["ExprVarDeclAssign$subexpression$1"], "postprocess":  d => ({
@@ -178,6 +183,16 @@ var grammar = {
         	type: "goto",
         	label: d[2].value,
         	line: d[2].line
+        })},
+    {"name": "ExprCompare$subexpression$1", "symbols": [(lexer.has("OperatorCompare") ? {type: "OperatorCompare"} : OperatorCompare)]},
+    {"name": "ExprCompare$subexpression$1", "symbols": [(lexer.has("TypeStart") ? {type: "TypeStart"} : TypeStart)]},
+    {"name": "ExprCompare$subexpression$1", "symbols": [(lexer.has("TypeEnd") ? {type: "TypeEnd"} : TypeEnd)]},
+    {"name": "ExprCompare", "symbols": ["_", "FuncArg", "_", "ExprCompare$subexpression$1", "_", "FuncArg"], "postprocess":  d => ({
+        	type: "compare",
+        	left: d[1],
+        	op: d[3][0].value,
+        	right: d[5],
+        	line: d[1].line
         })},
     {"name": "ExprVarAssign$subexpression$1$ebnf$1", "symbols": [(lexer.has("Swizzle") ? {type: "Swizzle"} : Swizzle)], "postprocess": id},
     {"name": "ExprVarAssign$subexpression$1$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},

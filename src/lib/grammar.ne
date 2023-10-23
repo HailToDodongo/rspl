@@ -41,13 +41,15 @@ const lexer = moo.compile({
 		"&&=", "||=",
 		"&=", "|=",
 		"<<=", ">>=",
-		"<=", ">=",
 		"+*=",
 		"+=", "-=", "*=", "/=",
 	],
-
+	OperatorCompare: [
+		"<=", ">=",
+		"==", "!=",
+	],
 	OperatorLR: [
-		"&&", "||", "==", "!=",
+		"&&", "||",
 		"<<", ">>",
 		"+*",
 		"+", "-", "*", "/",
@@ -72,6 +74,7 @@ const lexer = moo.compile({
 	Assignment: "=",
 
 	FunctionType: ["function", "command"],
+	KFIf      : "if",
 	KWState   : "state",
 	KWGoto    : "goto",
 	KWInclude : "include",
@@ -127,7 +130,7 @@ ScopedBlock -> _ %BlockStart Statements _ %BlockEnd {%
 #        Either as a standalone function call, or by assiging something to a variable
 #        The thing that is assigned can be a constant, unary or LR-expression
 
-Statements -> (LineComment | ScopedBlock | LabelDecl | Expression):* {% d => d[0].map(y => y[0]) %}
+Statements -> (LineComment | ScopedBlock | LabelDecl | IfStatement | Expression):* {% d => d[0].map(y => y[0]) %}
 FunctionDefArgs -> FunctonDefArg {% MAP_FIRST %}
 			 | (FunctionDefArgs _ %Seperator _ FunctonDefArg) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
 
@@ -136,6 +139,8 @@ FunctonDefArg -> %DataType _ %VarName {% d => ({type: d[0].value, name: d[2] && 
 Expression ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarAssign | ExprFuncCall | ExprGoto) %StmEnd {% (d) => d[1][0] %}
 
 LabelDecl -> _ %VarName %Colon {% d => ({type: "labelDecl", name: d[1].value, line: d[1].line}) %}
+
+IfStatement -> _ %KFIf _ %ArgsStart ExprCompare _ %ArgsEnd {% d => ({type: "if", compare: d[4], line: d[1].line}) %}
 
 ######## Expressions ########
 LineComment -> _ %LineComment [\n] {% (d) => ({type: "comment", comment: d[1].value, line: d[1].line}) %}
@@ -167,6 +172,14 @@ ExprGoto -> %KWGoto _ %VarName {% d => ({
 	type: "goto",
 	label: d[2].value,
 	line: d[2].line
+})%}
+
+ExprCompare -> _ FuncArg _ (%OperatorCompare | %TypeStart | %TypeEnd) _ FuncArg {% d => ({
+	type: "compare",
+	left: d[1],
+	op: d[3][0].value,
+	right: d[5],
+	line: d[1].line
 })%}
 
 # Assignment to a variable which calcualtes something (left-hande operator right-hand)
