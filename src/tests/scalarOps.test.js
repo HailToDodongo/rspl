@@ -105,4 +105,25 @@ describe('Scalar - Ops', () =>
   ##c = a >> TEST_CONST; Invalid
   jr ra`);
   });
+
+  test('Invalid (multiplication)', () => {
+    const src = `function test() {
+      u32<$t0> a, b;
+      a = a * b;
+    }`;
+
+   expect(() => transpileSource(src, CONF))
+    .toThrowError(/line 3: Scalar-Multiplication not implemented!/);
+  });
+
+  test('Invalid (sub with label)', () => {
+    const src = `state { u32 TEST_CONST; }
+    function test() {
+      u32<$t0> a;
+      a = a - TEST_CONST;
+    }`;
+
+   expect(() => transpileSource(src, CONF))
+    .toThrowError(/line 4: Subtraction cannot use labels!/);
+  });
 });
