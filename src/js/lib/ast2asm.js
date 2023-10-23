@@ -102,24 +102,17 @@ function calcLRToAsm(calc, varRes, varLeft, varRight)
   }
 }
 
-function functionToAsm(func, args)
+function scopedBlockToASM(block, args)
 {
   const res = [];
 
-
-  const declareVar = (name, type, reg) => {
-    // @TODO: check for conflicts
-    state.varMap[name] = {reg, type};
-    state.regVarMap[reg] = name;
-  };
-
   let argIdx = 0;
   for(const arg of args) {
-    declareVar(arg.name, arg.type, "$a"+argIdx);
+    state.declareVar(arg.name, arg.type, "$a"+argIdx);
     ++argIdx;
   }
 
-  for(const st of func.statements) 
+  for(const st of block.statements)
   {
     state.line = st.line || 0;
 
@@ -134,12 +127,14 @@ function functionToAsm(func, args)
       break;
 
       case "varDecl":
-        declareVar(st.varName, st.varType, st.reg);
+        state.declareVar(st.varName, st.varType, st.reg);
         break;
 
       case "varAssignCalc": {
         const calc = st.calc;
-        const varRes = structuredClone(state.varMap[st.varName]);
+        const varRes = structuredClone(
+          state.getRequiredVar(st.varName, "result", st)
+        );
         varRes.swizzle = st.swizzle;
         if(!varRes)state.throwError("Destination Variable "+st.varName+" not known!", st);
 
@@ -164,6 +159,12 @@ function functionToAsm(func, args)
 
       case "goto":
         res.push(["b", st.label], ["nop"]);
+      break;
+
+      case "scopedBlock":
+        state.pushScope();
+        res.push(...scopedBlockToASM(st, args));
+        state.popScope()
       break;
 
       default:
@@ -196,7 +197,7 @@ export function ast2asm(ast)
     if(["function", "command"].includes(block.type)) {
       state.enterFunction(block.name);
 
-      const asm = functionToAsm(block.body, block.args);
+      const asm = scopedBlockToASM(block.body, block.args);
       if(block.type === "command") {
         asm.push(["jr", "ra"]); // @TODO
       } else {

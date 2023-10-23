@@ -107,23 +107,27 @@ StateVarDef -> %DataType _ %VarName IndexDef:? %StmEnd _ {%
 ######### Function-Section #########
 
 # Function that translates into a function/global-label in ASM...
-Function -> %FunctionType (RegDef | RegNumDef):? _ %VarName %ArgsStart _ FunctionDefArgs:* _ %ArgsEnd _ %BlockStart FuncBody _ %BlockEnd {%
+Function -> %FunctionType (RegDef | RegNumDef):? _ %VarName %ArgsStart _ FunctionDefArgs:* _ %ArgsEnd ScopedBlock {%
 	d => ({
 		type: d[0].value,
 		resultType: d[1] && d[1][0],
 		name: d[3].value,
 		args: FORCE_ARRAY(d[6][0]),
-		body: d[11]
+		body: d[9]
 	})
 %}
 
-# A functions body contains zero or more "statements"
+ScopedBlock -> _ %BlockStart Statements _ %BlockEnd {%
+	d => ({type: "scopedBlock", statements: d[2]})
+%}
+
+# A functions body (or any scoped-block) contains zero or more "statements"
 #  -> Statements can be comments, label-declarations and expressions.
 #     -> Expression can be anything that "calculates" somthing.
 #        Either as a standalone function call, or by assiging something to a variable
 #        The thing that is assigned can be a constant, unary or LR-expression
 
-FuncBody -> (LineComment | LabelDecl | Expression):* {% function(d) {return {type: "funcBody", statements: d[0].map(y => y[0])}} %}
+Statements -> (LineComment | ScopedBlock | LabelDecl | Expression):* {% d => d[0].map(y => y[0]) %}
 FunctionDefArgs -> FunctonDefArg {% MAP_FIRST %}
 			 | (FunctionDefArgs _ %Seperator _ FunctonDefArg) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
 

@@ -31,6 +31,16 @@ state
   u32 TEST_CONST;
 }
 
+function test_scope() 
+{
+  u32<$t0> a;
+  {
+     u32<$t1> b;
+     b += 2;
+  } // 'b' is no longer defined now
+  a += 2;
+}
+
 function test_vector_load() 
 {
   vec32<$t0> src;

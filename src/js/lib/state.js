@@ -6,11 +6,10 @@
 const state =
 {
   func: "",
-  line: "",
+  line: 0,
 
-  varMap: {},
-  regVarMap: {},
-  memVarMap: {},
+  scopeStack: [], // function & block scope (variables)
+  memVarMap: {}, // global variables, which are actually constants
 
   throwError: (message, context) => {
     const lineStr = state.line === 0 ? "(???)" : state.line+"";
@@ -20,15 +19,32 @@ const state =
 
   enterFunction: (name) => {
     state.func = name;
-    state.varMap = {};
-    state.regVarMap = {};
-    //state.memMap = {};
+    state.line = 0;
+    state.scopeStack = [];
+    state.pushScope();
+  },
+
+  getScope() {
+    return state.scopeStack[state.scopeStack.length - 1];
+  },
+
+  pushScope() {
+    const currScope = state.getScope();
+    state.scopeStack.push({
+      varMap   : currScope ? {...currScope.varMap} : {},
+      regVarMap: currScope ? {...currScope.regVarMap} : {},
+    });
+  },
+
+  popScope() {
+    state.scopeStack.pop();
   },
 
   declareVar: (name, type, reg) => {
+    const currScope = state.getScope();
     // @TODO: check for conflicts
-    state.varMap[name] = {reg, type};
-    state.regVarMap[reg] = name;
+    currScope.varMap[name] = {reg, type};
+    currScope.regVarMap[reg] = name;
   },
 
   declareMemVar: (name, type) => {
@@ -36,7 +52,8 @@ const state =
   },
 
   getRequiredVar: (name, contextName, context = {}) => {
-    const res = structuredClone(state.varMap[name]);
+    const currScope = state.getScope();
+    const res = structuredClone(currScope.varMap[name]);
     if(!res)state.throwError(contextName + " Variable "+name+" not known!", context);
     return res;
   },
@@ -48,7 +65,8 @@ const state =
   },
 
   getRequiredVarOrMem: (name, contextName, context = {}) => {
-    let res = structuredClone(state.varMap[name]) ||structuredClone(state.memVarMap[name]);
+    const currScope = state.getScope();
+    let res = structuredClone(currScope.varMap[name]) ||structuredClone(state.memVarMap[name]);
     if(!res) {
       state.throwError(contextName + " Variable/Memory "+name+" not known!", context);
     }
