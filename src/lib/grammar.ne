@@ -89,10 +89,10 @@ const lexer = moo.compile({
 # Pass your lexer with @lexer:
 @lexer lexer
 
-main -> (_ SectionIncl):* _ SectionState:? (_ Function):* _ {% d => ({
+main -> (_ SectionIncl):* (_ SectionState):? (_ Function):* _ {% d => ({
 	includes: MAP_TAKE(d[0], 1),
-	state: d[2],
-	functions: MAP_TAKE(d[3], 1),
+	state: (d[1] && d[1][1]) || [],
+	functions: MAP_TAKE(d[2], 1),
 }) %}
 
 ######### Include-Section #########

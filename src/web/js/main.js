@@ -4,7 +4,7 @@
 */
 
 import { Parser, Grammar } from "nearley";
-import grammarDef from '../../lib/grammar';
+import grammarDef from '../../lib/grammar.cjs';
 
 // Syntax Highlighting
 import hljs from 'highlight.js/lib/core';

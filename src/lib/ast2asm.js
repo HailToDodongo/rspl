@@ -119,7 +119,7 @@ function scopedBlockToASM(block, args)
     switch(st.type) 
     {
       case "comment":
-        res.push(["##" + (st.comment.substring(2) || "")]);
+        res.push(["##" + (st.comment.substring(2).trimEnd() || "")]);
       break;
 
       case "asm":

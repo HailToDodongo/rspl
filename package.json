@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "source": "src/index.html",
   "license": "MIT",
+  "type": "module",
   "devDependencies": {
+    "jest": "^29.7.0",
     "parcel": "^2.10.0"
   },
-   "targets": {
+  "targets": {
     "cli": {
       "context": "node",
       "isLibrary": true,
@@ -22,8 +24,9 @@
     "start": "yarn parcel src/web/index.html",
     "build": "parcel build --public-url '/rspl' src/web/index.html",
     "build:cli": "parcel build --target cli src/cli.js",
-    "build:lang": "nearleyc src/lib/grammar.ne -o src/lib/grammar.js",
-    "clean": "rm -rf .parcel-cache && rm -rf dist"
+    "build:lang": "nearleyc src/lib/grammar.ne -o src/lib/grammar.cjs",
+    "clean": "rm -rf .parcel-cache && rm -rf dist",
+    "test": "NODE_OPTIONS=--experimental-vm-modules yarn jest"
   },
   "dependencies": {
     "ace-builds": "^1.30.0",

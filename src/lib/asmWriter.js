@@ -9,8 +9,8 @@ import {normReg} from "./syntax/registers";
 function stringifyInstr(parts) {
   if(!parts || parts.length === 0)return "";
 
-  return parts[0]  + " " +
-    parts.slice(1).map(normReg).join(", ")
+  const args = parts.slice(1).map(normReg);
+  return parts[0] + (args.length ? (" " + args.join(", ")) : "");
 }
 
 function functionToASM(func)
@@ -19,7 +19,7 @@ function functionToASM(func)
     + func.asm.map(parts => "  " + stringifyInstr(parts)).join("\n")
 }
 
-export function writeASM(ast, functionsAsm)
+export function writeASM(ast, functionsAsm, config)
 {
   let text = "";
   let commandList = [];
@@ -34,7 +34,7 @@ export function writeASM(ast, functionsAsm)
     const byteSize = TYPE_SIZE[stateVar.varType] * stateVar.arraySize;
     const align = TYPE_ALIGNMENT[stateVar.varType];
     savedState += `    .align ${align}\n`;
-    savedState += `    ${stateVar.varName}: .ds.b ${byteSize} \n`;
+    savedState += `    ${stateVar.varName}: .ds.b ${byteSize}\n`;
   }
 
   for(const block of functionsAsm)
@@ -56,6 +56,10 @@ export function writeASM(ast, functionsAsm)
         commandList[i] = "    RSPQ_DefineCommand CMD_NOP, 0 ## Warning: Empty Command!";
       }
     }
+  }
+
+  if(!config.rspqWrapper) {
+    return text;
   }
 
   return `## Auto-generated file, transpiled with RSPL

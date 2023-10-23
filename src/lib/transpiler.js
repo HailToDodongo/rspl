@@ -6,9 +6,28 @@
 import { ast2asm } from "./ast2asm";
 import { writeASM } from "./asmWriter";
 import {astNormalizeFunctions} from "./astNormalize";
+import nearly from "nearley";
+import grammarDef from "./grammar.cjs";
 
-export function transpile(ast)
+function normalizeConfig(config)
 {
+  if(config.rspqWrapper === undefined)config.rspqWrapper = true;
+  if(config.optimize    === undefined)config.optimize = true;
+}
+
+export function transpileSource(source, config)
+{
+  const parser = new nearly.Parser(nearly.Grammar.fromCompiled(grammarDef));
+  const astList = parser.feed(source);
+  if(astList.results.length > 1) {
+    throw Error("Warning: ambiguous syntax!");
+  }
+  return transpile(astList.results[0], config);
+}
+
+export function transpile(ast, config = {})
+{
+  normalizeConfig(config);
   //console.log("AST", ast);
 
   ast.functions = astNormalizeFunctions(ast);
@@ -19,5 +38,5 @@ export function transpile(ast)
   
   // @TODO: optimize ASM
   
-  return writeASM(ast, functionsAsm);
+  return writeASM(ast, functionsAsm, config);
 }
