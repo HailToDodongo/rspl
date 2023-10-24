@@ -8,6 +8,7 @@ import opsVector from "./operations/vector";
 import state from "./state";
 import builtins from "./builtins/functions";
 import {TYPE_ALIGNMENT, TYPE_SIZE} from "./types/types";
+import {isVecReg} from "./syntax/registers.js";
 
 const VECTOR_TYPES = ["vec16", "vec32"];
 
@@ -102,6 +103,38 @@ function calcLRToAsm(calc, varRes, varLeft, varRight)
   }
 }
 
+function ifToASM(st, args)
+{
+  if(st.compare.left.type === "num") {
+    return state.throwError("IF-Statements with numeric left-hand-side not implemented!", st);
+  }
+  const varLeft = state.getRequiredVar(st.compare.left.value, "left", st);
+  if(isVecReg(varLeft.reg)) {
+    return state.throwError("IF-Statements must use scalar-registers!", st);
+  }
+
+  const labelElse = state.generateLocalLabel();
+
+  const res = [];
+  res.push(["# IF"]);
+  res.push(...opsScalar.opBranch(st.compare, st.reg, labelElse));
+
+  if(st.blockElse) {
+    res.push(["# ELSE"]);
+    state.pushScope();
+    res.push(...scopedBlockToASM(st.blockElse, args));
+    state.popScope();
+  }
+
+  res.push([labelElse + ":"]);
+
+  state.pushScope();
+  res.push(...scopedBlockToASM(st.blockIf, args));
+  state.popScope();
+
+  return res;
+}
+
 function scopedBlockToASM(block, args)
 {
   const res = [];
@@ -161,10 +194,14 @@ function scopedBlockToASM(block, args)
         res.push(["b", st.label], ["nop"]);
       break;
 
+      case "if":
+        res.push(...ifToASM(st, args));
+      break;
+
       case "scopedBlock":
         state.pushScope();
         res.push(...scopedBlockToASM(st, args));
-        state.popScope()
+        state.popScope();
       break;
 
       default:
@@ -205,7 +242,8 @@ export function ast2asm(ast)
       }
 
       res.push({
-        ...block, asm,
+        ...block,
+        asm: asm.filter(entry => entry.length),
         argSize: getArgSize(block),
         body: undefined
       });

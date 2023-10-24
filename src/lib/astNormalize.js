@@ -16,6 +16,15 @@ function normalizeScopedBlock(block, astState)
         normalizeScopedBlock(st, astState);
         statements.push(st);
       break;
+
+      case "if":
+        normalizeScopedBlock(st.blockIf, astState);
+        if(st.blockElse) {
+          normalizeScopedBlock(st.blockElse, astState);
+        }
+        statements.push(st);
+      break;
+
       // Split up declaration and assignment
       case "varDeclAssign":
         statements.push({...st, type: "varDecl"});

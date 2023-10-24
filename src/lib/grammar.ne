@@ -9,6 +9,13 @@ const MAP_FLATTEN_TREE = (d, idxLeft, idxRight) => [
 		...(Array.isArray(d[idxRight]) ? d[idxRight] : [d[idxRight]])
 	];
 
+const FORCE_SCOPED_BLOCK = d => {
+	if(d && d.type !== "scopedBlock") {
+	   return {type: "scopedBlock", statements: [d]};
+    }
+	return d;
+};
+
 const moo = require("moo")
 const lexer = moo.compile({
 	LineComment: /\/\/.*?$/,
@@ -74,9 +81,13 @@ const lexer = moo.compile({
 	Assignment: "=",
 
 	FunctionType: ["function", "command"],
-	KFIf      : "if",
+	KWIf      : "if",
+	KWElse    : "else",
+	KWBreak   : "break",
+	KWWhile   : "while",
 	KWState   : "state",
 	KWGoto    : "goto",
+	KWContinue: "continue",
 	KWInclude : "include",
 
 	ValueHex: /0x[0-9A-F]+/,
@@ -130,17 +141,31 @@ ScopedBlock -> _ %BlockStart Statements _ %BlockEnd {%
 #        Either as a standalone function call, or by assiging something to a variable
 #        The thing that is assigned can be a constant, unary or LR-expression
 
-Statements -> (LineComment | ScopedBlock | LabelDecl | IfStatement | Expression):* {% d => d[0].map(y => y[0]) %}
+Statements -> (LineComment | ScopedBlock | LabelDecl | IfStatement | WhileStatement | Expression):* {% d => d[0].map(y => y[0]) %}
 FunctionDefArgs -> FunctonDefArg {% MAP_FIRST %}
 			 | (FunctionDefArgs _ %Seperator _ FunctonDefArg) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
 
 FunctonDefArg -> %DataType _ %VarName {% d => ({type: d[0].value, name: d[2] && d[2].value}) %}
 
-Expression ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarAssign | ExprFuncCall | ExprGoto) %StmEnd {% (d) => d[1][0] %}
+Expression ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarAssign | ExprFuncCall | ExprGoto | ExprContinue | ExprBreak) %StmEnd {% (d) => d[1][0] %}
 
 LabelDecl -> _ %VarName %Colon {% d => ({type: "labelDecl", name: d[1].value, line: d[1].line}) %}
 
-IfStatement -> _ %KFIf _ %ArgsStart ExprCompare _ %ArgsEnd {% d => ({type: "if", compare: d[4], line: d[1].line}) %}
+IfStatement -> _ %KWIf RegDef _ %ArgsStart ExprCompare _ %ArgsEnd (ScopedBlock | Expression) (_ %KWElse (ScopedBlock | Expression | IfStatement)):? {% d => ({
+	type: "if",
+	reg: d[2],
+	compare: d[5],
+	blockIf: FORCE_SCOPED_BLOCK(d[8][0]),
+	blockElse: FORCE_SCOPED_BLOCK(d[9] && d[9][2][0]),
+	line: d[1].line
+})%}
+
+WhileStatement -> _ %KWWhile _ %ArgsStart ExprCompare _ %ArgsEnd ScopedBlock {% d => ({
+	type: "while",
+	compare: d[4],
+	block: d[7],
+	line: d[1].line
+})%}
 
 ######## Expressions ########
 LineComment -> _ %LineComment [\n] {% (d) => ({type: "comment", comment: d[1].value, line: d[1].line}) %}
@@ -173,6 +198,9 @@ ExprGoto -> %KWGoto _ %VarName {% d => ({
 	label: d[2].value,
 	line: d[2].line
 })%}
+
+ExprContinue -> %KWContinue {% d => ({type: "continue", line: d[0].line})%}
+ExprBreak    -> %KWBreak    {% d => ({type: "break",    line: d[0].line})%}
 
 ExprCompare -> _ FuncArg _ (%OperatorCompare | %TypeStart | %TypeEnd) _ FuncArg {% d => ({
 	type: "compare",

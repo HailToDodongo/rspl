@@ -13,6 +13,13 @@ const MAP_FLATTEN_TREE = (d, idxLeft, idxRight) => [
 		...(Array.isArray(d[idxRight]) ? d[idxRight] : [d[idxRight]])
 	];
 
+const FORCE_SCOPED_BLOCK = d => {
+	if(d && d.type !== "scopedBlock") {
+	   return {type: "scopedBlock", statements: [d]};
+    }
+	return d;
+};
+
 const moo = require("moo")
 const lexer = moo.compile({
 	LineComment: /\/\/.*?$/,
@@ -78,9 +85,13 @@ const lexer = moo.compile({
 	Assignment: "=",
 
 	FunctionType: ["function", "command"],
-	KFIf      : "if",
+	KWIf      : "if",
+	KWElse    : "else",
+	KWBreak   : "break",
+	KWWhile   : "while",
 	KWState   : "state",
 	KWGoto    : "goto",
+	KWContinue: "continue",
 	KWInclude : "include",
 
 	ValueHex: /0x[0-9A-F]+/,
@@ -140,6 +151,7 @@ var grammar = {
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["ScopedBlock"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["LabelDecl"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["IfStatement"]},
+    {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["WhileStatement"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["Expression"]},
     {"name": "Statements$ebnf$1", "symbols": ["Statements$ebnf$1", "Statements$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "Statements", "symbols": ["Statements$ebnf$1"], "postprocess": d => d[0].map(y => y[0])},
@@ -152,9 +164,32 @@ var grammar = {
     {"name": "Expression$subexpression$1", "symbols": ["ExprVarAssign"]},
     {"name": "Expression$subexpression$1", "symbols": ["ExprFuncCall"]},
     {"name": "Expression$subexpression$1", "symbols": ["ExprGoto"]},
+    {"name": "Expression$subexpression$1", "symbols": ["ExprContinue"]},
+    {"name": "Expression$subexpression$1", "symbols": ["ExprBreak"]},
     {"name": "Expression", "symbols": ["_", "Expression$subexpression$1", (lexer.has("StmEnd") ? {type: "StmEnd"} : StmEnd)], "postprocess": (d) => d[1][0]},
     {"name": "LabelDecl", "symbols": ["_", (lexer.has("VarName") ? {type: "VarName"} : VarName), (lexer.has("Colon") ? {type: "Colon"} : Colon)], "postprocess": d => ({type: "labelDecl", name: d[1].value, line: d[1].line})},
-    {"name": "IfStatement", "symbols": ["_", (lexer.has("KFIf") ? {type: "KFIf"} : KFIf), "_", (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "ExprCompare", "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd)], "postprocess": d => ({type: "if", compare: d[4], line: d[1].line})},
+    {"name": "IfStatement$subexpression$1", "symbols": ["ScopedBlock"]},
+    {"name": "IfStatement$subexpression$1", "symbols": ["Expression"]},
+    {"name": "IfStatement$ebnf$1$subexpression$1$subexpression$1", "symbols": ["ScopedBlock"]},
+    {"name": "IfStatement$ebnf$1$subexpression$1$subexpression$1", "symbols": ["Expression"]},
+    {"name": "IfStatement$ebnf$1$subexpression$1$subexpression$1", "symbols": ["IfStatement"]},
+    {"name": "IfStatement$ebnf$1$subexpression$1", "symbols": ["_", (lexer.has("KWElse") ? {type: "KWElse"} : KWElse), "IfStatement$ebnf$1$subexpression$1$subexpression$1"]},
+    {"name": "IfStatement$ebnf$1", "symbols": ["IfStatement$ebnf$1$subexpression$1"], "postprocess": id},
+    {"name": "IfStatement$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "IfStatement", "symbols": ["_", (lexer.has("KWIf") ? {type: "KWIf"} : KWIf), "RegDef", "_", (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "ExprCompare", "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd), "IfStatement$subexpression$1", "IfStatement$ebnf$1"], "postprocess":  d => ({
+        	type: "if",
+        	reg: d[2],
+        	compare: d[5],
+        	blockIf: FORCE_SCOPED_BLOCK(d[8][0]),
+        	blockElse: FORCE_SCOPED_BLOCK(d[9] && d[9][2][0]),
+        	line: d[1].line
+        })},
+    {"name": "WhileStatement", "symbols": ["_", (lexer.has("KWWhile") ? {type: "KWWhile"} : KWWhile), "_", (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "ExprCompare", "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd), "ScopedBlock"], "postprocess":  d => ({
+        	type: "while",
+        	compare: d[4],
+        	block: d[7],
+        	line: d[1].line
+        })},
     {"name": "LineComment", "symbols": ["_", (lexer.has("LineComment") ? {type: "LineComment"} : LineComment), /[\n]/], "postprocess": (d) => ({type: "comment", comment: d[1].value, line: d[1].line})},
     {"name": "ExprVarDeclAssign$subexpression$1", "symbols": [(lexer.has("DataType") ? {type: "DataType"} : DataType), "RegDef", "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "_", "ExprPartAssign"]},
     {"name": "ExprVarDeclAssign", "symbols": ["ExprVarDeclAssign$subexpression$1"], "postprocess":  d => ({
@@ -184,6 +219,8 @@ var grammar = {
         	label: d[2].value,
         	line: d[2].line
         })},
+    {"name": "ExprContinue", "symbols": [(lexer.has("KWContinue") ? {type: "KWContinue"} : KWContinue)], "postprocess": d => ({type: "continue", line: d[0].line})},
+    {"name": "ExprBreak", "symbols": [(lexer.has("KWBreak") ? {type: "KWBreak"} : KWBreak)], "postprocess": d => ({type: "break",    line: d[0].line})},
     {"name": "ExprCompare$subexpression$1", "symbols": [(lexer.has("OperatorCompare") ? {type: "OperatorCompare"} : OperatorCompare)]},
     {"name": "ExprCompare$subexpression$1", "symbols": [(lexer.has("TypeStart") ? {type: "TypeStart"} : TypeStart)]},
     {"name": "ExprCompare$subexpression$1", "symbols": [(lexer.has("TypeEnd") ? {type: "TypeEnd"} : TypeEnd)]},

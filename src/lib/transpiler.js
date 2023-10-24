@@ -8,6 +8,7 @@ import { writeASM } from "./asmWriter";
 import {astNormalizeFunctions} from "./astNormalize";
 import nearly from "nearley";
 import grammarDef from "./grammar.cjs";
+import state from "./state.js";
 
 function normalizeConfig(config)
 {
@@ -27,6 +28,7 @@ export function transpileSource(source, config)
 
 export function transpile(ast, config = {})
 {
+  state.reset();
   normalizeConfig(config);
   //console.log("AST", ast);
 

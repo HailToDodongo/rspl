@@ -5,11 +5,20 @@
 
 const state =
 {
+  nextLabelId: 0,
   func: "",
   line: 0,
 
   scopeStack: [], // function & block scope (variables)
   memVarMap: {}, // global variables, which are actually constants
+
+  reset() {
+    state.nextLabelId = 0;
+    state.func = "";
+    state.line = 0;
+    state.scopeStack = [];
+    state.memVarMap = {};
+  },
 
   throwError: (message, context) => {
     const lineStr = state.line === 0 ? "(???)" : state.line+"";
@@ -38,6 +47,10 @@ const state =
 
   popScope() {
     state.scopeStack.pop();
+  },
+
+  generateLocalLabel: () => {
+    return ++state.nextLabelId;
   },
 
   declareVar: (name, type, reg) => {

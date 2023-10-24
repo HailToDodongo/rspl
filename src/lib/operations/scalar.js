@@ -27,6 +27,56 @@ function opLoad(varRes, varLoc, varOffset)
   return [["lw", varRes.reg, `%lo(${varLoc.name} + ${offsetStr})`]];
 }
 
+
+function opBranch(compare, regTest, labelTrue)
+{
+  if(compare.right.type === "var") {
+    regTest = state.getRequiredVar(compare.right.value, "compare").reg;
+  }
+
+  const isConst = compare.right.type === "num";
+  const regBase = state.getRequiredVar(compare.left.value, "left").reg;
+  const regOrValTest = isConst ? compare.right.value : regTest;
+
+  // @TODO: handle optimized compares against zero
+  // (BLTZ, BGEZ, BLTZAL, BGEZAL, BEQ, BNE, BLEZ, BGTZ)
+
+  const lessThanIn = "slt" +
+    (isConst ? "i" : "") +
+    (isSigned(compare.left.type) ? "" : "u");
+
+  switch (compare.op)
+  {
+    case "==": return [
+      isConst ? ["lui", regTest, regOrValTest] : [],
+      ["beq", regBase, regTest, labelTrue+"f"], ["nop"],
+    ];
+    case "!=": return [
+      isConst ? ["lui", regTest, regOrValTest] : [],
+      ["bne", regBase, regTest, labelTrue+"f"], ["nop"],
+    ];
+    case "<": return [
+      [lessThanIn, regTest, regBase, regOrValTest],
+      ["bne", regTest, "$zero", labelTrue+"f"], ["nop"],
+    ];
+    case ">": return [
+      [lessThanIn, regTest, regOrValTest, regBase],
+      ["bne", regTest, "$zero", labelTrue+"f"], ["nop"],
+    ];
+    case "<=": return [
+      [lessThanIn, regTest, regOrValTest, regBase],
+      ["beq", regTest, "$zero", labelTrue+"f"], ["nop"],
+    ];
+    case ">=": return [
+      [lessThanIn, regTest, regOrValTest, regBase],
+      ["beq", regTest, "$zero", labelTrue+"f"], ["nop"],
+    ];
+
+    default:
+      return state.throwError("Unknown comparison operator: " + compare.op, compare);
+  }
+}
+
 function opAdd(varRes, varLeft, varRight)
 {
   let instr = varRight.reg ? "add" : "addi";
@@ -103,4 +153,4 @@ function opBitFlip(varRes, varRight)
   return [["not", varRes.reg, varRight.reg]];
 }
 
-export default {opMove, opLoad, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opXOR, opBitFlip};
+export default {opMove, opLoad, opBranch, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opXOR, opBitFlip};
