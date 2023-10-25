@@ -114,23 +114,25 @@ function ifToASM(st, args)
   }
 
   const labelElse = state.generateLocalLabel();
-
+  const labelEnd = st.blockElse ? state.generateLocalLabel() : labelElse;
   const res = [];
-  res.push(["# IF"]);
+
+  // Branch condition
   res.push(...opsScalar.opBranch(st.compare, st.reg, labelElse));
 
-  if(st.blockElse) {
-    res.push(["# ELSE"]);
-    state.pushScope();
-    res.push(...scopedBlockToASM(st.blockElse, args));
-    state.popScope();
-  }
-
-  res.push([labelElse + ":"]);
-
+  // IF-Block
   state.pushScope();
   res.push(...scopedBlockToASM(st.blockIf, args));
+  if(st.blockElse)res.push(["b", labelEnd+"f"], ["nop"]);
   state.popScope();
+
+  // ELSE-Block
+  if(st.blockElse) {
+    state.pushScope();
+    res.push([labelElse + ":"], ...scopedBlockToASM(st.blockElse, args));
+    state.popScope();
+  }
+  res.push([labelEnd + ":"]);
 
   return res;
 }

@@ -28,7 +28,7 @@ function opLoad(varRes, varLoc, varOffset)
 }
 
 
-function opBranch(compare, regTest, labelTrue)
+function opBranch(compare, regTest, labelElse)
 {
   if(compare.right.type === "var") {
     regTest = state.getRequiredVar(compare.right.value, "compare").reg;
@@ -45,31 +45,33 @@ function opBranch(compare, regTest, labelTrue)
     (isConst ? "i" : "") +
     (isSigned(compare.left.type) ? "" : "u");
 
+  // Note: the "true" case is expected to follow the branch.
+  // So we only jump if it's false, therefore the "beq"/"bne" are inverted.
   switch (compare.op)
   {
     case "==": return [
       isConst ? ["lui", regTest, regOrValTest] : [],
-      ["beq", regBase, regTest, labelTrue+"f"], ["nop"],
+      ["bne", regBase, regTest, labelElse+"f"], ["nop"],
     ];
     case "!=": return [
       isConst ? ["lui", regTest, regOrValTest] : [],
-      ["bne", regBase, regTest, labelTrue+"f"], ["nop"],
+      ["beq", regBase, regTest, labelElse+"f"], ["nop"],
     ];
     case "<": return [
       [lessThanIn, regTest, regBase, regOrValTest],
-      ["bne", regTest, "$zero", labelTrue+"f"], ["nop"],
+      ["beq", regTest, "$zero", labelElse+"f"], ["nop"],
     ];
     case ">": return [
       [lessThanIn, regTest, regOrValTest, regBase],
-      ["bne", regTest, "$zero", labelTrue+"f"], ["nop"],
+      ["beq", regTest, "$zero", labelElse+"f"], ["nop"],
     ];
     case "<=": return [
       [lessThanIn, regTest, regOrValTest, regBase],
-      ["beq", regTest, "$zero", labelTrue+"f"], ["nop"],
+      ["bne", regTest, "$zero", labelElse+"f"], ["nop"],
     ];
     case ">=": return [
       [lessThanIn, regTest, regOrValTest, regBase],
-      ["beq", regTest, "$zero", labelTrue+"f"], ["nop"],
+      ["bne", regTest, "$zero", labelElse+"f"], ["nop"],
     ];
 
     default:
