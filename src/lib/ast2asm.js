@@ -238,9 +238,9 @@ export function ast2asm(ast)
 
       const blockAsm = scopedBlockToASM(block.body, block.args);
       if(block.type === "command") {
-        blockAsm.push(asm("jr", ["ra"])); // @TODO
+        blockAsm.push(asm("jr", ["ra"]), asmNOP()); // @TODO
       } else {
-        blockAsm.push(asm("jr", ["ra"]));
+        blockAsm.push(asm("jr", ["ra"]), asmNOP());
       }
 
       res.push({

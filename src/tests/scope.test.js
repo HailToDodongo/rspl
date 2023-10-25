@@ -20,7 +20,8 @@ describe('Scope', () =>
   addiu t1, t1, 2
   ## 'b' is no longer defined now
   addiu t0, t0, 2
-  jr ra`);
+  jr ra
+  nop`);
   });
 
   test('Var Decl. invalid', () =>

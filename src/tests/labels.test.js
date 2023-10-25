@@ -17,7 +17,8 @@ describe('Labels', () =>
   label_a:
   label_b:
   label_c:
-  jr ra`);
+  jr ra
+  nop`);
   });
 
   test('Labels with instr.', () => {
@@ -43,6 +44,7 @@ describe('Labels', () =>
   addiu t0, t0, 2
   b label_a
   nop
-  jr ra`);
+  jr ra
+  nop`);
   });
 });

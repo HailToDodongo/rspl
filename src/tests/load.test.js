@@ -27,7 +27,8 @@ describe('Load', () =>
   lw t1, %lo(TEST_CONST + 0)
   lw t1, %lo(TEST_CONST + 16)
   ## dst = load(TEST_CONST, TEST_CONST); Invalid
-  jr ra`);
+  jr ra
+  nop`);
   });
 
     test('Vector - 32-Bit', () => {
@@ -89,6 +90,7 @@ describe('Load', () =>
   ##dst = load(src, TEST_CONST).xyzwxyzw; Invalid
   ##dst = load(TEST_CONST).xyzwxyzw; Invalid
   ##dst = load(TEST_CONST, 0x10).xyzwxyzw; Invalid
-  jr ra`);
+  jr ra
+  nop`);
   });
 });

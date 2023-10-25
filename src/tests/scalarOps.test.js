@@ -41,7 +41,8 @@ describe('Scalar - Ops', () =>
   addi t5, t3, -1
   ##c = a - TEST_CONST; sc = sa - TEST_CONST; Invalid
   ## Mul/Div not possible
-  jr ra`);
+  jr ra
+  nop`);
   });
   
   test('32-Bit - Logic', () => {
@@ -105,7 +106,8 @@ describe('Scalar - Ops', () =>
   srlv t2, t0, t1
   srl t2, t0, 2
   ##c = a >> TEST_CONST; Invalid
-  jr ra`);
+  jr ra
+  nop`);
   });
 
   test('Invalid (multiplication)', () => {

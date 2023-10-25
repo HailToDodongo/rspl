@@ -13,7 +13,7 @@ export function asm(op, args) {
   return {type: ASM_TYPE.OP, op, args};
 }
 
-export function asmNOP(op, args) {
+export function asmNOP() {
   return {type: ASM_TYPE.OP, op: "nop", args: []};
 }
 export function asmLabel(label) {

@@ -17,7 +17,8 @@ describe('Syntax - Numbers', () =>
   li t0, 0x04D2
   li t0, 0x1234
   li t0, 0x000A
-  jr ra`);
+  jr ra
+  nop`);
   });
 
   test('Scalar - Calc', () => {
@@ -34,7 +35,8 @@ describe('Syntax - Numbers', () =>
   addiu t0, t0, 1234
   addiu t0, t0, 4660
   addiu t0, t0, 10
-  jr ra`);
+  jr ra
+  nop`);
   });
 
   test('Scalar - Invalid (float)', () => {

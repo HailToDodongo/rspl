@@ -51,28 +51,28 @@ function opBranch(compare, regTest, labelElse)
   switch (compare.op)
   {
     case "==": return [
-      isConst ? asm("lui", [regTest, regOrValTest]) : null,
-      asm("bne", [regBase, regTest, labelElse+"f"]), asmNOP(),
+      asm("bne", [regBase, regTest, labelElse+"f"]),
+      isConst ? asm("lui", [regTest, regOrValTest]) : asmNOP(),
     ];
     case "!=": return [
-      isConst ? asm("lui", [regTest, regOrValTest]) : null,
-      asm("beq", [regBase, regTest, labelElse+"f"]), asmNOP()
+      asm("beq", [regBase, regTest, labelElse+"f"]),
+      isConst ? asm("lui", [regTest, regOrValTest]) : asmNOP(),
     ];
     case "<": return [
+      asm("beq", [regTest, "$zero", labelElse+"f"]),
       asm(lessThanIn, [regTest, regBase, regOrValTest]),
-      asm("beq", [regTest, "$zero", labelElse+"f"]), asmNOP(),
     ];
     case ">": return [
+      asm("beq", [regTest, "$zero", labelElse+"f"]),
       asm(lessThanIn, [regTest, regOrValTest, regBase]),
-      asm("beq", [regTest, "$zero", labelElse+"f"]), asmNOP(),
     ];
     case "<=": return [
+      asm("bne", [regTest, "$zero", labelElse+"f"]),
       asm(lessThanIn, [regTest, regOrValTest, regBase]),
-      asm("bne", [regTest, "$zero", labelElse+"f"]), asmNOP(),
     ];
     case ">=": return [
+      asm("bne", [regTest, "$zero", labelElse+"f"]),
       asm(lessThanIn, [regTest, regOrValTest, regBase]),
-      asm("bne", [regTest, "$zero", labelElse+"f"]), asmNOP(),
     ];
 
     default:
