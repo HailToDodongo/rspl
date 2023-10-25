@@ -5,13 +5,14 @@ const CONF = {rspqWrapper: false};
 describe('Labels', () =>
 {
   test('Basic Labels', () => {
-    const asm = transpileSource(`
+    const {asm, warn} = transpileSource(`
       function test_label()
       {
         label_a:
         label_b: label_c:
-      }`, CONF).trim();
+      }`, CONF);
 
+    expect(warn).toBe("");
     expect(asm).toBe(`test_label:
   label_a:
   label_b:
@@ -20,7 +21,7 @@ describe('Labels', () =>
   });
 
   test('Labels with instr.', () => {
-    const asm = transpileSource(`
+    const {asm, warn} = transpileSource(`
       function test_label()
       {
         u32<$t0> a;
@@ -30,8 +31,9 @@ describe('Labels', () =>
         label_b:
           a += 2; 
           goto label_a;
-      }`, CONF).trim();
+      }`, CONF);
 
+    expect(warn).toBe("");
     expect(asm).toBe(`test_label:
   label_a:
   addiu t0, t0, 1

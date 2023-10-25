@@ -5,13 +5,13 @@ const CONF = {rspqWrapper: false};
 describe('Syntax - Numbers', () =>
 {
   test('Scalar - Assignment', () => {
-    const asm = transpileSource(`function test() 
+    const {asm, warn} = transpileSource(`function test() 
 {
   u32<$t0> a;
   a = 1234;
   a = 0x1234;
   a = 0b1010;
-}`, CONF).trim();
+}`, CONF);
 
     expect(asm).toBe(`test:
   li t0, 0x04D2
@@ -21,14 +21,15 @@ describe('Syntax - Numbers', () =>
   });
 
   test('Scalar - Calc', () => {
-    const asm = transpileSource(`function test() 
+    const {asm, warn} = transpileSource(`function test() 
 {
   u32<$t0> a;
   a = a + 1234;
   a = a + 0x1234;
   a = a + 0b1010;
-}`, CONF).trim();
+}`, CONF);
 
+    expect(warn).toBe("");
     expect(asm).toBe(`test:
   addiu t0, t0, 1234
   addiu t0, t0, 4660

@@ -7,6 +7,7 @@ import {isVecReg, nextVecReg, normReg} from "../syntax/registers";
 import state from "../state";
 import {isScalarSwizzle, SWIZZLE_MAP, SWIZZLE_SCALAR_IDX} from "../syntax/swizzle";
 import {toHex} from "../types/types";
+import {asm} from "../intsructions/asmWriter.js";
 
 function opMove(varRes, varRight)
 {
@@ -23,7 +24,7 @@ function opMove(varRes, varRight)
   const swizzleRes   = SWIZZLE_MAP[varRes.swizzle || ""];
   const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
 
-  return [["vmov", varRes.reg + swizzleRes, varRight.reg + swizzleRight]];
+  return [asm("vmov", [varRes.reg + swizzleRes, varRight.reg + swizzleRight])];
 }
 
 function opLoad(varRes, varLoc, varOffset, swizzle)
@@ -44,12 +45,12 @@ function opLoad(varRes, varLoc, varOffset, swizzle)
   const loadInstr = swizzle ? "ldv" : "lqv";
 
   const res = [];
-  res.push(          [loadInstr, varRes.reg, toHex(destOffset), varOffset.value, varLoc.reg]);
-  if(swizzle)res.push([loadInstr, varRes.reg, toHex(destOffset+8), varOffset.value, varLoc.reg]);
+  res.push(           asm(loadInstr, [varRes.reg, toHex(destOffset), varOffset.value, varLoc.reg]));
+  if(swizzle)res.push(asm(loadInstr, [varRes.reg, toHex(destOffset+8), varOffset.value, varLoc.reg]));
 
   if(varRes.type === "vec32") {
-    res.push(          [loadInstr, nextVecReg(varRes.reg), toHex(destOffset), varOffset.value + " + 0x10", varLoc.reg]);
-    if(swizzle)res.push([loadInstr, nextVecReg(varRes.reg), toHex(destOffset+8), varOffset.value + " + 0x10", varLoc.reg]);
+    res.push(           asm(loadInstr, [nextVecReg(varRes.reg), toHex(destOffset), varOffset.value + " + 0x10", varLoc.reg]));
+    if(swizzle)res.push(asm(loadInstr, [nextVecReg(varRes.reg), toHex(destOffset+8), varOffset.value + " + 0x10", varLoc.reg]));
   }
   return res;
 }
@@ -74,11 +75,10 @@ function opMul(varRes, varLeft, varRight, clearAccum)
   const firstIn = clearAccum ? "vmudl" : "vmadl";
 
   return [
-    [firstIn,  nextVecReg(varRes.reg), nextVecReg(varLeft.reg), nextVecReg(varRight.reg) + swizzleRight],
-    ["vmadm",  nextVecReg(varRes.reg),            varLeft.reg,  nextVecReg(varRight.reg) + swizzleRight],
-    ["vmadn",  nextVecReg(varRes.reg), nextVecReg(varLeft.reg), varRight.reg             + swizzleRight],
-    ["vmadh",             varRes.reg,             varLeft.reg,  varRight.reg             + swizzleRight],
-    [],
+    asm(firstIn,  [nextVecReg(varRes.reg), nextVecReg(varLeft.reg), nextVecReg(varRight.reg) + swizzleRight]),
+    asm("vmadm",  [nextVecReg(varRes.reg),            varLeft.reg,  nextVecReg(varRight.reg) + swizzleRight]),
+    asm("vmadn",  [nextVecReg(varRes.reg), nextVecReg(varLeft.reg), varRight.reg             + swizzleRight]),
+    asm("vmadh",  [           varRes.reg,             varLeft.reg,  varRight.reg             + swizzleRight]),
   ];
 }
 

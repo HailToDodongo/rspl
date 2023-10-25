@@ -7,8 +7,8 @@ import opsScalar from "./operations/scalar";
 import opsVector from "./operations/vector";
 import state from "./state";
 import builtins from "./builtins/functions";
-import {TYPE_ALIGNMENT, TYPE_SIZE} from "./types/types";
 import {isVecReg} from "./syntax/registers.js";
+import {asm, asmComment, asmLabel, asmNOP} from "./intsructions/asmWriter.js";
 
 const VECTOR_TYPES = ["vec16", "vec32"];
 
@@ -123,16 +123,16 @@ function ifToASM(st, args)
   // IF-Block
   state.pushScope();
   res.push(...scopedBlockToASM(st.blockIf, args));
-  if(st.blockElse)res.push(["b", labelEnd+"f"], ["nop"]);
+  if(st.blockElse)res.push(asm("b", [labelEnd+"f"]), asmNOP());
   state.popScope();
 
   // ELSE-Block
   if(st.blockElse) {
     state.pushScope();
-    res.push([labelElse + ":"], ...scopedBlockToASM(st.blockElse, args));
+    res.push(asmLabel(labelElse), ...scopedBlockToASM(st.blockElse, args));
     state.popScope();
   }
-  res.push([labelEnd + ":"]);
+  res.push(asmLabel(labelEnd));
 
   return res;
 }
@@ -154,7 +154,7 @@ function scopedBlockToASM(block, args)
     switch(st.type) 
     {
       case "comment":
-        res.push(["##" + (st.comment.substring(2).trimEnd() || "")]);
+        res.push(asmComment(st.comment.substring(2).trimEnd() || ""));
       break;
 
       case "asm":
@@ -189,11 +189,11 @@ function scopedBlockToASM(block, args)
       } break;
 
       case "labelDecl":
-        res.push([st.name + ":"]);
+        res.push(asmLabel(st.name));
       break;
 
       case "goto":
-        res.push(["b", st.label], ["nop"]);
+        res.push(asm("b", [st.label]), asmNOP());
       break;
 
       case "if":
@@ -236,16 +236,16 @@ export function ast2asm(ast)
     if(["function", "command"].includes(block.type)) {
       state.enterFunction(block.name);
 
-      const asm = scopedBlockToASM(block.body, block.args);
+      const blockAsm = scopedBlockToASM(block.body, block.args);
       if(block.type === "command") {
-        asm.push(["jr", "ra"]); // @TODO
+        blockAsm.push(asm("jr", ["ra"])); // @TODO
       } else {
-        asm.push(["jr", "ra"]);
+        blockAsm.push(asm("jr", ["ra"]));
       }
 
       res.push({
         ...block,
-        asm: asm.filter(entry => entry.length),
+        asm: blockAsm.filter(Boolean),
         argSize: getArgSize(block),
         body: undefined
       });

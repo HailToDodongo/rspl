@@ -4,10 +4,9 @@
 */
 import {nextVecReg, REGS_VECTOR} from "../syntax/registers";
 import state from "../state";
-import {toHex} from "../types/types";
-import {SWIZZLE_SCALAR_IDX} from "../syntax/swizzle";
 import opsScalar from "../operations/scalar";
 import opsVector from "../operations/vector";
+import {asm} from "../intsructions/asmWriter.js";
 
 function load(varRes, args, swizzle)
 {
@@ -40,8 +39,8 @@ function store(varRes, args, swizzle)
 
   const is32 = (varSrc.type === "vec32");
 
-  return [["sqv",            varSrc.reg,  "0x0", "0x00", varRes.reg],
-   is32 ? ["sqv", nextVecReg(varSrc.reg), "0x0", "0x10", varRes.reg] : []
+  return [asm("sqv", [           varSrc.reg,  "0x0", "0x00", varRes.reg]),
+   is32 ? asm("sqv", [nextVecReg(varSrc.reg), "0x0", "0x10", varRes.reg]) : null
   ];
 }
 

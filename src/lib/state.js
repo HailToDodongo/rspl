@@ -8,6 +8,7 @@ const state =
   nextLabelId: 0,
   func: "",
   line: 0,
+  outWarn: "",
 
   scopeStack: [], // function & block scope (variables)
   memVarMap: {}, // global variables, which are actually constants
@@ -18,12 +19,19 @@ const state =
     state.line = 0;
     state.scopeStack = [];
     state.memVarMap = {};
+    state.outWarn = "";
   },
 
   throwError: (message, context) => {
     const lineStr = state.line === 0 ? "(???)" : state.line+"";
     const funcStr = state.func === "" ? "(???)" : state.func+"";
     throw new Error(`Error in ${funcStr}, line ${lineStr}: ${message}\n  -> AST: ${JSON.stringify(context)}`);
+  },
+
+  logWarning: (message, context) => {
+    const lineStr = state.line === 0 ? "(???)" : state.line+"";
+    const funcStr = state.func === "" ? "(???)" : state.func+"";
+    state.outWarn += `Warning in ${funcStr}, line ${lineStr}: ${message}\n  -> AST: ${JSON.stringify(context)}\n`;
   },
 
   enterFunction: (name) => {

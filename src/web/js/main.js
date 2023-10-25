@@ -213,9 +213,9 @@ function update()
     }
 
     console.time("transpile");
-    const asm = transpile(res.results[0]);
+    const {asm, warn} = transpile(res.results[0]);
     console.timeEnd("transpile");
-    outputError.innerHTML += "Transpiled successfully!\n";
+    outputError.innerHTML += warn + "\nTranspiled successfully!\n";
     writeASM(asm);
   } catch(e) {
     outputError.innerHTML = e.message;

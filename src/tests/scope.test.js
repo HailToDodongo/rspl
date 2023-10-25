@@ -5,7 +5,7 @@ const CONF = {rspqWrapper: false};
 describe('Scope', () =>
 {
   test('Var Declaration', () => {
-    const asm = transpileSource(`function test_scope() 
+    const {asm, warn} = transpileSource(`function test_scope() 
 {
   u32<$t0> a;
   {
@@ -13,8 +13,9 @@ describe('Scope', () =>
      b += 2;
   } // 'b' is no longer defined now
   a += 2;
-}`, CONF).trim();
+}`, CONF);
 
+    expect(warn).toBe("");
     expect(asm).toBe(`test_scope:
   addiu t1, t1, 2
   ## 'b' is no longer defined now

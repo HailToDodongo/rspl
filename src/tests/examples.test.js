@@ -5,7 +5,7 @@ const CONF = {rspqWrapper: true};
 describe('Examples', () =>
 {
   test('Matrix x Vector', () => {
-    const asm = transpileSource(`include "rsp_queue.inc"
+    const {asm, warn} = transpileSource(`include "rsp_queue.inc"
 state { 
   vec32 VEC_SLOTS[20];
 }
@@ -36,8 +36,9 @@ command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
   res = mat3 +* vecIn.wwwwWWWW;
 
   trans_out = store(res);
-}`, CONF).trim();
+}`, CONF);
 
+    expect(warn).toBe("");
     expect(asm).toBe(`## Auto-generated file, transpiled with RSPL
 #include <rsp_queue.inc>
 
@@ -86,22 +87,18 @@ VecCmd_Transform:
   vmadm $v14, $v01, $v10.h0
   vmadn $v14, $v02, $v09.h0
   vmadh $v13, $v01, $v09.h0
-  
   vmadl $v14, $v04, $v10.h1
   vmadm $v14, $v03, $v10.h1
   vmadn $v14, $v04, $v09.h1
   vmadh $v13, $v03, $v09.h1
-  
   vmadl $v14, $v06, $v10.h2
   vmadm $v14, $v05, $v10.h2
   vmadn $v14, $v06, $v09.h2
   vmadh $v13, $v05, $v09.h2
-  
   vmadl $v14, $v08, $v10.h3
   vmadm $v14, $v07, $v10.h3
   vmadn $v14, $v08, $v09.h3
   vmadh $v13, $v07, $v09.h3
-  
   sqv $v13, 0x0, 0x00, t2
   sqv $v14, 0x0, 0x10, t2
   jr ra`);

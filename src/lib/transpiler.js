@@ -40,5 +40,8 @@ export function transpile(ast, config = {})
   
   // @TODO: optimize ASM
   
-  return writeASM(ast, functionsAsm, config);
+  return {
+    asm: writeASM(ast, functionsAsm, config),
+    warn: state.outWarn,
+  };
 }

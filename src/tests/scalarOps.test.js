@@ -5,7 +5,7 @@ const CONF = {rspqWrapper: false};
 describe('Scalar - Ops', () =>
 {
   test('32-Bit Arithmetic', () => {
-    const asm = transpileSource(`state { u32 TEST_CONST; }
+    const {asm, warn} = transpileSource(`state { u32 TEST_CONST; }
       function test_scalar_ops()
       {
         u32<$t0> a, b, c;
@@ -22,8 +22,9 @@ describe('Scalar - Ops', () =>
         //c = a - TEST_CONST; sc = sa - TEST_CONST; Invalid
         
         // Mul/Div not possible
-    }`, CONF).trim();
+    }`, CONF);
 
+    expect(warn).toBe("");
     expect(asm).toBe(
 `test_scalar_ops:
   ## Add
@@ -44,7 +45,7 @@ describe('Scalar - Ops', () =>
   });
   
   test('32-Bit - Logic', () => {
-    const asm = transpileSource(`state { u32 TEST_CONST; }
+    const {asm, warn} = transpileSource(`state { u32 TEST_CONST; }
       function test_scalar_ops()
       {
         u32<$t0> a, b, c;
@@ -77,8 +78,9 @@ describe('Scalar - Ops', () =>
         c = a >> b;
         c = a >> 2;
         //c = a >> TEST_CONST; Invalid
-      }`, CONF).trim();
+      }`, CONF);
 
+    expect(warn).toBe("");
     expect(asm).toBe(
 `test_scalar_ops:
   ## And

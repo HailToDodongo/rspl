@@ -5,22 +5,32 @@
 
 import {TYPE_ALIGNMENT, TYPE_SIZE} from "./types/types";
 import {normReg} from "./syntax/registers";
+import state from "./state.js";
+import {ASM_TYPE} from "./intsructions/asmWriter.js";
 
-function stringifyInstr(parts) {
-  if(!parts || parts.length === 0)return "";
-
-  const args = parts.slice(1).map(normReg);
-  return parts[0] + (args.length ? (" " + args.join(", ")) : "");
+function stringifyInstr(asm) {
+  return asm.op + (asm.args.length ? (" " + asm.args.map(normReg).join(", ")) : "");
 }
 
 function functionToASM(func)
 {
-  return func.name + ":\n"
-    + func.asm.map(parts => "  " + stringifyInstr(parts)).join("\n")
+  let str = func.name + ":\n";
+  for(const asm of func.asm) {
+    switch (asm.type) {
+      case ASM_TYPE.OP     : str += `  ${stringifyInstr(asm)}\n`; break;
+      case ASM_TYPE.LABEL  : str += `  ${asm.label}:\n`;          break;
+      case ASM_TYPE.COMMENT: str += `  ##${asm.comment}\n`;       break;
+      default: state.throwError("Unknown ASM type: " + asm.type, asm);
+    }
+  }
+  return str.trimEnd();
 }
 
 export function writeASM(ast, functionsAsm, config)
 {
+  state.func = "(ASM)";
+  state.line = 0;
+
   let text = "";
   let commandList = [];
   let savedState = "";
@@ -47,6 +57,7 @@ export function writeASM(ast, functionsAsm, config)
       commandList[block.resultType] = "    RSPQ_DefineCommand " + block.name + ", " + block.argSize;
     }
   }
+  text = text.trimEnd();
 
   // commands have a gap, insert a dummy function to pad indices
   if(commandList.includes(undefined)) {

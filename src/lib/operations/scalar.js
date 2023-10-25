@@ -5,26 +5,27 @@
 import state from "../state";
 import {isSigned, toHex, toHexSafe} from "../types/types";
 import {normReg} from "../syntax/registers";
+import {asm, asmComment, asmNOP} from "../intsructions/asmWriter.js";
 
 function opMove(varRes, varRight)
 {
   if(varRight.reg) {
-    if(varRes.reg === varRight.reg)return [["## NOP: self-assign!"]];
-    return [["move", varRes.reg, varRight.reg]];
+    if(varRes.reg === varRight.reg)return [asmComment("NOP: self-assign!")];
+    return [asm("move", [varRes.reg, varRight.reg])];
   }
 
-  return [["li", varRes.reg, toHexSafe(varRight.value)]];
+  return [asm("li", [varRes.reg, toHexSafe(varRight.value)])];
 }
 
 function opLoad(varRes, varLoc, varOffset)
 {
   const offsetStr = varOffset.type === "num" ? varOffset.value : `%lo(${varOffset.name})`;
   if(varLoc.reg) {
-    return [["lw", varRes.reg, `${offsetStr}(${normReg(varLoc.reg)})`]];
+    return [asm("lw", [varRes.reg, `${offsetStr}(${normReg(varLoc.reg)})`])];
   }
 
   if(varOffset.type !== "num")state.throwError("Load args cannot both be consts!");
-  return [["lw", varRes.reg, `%lo(${varLoc.name} + ${offsetStr})`]];
+  return [asm("lw", [varRes.reg, `%lo(${varLoc.name} + ${offsetStr})`])];
 }
 
 
@@ -50,28 +51,28 @@ function opBranch(compare, regTest, labelElse)
   switch (compare.op)
   {
     case "==": return [
-      isConst ? ["lui", regTest, regOrValTest] : [],
-      ["bne", regBase, regTest, labelElse+"f"], ["nop"],
+      isConst ? asm("lui", [regTest, regOrValTest]) : null,
+      asm("bne", [regBase, regTest, labelElse+"f"]), asmNOP(),
     ];
     case "!=": return [
-      isConst ? ["lui", regTest, regOrValTest] : [],
-      ["beq", regBase, regTest, labelElse+"f"], ["nop"],
+      isConst ? asm("lui", [regTest, regOrValTest]) : null,
+      asm("beq", [regBase, regTest, labelElse+"f"]), asmNOP()
     ];
     case "<": return [
-      [lessThanIn, regTest, regBase, regOrValTest],
-      ["beq", regTest, "$zero", labelElse+"f"], ["nop"],
+      asm(lessThanIn, [regTest, regBase, regOrValTest]),
+      asm("beq", [regTest, "$zero", labelElse+"f"]), asmNOP(),
     ];
     case ">": return [
-      [lessThanIn, regTest, regOrValTest, regBase],
-      ["beq", regTest, "$zero", labelElse+"f"], ["nop"],
+      asm(lessThanIn, [regTest, regOrValTest, regBase]),
+      asm("beq", [regTest, "$zero", labelElse+"f"]), asmNOP(),
     ];
     case "<=": return [
-      [lessThanIn, regTest, regOrValTest, regBase],
-      ["bne", regTest, "$zero", labelElse+"f"], ["nop"],
+      asm(lessThanIn, [regTest, regOrValTest, regBase]),
+      asm("bne", [regTest, "$zero", labelElse+"f"]), asmNOP(),
     ];
     case ">=": return [
-      [lessThanIn, regTest, regOrValTest, regBase],
-      ["bne", regTest, "$zero", labelElse+"f"], ["nop"],
+      asm(lessThanIn, [regTest, regOrValTest, regBase]),
+      asm("bne", [regTest, "$zero", labelElse+"f"]), asmNOP(),
     ];
 
     default:
@@ -85,17 +86,17 @@ function opAdd(varRes, varLeft, varRight)
   if(!isSigned(varRes.type))instr += "u";
 
   const valRight = varRight.reg ? varRight.reg : varRight.value;
-  return [[instr, varRes.reg, varLeft.reg, valRight]];
+  return [asm(instr, [varRes.reg, varLeft.reg, valRight])];
 }
 
 function opSub(varRes, varLeft, varRight)
 {
   const signed = isSigned(varRes.type);
   if(varRight.reg) {
-    return [[signed ? "sub" : "subu", varRes.reg, varLeft.reg, varRight.reg]];
+    return [asm(signed ? "sub" : "subu", [varRes.reg, varLeft.reg, varRight.reg])];
   }
   if(typeof(varRight.value) === "string")state.throwError("Subtraction cannot use labels!");
-  return [[signed ? "addi" : "addiu", varRes.reg, varLeft.reg, "-" + varRight.value]];
+  return [asm(signed ? "addi" : "addiu", [varRes.reg, varLeft.reg, "-" + varRight.value])];
 }
 
 function opMul(varRes, varLeft, varRight) {
@@ -110,8 +111,8 @@ function opShiftLeft(varRes, varLeft, varRight)
 {
   if(typeof(varRight.value) === "string")state.throwError("Shift-Left cannot use labels!");
   return [varRight.reg
-    ? ["sllv", varRes.reg, varLeft.reg, varRight.reg]
-    : ["sll",  varRes.reg, varLeft.reg, varRight.value],
+    ? asm("sllv", [varRes.reg, varLeft.reg, varRight.reg])
+    : asm("sll",  [varRes.reg, varLeft.reg, varRight.value])
   ];
 }
 
@@ -122,37 +123,37 @@ function opShiftRight(varRes, varLeft, varRight)
   if(varRight.reg)instr += "v";
 
   const valRight = varRight.reg ? varRight.reg : varRight.value;
-  return [[instr, varRes.reg, varLeft.reg, valRight]];
+  return [asm(instr, [varRes.reg, varLeft.reg, valRight])];
 }
 
 function opAnd(varRes, varLeft, varRight)
 {
   return [varRight.reg
-    ? ["and",  varRes.reg, varLeft.reg, varRight.reg]
-    : ["andi", varRes.reg, varLeft.reg, toHexSafe(varRight.value)],
+    ? asm("and",  [varRes.reg, varLeft.reg, varRight.reg])
+    : asm("andi", [varRes.reg, varLeft.reg, toHexSafe(varRight.value)])
   ];
 }
 
 function opOr(varRes, varLeft, varRight)
 {
   return [varRight.reg
-    ? ["or",  varRes.reg, varLeft.reg, varRight.reg]
-    : ["ori", varRes.reg, varLeft.reg, toHexSafe(varRight.value)],
+    ? asm("or",  [varRes.reg, varLeft.reg, varRight.reg])
+    : asm("ori", [varRes.reg, varLeft.reg, toHexSafe(varRight.value)])
   ];
 }
 
 function opXOR(varRes, varLeft, varRight)
 {
   return [varRight.reg
-    ? ["xor",  varRes.reg, varLeft.reg, varRight.reg]
-    : ["xori", varRes.reg, varLeft.reg, toHexSafe(varRight.value)],
+    ? asm("xor",  [varRes.reg, varLeft.reg, varRight.reg])
+    : asm("xori", [varRes.reg, varLeft.reg, toHexSafe(varRight.value)])
   ];
 }
 
 function opBitFlip(varRes, varRight)
 {
   if(!varRight.reg)state.throwError("Bitflip is only supported for variables!");
-  return [["not", varRes.reg, varRight.reg]];
+  return [asm("not", [varRes.reg, varRight.reg])];
 }
 
 export default {opMove, opLoad, opBranch, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opXOR, opBitFlip};

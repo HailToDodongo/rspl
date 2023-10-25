@@ -5,7 +5,7 @@ const CONF = {rspqWrapper: false};
 describe('Load', () =>
 {
   test('Scalar - 32-Bit', () => {
-    const asm = transpileSource(` state { u32 TEST_CONST; }
+    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
       function test_scalar_load()
       {
         u32<$t0> src, dst;
@@ -17,8 +17,9 @@ describe('Load', () =>
         dst = load(TEST_CONST);
         dst = load(TEST_CONST, 0x10);
         // dst = load(TEST_CONST, TEST_CONST); Invalid
-      }`, CONF).trim();
+      }`, CONF);
 
+    expect(warn).toBe("");
     expect(asm).toBe(`test_scalar_load:
   lw t1, 0(t0)
   lw t1, 16(t0)
@@ -30,7 +31,7 @@ describe('Load', () =>
   });
 
     test('Vector - 32-Bit', () => {
-    const asm = transpileSource(` state { u32 TEST_CONST; }
+    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
       function test_vector_load() 
       {
         vec32<$t0> src;
@@ -52,8 +53,9 @@ describe('Load', () =>
         //dst = load(src, TEST_CONST).xyzwxyzw; Invalid
         //dst = load(TEST_CONST).xyzwxyzw; Invalid
         //dst = load(TEST_CONST, 0x10).xyzwxyzw; Invalid
-      }`, CONF).trim();
+      }`, CONF);
 
+    expect(warn).toBe("");
     expect(asm).toBe(`test_vector_load:
   ## Whole Vector
   lqv $v01, 0x00, 0, t0
