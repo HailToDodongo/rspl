@@ -47,6 +47,20 @@ const lexer = moo.compile({
 	  ".x", ".y", ".z", ".w", ".X", ".Y", ".Z", ".W",
 	], value: s => s.substr(1)},
 
+	FunctionType: ["function", "command"],
+	KWIf      : "if",
+	KWElse    : "else",
+	KWBreak   : "break",
+	KWWhile   : "while",
+	KWState   : "state",
+	KWGoto    : "goto",
+	KWContinue: "continue",
+	KWInclude : "include",
+
+	ValueHex: /0x[0-9A-F]+/,
+	ValueBin: /0b[0-1]+/,
+	ValueDec: /[0-9]+/,
+	ValueDecNeg: /-[0-9]+/,
 
 	OperatorSelfR: [
 		"&&=", "||=",
@@ -84,19 +98,6 @@ const lexer = moo.compile({
 
 	Assignment: "=",
 
-	FunctionType: ["function", "command"],
-	KWIf      : "if",
-	KWElse    : "else",
-	KWBreak   : "break",
-	KWWhile   : "while",
-	KWState   : "state",
-	KWGoto    : "goto",
-	KWContinue: "continue",
-	KWInclude : "include",
-
-	ValueHex: /0x[0-9A-F]+/,
-	ValueBin: /0b[0-1]+/,
-	ValueDec: /[0-9]+/,
 	VarName: /[a-zA-Z0-9_]+/,
 
 	_:  { match: /[ \t\n]+/, lineBreaks: true },
@@ -304,6 +305,7 @@ var grammar = {
     {"name": "RegNumDef", "symbols": [(lexer.has("TypeStart") ? {type: "TypeStart"} : TypeStart), "ValueNumeric", (lexer.has("TypeEnd") ? {type: "TypeEnd"} : TypeEnd)], "postprocess": d => d[1][0]},
     {"name": "ValueNumeric$subexpression$1", "symbols": [(lexer.has("ValueBin") ? {type: "ValueBin"} : ValueBin)], "postprocess": d => parseInt(d[0].value.substring(2), 2)},
     {"name": "ValueNumeric$subexpression$1", "symbols": [(lexer.has("ValueDec") ? {type: "ValueDec"} : ValueDec)], "postprocess": d => parseInt(d[0].value, 10)},
+    {"name": "ValueNumeric$subexpression$1", "symbols": [(lexer.has("ValueDecNeg") ? {type: "ValueDecNeg"} : ValueDecNeg)], "postprocess": d => parseInt(d[0].value, 10)},
     {"name": "ValueNumeric$subexpression$1", "symbols": [(lexer.has("ValueHex") ? {type: "ValueHex"} : ValueHex)], "postprocess": d => parseInt(d[0].value.substring(2), 16)},
     {"name": "ValueNumeric", "symbols": ["ValueNumeric$subexpression$1"]},
     {"name": "_$ebnf$1", "symbols": []},
