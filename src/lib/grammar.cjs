@@ -177,12 +177,11 @@ var grammar = {
     {"name": "IfStatement$ebnf$1$subexpression$1", "symbols": ["_", (lexer.has("KWElse") ? {type: "KWElse"} : KWElse), "IfStatement$ebnf$1$subexpression$1$subexpression$1"]},
     {"name": "IfStatement$ebnf$1", "symbols": ["IfStatement$ebnf$1$subexpression$1"], "postprocess": id},
     {"name": "IfStatement$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "IfStatement", "symbols": ["_", (lexer.has("KWIf") ? {type: "KWIf"} : KWIf), "RegDef", "_", (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "ExprCompare", "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd), "IfStatement$subexpression$1", "IfStatement$ebnf$1"], "postprocess":  d => ({
+    {"name": "IfStatement", "symbols": ["_", (lexer.has("KWIf") ? {type: "KWIf"} : KWIf), "_", (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "ExprCompare", "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd), "IfStatement$subexpression$1", "IfStatement$ebnf$1"], "postprocess":  d => ({
         	type: "if",
-        	reg: d[2],
-        	compare: d[5],
-        	blockIf: FORCE_SCOPED_BLOCK(d[8][0]),
-        	blockElse: FORCE_SCOPED_BLOCK(d[9] && d[9][2][0]),
+        	compare: d[4],
+        	blockIf: FORCE_SCOPED_BLOCK(d[7][0]),
+        	blockElse: FORCE_SCOPED_BLOCK(d[8] && d[8][2][0]),
         	line: d[1].line
         })},
     {"name": "WhileStatement", "symbols": ["_", (lexer.has("KWWhile") ? {type: "KWWhile"} : KWWhile), "_", (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "ExprCompare", "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd), "ScopedBlock"], "postprocess":  d => ({

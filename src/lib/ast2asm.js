@@ -118,7 +118,7 @@ function ifToASM(st, args)
   const res = [];
 
   // Branch condition
-  res.push(...opsScalar.opBranch(st.compare, st.reg, labelElse));
+  res.push(...opsScalar.opBranch(st.compare, labelElse));
 
   // IF-Block
   state.pushScope();

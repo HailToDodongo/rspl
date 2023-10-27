@@ -54,5 +54,5 @@ export function nextReg(regName, offset) {
 
 // for whatever reason, the ASM uses "$" for vector regs, and no dollar for "normal" registers
 export function normReg(regName) {
-  return REGS_SCALAR.includes(regName) ? regName.substring(1) : regName;
+  return (REGS_SCALAR.includes(regName) && regName !== "$at") ? regName.substring(1) : regName;
 }

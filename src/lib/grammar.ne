@@ -152,12 +152,11 @@ Expression ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarAssign | ExprFuncCall
 
 LabelDecl -> _ %VarName %Colon {% d => ({type: "labelDecl", name: d[1].value, line: d[1].line}) %}
 
-IfStatement -> _ %KWIf RegDef _ %ArgsStart ExprCompare _ %ArgsEnd (ScopedBlock | Expression) (_ %KWElse (ScopedBlock | Expression | IfStatement)):? {% d => ({
+IfStatement -> _ %KWIf _ %ArgsStart ExprCompare _ %ArgsEnd (ScopedBlock | Expression) (_ %KWElse (ScopedBlock | Expression | IfStatement)):? {% d => ({
 	type: "if",
-	reg: d[2],
-	compare: d[5],
-	blockIf: FORCE_SCOPED_BLOCK(d[8][0]),
-	blockElse: FORCE_SCOPED_BLOCK(d[9] && d[9][2][0]),
+	compare: d[4],
+	blockIf: FORCE_SCOPED_BLOCK(d[7][0]),
+	blockElse: FORCE_SCOPED_BLOCK(d[8] && d[8][2][0]),
 	line: d[1].line
 })%}
 

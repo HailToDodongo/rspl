@@ -76,7 +76,8 @@ export function writeASM(ast, functionsAsm, config)
   return `## Auto-generated file, transpiled with RSPL
 ${includes}
 .set noreorder
-.set at
+.set noat
+.set nomacro
 
 .data
   RSPQ_BeginOverlayHeader
