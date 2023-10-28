@@ -9,6 +9,7 @@ const MAP_FLATTEN_TREE = (d, idxLeft, idxRight) => [
 		...(Array.isArray(d[idxRight]) ? d[idxRight] : [d[idxRight]])
 	];
 
+const REM_QUOTES = d => d && d.substring(1, d.length-1);
 const FORCE_SCOPED_BLOCK = d => {
 	if(d && d.type !== "scopedBlock") {
 	   return {type: "scopedBlock", statements: [d]};
@@ -50,6 +51,7 @@ const lexer = moo.compile({
 	KWWhile   : "while",
 	KWState   : "state",
 	KWGoto    : "goto",
+	KWExtern  : "extern",
 	KWContinue: "continue",
 	KWInclude : "include",
 
@@ -115,20 +117,24 @@ SectionIncl -> %KWInclude _ %String {% d => d[2].value %}
 
 ######### State-Section #########
 SectionState -> %KWState _ %BlockStart _ StateVarDef:* %BlockEnd {% d => d[4] %}
-StateVarDef -> %DataType _ %VarName IndexDef:? %StmEnd _ {%
-	(d) => ({type: "varState", varType: d[0].value, varName: d[2].value, arraySize: d[3] || 1})
-%}
+StateVarDef -> (%KWExtern _):? %DataType _ %VarName IndexDef:? %StmEnd _ {% d => ({
+	type: "varState",
+	extern: !!d[0],
+	varType: d[1].value,
+	varName: d[3].value,
+	arraySize: d[4] || 1
+})%}
 
 ######### Function-Section #########
 
 # Function that translates into a function/global-label in ASM...
-Function -> %FunctionType (RegDef | RegNumDef):? _ %VarName %ArgsStart _ FunctionDefArgs:* _ %ArgsEnd ScopedBlock {%
+Function -> %FunctionType (RegDef | RegNumDef):? _ %VarName %ArgsStart _ FunctionDefArgs:* _ %ArgsEnd (ScopedBlock | %StmEnd)  {%
 	d => ({
 		type: d[0].value,
 		resultType: d[1] && d[1][0],
 		name: d[3].value,
 		args: FORCE_ARRAY(d[6][0]),
-		body: d[9]
+		body: d[9][0].type === "StmEnd" ? null : d[9][0],
 	})
 %}
 
@@ -146,7 +152,11 @@ Statements -> (LineComment | ScopedBlock | LabelDecl | IfStatement | WhileStatem
 FunctionDefArgs -> FunctonDefArg {% MAP_FIRST %}
 			 | (FunctionDefArgs _ %Seperator _ FunctonDefArg) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
 
-FunctonDefArg -> %DataType _ %VarName {% d => ({type: d[0].value, name: d[2] && d[2].value}) %}
+FunctonDefArg -> %DataType RegDef:? _ %VarName {% d => ({
+	type: d[0].value,
+	reg: d[1],
+	name: d[3] && d[3].value
+})%}
 
 Expression ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarAssign | ExprFuncCall | ExprGoto | ExprContinue | ExprBreak) %StmEnd {% (d) => d[1][0] %}
 
@@ -187,9 +197,10 @@ ExprVarDecl -> (%DataType RegDef _ VarList) {% d => ({
 	line: d[0][0].line
 })%}
 
-ExprFuncCall -> %VarName %ArgsStart _ (%VarName | %String) _ %ArgsEnd  {% d => ({
+ExprFuncCall -> %VarName %ArgsStart _ FuncArgs:* %ArgsEnd  {% d => ({
 	type: "funcCall",
-	func: d[0].value, args: d[3][0],
+	func: d[0].value,
+	args: FORCE_ARRAY(d[3][0]),
 	line: d[0].line
 })%}
 
@@ -260,6 +271,8 @@ FuncArgs -> FuncArg {% MAP_FIRST %}
 
 FuncArg -> %VarName {% d => ({type: "var", value: d[0].value}) %}
 	 | ValueNumeric {% d => ({type: "num", value: d[0][0]}) %}
+	 | %String {% d => ({type: "string", value: REM_QUOTES(d[0].value)}) %}
+
 
 VarList -> %VarName {% MAP_FIRST %}
 			 | (VarList _ %Seperator _ %VarName) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}

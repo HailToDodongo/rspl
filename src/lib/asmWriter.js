@@ -40,6 +40,8 @@ export function writeASM(ast, functionsAsm, config)
   }
 
   for(const stateVar of ast.state) {
+    if(stateVar.extern)continue;
+
     const byteSize = TYPE_SIZE[stateVar.varType] * stateVar.arraySize;
     const align = TYPE_ALIGNMENT[stateVar.varType];
     savedState += `    .align ${align}\n`;
@@ -60,7 +62,7 @@ export function writeASM(ast, functionsAsm, config)
 
   // commands have a gap, insert a dummy function to pad indices
   if(commandList.includes(undefined)) {
-    text += "\nCMD_NOP:\n  jr ra\n  nop\n";
+    text += "\nCMD_NOP:\n  jr $ra\n  nop\n";
     for(let i = 0; i < commandList.length; i++) {
       if(commandList[i] === undefined) {
         commandList[i] = "    RSPQ_DefineCommand CMD_NOP, 0 ## Warning: Empty Command!";
