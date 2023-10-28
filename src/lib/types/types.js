@@ -43,3 +43,11 @@ export const toHex = (val, pad = 2) =>
 
 export const toHexSafe = (val, pad = 4)=>
   typeof(val) === "number" ? toHex(val, pad) : val;
+
+export function u32InS16Range(valueU32) {
+  return valueU32 <= 0x7FFF || valueU32 >= 0xFFFF8000;
+}
+
+export function u32InU16Range(valueU32) {
+  return valueU32 <= 0xFFFF;
+}

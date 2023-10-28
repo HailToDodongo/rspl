@@ -3,17 +3,9 @@
 * @license GPL-3.0
 */
 import state from "../state";
-import {isSigned, toHex, toHexSafe} from "../types/types";
-import {normReg, REG} from "../syntax/registers";
-import {asm, asmComment, asmNOP} from "../intsructions/asmWriter.js";
-
-function u32InS16Range(valueU32) {
-  return valueU32 <= 0x7FFF || valueU32 >= 0xFFFF8000;
-}
-
-function u32InU16Range(valueU32) {
-  return valueU32 <= 0xFFFF;
-}
+import {isSigned, toHex, u32InS16Range, u32InU16Range} from "../types/types";
+import {REG} from "../syntax/registers";
+import {asm, asmComment} from "../intsructions/asmWriter.js";
 
 /**
  * Loads a 32bit int into a register with as few instructions as possible.
@@ -65,83 +57,11 @@ function opLoad(varRes, varLoc, varOffset)
 {
   const offsetStr = varOffset.type === "num" ? varOffset.value : `%lo(${varOffset.name})`;
   if(varLoc.reg) {
-    return [asm("lw", [varRes.reg, `${offsetStr}(${normReg(varLoc.reg)})`])];
+    return [asm("lw", [varRes.reg, `${offsetStr}(${varLoc.reg})`])];
   }
 
   if(varOffset.type !== "num")state.throwError("Load args cannot both be consts!");
   return [asm("lw", [varRes.reg, `%lo(${varLoc.name} + ${offsetStr})`])];
-}
-
-
-function opBranch(compare, labelElse)
-{
-  // Note: the "true" case is expected to follow the branch.
-  // So we only jump if it's false, therefore all checks are inverted.
-
-  compare = structuredClone(compare); // gets modified
-
-  let isImmediate = compare.right.type === "num";
-  let regTestRes = isImmediate ? REG.AT
-    : state.getRequiredVar(compare.right.value, "compare").reg;
-
-  // use register for zero-checks (avoids potential imm. load instructions)
-  if(isImmediate && compare.right.value === 0) {
-    isImmediate = false;
-    regTestRes = REG.ZERO;
-  }
-
-  let {reg: regLeft, type: baseType} = state.getRequiredVar(compare.left.value, "left");
-
-  // Easy case, just compare
-  if(compare.op === "==" || compare.op === "!=")
-  {
-    const opBranch = compare.op === "==" ? "bne" : "beq";
-    return [
-      ...(isImmediate ? loadImmediate(REG.AT, compare.right.value) : []),
-      asm(opBranch, [regLeft, regTestRes, labelElse+"f"]),
-      asmNOP(),
-    ];
-  }
-
-  const opsLoad = [];
-  let regOrValRight = isImmediate ? compare.right.value : regTestRes;
-
-  // Both ">" and "<=" are causing the biggest issues when inverted, so map them to the other two
-  if(compare.op === ">" || compare.op === "<=") {
-    if(isImmediate) {
-      // add one to the immediate to add/remove the "=" part of the comparison.
-      // Ignore overflows here (e.g. "x > 0xFFFFFFFF" would be stupid anyway)
-      regOrValRight = (regOrValRight+1) >>> 0;
-      compare.op = compare.op === ">" ? ">=" : "<";
-    } else {
-      compare.op = compare.op === ">" ? "<" : ">="; // invert comparison ...
-      [regLeft, regOrValRight] = [regOrValRight, regLeft]; //... and swap registers
-    }
-  }
-
-  // All values from now on need signedness checks, first check if it can still be an immediate
-  if(isImmediate && !u32InS16Range(regOrValRight >>> 0)) {
-    // ...if it doesn't we load it and switch back to a register check
-    opsLoad.push(...loadImmediate(REG.AT, regOrValRight));
-    isImmediate = false;
-    regOrValRight = REG.AT;
-  }
-
-  const signed = isSigned(baseType); // Note: both the signed/unsigned 'slt' have a sign-extended immediate
-  const opLessThan = "slt" + (isImmediate ? "i" : "") + (signed ? "" : "u");
-
-  if(compare.op === "<" || compare.op === ">=")
-  {
-    const opBranch = compare.op === "<" ? "beq" : "bne";
-    return [
-      ...opsLoad,
-      asm(opLessThan, [REG.AT, regLeft, regOrValRight]),
-      asm(opBranch, [REG.AT, REG.ZERO, labelElse+"f"]), // jump if "<" fails (aka ">=")
-      asmNOP(),
-    ];
-  }
-
-  return state.throwError("Unknown comparison operator: " + compare.op, compare);
 }
 
 function opRegOrImmediate(opReg, opImm, rangeCheckFunc, varRes, varLeft, varRight)
@@ -225,4 +145,7 @@ function opBitFlip(varRes, varRight)
 function opMul() { state.throwError("Scalar-Multiplication not implemented!"); }
 function opDiv() { state.throwError("Scalar-Division not implemented!"); }
 
-export default {opMove, opLoad, opBranch, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opXOR, opBitFlip};
+export default {
+  opMove, opLoad, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opXOR, opBitFlip,
+  loadImmediate
+};

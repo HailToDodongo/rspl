@@ -4,12 +4,11 @@
 */
 
 import {TYPE_ALIGNMENT, TYPE_SIZE} from "./types/types";
-import {normReg} from "./syntax/registers";
 import state from "./state.js";
 import {ASM_TYPE} from "./intsructions/asmWriter.js";
 
 function stringifyInstr(asm) {
-  return asm.op + (asm.args.length ? (" " + asm.args.map(normReg).join(", ")) : "");
+  return asm.op + (asm.args.length ? (" " + asm.args.join(", ")) : "");
 }
 
 function functionToASM(func)
@@ -78,6 +77,34 @@ ${includes}
 .set noreorder
 .set noat
 .set nomacro
+
+#undef zero
+#undef z0
+#undef v0
+#undef v1
+#undef a0
+#undef a1
+#undef a2
+#undef a3
+#undef t0
+#undef t1
+#undef t2
+#undef t3
+#undef t4
+#undef t5
+#undef t6
+#undef t7
+#undef s0
+#undef s1
+#undef s2
+#undef s3
+#undef s4
+#undef s5
+#undef s6
+#undef s7
+#undef t8
+#undef t9
+#undef ra
 
 .data
   RSPQ_BeginOverlayHeader
