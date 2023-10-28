@@ -17,10 +17,10 @@ describe('Scope', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test_scope:
-  addiu t1, t1, 2
+  addiu $t1, $t1, 2
   ## 'b' is no longer defined now
-  addiu t0, t0, 2
-  jr ra
+  addiu $t0, $t0, 2
+  jr $ra
   nop`);
   });
 

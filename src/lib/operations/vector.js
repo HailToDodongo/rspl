@@ -3,7 +3,7 @@
 * @license GPL-3.0
 */
 
-import {isVecReg, nextVecReg, normReg} from "../syntax/registers";
+import {isVecReg, nextVecReg} from "../syntax/registers";
 import state from "../state";
 import {isScalarSwizzle, SWIZZLE_MAP, SWIZZLE_SCALAR_IDX} from "../syntax/swizzle";
 import {toHex} from "../types/types";

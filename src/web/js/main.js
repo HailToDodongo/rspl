@@ -31,6 +31,16 @@ state
   u32 TEST_CONST;
 }
 
+function test_if_else() 
+{
+  u32<$t0> a, b;
+  if(a > 0x112233) {
+    b = 11;
+  } else {
+    b = 22;
+  }
+}
+
 function test_scope() 
 {
   u32<$t0> a;

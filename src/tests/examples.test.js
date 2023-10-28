@@ -43,7 +43,36 @@ command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
 #include <rsp_queue.inc>
 
 .set noreorder
-.set at
+.set noat
+.set nomacro
+
+#undef zero
+#undef z0
+#undef v0
+#undef v1
+#undef a0
+#undef a1
+#undef a2
+#undef a3
+#undef t0
+#undef t1
+#undef t2
+#undef t3
+#undef t4
+#undef t5
+#undef t6
+#undef t7
+#undef s0
+#undef s1
+#undef s2
+#undef s3
+#undef s4
+#undef s5
+#undef s6
+#undef s7
+#undef t8
+#undef t9
+#undef ra
 
 .data
   RSPQ_BeginOverlayHeader
@@ -58,31 +87,31 @@ command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
 .text
 
 VecCmd_Transform:
-  srl t0, a1, 16
-  andi t0, t0, 0x0FF0
-  andi t1, a1, 0x0FF0
-  andi t2, a0, 0x0FF0
-  addiu t0, t0, %lo(VEC_SLOTS)
-  addiu t1, t1, %lo(VEC_SLOTS)
-  addiu t2, t2, %lo(VEC_SLOTS)
-  ldv $v01, 0x00, 0, t0
-  ldv $v01, 0x08, 0, t0
-  ldv $v02, 0x00, 0 + 0x10, t0
-  ldv $v02, 0x08, 0 + 0x10, t0
-  ldv $v03, 0x00, 8, t0
-  ldv $v03, 0x08, 8, t0
-  ldv $v04, 0x00, 8 + 0x10, t0
-  ldv $v04, 0x08, 8 + 0x10, t0
-  ldv $v05, 0x00, 32, t0
-  ldv $v05, 0x08, 32, t0
-  ldv $v06, 0x00, 32 + 0x10, t0
-  ldv $v06, 0x08, 32 + 0x10, t0
-  ldv $v07, 0x00, 40, t0
-  ldv $v07, 0x08, 40, t0
-  ldv $v08, 0x00, 40 + 0x10, t0
-  ldv $v08, 0x08, 40 + 0x10, t0
-  lqv $v09, 0x00, 0, t1
-  lqv $v10, 0x00, 0 + 0x10, t1
+  srl $t0, $a1, 16
+  andi $t0, $t0, 4080
+  andi $t1, $a1, 4080
+  andi $t2, $a0, 4080
+  addiu $t0, $t0, %lo(VEC_SLOTS)
+  addiu $t1, $t1, %lo(VEC_SLOTS)
+  addiu $t2, $t2, %lo(VEC_SLOTS)
+  ldv $v01, 0x00, 0, $t0
+  ldv $v01, 0x08, 0, $t0
+  ldv $v02, 0x00, 0 + 0x10, $t0
+  ldv $v02, 0x08, 0 + 0x10, $t0
+  ldv $v03, 0x00, 8, $t0
+  ldv $v03, 0x08, 8, $t0
+  ldv $v04, 0x00, 8 + 0x10, $t0
+  ldv $v04, 0x08, 8 + 0x10, $t0
+  ldv $v05, 0x00, 32, $t0
+  ldv $v05, 0x08, 32, $t0
+  ldv $v06, 0x00, 32 + 0x10, $t0
+  ldv $v06, 0x08, 32 + 0x10, $t0
+  ldv $v07, 0x00, 40, $t0
+  ldv $v07, 0x08, 40, $t0
+  ldv $v08, 0x00, 40 + 0x10, $t0
+  ldv $v08, 0x08, 40 + 0x10, $t0
+  lqv $v09, 0x00, 0, $t1
+  lqv $v10, 0x00, 0 + 0x10, $t1
   vmudl $v14, $v02, $v10.h0
   vmadm $v14, $v01, $v10.h0
   vmadn $v14, $v02, $v09.h0
@@ -99,9 +128,9 @@ VecCmd_Transform:
   vmadm $v14, $v07, $v10.h3
   vmadn $v14, $v08, $v09.h3
   vmadh $v13, $v07, $v09.h3
-  sqv $v13, 0x0, 0x00, t2
-  sqv $v14, 0x0, 0x10, t2
-  jr ra
+  sqv $v13, 0x0, 0x00, $t2
+  sqv $v14, 0x0, 0x10, $t2
+  jr $ra
   nop`);
   });
 });

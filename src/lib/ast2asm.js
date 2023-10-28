@@ -7,8 +7,9 @@ import opsScalar from "./operations/scalar";
 import opsVector from "./operations/vector";
 import state from "./state";
 import builtins from "./builtins/functions";
-import {isVecReg} from "./syntax/registers.js";
+import {isVecReg, REG} from "./syntax/registers.js";
 import {asm, asmComment, asmLabel, asmNOP} from "./intsructions/asmWriter.js";
+import {opBranch} from "./operations/branch.js";
 
 const VECTOR_TYPES = ["vec16", "vec32"];
 
@@ -118,12 +119,12 @@ function ifToASM(st, args)
   const res = [];
 
   // Branch condition
-  res.push(...opsScalar.opBranch(st.compare, labelElse));
+  res.push(...opBranch(st.compare, labelElse));
 
   // IF-Block
   state.pushScope();
   res.push(...scopedBlockToASM(st.blockIf, args));
-  if(st.blockElse)res.push(asm("b", [labelEnd+"f"]), asmNOP());
+  if(st.blockElse)res.push(asm("beq", [REG.ZERO, REG.ZERO, labelEnd+"f"]), asmNOP());
   state.popScope();
 
   // ELSE-Block
@@ -193,7 +194,7 @@ function scopedBlockToASM(block, args)
       break;
 
       case "goto":
-        res.push(asm("b", [st.label]), asmNOP());
+        res.push(asm("beq", [REG.ZERO, REG.ZERO, st.label]), asmNOP());
       break;
 
       case "if":
@@ -238,9 +239,9 @@ export function ast2asm(ast)
 
       const blockAsm = scopedBlockToASM(block.body, block.args);
       if(block.type === "command") {
-        blockAsm.push(asm("jr", ["ra"]), asmNOP()); // @TODO
+        blockAsm.push(asm("jr", [REG.RA]), asmNOP()); // @TODO
       } else {
-        blockAsm.push(asm("jr", ["ra"]), asmNOP());
+        blockAsm.push(asm("jr", [REG.RA]), asmNOP());
       }
 
       res.push({

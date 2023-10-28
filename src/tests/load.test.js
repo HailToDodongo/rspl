@@ -21,13 +21,13 @@ describe('Load', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test_scalar_load:
-  lw t1, 0(t0)
-  lw t1, 16(t0)
-  lw t1, %lo(TEST_CONST)(t0)
-  lw t1, %lo(TEST_CONST + 0)
-  lw t1, %lo(TEST_CONST + 16)
+  lw $t1, 0($t0)
+  lw $t1, 16($t0)
+  lw $t1, %lo(TEST_CONST)($t0)
+  lw $t1, %lo(TEST_CONST + 0)
+  lw $t1, %lo(TEST_CONST + 16)
   ## dst = load(TEST_CONST, TEST_CONST); Invalid
-  jr ra
+  jr $ra
   nop`);
   });
 
@@ -59,38 +59,38 @@ describe('Load', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_vector_load:
   ## Whole Vector
-  lqv $v01, 0x00, 0, t0
-  lqv $v02, 0x00, 0 + 0x10, t0
-  lqv $v01, 0x00, 16, t0
-  lqv $v02, 0x00, 16 + 0x10, t0
-  lqv $v01, 0x02, 0, t0
-  lqv $v02, 0x02, 0 + 0x10, t0
-  lqv $v01, 0x04, 16, t0
-  lqv $v02, 0x04, 16 + 0x10, t0
+  lqv $v01, 0x00, 0, $t0
+  lqv $v02, 0x00, 0 + 0x10, $t0
+  lqv $v01, 0x00, 16, $t0
+  lqv $v02, 0x00, 16 + 0x10, $t0
+  lqv $v01, 0x02, 0, $t0
+  lqv $v02, 0x02, 0 + 0x10, $t0
+  lqv $v01, 0x04, 16, $t0
+  lqv $v02, 0x04, 16 + 0x10, $t0
   ##dst = load(src, TEST_CONST); Invalid
   ##dst = load(TEST_CONST); Invalid
   ##dst = load(TEST_CONST, 0x10); Invalid
   ## Swizzle
-  ldv $v01, 0x00, 0, t0
-  ldv $v01, 0x08, 0, t0
-  ldv $v02, 0x00, 0 + 0x10, t0
-  ldv $v02, 0x08, 0 + 0x10, t0
-  ldv $v01, 0x00, 16, t0
-  ldv $v01, 0x08, 16, t0
-  ldv $v02, 0x00, 16 + 0x10, t0
-  ldv $v02, 0x08, 16 + 0x10, t0
-  ldv $v01, 0x02, 0, t0
-  ldv $v01, 0x0A, 0, t0
-  ldv $v02, 0x02, 0 + 0x10, t0
-  ldv $v02, 0x0A, 0 + 0x10, t0
-  ldv $v01, 0x04, 16, t0
-  ldv $v01, 0x0C, 16, t0
-  ldv $v02, 0x04, 16 + 0x10, t0
-  ldv $v02, 0x0C, 16 + 0x10, t0
+  ldv $v01, 0x00, 0, $t0
+  ldv $v01, 0x08, 0, $t0
+  ldv $v02, 0x00, 0 + 0x10, $t0
+  ldv $v02, 0x08, 0 + 0x10, $t0
+  ldv $v01, 0x00, 16, $t0
+  ldv $v01, 0x08, 16, $t0
+  ldv $v02, 0x00, 16 + 0x10, $t0
+  ldv $v02, 0x08, 16 + 0x10, $t0
+  ldv $v01, 0x02, 0, $t0
+  ldv $v01, 0x0A, 0, $t0
+  ldv $v02, 0x02, 0 + 0x10, $t0
+  ldv $v02, 0x0A, 0 + 0x10, $t0
+  ldv $v01, 0x04, 16, $t0
+  ldv $v01, 0x0C, 16, $t0
+  ldv $v02, 0x04, 16 + 0x10, $t0
+  ldv $v02, 0x0C, 16 + 0x10, $t0
   ##dst = load(src, TEST_CONST).xyzwxyzw; Invalid
   ##dst = load(TEST_CONST).xyzwxyzw; Invalid
   ##dst = load(TEST_CONST, 0x10).xyzwxyzw; Invalid
-  jr ra
+  jr $ra
   nop`);
   });
 });
