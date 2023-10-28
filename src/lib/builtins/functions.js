@@ -10,6 +10,7 @@ import {asm} from "../intsructions/asmWriter.js";
 
 function load(varRes, args, swizzle)
 {
+  if(!varRes)state.throwError("Builtin load() needs a left-side", varRes);
   if(args.length === 1)args = [args[0], {type: "num", value: 0}];
 
   const argVar = state.getRequiredVarOrMem(args[0].value, "arg0");
@@ -27,6 +28,7 @@ function load(varRes, args, swizzle)
 
 function store(varRes, args, swizzle)
 {
+  if(!varRes)state.throwError("Builtin store() needs a left-side", varRes);
   if(args.length !== 1)state.throwError("Builtin store() requires exactly one argument (vector variable)!", varRes);
 
   const varSrc = state.getRequiredVar(args[0].value, "arg0");
@@ -44,4 +46,12 @@ function store(varRes, args, swizzle)
   ];
 }
 
-export default {load, store};
+function inlineAsm(varRes, args, swizzle) {
+  if(varRes)state.throwError("Builtin asm() cannot have a left side!", varRes);
+  if(args.length !== 1 || args[0].type !== "string") {
+    state.throwError("Builtin asm() requires exactly one string argument!", args[0]);
+  }
+  return [asm(args[0].value, ["# inline-ASM"])];
+}
+
+export default {load, store, asm: inlineAsm};

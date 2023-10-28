@@ -12,6 +12,7 @@ const state =
 
   scopeStack: [], // function & block scope (variables)
   memVarMap: {}, // global variables, which are actually constants
+  funcMap: {}, // function names to function objects
 
   reset() {
     state.nextLabelId = 0;
@@ -20,6 +21,7 @@ const state =
     state.scopeStack = [];
     state.memVarMap = {};
     state.outWarn = "";
+    state.funcMap = {};
   },
 
   throwError: (message, context) => {
@@ -32,6 +34,10 @@ const state =
     const lineStr = state.line === 0 ? "(???)" : state.line+"";
     const funcStr = state.func === "" ? "(???)" : state.func+"";
     state.outWarn += `Warning in ${funcStr}, line ${lineStr}: ${message}\n  -> AST: ${JSON.stringify(context)}\n`;
+  },
+
+  declareFunction: (name, args) => {
+    state.funcMap[name] = {name, args};
   },
 
   enterFunction: (name) => {
@@ -91,6 +97,12 @@ const state =
     if(!res) {
       state.throwError(contextName + " Variable/Memory "+name+" not known!", context);
     }
+    return res;
+  },
+
+  getRequiredFunction: (name, context = {}) => {
+    const res = structuredClone(state.funcMap[name]);
+    if(!res)state.throwError("Function "+name+" not known!", context);
     return res;
   }
 };

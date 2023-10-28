@@ -38,11 +38,11 @@ describe('Labels', () =>
     expect(asm).toBe(`test_label:
   label_a:
   addiu $t0, $t0, 1
-  beq $zero, $zero, label_b
+  j label_b
   nop
   label_b:
   addiu $t0, $t0, 2
-  beq $zero, $zero, label_a
+  j label_a
   nop
   jr $ra
   nop`);

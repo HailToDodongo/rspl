@@ -10,6 +10,7 @@ import builtins from "./builtins/functions";
 import {isVecReg, REG} from "./syntax/registers.js";
 import {asm, asmComment, asmLabel, asmNOP} from "./intsructions/asmWriter.js";
 import {opBranch} from "./operations/branch.js";
+import {callUserFunction} from "./operations/userFunction.js";
 
 const VECTOR_TYPES = ["vec16", "vec32"];
 
@@ -158,10 +159,6 @@ function scopedBlockToASM(block, args)
         res.push(asmComment(st.comment.substring(2).trimEnd() || ""));
       break;
 
-      case "asm":
-        res.push([st.asm]);
-      break;
-
       case "varDecl":
         state.declareVar(st.varName, st.varType, st.reg);
         break;
@@ -178,15 +175,13 @@ function scopedBlockToASM(block, args)
       } break;
 
       case "funcCall": {
-        if(st.func === "asm") {
-          const asm = st.args.value;
-          res.push([asm.substring(1, asm.length-1)]); // remove quotes
+        const builtinFunc = builtins[st.func];
+        if(builtinFunc) {
+          res.push(...builtinFunc(undefined, st.args, undefined));
         } else {
-          const builtinFunc = builtins[st.func];
-          console.log("args", st.args);
-          if(!builtinFunc)state.throwError("Unknown function/builtin: " + st.func, st);
-          //return builtinFunc(varRes, calc.args, undefined);
+          res.push(...callUserFunction(st.func, st.args));
         }
+
       } break;
 
       case "labelDecl":
@@ -194,7 +189,7 @@ function scopedBlockToASM(block, args)
       break;
 
       case "goto":
-        res.push(asm("beq", [REG.ZERO, REG.ZERO, st.label]), asmNOP());
+        res.push(asm("j", [st.label]), asmNOP());
       break;
 
       case "if":
@@ -235,11 +230,14 @@ export function ast2asm(ast)
     state.line = block.line || 0;
 
     if(["function", "command"].includes(block.type)) {
+      state.declareFunction(block.name, block.args);
       state.enterFunction(block.name);
+
+      if(!block.body)continue;
 
       const blockAsm = scopedBlockToASM(block.body, block.args);
       if(block.type === "command") {
-        blockAsm.push(asm("jr", [REG.RA]), asmNOP()); // @TODO
+        blockAsm.push(asm("j", ["RSPQ_Loop"]), asmNOP()); // @TODO
       } else {
         blockAsm.push(asm("jr", [REG.RA]), asmNOP());
       }

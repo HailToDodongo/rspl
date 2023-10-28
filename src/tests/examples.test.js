@@ -130,7 +130,7 @@ VecCmd_Transform:
   vmadh $v13, $v07, $v09.h3
   sqv $v13, 0x0, 0x00, $t2
   sqv $v14, 0x0, 0x10, $t2
-  jr $ra
+  j RSPQ_Loop
   nop`);
   });
 });

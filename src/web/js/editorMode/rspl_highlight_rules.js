@@ -31,7 +31,7 @@ const rsplHighlightRules = function() {
         [
           "state", "function", "command",
           "if", "else", "for", "goto",
-          "include",
+          "include", "extern",
 
           "s8","u8","s16","u16","s32","u32",
           "vec16","vec32",

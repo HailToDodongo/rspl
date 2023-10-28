@@ -4,6 +4,7 @@
 */
 import {TYPE_REG_COUNT} from "./types/types";
 import {nextReg} from "./syntax/registers";
+import state from "./state.js";
 
 function normalizeScopedBlock(block, astState)
 {
@@ -84,7 +85,11 @@ export function astNormalizeFunctions(ast)
 {
   const astFunctions = ast.functions;
   for(const block of astFunctions) {
-    if(!["function", "command"].includes(block.type))continue;
+    if(!["function", "command"].includes(block.type) || !block.body)continue;
+
+    if(block.type === "command" && block.resultType === null) {
+      state.throwError("Commands must specify an index (e.g. 'command<4>')!", block)
+    }
     normalizeScopedBlock(block.body, ast.state);
   }
 
