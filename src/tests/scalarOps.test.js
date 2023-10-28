@@ -28,20 +28,20 @@ describe('Scalar - Ops', () =>
     expect(asm).toBe(
 `test_scalar_ops:
   ## Add
-  addu t2, t0, t1
-  add t5, t3, t4
-  addiu t2, t0, 1
-  addi t5, t3, 1
-  addiu t2, t0, %lo(TEST_CONST)
-  addi t5, t3, %lo(TEST_CONST)
+  addu $t2, $t0, $t1
+  addu $t5, $t3, $t4
+  addiu $t2, $t0, 1
+  addiu $t5, $t3, 1
+  addiu $t2, $t0, %lo(TEST_CONST)
+  addiu $t5, $t3, %lo(TEST_CONST)
   ## Sub
-  subu t2, t0, t1
-  sub t5, t3, t4
-  addiu t2, t0, -1
-  addi t5, t3, -1
+  subu $t2, $t0, $t1
+  subu $t5, $t3, $t4
+  addiu $t2, $t0, 65535
+  addiu $t5, $t3, 65535
   ##c = a - TEST_CONST; sc = sa - TEST_CONST; Invalid
   ## Mul/Div not possible
-  jr ra
+  jr $ra
   nop`);
   });
   
@@ -85,28 +85,28 @@ describe('Scalar - Ops', () =>
     expect(asm).toBe(
 `test_scalar_ops:
   ## And
-  and t2, t0, t1
-  andi t2, t0, 0x0001
-  andi t2, t0, %lo(TEST_CONST)
+  and $t2, $t0, $t1
+  andi $t2, $t0, 1
+  andi $t2, $t0, %lo(TEST_CONST)
   ## Or
-  or t2, t0, t1
-  ori t2, t0, 0x0002
-  ori t2, t0, %lo(TEST_CONST)
+  or $t2, $t0, $t1
+  ori $t2, $t0, 2
+  ori $t2, $t0, %lo(TEST_CONST)
   ## XOR
-  xor t2, t0, t1
-  xori t2, t0, 0x0002
-  xori t2, t0, %lo(TEST_CONST)
+  xor $t2, $t0, $t1
+  xori $t2, $t0, 2
+  xori $t2, $t0, %lo(TEST_CONST)
   ## Not
-  not t2, t1
+  nor $t2, $zero, $t1
   ## Shift-Left
-  sllv t2, t0, t1
-  sll t2, t0, 2
+  sllv $t2, $t0, $t1
+  sll $t2, $t0, 2
   ##c = a << TEST_CONST; Invalid
   ## Shift-Right
-  srlv t2, t0, t1
-  srl t2, t0, 2
+  srlv $t2, $t0, $t1
+  srl $t2, $t0, 2
   ##c = a >> TEST_CONST; Invalid
-  jr ra
+  jr $ra
   nop`);
   });
 

@@ -24,31 +24,31 @@ describe('Immediate (Scalar)', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  ori t0, zero, %lo(TEST_CONST)
+  ori $t0, $zero, %lo(TEST_CONST)
   ##
-  or t0, zero, zero
+  or $t0, $zero, $zero
   ##
-  addiu t0, zero, 255
+  addiu $t0, $zero, 255
   ##
-  ori t0, zero, 0xFFFF
+  ori $t0, $zero, 0xFFFF
   ##
-  addiu t0, zero, 32767
+  addiu $t0, $zero, 32767
   ##
-  ori t0, zero, 0x8000
+  ori $t0, $zero, 0x8000
   ##
-  lui t0, 0xFF12
+  lui $t0, 0xFF12
   ##
-  lui t0, 0xFFFF
-  ori t0, t0, 0x7FFF
+  lui $t0, 0xFFFF
+  ori $t0, $t0, 0x7FFF
   ##
-  addiu t0, zero, -32768
+  addiu $t0, $zero, -32768
   ##
-  lui t0, 0x0F
-  ori t0, t0, 0xFFFF
+  lui $t0, 0x0F
+  ori $t0, $t0, 0xFFFF
   ##
-  addiu t0, zero, -1
+  addiu $t0, $zero, -1
   ##
-  jr ra
+  jr $ra
   nop`);
   });
 
@@ -70,29 +70,29 @@ describe('Immediate (Scalar)', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  ori t0, zero, %lo(TEST_CONST)
+  ori $t0, $zero, %lo(TEST_CONST)
   ##
-  addiu t0, zero, 255
+  addiu $t0, $zero, 255
   ##
-  ori t0, zero, 0xFFFF
+  ori $t0, $zero, 0xFFFF
   ##
-  lui t0, 0x0F
-  ori t0, t0, 0xFFFF
+  lui $t0, 0x0F
+  ori $t0, $t0, 0xFFFF
   ##
-  addiu t0, zero, -255
+  addiu $t0, $zero, -255
   ##
-  lui t0, 0xFFFF
-  ori t0, t0, 0x01
+  lui $t0, 0xFFFF
+  ori $t0, $t0, 0x01
   ##
-  lui t0, 0xFFF0
-  ori t0, t0, 0x01
+  lui $t0, 0xFFF0
+  ori $t0, $t0, 0x01
   ##
-  lui t0, 0x8000
+  lui $t0, 0x8000
   ##
-  lui t0, 0x7FFF
-  ori t0, t0, 0xFFFF
+  lui $t0, 0x7FFF
+  ori $t0, $t0, 0xFFFF
   ##
-  jr ra
+  jr $ra
   nop`);
   });
 

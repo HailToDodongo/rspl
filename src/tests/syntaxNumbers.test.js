@@ -14,10 +14,10 @@ describe('Syntax - Numbers', () =>
 }`, CONF);
 
     expect(asm).toBe(`test:
-  li t0, 0x04D2
-  li t0, 0x1234
-  li t0, 0x000A
-  jr ra
+  addiu $t0, $zero, 1234
+  addiu $t0, $zero, 4660
+  addiu $t0, $zero, 10
+  jr $ra
   nop`);
   });
 
@@ -32,10 +32,10 @@ describe('Syntax - Numbers', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  addiu t0, t0, 1234
-  addiu t0, t0, 4660
-  addiu t0, t0, 10
-  jr ra
+  addiu $t0, $t0, 1234
+  addiu $t0, $t0, 4660
+  addiu $t0, $t0, 10
+  jr $ra
   nop`);
   });
 

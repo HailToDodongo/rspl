@@ -17,7 +17,7 @@ describe('Labels', () =>
   label_a:
   label_b:
   label_c:
-  jr ra
+  jr $ra
   nop`);
   });
 
@@ -37,14 +37,14 @@ describe('Labels', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_label:
   label_a:
-  addiu t0, t0, 1
-  b label_b
+  addiu $t0, $t0, 1
+  beq $zero, $zero, label_b
   nop
   label_b:
-  addiu t0, t0, 2
-  b label_a
+  addiu $t0, $t0, 2
+  beq $zero, $zero, label_a
   nop
-  jr ra
+  jr $ra
   nop`);
   });
 });
