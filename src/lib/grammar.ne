@@ -43,6 +43,20 @@ const lexer = moo.compile({
 	  ".x", ".y", ".z", ".w", ".X", ".Y", ".Z", ".W",
 	], value: s => s.substr(1)},
 
+	FunctionType: ["function", "command"],
+	KWIf      : "if",
+	KWElse    : "else",
+	KWBreak   : "break",
+	KWWhile   : "while",
+	KWState   : "state",
+	KWGoto    : "goto",
+	KWContinue: "continue",
+	KWInclude : "include",
+
+	ValueHex: /0x[0-9A-F]+/,
+	ValueBin: /0b[0-1]+/,
+	ValueDec: /[0-9]+/,
+	ValueDecNeg: /-[0-9]+/,
 
 	OperatorSelfR: [
 		"&&=", "||=",
@@ -80,19 +94,6 @@ const lexer = moo.compile({
 
 	Assignment: "=",
 
-	FunctionType: ["function", "command"],
-	KWIf      : "if",
-	KWElse    : "else",
-	KWBreak   : "break",
-	KWWhile   : "while",
-	KWState   : "state",
-	KWGoto    : "goto",
-	KWContinue: "continue",
-	KWInclude : "include",
-
-	ValueHex: /0x[0-9A-F]+/,
-	ValueBin: /0b[0-1]+/,
-	ValueDec: /[0-9]+/,
 	VarName: /[a-zA-Z0-9_]+/,
 
 	_:  { match: /[ \t\n]+/, lineBreaks: true },
@@ -151,12 +152,11 @@ Expression ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarAssign | ExprFuncCall
 
 LabelDecl -> _ %VarName %Colon {% d => ({type: "labelDecl", name: d[1].value, line: d[1].line}) %}
 
-IfStatement -> _ %KWIf RegDef _ %ArgsStart ExprCompare _ %ArgsEnd (ScopedBlock | Expression) (_ %KWElse (ScopedBlock | Expression | IfStatement)):? {% d => ({
+IfStatement -> _ %KWIf _ %ArgsStart ExprCompare _ %ArgsEnd (ScopedBlock | Expression) (_ %KWElse (ScopedBlock | Expression | IfStatement)):? {% d => ({
 	type: "if",
-	reg: d[2],
-	compare: d[5],
-	blockIf: FORCE_SCOPED_BLOCK(d[8][0]),
-	blockElse: FORCE_SCOPED_BLOCK(d[9] && d[9][2][0]),
+	compare: d[4],
+	blockIf: FORCE_SCOPED_BLOCK(d[7][0]),
+	blockElse: FORCE_SCOPED_BLOCK(d[8] && d[8][2][0]),
 	line: d[1].line
 })%}
 
@@ -275,6 +275,7 @@ RegNumDef -> %TypeStart ValueNumeric %TypeEnd {% d => d[1][0] %}
 ValueNumeric -> (
   %ValueBin {% d => parseInt(d[0].value.substring(2), 2) %} |
   %ValueDec {% d => parseInt(d[0].value, 10) %} |
+  %ValueDecNeg {% d => parseInt(d[0].value, 10) %} |
   %ValueHex {% d => parseInt(d[0].value.substring(2), 16) %}
 )
 

@@ -175,7 +175,7 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   beq t1, zero, 1f
-  sltiu t1, 42, v0
+  slti t1, 42, v0
   addi v0, v0, 1111
   b 2f
   nop
@@ -195,7 +195,7 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   beq t1, zero, 1f
-  sltiu t1, v0, 42
+  slti t1, v0, 42
   addi v0, v0, 1111
   b 2f
   nop
@@ -215,7 +215,7 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   bne t1, zero, 1f
-  sltiu t1, 42, v0
+  slti t1, 42, v0
   addi v0, v0, 1111
   b 2f
   nop
@@ -235,7 +235,7 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   bne t1, zero, 1f
-  sltiu t1, 42, v0
+  slti t1, 42, v0
   addi v0, v0, 1111
   b 2f
   nop

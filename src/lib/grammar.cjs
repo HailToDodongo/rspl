@@ -47,6 +47,20 @@ const lexer = moo.compile({
 	  ".x", ".y", ".z", ".w", ".X", ".Y", ".Z", ".W",
 	], value: s => s.substr(1)},
 
+	FunctionType: ["function", "command"],
+	KWIf      : "if",
+	KWElse    : "else",
+	KWBreak   : "break",
+	KWWhile   : "while",
+	KWState   : "state",
+	KWGoto    : "goto",
+	KWContinue: "continue",
+	KWInclude : "include",
+
+	ValueHex: /0x[0-9A-F]+/,
+	ValueBin: /0b[0-1]+/,
+	ValueDec: /[0-9]+/,
+	ValueDecNeg: /-[0-9]+/,
 
 	OperatorSelfR: [
 		"&&=", "||=",
@@ -84,19 +98,6 @@ const lexer = moo.compile({
 
 	Assignment: "=",
 
-	FunctionType: ["function", "command"],
-	KWIf      : "if",
-	KWElse    : "else",
-	KWBreak   : "break",
-	KWWhile   : "while",
-	KWState   : "state",
-	KWGoto    : "goto",
-	KWContinue: "continue",
-	KWInclude : "include",
-
-	ValueHex: /0x[0-9A-F]+/,
-	ValueBin: /0b[0-1]+/,
-	ValueDec: /[0-9]+/,
 	VarName: /[a-zA-Z0-9_]+/,
 
 	_:  { match: /[ \t\n]+/, lineBreaks: true },
@@ -176,12 +177,11 @@ var grammar = {
     {"name": "IfStatement$ebnf$1$subexpression$1", "symbols": ["_", (lexer.has("KWElse") ? {type: "KWElse"} : KWElse), "IfStatement$ebnf$1$subexpression$1$subexpression$1"]},
     {"name": "IfStatement$ebnf$1", "symbols": ["IfStatement$ebnf$1$subexpression$1"], "postprocess": id},
     {"name": "IfStatement$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "IfStatement", "symbols": ["_", (lexer.has("KWIf") ? {type: "KWIf"} : KWIf), "RegDef", "_", (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "ExprCompare", "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd), "IfStatement$subexpression$1", "IfStatement$ebnf$1"], "postprocess":  d => ({
+    {"name": "IfStatement", "symbols": ["_", (lexer.has("KWIf") ? {type: "KWIf"} : KWIf), "_", (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "ExprCompare", "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd), "IfStatement$subexpression$1", "IfStatement$ebnf$1"], "postprocess":  d => ({
         	type: "if",
-        	reg: d[2],
-        	compare: d[5],
-        	blockIf: FORCE_SCOPED_BLOCK(d[8][0]),
-        	blockElse: FORCE_SCOPED_BLOCK(d[9] && d[9][2][0]),
+        	compare: d[4],
+        	blockIf: FORCE_SCOPED_BLOCK(d[7][0]),
+        	blockElse: FORCE_SCOPED_BLOCK(d[8] && d[8][2][0]),
         	line: d[1].line
         })},
     {"name": "WhileStatement", "symbols": ["_", (lexer.has("KWWhile") ? {type: "KWWhile"} : KWWhile), "_", (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "ExprCompare", "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd), "ScopedBlock"], "postprocess":  d => ({
@@ -304,6 +304,7 @@ var grammar = {
     {"name": "RegNumDef", "symbols": [(lexer.has("TypeStart") ? {type: "TypeStart"} : TypeStart), "ValueNumeric", (lexer.has("TypeEnd") ? {type: "TypeEnd"} : TypeEnd)], "postprocess": d => d[1][0]},
     {"name": "ValueNumeric$subexpression$1", "symbols": [(lexer.has("ValueBin") ? {type: "ValueBin"} : ValueBin)], "postprocess": d => parseInt(d[0].value.substring(2), 2)},
     {"name": "ValueNumeric$subexpression$1", "symbols": [(lexer.has("ValueDec") ? {type: "ValueDec"} : ValueDec)], "postprocess": d => parseInt(d[0].value, 10)},
+    {"name": "ValueNumeric$subexpression$1", "symbols": [(lexer.has("ValueDecNeg") ? {type: "ValueDecNeg"} : ValueDecNeg)], "postprocess": d => parseInt(d[0].value, 10)},
     {"name": "ValueNumeric$subexpression$1", "symbols": [(lexer.has("ValueHex") ? {type: "ValueHex"} : ValueHex)], "postprocess": d => parseInt(d[0].value.substring(2), 16)},
     {"name": "ValueNumeric", "symbols": ["ValueNumeric$subexpression$1"]},
     {"name": "_$ebnf$1", "symbols": []},
