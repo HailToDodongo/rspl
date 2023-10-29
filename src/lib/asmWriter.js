@@ -6,6 +6,7 @@
 import {TYPE_ALIGNMENT, TYPE_SIZE} from "./types/types";
 import state from "./state.js";
 import {ASM_TYPE} from "./intsructions/asmWriter.js";
+import {REGS_SCALAR} from "./syntax/registers.js";
 
 function stringifyInstr(asm) {
   return asm.op + (asm.args.length ? (" " + asm.args.join(", ")) : "");
@@ -34,9 +35,14 @@ export function writeASM(ast, functionsAsm, config)
   let commandList = [];
   let savedState = "";
   let includes = "";
+  let postIncludes = "";
 
   for(const inc of ast.includes) {
     includes += `#include <${inc.replaceAll('"', '')}>\n`;
+  }
+
+  for(const inc of ast.postIncludes) {
+    postIncludes += `#include <${inc.replaceAll('"', '')}>\n`;
   }
 
   for(const stateVar of ast.state) {
@@ -74,39 +80,19 @@ export function writeASM(ast, functionsAsm, config)
     return text;
   }
 
+  // libdragon defines *some* registers without a "$", undo this to be consistent
+  const regUndefs = REGS_SCALAR.map(reg => "#undef " + reg.substring(1)).join("\n");
+  const regDefs = REGS_SCALAR.map((reg, i) => "#define " + reg.substring(1) + " $" + i)
+    .filter((_, i) => i !== 1)
+    .join("\n")
+
   return `## Auto-generated file, transpiled with RSPL
 ${includes}
 .set noreorder
 .set noat
 .set nomacro
 
-#undef zero
-#undef z0
-#undef v0
-#undef v1
-#undef a0
-#undef a1
-#undef a2
-#undef a3
-#undef t0
-#undef t1
-#undef t2
-#undef t3
-#undef t4
-#undef t5
-#undef t6
-#undef t7
-#undef s0
-#undef s1
-#undef s2
-#undef s3
-#undef s4
-#undef s5
-#undef s6
-#undef s7
-#undef t8
-#undef t9
-#undef ra
+${regUndefs}
 
 .data
   RSPQ_BeginOverlayHeader
@@ -120,5 +106,13 @@ ${commandList.join("\n")}
 
 .text
 
-${text}`;
+${text}
+
+${regDefs}
+
+.set at
+.set macro
+
+${postIncludes}
+`;
 }

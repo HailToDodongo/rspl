@@ -117,8 +117,12 @@ var grammar = {
     {"name": "main$ebnf$3", "symbols": []},
     {"name": "main$ebnf$3$subexpression$1", "symbols": ["_", "Function"]},
     {"name": "main$ebnf$3", "symbols": ["main$ebnf$3", "main$ebnf$3$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "main", "symbols": ["main$ebnf$1", "main$ebnf$2", "main$ebnf$3", "_"], "postprocess":  d => ({
+    {"name": "main$ebnf$4", "symbols": []},
+    {"name": "main$ebnf$4$subexpression$1", "symbols": ["_", "SectionIncl"]},
+    {"name": "main$ebnf$4", "symbols": ["main$ebnf$4", "main$ebnf$4$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "main", "symbols": ["main$ebnf$1", "main$ebnf$2", "main$ebnf$3", "main$ebnf$4", "_"], "postprocess":  d => ({
         	includes: MAP_TAKE(d[0], 1),
+        	postIncludes: MAP_TAKE(d[3], 1),
         	state: (d[1] && d[1][1]) || [],
         	functions: MAP_TAKE(d[2], 1),
         }) },

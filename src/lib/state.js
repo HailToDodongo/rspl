@@ -74,8 +74,8 @@ const state =
     currScope.regVarMap[reg] = name;
   },
 
-  declareMemVar: (name, type) => {
-    state.memVarMap[name] = {name, type};
+  declareMemVar: (name, type, arraySize) => {
+    state.memVarMap[name] = {name, type, arraySize};
   },
 
   getRequiredVar: (name, contextName, context = {}) => {

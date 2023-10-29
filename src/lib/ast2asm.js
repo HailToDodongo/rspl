@@ -144,8 +144,16 @@ function scopedBlockToASM(block, args)
   const res = [];
 
   let argIdx = 0;
-  for(const arg of args) {
-    state.declareVar(arg.name, arg.type, "$a"+argIdx);
+  for(const arg of args)
+  {
+    let reg = arg.reg || "$a"+argIdx;
+    if(argIdx >= 4) { // args beyond that live in RAM, fetch them and expect a target register
+      if(!arg.reg)state.throwError("Argument "+argIdx+" '"+arg.name+"' needs a target register!", arg);
+      const totalSize = args.length * 4;
+      res.push(asm("lw", [arg.reg, `%lo(RSPQ_DMEM_BUFFER) - ${totalSize - argIdx*4}(${REG.GP})`]));
+    }
+
+    state.declareVar(arg.name, arg.type, reg);
     ++argIdx;
   }
 
@@ -221,7 +229,7 @@ export function ast2asm(ast)
   const res = [];
 
   for(const stateVar of ast.state) {
-    state.declareMemVar(stateVar.varName, stateVar.varType);
+    state.declareMemVar(stateVar.varName, stateVar.varType, stateVar.arraySize);
   }
 
   for(const block of ast.functions)

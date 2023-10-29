@@ -61,7 +61,36 @@ function opLoad(varRes, varLoc, varOffset)
   }
 
   if(varOffset.type !== "num")state.throwError("Load args cannot both be consts!");
-  return [asm("lw", [varRes.reg, `%lo(${varLoc.name} + ${offsetStr})`])];
+  const loadOp = {
+    "u8":  "lb", "s8":  "lb",
+    "u16": "lh", "s16": "lh",
+    "u32": "lw", "s32": "lw",
+  };
+  return [asm(loadOp[varRes.type], [varRes.reg, `%lo(${varLoc.name} + ${offsetStr})`])];
+}
+
+function opStore(varRes, varLoc, varOffsets)
+{
+  const offsetStr = varOffsets
+    .map(v => v.type === "num" ? v.value : `%lo(${v.value})`)
+    .join(" + ");
+
+  if(varLoc.reg) {
+    return [asm("sw", [varRes.reg, `${offsetStr}(${varLoc.reg})`])];
+  }
+
+  if(varOffset.type !== "num")state.throwError("Load args cannot both be consts!");
+  return [asm("sw", [varRes.reg, `%lo(${varLoc.name} + ${offsetStr})`])];
+
+  /*switch (varRes.type) {
+    case "u8":
+    case "s8": return [asm("sb", [varSrc.reg, "0x0", varRes.reg])];
+    case "u16":
+    case "s16": return [asm("sh", [varSrc.reg, "0x0", varRes.reg])];
+    case "u32":
+    case "s32": return [asm("sw", [varSrc.reg, "0x0", varRes.reg])];
+    default: state.throwError("Unknown type: " + varRes.type, varRes);
+  }*/
 }
 
 function opRegOrImmediate(opReg, opImm, rangeCheckFunc, varRes, varLeft, varRight)
@@ -146,6 +175,6 @@ function opMul() { state.throwError("Scalar-Multiplication not implemented!"); }
 function opDiv() { state.throwError("Scalar-Division not implemented!"); }
 
 export default {
-  opMove, opLoad, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opXOR, opBitFlip,
+  opMove, opLoad, opStore, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opXOR, opBitFlip,
   loadImmediate
 };

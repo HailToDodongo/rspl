@@ -39,7 +39,7 @@ command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
 }`, CONF);
 
     expect(warn).toBe("");
-    expect(asm).toBe(`## Auto-generated file, transpiled with RSPL
+    expect(asm.trimEnd()).toBe(`## Auto-generated file, transpiled with RSPL
 #include <rsp_queue.inc>
 
 .set noreorder
@@ -47,7 +47,7 @@ command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
 .set nomacro
 
 #undef zero
-#undef z0
+#undef at
 #undef v0
 #undef v1
 #undef a0
@@ -72,6 +72,11 @@ command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
 #undef s7
 #undef t8
 #undef t9
+#undef k0
+#undef k1
+#undef gp
+#undef sp
+#undef fp
 #undef ra
 
 .data
@@ -131,6 +136,41 @@ VecCmd_Transform:
   sqv $v13, 0x0, 0x00, $t2
   sqv $v14, 0x0, 0x10, $t2
   j RSPQ_Loop
-  nop`);
+  nop
+
+#define zero $0
+#define v0 $2
+#define v1 $3
+#define a0 $4
+#define a1 $5
+#define a2 $6
+#define a3 $7
+#define t0 $8
+#define t1 $9
+#define t2 $10
+#define t3 $11
+#define t4 $12
+#define t5 $13
+#define t6 $14
+#define t7 $15
+#define s0 $16
+#define s1 $17
+#define s2 $18
+#define s3 $19
+#define s4 $20
+#define s5 $21
+#define s6 $22
+#define s7 $23
+#define t8 $24
+#define t9 $25
+#define k0 $26
+#define k1 $27
+#define gp $28
+#define sp $29
+#define fp $30
+#define ra $31
+
+.set at
+.set macro`);
   });
 });
