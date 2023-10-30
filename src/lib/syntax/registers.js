@@ -15,6 +15,9 @@ export const REG = {
   V08: "$v08", V09: "$v09", V10: "$v10", V11: "$v11", V12: "$v12", V13: "$v13", V14: "$v14", V15: "$v15",
   V16: "$v16", V17: "$v17", V18: "$v18", V19: "$v19", V20: "$v20", V21: "$v21", V22: "$v22", V23: "$v23",
   V24: "$v24", V25: "$v25", V26: "$v26", V27: "$v27", V28: "$v28", V29: "$v29", V30: "$v30", V31: "$v31",
+
+  VZERO: "$v00",
+  VTEMP: "$v29",
 };
 
 export const REGS_SCALAR = [
@@ -41,7 +44,7 @@ export function nextVecReg(regName) {
   return idx === -1 ? null : REGS_VECTOR[idx+1];
 }
 
-export function nextReg(regName, offset) {
+export function nextReg(regName, offset = 1) {
   let idx = REGS_VECTOR.indexOf(regName);
   if(idx >= 0) {
     return REGS_VECTOR[idx+offset];
@@ -51,4 +54,8 @@ export function nextReg(regName, offset) {
     return REGS_SCALAR[idx+offset];
   }
   return null;
+}
+
+export function fractReg(varRef) {
+  return varRef.type === "vec32" ? nextVecReg(varRef.reg) : REG.VZERO;
 }

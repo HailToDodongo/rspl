@@ -75,7 +75,7 @@ function calcLRToAsm(calc, varRes, varLeft, varRight)
 {
   const op = calc.op;
   if(varLeft.type !== varRight.type || varLeft.type !== varRes.type) {
-    state.throwError("Type mismatch!");
+    //state.throwError("Type mismatch!", [varLeft.type, varRight.type, varRes.type]);
   }
 
   const isVector = VECTOR_TYPES.includes(varRes.type);

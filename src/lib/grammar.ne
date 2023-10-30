@@ -57,6 +57,7 @@ const lexer = moo.compile({
 
 	ValueHex: /0x[0-9A-F]+/,
 	ValueBin: /0b[0-1]+/,
+	ValueFloat: /[-]?[0-9]+[.][0-9]+/,
 	ValueDec: /[0-9]+/,
 	ValueDecNeg: /-[0-9]+/,
 
@@ -288,6 +289,7 @@ RegNumDef -> %TypeStart ValueNumeric %TypeEnd {% d => d[1][0] %}
 ######## Values ########
 ValueNumeric -> (
   %ValueBin {% d => parseInt(d[0].value.substring(2), 2) %} |
+  %ValueFloat {% d => parseFloat(d[0].value) %} |
   %ValueDec {% d => parseInt(d[0].value, 10) %} |
   %ValueDecNeg {% d => parseInt(d[0].value, 10) %} |
   %ValueHex {% d => parseInt(d[0].value.substring(2), 16) %}

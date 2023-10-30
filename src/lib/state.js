@@ -2,6 +2,7 @@
 * @copyright 2023 - Max Bebök
 * @license GPL-3.0
 */
+import {REG} from "./syntax/registers.js";
 
 const state =
 {
@@ -24,7 +25,7 @@ const state =
     state.funcMap = {};
   },
 
-  throwError: (message, context) => {
+  throwError: (message, context = {}) => {
     const lineStr = state.line === 0 ? "(???)" : state.line+"";
     const funcStr = state.func === "" ? "(???)" : state.func+"";
     throw new Error(`Error in ${funcStr}, line ${lineStr}: ${message}\n  -> AST: ${JSON.stringify(context)}`);
@@ -70,6 +71,9 @@ const state =
   declareVar: (name, type, reg) => {
     const currScope = state.getScope();
     // @TODO: check for conflicts
+    if(reg === REG.VTEMP)state.throwError("Cannot use $v29 (VTEMP) for a variable!", {name});
+    if(reg === REG.AT)state.throwError("Cannot use $at (AT) for a variable!", {name});
+
     currScope.varMap[name] = {reg, type};
     currScope.regVarMap[reg] = name;
   },

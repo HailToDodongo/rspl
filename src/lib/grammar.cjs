@@ -61,6 +61,7 @@ const lexer = moo.compile({
 
 	ValueHex: /0x[0-9A-F]+/,
 	ValueBin: /0b[0-1]+/,
+	ValueFloat: /[-]?[0-9]+[.][0-9]+/,
 	ValueDec: /[0-9]+/,
 	ValueDecNeg: /-[0-9]+/,
 
@@ -326,6 +327,7 @@ var grammar = {
     {"name": "RegDef", "symbols": [(lexer.has("TypeStart") ? {type: "TypeStart"} : TypeStart), (lexer.has("Registers") ? {type: "Registers"} : Registers), (lexer.has("TypeEnd") ? {type: "TypeEnd"} : TypeEnd)], "postprocess": d => d[1].value},
     {"name": "RegNumDef", "symbols": [(lexer.has("TypeStart") ? {type: "TypeStart"} : TypeStart), "ValueNumeric", (lexer.has("TypeEnd") ? {type: "TypeEnd"} : TypeEnd)], "postprocess": d => d[1][0]},
     {"name": "ValueNumeric$subexpression$1", "symbols": [(lexer.has("ValueBin") ? {type: "ValueBin"} : ValueBin)], "postprocess": d => parseInt(d[0].value.substring(2), 2)},
+    {"name": "ValueNumeric$subexpression$1", "symbols": [(lexer.has("ValueFloat") ? {type: "ValueFloat"} : ValueFloat)], "postprocess": d => parseFloat(d[0].value)},
     {"name": "ValueNumeric$subexpression$1", "symbols": [(lexer.has("ValueDec") ? {type: "ValueDec"} : ValueDec)], "postprocess": d => parseInt(d[0].value, 10)},
     {"name": "ValueNumeric$subexpression$1", "symbols": [(lexer.has("ValueDecNeg") ? {type: "ValueDecNeg"} : ValueDecNeg)], "postprocess": d => parseInt(d[0].value, 10)},
     {"name": "ValueNumeric$subexpression$1", "symbols": [(lexer.has("ValueHex") ? {type: "ValueHex"} : ValueHex)], "postprocess": d => parseInt(d[0].value.substring(2), 16)},

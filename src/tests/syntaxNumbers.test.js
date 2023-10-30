@@ -38,13 +38,4 @@ describe('Syntax - Numbers', () =>
   jr $ra
   nop`);
   });
-
-  test('Scalar - Invalid (float)', () => {
-    const src = `function test() {
-      u32<$t0> a = 1.25;
-    }`;
-
-   expect(() => transpileSource(src, CONF))
-    .toThrowError(/invalid syntax at line 2/);
-  });
 });

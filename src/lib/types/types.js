@@ -51,3 +51,7 @@ export function u32InS16Range(valueU32) {
 export function u32InU16Range(valueU32) {
   return valueU32 <= 0xFFFF;
 }
+
+export function f32ToFP32(valueF32) {
+  return Math.round(valueF32 * (1<<16)) >>> 0;
+}

@@ -117,20 +117,20 @@ VecCmd_Transform:
   ldv $v08, 0x08, 40 + 0x10, $t0
   lqv $v09, 0x00, 0, $t1
   lqv $v10, 0x00, 0 + 0x10, $t1
-  vmudl $v14, $v02, $v10.h0
-  vmadm $v14, $v01, $v10.h0
+  vmudl $v29, $v02, $v10.h0
+  vmadm $v29, $v01, $v10.h0
   vmadn $v14, $v02, $v09.h0
   vmadh $v13, $v01, $v09.h0
-  vmadl $v14, $v04, $v10.h1
-  vmadm $v14, $v03, $v10.h1
+  vmadl $v29, $v04, $v10.h1
+  vmadm $v29, $v03, $v10.h1
   vmadn $v14, $v04, $v09.h1
   vmadh $v13, $v03, $v09.h1
-  vmadl $v14, $v06, $v10.h2
-  vmadm $v14, $v05, $v10.h2
+  vmadl $v29, $v06, $v10.h2
+  vmadm $v29, $v05, $v10.h2
   vmadn $v14, $v06, $v09.h2
   vmadh $v13, $v05, $v09.h2
-  vmadl $v14, $v08, $v10.h3
-  vmadm $v14, $v07, $v10.h3
+  vmadl $v29, $v08, $v10.h3
+  vmadm $v29, $v07, $v10.h3
   vmadn $v14, $v08, $v09.h3
   vmadh $v13, $v07, $v09.h3
   sqv $v13, 0x0, 0x00, $t2
