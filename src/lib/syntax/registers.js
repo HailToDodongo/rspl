@@ -17,7 +17,11 @@ export const REG = {
   V24: "$v24", V25: "$v25", V26: "$v26", V27: "$v27", V28: "$v28", V29: "$v29", V30: "$v30", V31: "$v31",
 
   VZERO: "$v00",
-  VTEMP: "$v29",
+  VDUMMY : "$v27",
+  VTEMP : "$v28",
+  VTEMP2: "$v29",
+  VSHIFT: "$v30",
+  VSHIFT8: "$v31",
 };
 
 export const REGS_SCALAR = [
@@ -54,6 +58,10 @@ export function nextReg(regName, offset = 1) {
     return REGS_SCALAR[idx+offset];
   }
   return null;
+}
+
+export function intReg(varRef) {
+  return varRef.reg;
 }
 
 export function fractReg(varRef) {

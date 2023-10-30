@@ -3,9 +3,9 @@
 * @license GPL-3.0
 */
 
-import {fractReg, isVecReg, nextReg, nextVecReg, REG} from "../syntax/registers";
+import {fractReg, intReg, isVecReg, nextReg, nextVecReg, REG} from "../syntax/registers";
 import state from "../state";
-import {isScalarSwizzle, SWIZZLE_MAP, SWIZZLE_SCALAR_IDX} from "../syntax/swizzle";
+import {isScalarSwizzle, POW2_SWIZZLE_VAR, SWIZZLE_MAP, SWIZZLE_SCALAR_IDX} from "../syntax/swizzle";
 import {f32ToFP32, toHex} from "../types/types";
 import {asm} from "../intsructions/asmWriter.js";
 import opsScalar from "./scalar";
@@ -51,6 +51,13 @@ function opMove(varRes, varRight)
   }
 
   const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
+
+  if(varRes.type === "vec32") {
+    return [
+      asm("vmov", [      varRes.reg + swizzleRes,       varRight.reg + swizzleRight]),
+      asm("vmov", [fractReg(varRes) + swizzleRes, fractReg(varRight) + swizzleRight])
+    ];
+  }
   return [asm("vmov", [varRes.reg + swizzleRes, varRight.reg + swizzleRight])];
 }
 
@@ -81,7 +88,7 @@ function opLoad(varRes, varLoc, varOffset, swizzle)
   }
   return res;
 }
-function opAdd(varRes, varLeft, varRight, clearAccum)
+function opAdd(varRes, varLeft, varRight)
 {
   if(!varRight.reg) {
     state.throwError("Addition cannot be done with a constant!");
@@ -100,24 +107,97 @@ function opAdd(varRes, varLeft, varRight, clearAccum)
     ];
 }
 
+function opSub(varRes, varLeft, varRight)
+{
+  if(!varRight.reg) {
+    state.throwError("Subtraction cannot be done with a constant!");
+  }
+  if(varRes.swizzle || varLeft.swizzle) {
+    state.throwError("Subtraction only allows swizzle on the right side!");
+  }
+
+  const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
+  return (varRes.type === "vec32")
+    ? [
+      asm("vsubc", [nextReg(varRes.reg), fractReg(varLeft), fractReg(varRight) + swizzleRight]),
+      asm("vsub",  [        varRes.reg,        varLeft.reg,      varRight.reg  + swizzleRight]),
+    ] : [
+      asm("vsubc", [        varRes.reg,        varLeft.reg,      varRight.reg  + swizzleRight]),
+    ];
+}
+
 function opMul(varRes, varLeft, varRight, clearAccum)
 {
   if(!varRight.reg) {
-    state.throwError("Multiplication cannot be done with a constant!");
+    varRight = POW2_SWIZZLE_VAR[varRight.value];
+    if(!varRight) {
+      state.throwError("Multiplication by a constant can only be done with powers of two!");
+    }
   }
   if(varRes.swizzle || varLeft.swizzle) {
     state.throwError("Multiplication only allows swizzle on the right side!");
   }
 
+  const res = [];
+  const right32Bit = varRight.type === "vec32";
   const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
-  const firstIn = clearAccum ? "vmudl" : "vmadl";
+  const fractOp = clearAccum ? "vmudl" : "vmadl";
+  let intOp = clearAccum ? "vmudn": "vmadn";
+
+  if(right32Bit) {
+    res.push(
+      asm(fractOp, [REG.VDUMMY, fractReg(varLeft), fractReg(varRight) + swizzleRight]),
+      asm("vmadm", [REG.VDUMMY,       varLeft.reg, fractReg(varRight) + swizzleRight]),
+    );
+    intOp = "vmadn"; // don't clear inbetween
+  }
+
+  res.push(
+    asm(intOp,   [nextVecReg(varRes.reg), fractReg(varLeft),       varRight.reg + swizzleRight]),
+    asm("vmadh", [           varRes.reg,        varLeft.reg,       varRight.reg + swizzleRight]),
+  );
+  return res;
+}
+
+function opInvertHalf(varRes, varLeft) {
+
+  if(!varLeft.swizzle && !varRes.swizzle) {
+    const res = [];
+    for(const s of Object.keys(SWIZZLE_SCALAR_IDX)) {
+      res.push(...opInvertHalf({...varRes, swizzle: s}, {...varLeft, swizzle: s}));
+    }
+    return res;
+  }
+
+  if(!varLeft.swizzle || !varRes.swizzle) {
+    state.throwError("Builtin invert() needs swizzling either on both sides or none (e.g.: 'res.y = invert(res).x')!", varRes);
+  }
+  if(!isScalarSwizzle(varRes.swizzle) || !isScalarSwizzle(varLeft.swizzle)) {
+    return state.throwError("Swizzle on both sides must be single-lane! (.x to .W)");
+  }
+
+  const swizzleRes = SWIZZLE_MAP[varRes.swizzle || ""];
+  const swizzleArg = SWIZZLE_MAP[varLeft.swizzle || ""];
 
   return [
-    asm(firstIn,  [REG.VTEMP,              fractReg(varLeft), fractReg(varRight) + swizzleRight]),
-    asm("vmadm",  [REG.VTEMP,                    varLeft.reg, fractReg(varRight) + swizzleRight]),
-    asm("vmadn",  [nextVecReg(varRes.reg), fractReg(varLeft),       varRight.reg + swizzleRight]),
-    asm("vmadh",  [           varRes.reg,        varLeft.reg,       varRight.reg + swizzleRight]),
+    asm("vrcph", [      intReg(varRes) + swizzleRes,   intReg(varLeft) + swizzleArg]),
+    asm("vrcpl", [    fractReg(varRes) + swizzleRes, fractReg(varLeft) + swizzleArg]),
+    asm("vrcph", [      intReg(varRes) + swizzleRes,        REG.VZERO + swizzleArg]),
   ];
 }
 
-export default {opMove, opLoad, opAdd, opMul};
+function opDiv(varRes, varLeft, varRight) {
+  if(!varRight.swizzle || !isScalarSwizzle(varRight.swizzle)) {
+    state.throwError("Vector division needs swizzling on the right side (must be scalar .x to .W)!", varRes);
+  }
+  const tmpVar = {type: varRight.type, reg: REG.VTEMP};
+  const tmpVarSw = {...tmpVar, swizzle: varRight.swizzle};
+
+  return [
+    ...opInvertHalf(tmpVarSw, varRight),
+    ...opMul(tmpVar, tmpVar, POW2_SWIZZLE_VAR["2"], true),
+    ...opMul(varRes, varLeft, tmpVarSw, true)
+  ];
+}
+
+export default {opMove, opLoad, opAdd, opSub, opMul, opInvertHalf, opDiv};

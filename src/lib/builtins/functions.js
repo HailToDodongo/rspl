@@ -2,12 +2,13 @@
 * @copyright 2023 - Max Bebök
 * @license GPL-3.0
 */
-import {nextVecReg, REG, REGS_VECTOR} from "../syntax/registers";
+import {fractReg, intReg, nextVecReg, REG, REGS_VECTOR} from "../syntax/registers";
 import state from "../state";
 import opsScalar from "../operations/scalar";
 import opsVector from "../operations/vector";
 import {asm, asmNOP} from "../intsructions/asmWriter.js";
 import {TYPE_SIZE} from "../types/types.js";
+import {isScalarSwizzle, SWIZZLE_MAP, SWIZZLE_SCALAR_IDX} from "../syntax/swizzle.js";
 
 function load(varRes, args, swizzle)
 {
@@ -86,4 +87,10 @@ function dma_out(varRes, args, swizzle) {
   return genericDMA(varRes, args, swizzle, "dma_out", "DMAOut")
 }
 
-export default {load, store, asm: inlineAsm, dma_in, dma_out};
+function invertHalf(varRes, args, swizzle) {
+  if(args.length !== 1)state.throwError("Builtin invertHalf() requires exactly one argument!", args[0]);
+  const varArg = state.getRequiredVar(args[0].value, "arg0");
+  return opsVector.opInvertHalf(varRes, {...varArg, swizzle});
+}
+
+export default {load, store, asm: inlineAsm, dma_in, dma_out, invertHalf};

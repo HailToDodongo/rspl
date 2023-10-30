@@ -71,7 +71,9 @@ const state =
   declareVar: (name, type, reg) => {
     const currScope = state.getScope();
     // @TODO: check for conflicts
-    if(reg === REG.VTEMP)state.throwError("Cannot use $v29 (VTEMP) for a variable!", {name});
+    if(reg === REG.VDUMMY)state.logWarning("Using $v27 (VDUMMY) for a variable, might get overwritten by certain operations!", {name});
+    if(reg === REG.VTEMP)state.throwError("Cannot use $v28 (VTEMP) for a variable!", {name});
+    if(reg === REG.VTEMP2)state.throwError("Cannot use $v29 (VTEMP2) for a variable!", {name});
     if(reg === REG.AT)state.throwError("Cannot use $at (AT) for a variable!", {name});
 
     currScope.varMap[name] = {reg, type};
