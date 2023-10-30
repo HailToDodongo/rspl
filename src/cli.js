@@ -22,9 +22,13 @@ if(res.results.length > 1) {
 }
 
 console.time("transpile");
-const asm = transpile(res.results[0]);
+const asmRes = transpile(res.results[0]);
 console.timeEnd("transpile");
 
-writeFileSync(pathOut, asm);
+if(asmRes.warn) {
+  console.warn(asmRes.warn);
+}
+
+writeFileSync(pathOut, asmRes.asm);
 
 

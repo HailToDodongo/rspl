@@ -10,10 +10,11 @@
   },
   "targets": {
     "cli": {
+      "optimize": true,
       "context": "node",
       "isLibrary": true,
       "sourceMap": false,
-      "outputFormat": "commonjs",
+      "outputFormat": "esmodule",
       "includeNodeModules": {
         "typescript": false,
         "vscode": false
@@ -23,7 +24,7 @@
   "scripts": {
     "start": "yarn parcel src/web/index.html",
     "build": "parcel build --public-url '/rspl' src/web/index.html",
-    "build:cli": "parcel build --target cli src/cli.js",
+    "build:cli": "parcel build --target cli src/cli.js && mv dist/cli.js dist/cli.mjs",
     "build:lang": "nearleyc src/lib/grammar.ne -o src/lib/grammar.cjs",
     "clean": "rm -rf .parcel-cache && rm -rf dist",
     "test": "NODE_OPTIONS=--experimental-vm-modules yarn jest"
