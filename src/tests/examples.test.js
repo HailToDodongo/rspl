@@ -85,7 +85,7 @@ command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
   RSPQ_EndOverlayHeader
 
   RSPQ_BeginSavedState
-    .align 8
+    .align 4
     VEC_SLOTS: .ds.b 640
   RSPQ_EndSavedState
 

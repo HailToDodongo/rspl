@@ -17,12 +17,12 @@ export const TYPE_SIZE = {
 export const TYPE_ALIGNMENT = {
   s8   : 1,
   u8   : 1,
-  s16  : 2,
-  u16  : 2,
-  s32  : 4,
-  u32  : 4,
-  vec16: 8,
-  vec32: 8,
+  s16  : 1,
+  u16  : 1,
+  s32  : 2,
+  u32  : 2,
+  vec16: 3,
+  vec32: 4,
 };
 
 export const TYPE_REG_COUNT = {
