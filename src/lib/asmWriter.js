@@ -84,7 +84,8 @@ export function writeASM(ast, functionsAsm, config)
   const regUndefs = REGS_SCALAR.map(reg => "#undef " + reg.substring(1)).join("\n");
   const regDefs = REGS_SCALAR.map((reg, i) => "#define " + reg.substring(1) + " $" + i)
     .filter((_, i) => i !== 1)
-    .join("\n")
+    .join("\n");
+  const regHexDef = REGS_SCALAR.map((reg, i) => `.equ hex.${reg}, ${i}`).join("\n");
 
   return `## Auto-generated file, transpiled with RSPL
 ${includes}
@@ -93,6 +94,7 @@ ${includes}
 .set nomacro
 
 ${regUndefs}
+${regHexDef}
 
 .data
   RSPQ_BeginOverlayHeader

@@ -22,25 +22,26 @@ function opMove(varRes, varRight)
   }
 
   const isConst = !varRight.reg;
+  const isScalar = isConst || !varRight.type.startsWith("vec");
 
-  if(!varRes.swizzle || (!isConst && !varRight.swizzle)) {
+  if(!varRes.swizzle || (!isScalar && !varRight.swizzle)) {
     return state.throwError("Vector to vector assignment must be swizzled (single-lane only)!");
   }
-  if(!isScalarSwizzle(varRes.swizzle) || (!isConst && !isScalarSwizzle(varRight.swizzle))) {
+  if(!isScalarSwizzle(varRes.swizzle) || (!isScalar && !isScalarSwizzle(varRight.swizzle))) {
     return state.throwError("Vector swizzle must be single-lane! (.x to .W)");
   }
 
   const swizzleRes = SWIZZLE_MAP[varRes.swizzle || ""];
+  const regDst = [varRes.reg, fractReg(varRes)];
 
   if(isConst) {
     const valueFP32 = f32ToFP32(varRight.value);
     const valInt = ((valueFP32 >>> 16) & 0xFFFF);
     const valFract = (valueFP32 & 0xFFFF);
-    const regDst = [varRes.reg, nextVecReg(varRes.reg)];
 
     const opLoadInt = [
       ...(valInt === 0 ? [] : opsScalar.loadImmediate(REG.AT, valInt)),
-      asm("mtc2", [valInt === 0 ? REG.ZERO : REG.AT, regDst[0] + swizzleRes])
+      asm("mtc2", [valInt === 0 ? REG.ZERO : REG.AT, regDst[0] + swizzleRes]),
     ];
     const opLoadFract = [
       ...(valFract === 0 ? [] : opsScalar.loadImmediate(REG.AT, valFract)),
@@ -50,23 +51,43 @@ function opMove(varRes, varRight)
     return varRes.type === "vec32" ? [...opLoadInt, ...opLoadFract] : opLoadInt;
   }
 
+  if(isScalar) {
+    if(varRes.type === "vec16") {
+      return [asm("mtc2", ["at", regDst[0] + swizzleRes])];
+    }
+    return [
+      asm("mtc2", [varRight.reg, regDst[1] + swizzleRes]),
+      asm("srl", [REG.AT, varRight.reg, 16]),
+      asm("mtc2", [REG.AT, regDst[0] + swizzleRes])
+    ];
+  }
+
   const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
 
   if(varRes.type === "vec32") {
     return [
-      asm("vmov", [      varRes.reg + swizzleRes,       varRight.reg + swizzleRight]),
-      asm("vmov", [fractReg(varRes) + swizzleRes, fractReg(varRight) + swizzleRight])
+      asm("vmov", [regDst[0] + swizzleRes,       varRight.reg + swizzleRight]),
+      asm("vmov", [regDst[1] + swizzleRes, fractReg(varRight) + swizzleRight])
     ];
   }
-  return [asm("vmov", [varRes.reg + swizzleRes, varRight.reg + swizzleRight])];
+  return [asm("vmov", [regDst[0] + swizzleRes, varRight.reg + swizzleRight])];
 }
 
 function opLoad(varRes, varLoc, varOffset, swizzle)
 {
+  const res = [];
+
   if(swizzle && swizzle !== "xyzwxyzw") {
     state.throwError("Builtin load() only support '.xyzwxyzw' swizzle!", varRes);
   }
-  if(!varLoc.reg)state.throwError("Load base-address must be a variable!");
+  if(!varLoc.reg) {
+    if(varLoc.name) {
+      res.push(...opsScalar.loadImmediate(REG.AT, "%lo(" +varLoc.name + ")"));
+      varLoc = {type: "u32", reg: REG.AT};
+    } else {
+      state.throwError("Load base-address must be a variable!");
+    }
+  }
   if(isVecReg(varLoc.reg))state.throwError("Load base-address must be a scalar register!", varRes);
   if(varOffset.type !== "num")state.throwError("Load offset must be a numerical-constant!");
 
@@ -78,7 +99,6 @@ function opLoad(varRes, varLoc, varOffset, swizzle)
 
   const loadInstr = swizzle ? "ldv" : "lqv";
 
-  const res = [];
   res.push(           asm(loadInstr, [varRes.reg, toHex(destOffset), varOffset.value, varLoc.reg]));
   if(swizzle)res.push(asm(loadInstr, [varRes.reg, toHex(destOffset+8), varOffset.value, varLoc.reg]));
 
@@ -88,6 +108,26 @@ function opLoad(varRes, varLoc, varOffset, swizzle)
   }
   return res;
 }
+
+function opStore(varRes, varOffsets)
+{
+  const varLoc = state.getRequiredVarOrMem(varOffsets[0].value, "base");
+  if(varOffsets.length > 1) {
+    state.throwError("Vector stores can only use a single variable as the offset");
+  }
+  const opsLoad = [];
+  if(!varLoc.reg) {
+    varLoc.reg = REG.AT;
+    opsLoad.push(...opsScalar.loadImmediate(varLoc.reg, "%lo(" +varLoc.name + ")"));
+  }
+
+  const is32 = (varRes.type === "vec32");
+  return [...opsLoad,
+          asm("sqv", [           varRes.reg,  "0x0", "0x00", varLoc.reg]),
+   is32 ? asm("sqv", [nextVecReg(varRes.reg), "0x0", "0x10", varLoc.reg]) : null
+  ];
+}
+
 function opAdd(varRes, varLeft, varRight)
 {
   if(!varRight.reg) {
@@ -200,4 +240,4 @@ function opDiv(varRes, varLeft, varRight) {
   ];
 }
 
-export default {opMove, opLoad, opAdd, opSub, opMul, opInvertHalf, opDiv};
+export default {opMove, opLoad, opStore, opAdd, opSub, opMul, opInvertHalf, opDiv};

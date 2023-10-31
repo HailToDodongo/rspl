@@ -60,8 +60,8 @@ function calcAssignToAsm(calc, varRes, varRight) {
   const isVector = VECTOR_TYPES.includes(varRes.type);
   const opsHandler = isVector ? opsVector : opsScalar;
 
-  if(!isVector && (calc.swizzleLeft || calc.swizzleRight)) {
-    state.throwError("Swizzling not allowed for scalar operations!");
+  if(!isVector && calc.op && (calc.swizzleLeft || calc.swizzleRight)) {
+    state.throwError("Swizzling not allowed for scalar operations!", calc);
   }
 
   switch (calc.op) {

@@ -4,8 +4,9 @@
 */
 import state from "../state";
 import {isSigned, toHex, u32InS16Range, u32InU16Range} from "../types/types";
-import {REG} from "../syntax/registers";
+import {fractReg, intReg, REG} from "../syntax/registers";
 import {asm, asmComment} from "../intsructions/asmWriter.js";
+import {SWIZZLE_MAP} from "../syntax/swizzle.js";
 
 /**
  * Loads a 32bit int into a register with as few instructions as possible.
@@ -47,7 +48,23 @@ function loadImmediate(regDst, value)
 function opMove(varRes, varRight)
 {
   if(varRight.reg) {
+    if(varRight.swizzle && !varRight.type.startsWith("vec")) {
+      state.throwError("Swizzling not allowed for scalar operations!");
+    }
     if(varRes.reg === varRight.reg)return [asmComment("NOP: self-assign!")];
+    if(varRight.swizzle) {
+      const swizzle =  SWIZZLE_MAP[varRight.swizzle];
+      if(varRight.type === "vec16") {
+        return [asm("mfc2", [varRes.reg, intReg(varRight) + swizzle])];
+      }
+      return [
+        asm("mfc2", [varRes.reg, fractReg(varRight) + swizzle]),
+        asm("mfc2", [REG.AT, intReg(varRight) + swizzle]),
+        asm("srl", [REG.AT, REG.AT, 16]),
+        asm("or", [varRes.reg, varRes.reg, REG.AT])
+      ];
+    }
+
     return [asm("or", [varRes.reg, REG.ZERO, varRight.reg])];
   }
   return loadImmediate(varRes.reg, varRight.value);
@@ -69,9 +86,11 @@ function opLoad(varRes, varLoc, varOffset)
   return [asm(loadOp[varRes.type], [varRes.reg, `%lo(${varLoc.name} + ${offsetStr})`])];
 }
 
-function opStore(varRes, varLoc, varOffsets)
+function opStore(varRes, varOffsets)
 {
-  const offsetStr = varOffsets
+  const varLoc = state.getRequiredVarOrMem(varOffsets[0].value, "base");
+
+  const offsetStr = varOffsets.slice(1)
     .map(v => v.type === "num" ? v.value : `%lo(${v.value})`)
     .join(" + ");
 
@@ -79,7 +98,7 @@ function opStore(varRes, varLoc, varOffsets)
     return [asm("sw", [varRes.reg, `${offsetStr}(${varLoc.reg})`])];
   }
 
-  if(varOffset.type !== "num")state.throwError("Load args cannot both be consts!");
+  if(varLoc.type !== "num")state.throwError("Load args cannot both be consts!");
   return [asm("sw", [varRes.reg, `%lo(${varLoc.name} + ${offsetStr})`])];
 
   /*switch (varRes.type) {

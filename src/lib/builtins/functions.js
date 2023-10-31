@@ -13,7 +13,9 @@ import {isScalarSwizzle, SWIZZLE_MAP, SWIZZLE_SCALAR_IDX} from "../syntax/swizzl
 function load(varRes, args, swizzle)
 {
   if(!varRes)state.throwError("Builtin load() needs a left-side", varRes);
-  if(args.length === 1)args = [args[0], {type: "num", value: 0}];
+  if(args.length === 1) {
+    args = [args[0], {type: "num", value: 0}];
+  }
 
   const argVar = state.getRequiredVarOrMem(args[0].value, "arg0");
   const argOffset = (args[1].type === "num")
@@ -30,25 +32,17 @@ function load(varRes, args, swizzle)
 
 function store(varRes, args, swizzle)
 {
-  if(!varRes)state.throwError("Builtin store() needs a left-side", varRes);
-  if(args.length === 1)args = [args[0], {type: "num", value: 0}];
+  if(varRes)state.throwError("Builtin store() cannot have a left side!\nUsage: 'store(varToSave, address, optionalOffset);'", varRes);
 
   const varSrc = state.getRequiredVar(args[0].value, "arg0");
   const isVectorSrc = REGS_VECTOR.includes(varSrc.reg);
-  const isVectorDst = REGS_VECTOR.includes(varRes.reg);
 
-  if(isVectorDst)state.throwError("Builtin store(), left side must be a scalar register!", varRes);
-  if(swizzle)state.throwError("Builtin store() cannot use swizzle!", varRes);
+  if(swizzle)state.throwError("Builtin store() cannot use swizzle!");
 
   if(isVectorSrc) {
-    const is32 = (varSrc.type === "vec32");
-
-    return [asm("sqv", [           varSrc.reg,  "0x0", "0x00", varRes.reg]),
-     is32 ? asm("sqv", [nextVecReg(varSrc.reg), "0x0", "0x10", varRes.reg]) : null
-    ];
+    return opsVector.opStore(varSrc, args.slice(1));
   }
-
-  return opsScalar.opStore(varSrc, varRes, args.slice(1));
+  return opsScalar.opStore(varSrc, args.slice(1));
 }
 
 function inlineAsm(varRes, args, swizzle) {

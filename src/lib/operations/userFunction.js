@@ -31,7 +31,6 @@ export function callUserFunction(name, args)
     }
   }
 
-  console.log(userFunc);
   res.push(asm("jal", [userFunc.name]), asmNOP());
   return res;
 }

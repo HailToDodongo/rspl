@@ -1,9 +1,17 @@
 import {transpileSource} from "../lib/transpiler";
+import {EXAMPLE_CODE} from "../web/js/exampleCode.js";
 
 const CONF = {rspqWrapper: true};
 
 describe('Examples', () =>
 {
+  test('Example code', () => {
+    const {asm, warn} = transpileSource(EXAMPLE_CODE, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBeDefined();
+  });
+
   test('Matrix x Vector', () => {
     const {asm, warn} = transpileSource(`include "rsp_queue.inc"
 state { 
@@ -35,7 +43,7 @@ command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
   res = mat2 +* vecIn.zzzzZZZZ;
   res = mat3 +* vecIn.wwwwWWWW;
 
-  trans_out = store(res);
+  store(res, trans_out);
 }`, CONF);
 
     expect(warn).toBe("");
@@ -78,6 +86,38 @@ command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
 #undef sp
 #undef fp
 #undef ra
+.equ hex.$zero, 0
+.equ hex.$at, 1
+.equ hex.$v0, 2
+.equ hex.$v1, 3
+.equ hex.$a0, 4
+.equ hex.$a1, 5
+.equ hex.$a2, 6
+.equ hex.$a3, 7
+.equ hex.$t0, 8
+.equ hex.$t1, 9
+.equ hex.$t2, 10
+.equ hex.$t3, 11
+.equ hex.$t4, 12
+.equ hex.$t5, 13
+.equ hex.$t6, 14
+.equ hex.$t7, 15
+.equ hex.$s0, 16
+.equ hex.$s1, 17
+.equ hex.$s2, 18
+.equ hex.$s3, 19
+.equ hex.$s4, 20
+.equ hex.$s5, 21
+.equ hex.$s6, 22
+.equ hex.$s7, 23
+.equ hex.$t8, 24
+.equ hex.$t9, 25
+.equ hex.$k0, 26
+.equ hex.$k1, 27
+.equ hex.$gp, 28
+.equ hex.$sp, 29
+.equ hex.$fp, 30
+.equ hex.$ra, 31
 
 .data
   RSPQ_BeginOverlayHeader

@@ -40,7 +40,7 @@ command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
   res = mat2 +* vecIn.zzzzZZZZ;
   res = mat3 +* vecIn.wwwwWWWW;
 
-  trans_out = store(res);
+  store(res, trans_out);
 }
 
 function vec_add(vec32<$v13> test)
