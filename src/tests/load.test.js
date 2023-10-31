@@ -35,7 +35,7 @@ describe('Load', () =>
     const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
       function test_vector_load() 
       {
-        vec32<$t0> src;
+        u32<$t0> src;
         vec32<$v01> dst;
         // Whole Vector
         dst = load(src);

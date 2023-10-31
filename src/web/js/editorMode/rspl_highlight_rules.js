@@ -29,7 +29,7 @@ var oop = {
 const rsplHighlightRules = function() {
   const keywords =
         [
-          "state", "function", "command",
+          "state", "function", "command", "macro",
           "if", "else", "for", "goto",
           "include", "extern",
 

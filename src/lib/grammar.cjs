@@ -48,7 +48,7 @@ const lexer = moo.compile({
 	  ".x", ".y", ".z", ".w", ".X", ".Y", ".Z", ".W",
 	], value: s => s.substr(1)},
 
-	FunctionType: ["function", "command"],
+	FunctionType: ["function", "command", "macro"],
 	KWIf      : "if",
 	KWElse    : "else",
 	KWBreak   : "break",

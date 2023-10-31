@@ -90,16 +90,18 @@ function opStore(varRes, varOffsets)
 {
   const varLoc = state.getRequiredVarOrMem(varOffsets[0].value, "base");
 
-  const offsetStr = varOffsets.slice(1)
+  const offsets = varOffsets.slice(1);
+  if(!varLoc.reg) {
+    offsets.push({type: "const", value: varLoc.name});
+  }
+
+  const offsetStr = offsets
     .map(v => v.type === "num" ? v.value : `%lo(${v.value})`)
     .join(" + ");
 
-  if(varLoc.reg) {
-    return [asm("sw", [varRes.reg, `${offsetStr}(${varLoc.reg})`])];
-  }
+  const baseReg = varLoc.reg || REG.ZERO;
 
-  if(varLoc.type !== "num")state.throwError("Load args cannot both be consts!");
-  return [asm("sw", [varRes.reg, `%lo(${varLoc.name} + ${offsetStr})`])];
+  return [asm("sw", [varRes.reg, `${offsetStr}(${baseReg})`])];
 
   /*switch (varRes.type) {
     case "u8":

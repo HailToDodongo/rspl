@@ -2,7 +2,7 @@
 * @copyright 2023 - Max Bebök
 * @license GPL-3.0
 */
-import {REG} from "./syntax/registers.js";
+import {REG, REGS_VECTOR} from "./syntax/registers.js";
 
 const state =
 {
@@ -75,6 +75,10 @@ const state =
     if(reg === REG.VTEMP)state.throwError("Cannot use $v28 (VTEMP) for a variable!", {name});
     if(reg === REG.VTEMP2)state.throwError("Cannot use $v29 (VTEMP2) for a variable!", {name});
     if(reg === REG.AT)state.throwError("Cannot use $at (AT) for a variable!", {name});
+
+    if(type.startsWith("vec") && !REGS_VECTOR.includes(reg)) {
+      state.throwError("Cannot use non-vector register for vector variable!", {name});
+    }
 
     currScope.varMap[name] = {reg, type};
     currScope.regVarMap[reg] = name;

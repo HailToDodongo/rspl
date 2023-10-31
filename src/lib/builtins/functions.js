@@ -33,7 +33,6 @@ function load(varRes, args, swizzle)
 function store(varRes, args, swizzle)
 {
   if(varRes)state.throwError("Builtin store() cannot have a left side!\nUsage: 'store(varToSave, address, optionalOffset);'", varRes);
-
   const varSrc = state.getRequiredVar(args[0].value, "arg0");
   const isVectorSrc = REGS_VECTOR.includes(varSrc.reg);
 

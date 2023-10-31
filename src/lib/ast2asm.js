@@ -171,6 +171,11 @@ function scopedBlockToASM(block, args)
         state.declareVar(st.varName, st.varType, st.reg);
         break;
 
+      case "varDeclAlias": {
+        const aliasVar = state.getRequiredVar(st.aliasName, "alias", st);
+        state.declareVar(st.varName, st.varType, aliasVar.reg);
+      } break;
+
       case "varAssignCalc": {
         const calc = st.calc;
         const varRes = structuredClone(
