@@ -28,6 +28,11 @@ function normalizeScopedBlock(block, astState, macros)
         statements.push(st);
       break;
 
+      case "while":
+        normalizeScopedBlock(st.block, astState, macros);
+        statements.push(st);
+      break;
+
       // Split up declaration and assignment
       case "varDeclAssign":
         statements.push({...st, type: "varDecl"});

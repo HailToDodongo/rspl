@@ -120,7 +120,7 @@ function ifToASM(st, args)
   const res = [];
 
   // Branch condition
-  res.push(...opBranch(st.compare, labelElse));
+  res.push(...opBranch(st.compare, labelElse+"f"));
 
   // IF-Block
   state.pushScope();
@@ -137,6 +137,38 @@ function ifToASM(st, args)
   res.push(asmLabel(labelEnd));
 
   return res;
+}
+
+function whileToASM(st, args)
+{
+  if(st.compare.left.type === "num") {
+    return state.throwError("While-Statements with numeric left-hand-side not implemented!", st);
+  }
+  const varLeft = state.getRequiredVar(st.compare.left.value, "left", st);
+  if(isVecReg(varLeft.reg)) {
+    return state.throwError("While-Statements must use scalar-registers!", st);
+  }
+
+  const labelStart = state.generateLocalLabel();
+  const labelEnd = state.generateLocalLabel();
+
+  /***** Loop: *****
+   * label_start:
+   *   if(!condition)goto label_end;
+   *   ...
+   *   goto label_start;
+   *   label_end;
+   */
+  return [
+    asmLabel(labelStart),
+    ...opBranch(st.compare, labelEnd+"f"),
+    state.pushScope(),
+      ...scopedBlockToASM(st.block, args),
+      asm("j", [labelStart+"b"]),
+      asmNOP(),
+    state.popScope(),
+    asmLabel(labelEnd),
+  ];
 }
 
 function scopedBlockToASM(block, args)
@@ -201,13 +233,9 @@ function scopedBlockToASM(block, args)
         res.push(asmLabel(st.name));
       break;
 
-      case "goto":
-        res.push(asm("j", [st.label]), asmNOP());
-      break;
-
-      case "if":
-        res.push(...ifToASM(st, args));
-      break;
+      case "goto" : res.push(asm("j", [st.label]), asmNOP()); break;
+      case "if"   : res.push(...ifToASM(st, args));           break;
+      case "while": res.push(...whileToASM(st, args));        break;
 
       case "scopedBlock":
         state.pushScope();

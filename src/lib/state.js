@@ -58,10 +58,12 @@ const state =
       varMap   : currScope ? {...currScope.varMap} : {},
       regVarMap: currScope ? {...currScope.regVarMap} : {},
     });
+    return undefined;
   },
 
   popScope() {
     state.scopeStack.pop();
+    return undefined;
   },
 
   generateLocalLabel: () => {

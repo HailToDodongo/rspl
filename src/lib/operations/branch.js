@@ -35,7 +35,7 @@ export function opBranch(compare, labelElse)
     const opBranch = compare.op === "==" ? "bne" : "beq";
     return [
       ...(isImmediate ? opsScalar.loadImmediate(REG.AT, compare.right.value) : []),
-      asm(opBranch, [regLeft, regTestRes, labelElse+"f"]),
+      asm(opBranch, [regLeft, regTestRes, labelElse]),
       asmNOP(),
     ];
   }
@@ -73,7 +73,7 @@ export function opBranch(compare, labelElse)
     return [
       ...opsLoad,
       asm(opLessThan, [REG.AT, regLeft, regOrValRight]),
-      asm(opBranch, [REG.AT, REG.ZERO, labelElse+"f"]), // jump if "<" fails (aka ">=")
+      asm(opBranch, [REG.AT, REG.ZERO, labelElse]), // jump if "<" fails (aka ">=")
       asmNOP(),
     ];
   }
