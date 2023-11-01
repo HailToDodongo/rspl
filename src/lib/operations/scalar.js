@@ -73,17 +73,18 @@ function opMove(varRes, varRight)
 function opLoad(varRes, varLoc, varOffset)
 {
   const offsetStr = varOffset.type === "num" ? varOffset.value : `%lo(${varOffset.name})`;
-  if(varLoc.reg) {
-    return [asm("lw", [varRes.reg, `${offsetStr}(${varLoc.reg})`])];
-  }
-
-  if(varOffset.type !== "num")state.throwError("Load args cannot both be consts!");
   const loadOp = {
     "u8":  "lb", "s8":  "lb",
     "u16": "lh", "s16": "lh",
     "u32": "lw", "s32": "lw",
-  };
-  return [asm(loadOp[varRes.type], [varRes.reg, `%lo(${varLoc.name} + ${offsetStr})`])];
+  }[varRes.type];
+
+  if(varLoc.reg) {
+    return [asm(loadOp, [varRes.reg, `${offsetStr}(${varLoc.reg})`])];
+  }
+
+  if(varOffset.type !== "num")state.throwError("Load args cannot both be consts!");
+  return [asm(loadOp, [varRes.reg, `%lo(${varLoc.name} + ${offsetStr})`])];
 }
 
 function opStore(varRes, varOffsets)

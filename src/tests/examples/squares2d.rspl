@@ -1,0 +1,219 @@
+include "rsp_queue.inc"
+include "rdpq_macros.h"
+
+state
+{
+  extern u32 RDPQ_CMD_STAGING;
+
+  vec32 TRI2D_DATA[0x20];
+  u32 BUFF_END;
+  u32 VER_OFFSET;
+
+  vec32 CIRLCE_POS;
+  vec32 CIRLCE_DIR;
+
+  u32 RA;
+  u32 TIME;
+}
+
+function t()
+{
+  u32<$t0> i=0;
+  u32<$t1> j=0;
+  while(i<10) {
+    while(j<20) {
+      j+=1;
+    }
+    i+=1;
+  }
+}
+
+function RDPQ_Send(u32<$s4> buffStart, u32<$s3> buffEnd);
+
+function RDPQ_Triangle(
+  u32<$a0> triCmd,
+  u32<$a1> ptrVert0, u32<$a2> ptrVert1, u32<$a3> ptrVert2,
+  u32<$v0> cull, u32<$s3>buffOut
+);
+
+function DMAIn(u32<$t0> size, u32<$t1> pitch, u32<$s0> rdram, u32<$s4> dmem);
+
+macro storeVert(u32 ptrDest, vec16 pos, u32 rgba)
+{
+  //u32<$t0> posZ = 1;
+  store(pos,  ptrDest);
+  //store(posZ, ptrDest, 4);
+  store(rgba, ptrDest, 8);
+}
+
+function storeTri(vec16<$v20> pos, u32<$t3> rgba)
+{
+  u32<$ra> retAddr;
+  store(retAddr, RA);
+
+  u32<$t9> vertOffset = load(VER_OFFSET);
+  u32<$a1> vert0 = vertOffset + TRI2D_DATA;
+  u32<$a2> vert1 = vert0 + 0x20;
+  u32<$a3> vert2 = vert1 + 0x20;
+  u32 vert3 = vert2 + 0x20;
+
+  vec16 posLocal;
+  posLocal.x = pos.x;
+  posLocal.y = pos.y;
+
+  vec16 offsetX = 0;
+  offsetX.x = pos.z;
+  vec16 offsetY = 0;
+  offsetY.y = pos.z;
+
+  rgba |= 0x000000FF;
+
+  // store vert 1 - 4
+  storeVert(vert0, posLocal, rgba);
+
+  posLocal += offsetX;
+  storeVert(vert1, posLocal, rgba);
+
+  posLocal += offsetY;
+  storeVert(vert2, posLocal, rgba);
+
+  posLocal -= offsetX;
+  storeVert(vert3, posLocal, rgba);
+
+  // append tris to queue
+  u32<$s3> buffEnd = load(BUFF_END);
+  RDPQ_Triangle(0xCF00, vert0, vert1, vert2, 2, buffEnd);
+
+  vert0 += 0x40;
+  vert1 += 0x40;
+  vert2 -= 0x40;
+  RDPQ_Triangle(0xCF00, vert0, vert1, vert2, 2, buffEnd);
+  store(buffEnd, BUFF_END);
+
+  // store vertex data offset
+  vertOffset = load(VER_OFFSET);
+  vertOffset += 0x80;
+  store(vertOffset, VER_OFFSET);
+
+  // flush & draw vertex buffer
+  if(vertOffset > 0x200)
+  {
+    u32<$s4> buffer = RDPQ_CMD_STAGING;
+    RDPQ_Send(buffer, buffEnd);
+    buffEnd = RDPQ_CMD_STAGING;
+    store(buffEnd, BUFF_END);
+    vertOffset = 0;
+    store(vertOffset, VER_OFFSET);
+  }
+
+  retAddr = load(RA);
+}
+
+function getPosColor(u32<$s6> idxX, u32<$s7> idxY)
+{
+  vec32<$v20> tilePos;
+  u32<$t3> rgba;
+
+  u32 time = load(TIME);
+  time &= 0xFF;
+
+  // scaling factors / offsets
+  vec32 scale;
+  scale.x = 0.0015; // tile scale
+  scale.y = 12.2; // cirlce scale
+
+  // get tile postion in the grid
+  u32 startX = idxX << 20;
+  u32 startY = idxY << 20;
+  tilePos.x = startX;
+  tilePos.y = startY;
+
+  // load circle pos and apply velocity
+  vec32 circleDir = load(CIRLCE_DIR);
+  vec32 centerDist = load(CIRLCE_POS);
+  centerDist += circleDir;
+  store(centerDist, CIRLCE_POS);
+
+  // chek if an edge was hit, invert direction
+  s32 checkX = int(centerDist).x;
+  s32 checkY = int(centerDist).y;
+
+  if(checkX <   0)circleDir.x =  0.006;
+  if(checkX > 320)circleDir.x = -0.006;
+  if(checkY <   0)circleDir.y =  0.006;
+  if(checkY > 240)circleDir.y = -0.006;
+  store(circleDir, CIRLCE_DIR);
+
+  // get squared tile-to-circle distance
+  centerDist -= tilePos;
+  centerDist *= centerDist;
+  centerDist *= scale.y;
+
+  // output color
+  startX <<= 7;
+  rgba = startX;
+  startX <<= 8;
+  rgba |= 0xFF00;
+  rgba -= startX;
+
+  startY >>= 1;
+  time <<= 16;
+  rgba |= time;
+  rgba += startY;
+
+  // tile scale
+  centerDist += centerDist.y;
+  scale *= centerDist.x;
+  scale.y = 2;
+  scale += scale.y;
+
+  // convert to screen-space
+  tilePos *= 4;
+  tilePos.z = scale.x;
+}
+
+command<4> T3DCmd_Init()
+{
+  u32<$zero> ZERO;
+  store(ZERO, VER_OFFSET); // @TODO: syntax for zero
+  store(ZERO, TIME);
+
+  vec32 vecData;
+  vecData.x = 0.006;
+  vecData.y = vecData.x;
+  store(vecData, CIRLCE_DIR);
+
+  vecData.x = 42.42;
+  vecData.y = 12.12;
+  store(vecData, CIRLCE_POS);
+}
+
+command<5> T3DCmd_Test()
+{
+  u32<$s6> idxX = 0;
+  u32<$s7> idxY = 0;
+
+  u32 buffEnd = RDPQ_CMD_STAGING;
+  store(buffEnd, BUFF_END);
+
+  u32 time = load(TIME); // @TODO: syntax
+  time += 1;
+  store(time, TIME);
+
+  while(idxY <= 15)
+  {
+    u32<$t3> rgba;
+    vec16<$v20> pos;
+    getPosColor(idxX, idxY);
+
+    storeTri(pos, rgba);
+
+    idxX += 1;
+    if(idxX > 19) {
+      idxX = 0;
+      idxY += 1;
+    }
+  }
+}
+
+include "rsp_rdpq.inc"

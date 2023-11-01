@@ -186,8 +186,8 @@ function opMul(varRes, varLeft, varRight, clearAccum)
 
   if(right32Bit) {
     res.push(
-      asm(fractOp, [REG.VDUMMY, fractReg(varLeft), fractReg(varRight) + swizzleRight]),
-      asm("vmadm", [REG.VDUMMY,       varLeft.reg, fractReg(varRight) + swizzleRight]),
+      asm(fractOp, [REG.VTEMP0, fractReg(varLeft), fractReg(varRight) + swizzleRight]),
+      asm("vmadm", [REG.VTEMP0,       varLeft.reg, fractReg(varRight) + swizzleRight]),
     );
     intOp = "vmadn"; // don't clear inbetween
   }
@@ -230,7 +230,7 @@ function opDiv(varRes, varLeft, varRight) {
   if(!varRight.swizzle || !isScalarSwizzle(varRight.swizzle)) {
     state.throwError("Vector division needs swizzling on the right side (must be scalar .x to .W)!", varRes);
   }
-  const tmpVar = {type: varRight.type, reg: REG.VTEMP};
+  const tmpVar = {type: varRight.type, reg: REG.VTEMP1};
   const tmpVarSw = {...tmpVar, swizzle: varRight.swizzle};
 
   return [

@@ -34,13 +34,13 @@ describe('Syntax - Swizzle', () =>
   test('Assign single (vec32 <- vec16)', () => {
     const {asm, warn} = transpileSource(`function test() {
       vec32<$v01> a;
-      vec16<$v01> b;
+      vec16<$v03> b;
       a.x = b.X;
     }`, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmov $v01.e0, $v01.e4
+  vmov $v01.e0, $v03.e4
   vmov $v02.e0, $v00.e4
   jr $ra
   nop`);
@@ -49,13 +49,13 @@ describe('Syntax - Swizzle', () =>
   test('Assign single (vec16 <- vec32)', () => {
     const {asm, warn} = transpileSource(`function test() {
       vec16<$v01> a;
-      vec32<$v01> b;
+      vec32<$v02> b;
       a.x = b.X;
     }`, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmov $v01.e0, $v01.e4
+  vmov $v01.e0, $v02.e4
   jr $ra
   nop`);
   });

@@ -105,7 +105,7 @@ function calcLRToAsm(calc, varRes, varLeft, varRight)
   }
 }
 
-function ifToASM(st, args)
+function ifToASM(st)
 {
   if(st.compare.left.type === "num") {
     return state.throwError("IF-Statements with numeric left-hand-side not implemented!", st);
@@ -124,14 +124,14 @@ function ifToASM(st, args)
 
   // IF-Block
   state.pushScope();
-  res.push(...scopedBlockToASM(st.blockIf, args));
+  res.push(...scopedBlockToASM(st.blockIf));
   if(st.blockElse)res.push(asm("beq", [REG.ZERO, REG.ZERO, labelEnd+"f"]), asmNOP());
   state.popScope();
 
   // ELSE-Block
   if(st.blockElse) {
     state.pushScope();
-    res.push(asmLabel(labelElse), ...scopedBlockToASM(st.blockElse, args));
+    res.push(asmLabel(labelElse), ...scopedBlockToASM(st.blockElse));
     state.popScope();
   }
   res.push(asmLabel(labelEnd));
@@ -139,7 +139,7 @@ function ifToASM(st, args)
   return res;
 }
 
-function whileToASM(st, args)
+function whileToASM(st)
 {
   if(st.compare.left.type === "num") {
     return state.throwError("While-Statements with numeric left-hand-side not implemented!", st);
@@ -163,7 +163,7 @@ function whileToASM(st, args)
     asmLabel(labelStart),
     ...opBranch(st.compare, labelEnd+"f"),
     state.pushScope(),
-      ...scopedBlockToASM(st.block, args),
+      ...scopedBlockToASM(st.block),
       asm("j", [labelStart+"b"]),
       asmNOP(),
     state.popScope(),
@@ -171,7 +171,7 @@ function whileToASM(st, args)
   ];
 }
 
-function scopedBlockToASM(block, args)
+function scopedBlockToASM(block, args = [])
 {
   const res = [];
 
@@ -199,14 +199,14 @@ function scopedBlockToASM(block, args)
         res.push(asmComment(st.comment.substring(2).trimEnd() || ""));
       break;
 
-      case "varDecl":
-        state.declareVar(st.varName, st.varType, st.reg);
-        break;
-
-      case "varDeclAlias": {
-        const aliasVar = state.getRequiredVar(st.aliasName, "alias", st);
-        state.declareVar(st.varName, st.varType, aliasVar.reg);
+      case "varDecl": {
+        const reg = st.reg || state.allocRegister(st.varType);
+        state.declareVar(st.varName, st.varType, reg);
       } break;
+
+      case "varDeclAlias":
+        state.declareVarAlias(st.aliasName, st.varName);
+      break;
 
       case "varAssignCalc": {
         const calc = st.calc;
@@ -234,12 +234,12 @@ function scopedBlockToASM(block, args)
       break;
 
       case "goto" : res.push(asm("j", [st.label]), asmNOP()); break;
-      case "if"   : res.push(...ifToASM(st, args));           break;
-      case "while": res.push(...whileToASM(st, args));        break;
+      case "if"   : res.push(...ifToASM(st));           break;
+      case "while": res.push(...whileToASM(st));        break;
 
       case "scopedBlock":
         state.pushScope();
-        res.push(...scopedBlockToASM(st, args));
+        res.push(...scopedBlockToASM(st));
         state.popScope();
       break;
 
@@ -272,13 +272,13 @@ export function ast2asm(ast)
 
     if(["function", "command"].includes(block.type)) {
       state.declareFunction(block.name, block.args);
-      state.enterFunction(block.name);
 
       if(!block.body)continue;
+      state.enterFunction(block.name, block.type);
 
       const blockAsm = scopedBlockToASM(block.body, block.args);
       if(block.type === "command") {
-        blockAsm.push(asm("j", ["RSPQ_Loop"]), asmNOP()); // @TODO
+        blockAsm.push(asm("j", ["RSPQ_Loop"]), asmNOP());
       } else {
         blockAsm.push(asm("jr", [REG.RA]), asmNOP());
       }
@@ -289,6 +289,8 @@ export function ast2asm(ast)
         argSize: getArgSize(block),
         body: undefined
       });
+
+      state.leaveFunction();
     }
   }
   return res;

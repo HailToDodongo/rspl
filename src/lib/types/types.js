@@ -36,13 +36,14 @@ export const TYPE_REG_COUNT = {
   vec32: 2,
 };
 
-export const isSigned = (type) => type.startsWith("s");
+export const isTwoRegType = type => type === "vec32";
+
+export const isVecType = type => type.startsWith("vec");
+
+export const isSigned = type => type.startsWith("s");
 
 export const toHex = (val, pad = 2) =>
   "0x" + val.toString(16).padStart(pad, '0').toUpperCase();
-
-export const toHexSafe = (val, pad = 4)=>
-  typeof(val) === "number" ? toHex(val, pad) : val;
 
 export function u32InS16Range(valueU32) {
   return valueU32 <= 0x7FFF || valueU32 >= 0xFFFF8000;

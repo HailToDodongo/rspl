@@ -41,6 +41,7 @@ function normalizeScopedBlock(block, astState, macros)
             type: "varAssignCalc",
             varName: st.varName,
             calc: st.calc, assignType: "=",
+            line: st.line,
           });
         }
       break;
@@ -68,8 +69,8 @@ function normalizeScopedBlock(block, astState, macros)
             varDecl.push({
               type: "varDeclAlias",
               varType: arg.type,
-              varName: arg.name,
-              aliasName: st.args[i].value,
+              varName: st.args[i].value,
+              aliasName: arg.name,
             });
           }
           macro.body.statements = [...varDecl, ...macro.body.statements];

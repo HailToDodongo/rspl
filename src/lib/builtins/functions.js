@@ -7,7 +7,7 @@ import state from "../state";
 import opsScalar from "../operations/scalar";
 import opsVector from "../operations/vector";
 import {asm, asmNOP} from "../intsructions/asmWriter.js";
-import {TYPE_SIZE} from "../types/types.js";
+import {isVecType, TYPE_SIZE} from "../types/types.js";
 import {isScalarSwizzle, SWIZZLE_MAP, SWIZZLE_SCALAR_IDX} from "../syntax/swizzle.js";
 
 function load(varRes, args, swizzle)
@@ -53,19 +53,40 @@ function inlineAsm(varRes, args, swizzle) {
   return [asm(args[0].value, ["# inline-ASM"])];
 }
 
+// Taken from libdragon
+function DMA_SIZE(width, height) {
+  return (((width)-1) | (((height)-1)<<12)) >>> 0;
+}
+
 function genericDMA(varRes, args, swizzle, builtinName, dmaName) {
   if(swizzle)state.throwError("Builtin "+builtinName+"() cannot use swizzle!", varRes);
   if(varRes)state.throwError("Builtin "+builtinName+"() cannot have a left side!", varRes);
-  if(args.length !== 2)state.throwError("Builtin "+builtinName+"() requires exactly two arguments!", args[0]);
+  if(args.length !== 2 && args.length !== 3)state.throwError("Builtin "+builtinName+"() requires 2 or 3 arguments!", args[0]);
 
   const targetMem = state.getRequiredMem(args[0].value, "dest");
-  const targetSize = TYPE_SIZE[targetMem.type] * (targetMem.arraySize || 1);
-
   const varRDRAM = state.getRequiredVar(args[1].value, "RDRAM");
+
+  let sizeLoadOps = [];
+
+  // explicit size is set, can be either a constant or a variable...
+  if(args.length === 3)
+  {
+    const sizeArg = args[2];
+    if(sizeArg.type === "num") {
+      sizeLoadOps = [asm("ori", [REG.T0, REG.ZERO, DMA_SIZE(sizeArg.value, 1)])];
+    } else {
+      const sizeVar = state.getRequiredVar(sizeArg.value, "size");
+      if(sizeVar.reg !== REG.T0)state.throwError("Builtin "+builtinName+"() requires size-argument to be in $t0!", sizeArg);
+      sizeLoadOps = [asm("addiu", [REG.T0, REG.T0, -1])]; // part of the DMA_SIZE calculation, assuming height=1
+    }
+  } else { // ...as a fallback, use the declared state size (incl. array size)
+    const targetSize = TYPE_SIZE[targetMem.type] * (targetMem.arraySize || 1);
+    sizeLoadOps = [asm("ori", [REG.T0, REG.ZERO, DMA_SIZE(targetSize, 1)])];
+  }
 
   return [
     varRDRAM.reg === REG.S0 ? null : asm("or", [REG.S0, REG.ZERO, varRDRAM.reg]),
-    asm("ori", [REG.T0, REG.ZERO, "DMA_SIZE("+targetSize+", 1)"]),
+    ...sizeLoadOps,
     asm("ori", [REG.S4, REG.ZERO, "%lo("+targetMem.name+")"]),
     asm("jal", [dmaName]),
     asmNOP(),
@@ -86,4 +107,21 @@ function invertHalf(varRes, args, swizzle) {
   return opsVector.opInvertHalf(varRes, {...varArg, swizzle});
 }
 
-export default {load, store, asm: inlineAsm, dma_in, dma_out, invertHalf};
+function int(varRes, args, swizzle) {
+  const varArg = state.getRequiredVar(args[0].value, "arg0");
+
+  if(args.length !== 1      )state.throwError("Builtin int() requires exactly one argument!", args[0]);
+  if(!varRes                )state.throwError("Builtin int() needs a left-side", varRes);
+  if(isVecType(varRes.type) )state.throwError("Builtin int() must store the result into an integer!", varRes);
+  if(!swizzle               )state.throwError("Builtin int() requires swizzling! (.x to .W)", varArg);
+  if(swizzle.length !== 1   )state.throwError("Builtin int() swizzle must use a single element (.x to .W)", varArg);
+  if(!isVecType(varArg.type))state.throwError("The argument of builtin int() must be a vector!", varArg);
+
+  return [asm("mfc2", [varRes.reg, varArg.reg + SWIZZLE_MAP[swizzle]])];
+}
+
+function fract() {
+  state.throwError("@TODO: Builtin fract() not implemented!");
+}
+
+export default {load, store, asm: inlineAsm, dma_in, dma_out, invertHalf, int, fract};

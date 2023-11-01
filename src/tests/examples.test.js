@@ -1,5 +1,6 @@
 import {transpileSource} from "../lib/transpiler";
 import {EXAMPLE_CODE} from "../web/js/exampleCode.js";
+import {readFileSync} from "fs";
 
 const CONF = {rspqWrapper: true};
 
@@ -7,6 +8,14 @@ describe('Examples', () =>
 {
   test('Example code', () => {
     const {asm, warn} = transpileSource(EXAMPLE_CODE, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBeDefined();
+  });
+
+  test('Example code - Squares 2D', () => {
+    const code = readFileSync("./src/tests/examples/squares2d.rspl", "utf8");
+    const {asm, warn} = transpileSource(code, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBeDefined();

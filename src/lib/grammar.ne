@@ -141,7 +141,7 @@ Function -> %FunctionType (RegDef | RegNumDef):? _ %VarName %ArgsStart _ Functio
 %}
 
 ScopedBlock -> _ %BlockStart Statements _ %BlockEnd {%
-	d => ({type: "scopedBlock", statements: d[2]})
+	d => ({type: "scopedBlock", statements: d[2], line: d[1].line})
 %}
 
 # A functions body (or any scoped-block) contains zero or more "statements"
@@ -182,7 +182,7 @@ WhileStatement -> _ %KWWhile _ %ArgsStart ExprCompare _ %ArgsEnd ScopedBlock {% 
 ######## Expressions ########
 LineComment -> _ %LineComment [\n] {% (d) => ({type: "comment", comment: d[1].value, line: d[1].line}) %}
 
-ExprVarDeclAssign -> (%DataType RegDef _ %VarName _ ExprPartAssign) {% d => ({
+ExprVarDeclAssign -> (%DataType RegDef:? _ %VarName _ ExprPartAssign) {% d => ({
 	type: "varDeclAssign", varType: d[0][0].value,
 	reg: d[0][1], varName: d[0][3].value,
 	calc: d[0][5],
@@ -191,7 +191,7 @@ ExprVarDeclAssign -> (%DataType RegDef _ %VarName _ ExprPartAssign) {% d => ({
 
 ExprPartAssign -> %Assignment _ ExprCalcAll {% d => d[2][0] %}
 
-ExprVarDecl -> (%DataType RegDef _ VarList) {% d => ({
+ExprVarDecl -> (%DataType RegDef:? _ VarList) {% d => ({
 	type: "varDeclMulti",
 	varType: d[0][0].value,
 	reg: d[0][1],

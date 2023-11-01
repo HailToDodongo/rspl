@@ -161,7 +161,7 @@ var grammar = {
         })
         },
     {"name": "ScopedBlock", "symbols": ["_", (lexer.has("BlockStart") ? {type: "BlockStart"} : BlockStart), "Statements", "_", (lexer.has("BlockEnd") ? {type: "BlockEnd"} : BlockEnd)], "postprocess": 
-        d => ({type: "scopedBlock", statements: d[2]})
+        d => ({type: "scopedBlock", statements: d[2], line: d[1].line})
         },
     {"name": "Statements$ebnf$1", "symbols": []},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["LineComment"]},
@@ -213,7 +213,9 @@ var grammar = {
         	line: d[1].line
         })},
     {"name": "LineComment", "symbols": ["_", (lexer.has("LineComment") ? {type: "LineComment"} : LineComment), /[\n]/], "postprocess": (d) => ({type: "comment", comment: d[1].value, line: d[1].line})},
-    {"name": "ExprVarDeclAssign$subexpression$1", "symbols": [(lexer.has("DataType") ? {type: "DataType"} : DataType), "RegDef", "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "_", "ExprPartAssign"]},
+    {"name": "ExprVarDeclAssign$subexpression$1$ebnf$1", "symbols": ["RegDef"], "postprocess": id},
+    {"name": "ExprVarDeclAssign$subexpression$1$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "ExprVarDeclAssign$subexpression$1", "symbols": [(lexer.has("DataType") ? {type: "DataType"} : DataType), "ExprVarDeclAssign$subexpression$1$ebnf$1", "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "_", "ExprPartAssign"]},
     {"name": "ExprVarDeclAssign", "symbols": ["ExprVarDeclAssign$subexpression$1"], "postprocess":  d => ({
         	type: "varDeclAssign", varType: d[0][0].value,
         	reg: d[0][1], varName: d[0][3].value,
@@ -221,7 +223,9 @@ var grammar = {
         	line: d[0][0].line
         })},
     {"name": "ExprPartAssign", "symbols": [(lexer.has("Assignment") ? {type: "Assignment"} : Assignment), "_", "ExprCalcAll"], "postprocess": d => d[2][0]},
-    {"name": "ExprVarDecl$subexpression$1", "symbols": [(lexer.has("DataType") ? {type: "DataType"} : DataType), "RegDef", "_", "VarList"]},
+    {"name": "ExprVarDecl$subexpression$1$ebnf$1", "symbols": ["RegDef"], "postprocess": id},
+    {"name": "ExprVarDecl$subexpression$1$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "ExprVarDecl$subexpression$1", "symbols": [(lexer.has("DataType") ? {type: "DataType"} : DataType), "ExprVarDecl$subexpression$1$ebnf$1", "_", "VarList"]},
     {"name": "ExprVarDecl", "symbols": ["ExprVarDecl$subexpression$1"], "postprocess":  d => ({
         	type: "varDeclMulti",
         	varType: d[0][0].value,

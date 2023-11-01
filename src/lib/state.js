@@ -2,12 +2,22 @@
 * @copyright 2023 - Max Bebök
 * @license GPL-3.0
 */
-import {REG, REGS_VECTOR} from "./syntax/registers.js";
+import {
+  nextReg,
+  REG,
+  REGS_ALLOC_SCALAR,
+  REGS_ALLOC_VECTOR,
+  REGS_FORBIDDEN,
+  REGS_SCALAR,
+  REGS_VECTOR
+} from "./syntax/registers.js";
+import {isVecType, isTwoRegType} from "./types/types.js";
 
 const state =
 {
   nextLabelId: 0,
   func: "",
+  funcType: "",
   line: 0,
   outWarn: "",
 
@@ -18,6 +28,7 @@ const state =
   reset() {
     state.nextLabelId = 0;
     state.func = "";
+    state.funcType = "";
     state.line = 0;
     state.scopeStack = [];
     state.memVarMap = {};
@@ -41,11 +52,19 @@ const state =
     state.funcMap[name] = {name, args};
   },
 
-  enterFunction: (name) => {
+  enterFunction: (name, funcType) => {
     state.func = name;
+    state.funcType = funcType;
     state.line = 0;
     state.scopeStack = [];
     state.pushScope();
+  },
+
+  leaveFunction: () => {
+    state.func = "";
+    state.funcType = "";
+    state.line = 0;
+    state.scopeStack = [];
   },
 
   getScope() {
@@ -57,6 +76,7 @@ const state =
     state.scopeStack.push({
       varMap   : currScope ? {...currScope.varMap} : {},
       regVarMap: currScope ? {...currScope.regVarMap} : {},
+      varAliasMap: currScope ? {...currScope.varAliasMap} : {},
     });
     return undefined;
   },
@@ -70,20 +90,52 @@ const state =
     return ++state.nextLabelId;
   },
 
-  declareVar: (name, type, reg) => {
-    const currScope = state.getScope();
-    // @TODO: check for conflicts
-    if(reg === REG.VDUMMY)state.logWarning("Using $v27 (VDUMMY) for a variable, might get overwritten by certain operations!", {name});
-    if(reg === REG.VTEMP)state.throwError("Cannot use $v28 (VTEMP) for a variable!", {name});
-    if(reg === REG.VTEMP2)state.throwError("Cannot use $v29 (VTEMP2) for a variable!", {name});
-    if(reg === REG.AT)state.throwError("Cannot use $at (AT) for a variable!", {name});
+  allocRegister(type) {
+    // avoid collisions, this assumes a command to be the main code path, and 1 level deep calls
+    const reverse = state.funcType === "command";
+    const scope = state.getScope();
+    let regList = isVecType(type) ? REGS_ALLOC_VECTOR : REGS_ALLOC_SCALAR;
+    if(reverse)regList = [...regList].reverse();
 
-    if(type.startsWith("vec") && !REGS_VECTOR.includes(reg)) {
-      state.throwError("Cannot use non-vector register for vector variable!", {name});
+    const twoRegs = isTwoRegType(type);
+    for(const reg of regList) {
+      const regNext = nextReg(reg);
+      if(scope.regVarMap[reg])continue;
+      if(twoRegs && (!regList.includes(regNext) || scope.regVarMap[regNext]))continue;
+      return reg;
+    }
+    return state.throwError("Out of free registers!");
+  },
+
+  declareVar: (name, type, reg) => {
+    const scope = state.getScope();
+    if(!reg)state.throwError("Cannot declare variable without register!", {name});
+    if(REGS_FORBIDDEN.includes(reg)) {
+      state.throwError(`Cannot use reserved register '${reg}' for a variable!`, {name});
     }
 
-    currScope.varMap[name] = {reg, type};
-    currScope.regVarMap[reg] = name;
+    if(isVecType(type)) {
+      if(!REGS_VECTOR.includes(reg))state.throwError("Cannot use scalar register for vector variable!", {name});
+    } else {
+      if(!REGS_SCALAR.includes(reg))state.throwError("Cannot use vector register for scalar variable!", {name});
+    }
+
+    const allocRegs = isTwoRegType(type) ? [reg, nextReg(reg)] : [reg];
+    for(const allocReg of allocRegs) {
+      if(scope.regVarMap[allocReg]) {
+        state.throwError(`Register '${allocReg}' already used for variable '${scope.regVarMap[allocReg]}'!`, {name});
+      }
+    }
+    scope.varMap[name] = {reg: allocRegs[0], type};
+    for(const allocReg of allocRegs) {
+      scope.regVarMap[allocReg] = name;
+    }
+  },
+
+  declareVarAlias(aliasName, varName) {
+    state.getRequiredVar(varName, "alias"); // check if varName exists
+    const scope = state.getScope();
+    scope.varAliasMap[aliasName] = varName;
   },
 
   declareMemVar: (name, type, arraySize) => {
@@ -91,8 +143,9 @@ const state =
   },
 
   getRequiredVar: (name, contextName, context = {}) => {
-    const currScope = state.getScope();
-    const res = structuredClone(currScope.varMap[name]);
+    const scope = state.getScope();
+    name = scope.varAliasMap[name] || name;
+    const res = structuredClone(scope.varMap[name]);
     if(!res)state.throwError(contextName + " Variable "+name+" not known!", context);
     return res;
   },
@@ -104,8 +157,9 @@ const state =
   },
 
   getRequiredVarOrMem: (name, contextName, context = {}) => {
-    const currScope = state.getScope();
-    let res = structuredClone(currScope.varMap[name]) ||structuredClone(state.memVarMap[name]);
+    const scope = state.getScope();
+    name = scope.varAliasMap[name] || name;
+    let res = structuredClone(scope.varMap[name]) ||structuredClone(state.memVarMap[name]);
     if(!res) {
       state.throwError(contextName + " Variable/Memory "+name+" not known!", context);
     }
