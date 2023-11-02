@@ -150,22 +150,22 @@ VecCmd_Transform:
   addiu $t2, $t2, %lo(VEC_SLOTS)
   ldv $v01, 0x00, 0, $t0
   ldv $v01, 0x08, 0, $t0
-  ldv $v02, 0x00, 0 + 0x10, $t0
-  ldv $v02, 0x08, 0 + 0x10, $t0
+  ldv $v02, 0x00, 0 + 8, $t0
+  ldv $v02, 0x08, 0 + 8, $t0
   ldv $v03, 0x00, 8, $t0
   ldv $v03, 0x08, 8, $t0
-  ldv $v04, 0x00, 8 + 0x10, $t0
-  ldv $v04, 0x08, 8 + 0x10, $t0
+  ldv $v04, 0x00, 8 + 8, $t0
+  ldv $v04, 0x08, 8 + 8, $t0
   ldv $v05, 0x00, 32, $t0
   ldv $v05, 0x08, 32, $t0
-  ldv $v06, 0x00, 32 + 0x10, $t0
-  ldv $v06, 0x08, 32 + 0x10, $t0
+  ldv $v06, 0x00, 32 + 8, $t0
+  ldv $v06, 0x08, 32 + 8, $t0
   ldv $v07, 0x00, 40, $t0
   ldv $v07, 0x08, 40, $t0
-  ldv $v08, 0x00, 40 + 0x10, $t0
-  ldv $v08, 0x08, 40 + 0x10, $t0
+  ldv $v08, 0x00, 40 + 8, $t0
+  ldv $v08, 0x08, 40 + 8, $t0
   lqv $v09, 0x00, 0, $t1
-  lqv $v10, 0x00, 0 + 0x10, $t1
+  lqv $v10, 0x00, 0 + 16, $t1
   vmudl $v27, $v02, $v10.h0
   vmadm $v27, $v01, $v10.h0
   vmadn $v14, $v02, $v09.h0

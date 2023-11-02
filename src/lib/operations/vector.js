@@ -53,7 +53,7 @@ function opMove(varRes, varRight)
 
   if(isScalar) {
     if(varRes.type === "vec16") {
-      return [asm("mtc2", ["at", regDst[0] + swizzleRes])];
+      return [asm("mtc2", [varRight.reg, regDst[0] + swizzleRes])];
     }
     return [
       asm("mtc2", [varRight.reg, regDst[1] + swizzleRes]),
@@ -98,13 +98,14 @@ function opLoad(varRes, varLoc, varOffset, swizzle)
   destOffset *= 2; // convert to bytes (?)
 
   const loadInstr = swizzle ? "ldv" : "lqv";
+  const floatOffset = swizzle ? 8 : 0x10;
 
   res.push(           asm(loadInstr, [varRes.reg, toHex(destOffset), varOffset.value, varLoc.reg]));
   if(swizzle)res.push(asm(loadInstr, [varRes.reg, toHex(destOffset+8), varOffset.value, varLoc.reg]));
 
   if(varRes.type === "vec32") {
-    res.push(           asm(loadInstr, [nextVecReg(varRes.reg), toHex(destOffset), varOffset.value + " + 0x10", varLoc.reg]));
-    if(swizzle)res.push(asm(loadInstr, [nextVecReg(varRes.reg), toHex(destOffset+8), varOffset.value + " + 0x10", varLoc.reg]));
+    res.push(           asm(loadInstr, [nextVecReg(varRes.reg), toHex(destOffset), varOffset.value + " + " + floatOffset, varLoc.reg]));
+    if(swizzle)res.push(asm(loadInstr, [nextVecReg(varRes.reg), toHex(destOffset+8), varOffset.value + " + " + floatOffset, varLoc.reg]));
   }
   return res;
 }

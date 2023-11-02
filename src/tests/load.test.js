@@ -60,33 +60,33 @@ describe('Load', () =>
     expect(asm).toBe(`test_vector_load:
   ## Whole Vector
   lqv $v01, 0x00, 0, $t0
-  lqv $v02, 0x00, 0 + 0x10, $t0
+  lqv $v02, 0x00, 0 + 16, $t0
   lqv $v01, 0x00, 16, $t0
-  lqv $v02, 0x00, 16 + 0x10, $t0
+  lqv $v02, 0x00, 16 + 16, $t0
   lqv $v01, 0x02, 0, $t0
-  lqv $v02, 0x02, 0 + 0x10, $t0
+  lqv $v02, 0x02, 0 + 16, $t0
   lqv $v01, 0x04, 16, $t0
-  lqv $v02, 0x04, 16 + 0x10, $t0
+  lqv $v02, 0x04, 16 + 16, $t0
   ##dst = load(src, TEST_CONST); Invalid
   ##dst = load(TEST_CONST); Invalid
   ##dst = load(TEST_CONST, 0x10); Invalid
   ## Swizzle
   ldv $v01, 0x00, 0, $t0
   ldv $v01, 0x08, 0, $t0
-  ldv $v02, 0x00, 0 + 0x10, $t0
-  ldv $v02, 0x08, 0 + 0x10, $t0
+  ldv $v02, 0x00, 0 + 8, $t0
+  ldv $v02, 0x08, 0 + 8, $t0
   ldv $v01, 0x00, 16, $t0
   ldv $v01, 0x08, 16, $t0
-  ldv $v02, 0x00, 16 + 0x10, $t0
-  ldv $v02, 0x08, 16 + 0x10, $t0
+  ldv $v02, 0x00, 16 + 8, $t0
+  ldv $v02, 0x08, 16 + 8, $t0
   ldv $v01, 0x02, 0, $t0
   ldv $v01, 0x0A, 0, $t0
-  ldv $v02, 0x02, 0 + 0x10, $t0
-  ldv $v02, 0x0A, 0 + 0x10, $t0
+  ldv $v02, 0x02, 0 + 8, $t0
+  ldv $v02, 0x0A, 0 + 8, $t0
   ldv $v01, 0x04, 16, $t0
   ldv $v01, 0x0C, 16, $t0
-  ldv $v02, 0x04, 16 + 0x10, $t0
-  ldv $v02, 0x0C, 16 + 0x10, $t0
+  ldv $v02, 0x04, 16 + 8, $t0
+  ldv $v02, 0x0C, 16 + 8, $t0
   ##dst = load(src, TEST_CONST).xyzwxyzw; Invalid
   ##dst = load(TEST_CONST).xyzwxyzw; Invalid
   ##dst = load(TEST_CONST, 0x10).xyzwxyzw; Invalid
