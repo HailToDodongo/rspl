@@ -49,6 +49,26 @@ editor.session.setOptions({
 editor.setValue(oldSource);
 editor.clearSelection();
 
+let asmFileHandle = undefined;
+
+async function saveASMFile(asmString) {
+  if(!asmFileHandle) {
+    const options = {
+      types: [{
+        description: 'MIPS ASM',
+        accept: {'application/asm': ['.S', '.s'],},
+      }],
+    };
+    asmFileHandle = await window.showSaveFilePicker(options);
+  }
+
+  if(asmString) {
+    const writable = await asmFileHandle.createWritable();
+    await writable.write(asmString);
+    await writable.close();
+  }
+}
+
 function writeAST(data) {
   outputAST.textContent = data;
   delete outputAST.dataset.highlighted;
@@ -61,7 +81,7 @@ function writeASM(data) {
   hljs.highlightElement(outputASM);
 }
 
-function update()
+async function update()
 {
   try {
     console.clear();
@@ -87,6 +107,11 @@ function update()
     console.timeEnd("transpile");
     outputError.innerHTML += warn + "\nTranspiled successfully!\n";
     writeASM(asm);
+
+    if(asmFileHandle) {
+      await saveASMFile(asm);
+    }
+
   } catch(e) {
     outputError.innerHTML = e.message;
     if(!e.message.includes("Syntax error")) {
@@ -101,7 +126,7 @@ update();
 let timerUpdate = 0;
 editor.getSession().on('change', () => {
   clearTimeout(timerUpdate);
-  timerUpdate = setTimeout(() => update(), 100);
+  timerUpdate = setTimeout(() => update(), 500);
 });
 
 copyASM.onclick = async () => {
@@ -112,4 +137,8 @@ copyASM.onclick = async () => {
   } catch (err) {
     console.error('Failed to copy: ', err);
   }
+};
+
+saveASM.onclick = async () => {
+  await saveASMFile(outputASM.textContent);
 };

@@ -12,9 +12,13 @@ import opsScalar from "./scalar";
 
 function opMove(varRes, varRight)
 {
+  const isVec32 = varRes.type === "vec32";
+
   if(!varRight.reg && !varRes.swizzle) {
     if(varRight.value === 0) {
-      return [asm("vxor", [varRes.reg, varRes.reg, varRes.reg])];
+      return [    asm("vxor", [  intReg(varRes),   intReg(varRes),   intReg(varRes)]),
+        isVec32 ? asm("vxor", [fractReg(varRes), fractReg(varRes), fractReg(varRes)]) : null
+      ];
     }
     return state.throwError("Can only assign the scalar '0' to a non-swizzled vector!\n"
       + "If you want to load a single element, use 'foo.x = "+varRight.value+";' instead"
@@ -24,16 +28,16 @@ function opMove(varRes, varRight)
   const isConst = !varRight.reg;
   const isScalar = isConst || !varRight.type.startsWith("vec");
 
-  if(!varRes.swizzle || (!isScalar && !varRight.swizzle)) {
-    return state.throwError("Vector to vector assignment must be swizzled (single-lane only)!");
-  }
-  if(!isScalarSwizzle(varRes.swizzle) || (!isScalar && !isScalarSwizzle(varRight.swizzle))) {
-    return state.throwError("Vector swizzle must be single-lane! (.x to .W)");
+  if(varRes.swizzle) {
+    if(!isScalarSwizzle(varRes.swizzle) || (!isScalar && !isScalarSwizzle(varRight.swizzle))) {
+      return state.throwError("Vector swizzle must be single-lane! (.x to .W)");
+    }
   }
 
   const swizzleRes = SWIZZLE_MAP[varRes.swizzle || ""];
   const regDst = [varRes.reg, fractReg(varRes)];
 
+  // Assigning an int or float constant to a vector
   if(isConst) {
     const valueFP32 = f32ToFP32(varRight.value);
     const valInt = ((valueFP32 >>> 16) & 0xFFFF);
@@ -48,9 +52,10 @@ function opMove(varRes, varRight)
       asm("mtc2", [valFract === 0 ? REG.ZERO : REG.AT, regDst[1] + swizzleRes]),
     ];
 
-    return varRes.type === "vec32" ? [...opLoadInt, ...opLoadFract] : opLoadInt;
+    return isVec32 ? [...opLoadInt, ...opLoadFract] : opLoadInt;
   }
 
+  // Assigning a scalar value from a register to a vector
   if(isScalar) {
     if(varRes.type === "vec16") {
       return [asm("mtc2", [varRight.reg, regDst[0] + swizzleRes])];
@@ -62,15 +67,18 @@ function opMove(varRes, varRight)
     ];
   }
 
-  const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
-
-  if(varRes.type === "vec32") {
-    return [
-      asm("vmov", [regDst[0] + swizzleRes,       varRight.reg + swizzleRight]),
-      asm("vmov", [regDst[1] + swizzleRes, fractReg(varRight) + swizzleRight])
+  // moving an entire vector from A to B
+  if(!varRight.swizzle) {
+    return [    asm("vor", [regDst[0], REG.VZERO,          varRight.reg]),
+      isVec32 ? asm("vor", [regDst[1], REG.VZERO, fractReg(varRight)]) : null
     ];
   }
-  return [asm("vmov", [regDst[0] + swizzleRes, varRight.reg + swizzleRight])];
+
+  // moving a single element/lane form A to B
+  const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
+  return [    asm("vmov", [regDst[0] + swizzleRes,       varRight.reg + swizzleRight]),
+    isVec32 ? asm("vmov", [regDst[1] + swizzleRes, fractReg(varRight) + swizzleRight]) : null
+  ];
 }
 
 function opLoad(varRes, varLoc, varOffset, swizzle)

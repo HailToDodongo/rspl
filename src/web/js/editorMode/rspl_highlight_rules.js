@@ -60,7 +60,7 @@ const rsplHighlightRules = function() {
 
     const functions = [
       "load", "store", "asm", "dma_in", "dma_out", "dma_size", "invertHalf",
-      "int", "fract",
+      "int", "fract", "swap",
     ].join("|");
 
     var keywordMapper = this.createKeywordMapper({

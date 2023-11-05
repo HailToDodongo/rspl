@@ -2,12 +2,12 @@
 * @copyright 2023 - Max Bebök
 * @license GPL-3.0
 */
-import {fractReg, intReg, nextVecReg, REG, REGS_VECTOR} from "../syntax/registers";
+import {fractReg, intReg, nextReg, nextVecReg, REG, REGS_VECTOR} from "../syntax/registers";
 import state from "../state";
 import opsScalar from "../operations/scalar";
 import opsVector from "../operations/vector";
 import {asm, asmNOP} from "../intsructions/asmWriter.js";
-import {isVecType, TYPE_SIZE} from "../types/types.js";
+import {isTwoRegType, isVecType, TYPE_SIZE} from "../types/types.js";
 import {isScalarSwizzle, SWIZZLE_MAP, SWIZZLE_SCALAR_IDX} from "../syntax/swizzle.js";
 
 function load(varRes, args, swizzle)
@@ -124,4 +124,41 @@ function fract() {
   state.throwError("@TODO: Builtin fract() not implemented!");
 }
 
-export default {load, store, asm: inlineAsm, dma_in, dma_out, invertHalf, int, fract};
+function swap(varRes, args, swizzle) {
+  if(args.length !== 2)state.throwError("Builtin swap() requires exactly two argument!", args);
+  if(swizzle)state.throwError("Builtin swap() cannot use swizzle!", varRes);
+  if(varRes)state.throwError("Builtin swap() cannot have a left side!", varRes);
+
+  const varA = state.getRequiredVar(args[0].value, "arg0");
+  const varB = state.getRequiredVar(args[1].value, "arg1");
+
+  if(varA.type !== varB.type)state.throwError("Builtin swap() requires both arguments to be of the same type!", args);
+  if(varA.reg === varB.reg) {
+    state.logWarning("Both arguments for swap() are using the same registers, ignore", args);
+    return [];
+  }
+
+  const res = [];
+  const xorOp = isVecType(varA.type) ? "vxor" : "xor";
+
+  res.push(
+    asm(xorOp, [varA.reg, varA.reg, varB.reg]),
+    asm(xorOp, [varB.reg, varA.reg, varB.reg]),
+    asm(xorOp, [varA.reg, varA.reg, varB.reg])
+  );
+
+  if(isTwoRegType(varA.type)) {
+    const regA = nextReg(varA.reg);
+    const regB = nextReg(varB.reg);
+
+    res.push(
+      asm(xorOp, [regA, regA, regB]),
+      asm(xorOp, [regB, regA, regB]),
+      asm(xorOp, [regA, regA, regB])
+    );
+  }
+
+  return res;
+}
+
+export default {load, store, asm: inlineAsm, dma_in, dma_out, invertHalf, int, fract, swap};

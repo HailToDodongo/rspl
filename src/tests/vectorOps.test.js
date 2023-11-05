@@ -4,6 +4,33 @@ const CONF = {rspqWrapper: false};
 
 describe('Vector - Ops', () =>
 {
+  test('Assign (vec32 vs vec32)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec32<$v01> res, a;
+      res = a;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vor $v01, $v00, $v03
+  vor $v02, $v00, $v04
+  jr $ra
+  nop`);
+  });
+
+  test('Assign (vec16 vs vec16)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v01> res, a;
+      res = a;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vor $v01, $v00, $v02
+  jr $ra
+  nop`);
+  });
+
   test('Add (vec32 vs vec32)', () => {
     const {asm, warn} = transpileSource(`function test() {
       vec32<$v01> res, a;

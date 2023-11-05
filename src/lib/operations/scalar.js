@@ -59,8 +59,9 @@ function opMove(varRes, varRight)
       }
       return [
         asm("mfc2", [varRes.reg, fractReg(varRight) + swizzle]),
+        asm("andi", [varRes.reg, varRes.reg, 0xFFFF]),
         asm("mfc2", [REG.AT, intReg(varRight) + swizzle]),
-        asm("srl", [REG.AT, REG.AT, 16]),
+        asm("sll", [REG.AT, REG.AT, 16]),
         asm("or", [varRes.reg, varRes.reg, REG.AT])
       ];
     }

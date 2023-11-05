@@ -134,21 +134,30 @@ pre {
   padding: 0;
 }
 
+.stickyOverlay svg {
+  cursor: pointer;
+  user-select: none;
+}
+
+.stickyOverlay svg:hover {
+  opacity: 0.9;
+}
+
+.stickyOverlay svg:active {
+  opacity: 0.7;
+}
+
+svg#saveASM {
+  width: 26px;
+  height: 26px;
+  margin-right: 4px;
+}
+
 svg#copyASM {
   width: 24px;
   height: 24px;
   margin-right: 10px;
   margin-top: 10px;
-  cursor: pointer;
-  user-select: none;
-}
-
-svg#copyASM:hover {
-  opacity: 0.9;
-}
-
-svg#copyASM:active {
-  opacity: 0.7;
 }
 
 .stickyOverlay {
