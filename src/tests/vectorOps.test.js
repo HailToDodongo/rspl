@@ -101,7 +101,7 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Invert (vec32)', () => {
+  test('Invert-Half (vec32)', () => {
     const {asm, warn} = transpileSource(`function test() {
       vec32<$v01> res, a;
       a.x = invertHalf(a).x;
@@ -112,6 +112,80 @@ describe('Vector - Ops', () =>
   vrcph $v03.e0, $v03.e0
   vrcpl $v04.e0, $v04.e0
   vrcph $v03.e0, $v00.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Invert-Half - all (vec32)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec32<$v01> res, a;
+      a = invertHalf(a);
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vrcph $v03.e0, $v03.e0
+  vrcpl $v04.e0, $v04.e0
+  vrcph $v03.e0, $v00.e0
+  vrcph $v03.e1, $v03.e1
+  vrcpl $v04.e1, $v04.e1
+  vrcph $v03.e1, $v00.e1
+  vrcph $v03.e2, $v03.e2
+  vrcpl $v04.e2, $v04.e2
+  vrcph $v03.e2, $v00.e2
+  vrcph $v03.e3, $v03.e3
+  vrcpl $v04.e3, $v04.e3
+  vrcph $v03.e3, $v00.e3
+  vrcph $v03.e4, $v03.e4
+  vrcpl $v04.e4, $v04.e4
+  vrcph $v03.e4, $v00.e4
+  vrcph $v03.e5, $v03.e5
+  vrcpl $v04.e5, $v04.e5
+  vrcph $v03.e5, $v00.e5
+  vrcph $v03.e6, $v03.e6
+  vrcpl $v04.e6, $v04.e6
+  vrcph $v03.e6, $v00.e6
+  vrcph $v03.e7, $v03.e7
+  vrcpl $v04.e7, $v04.e7
+  vrcph $v03.e7, $v00.e7
+  jr $ra
+  nop`);
+  });
+
+  test('Invert (vec32)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec32<$v01> res, a;
+      a = invert(a);
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vrcph $v03.e0, $v03.e0
+  vrcpl $v04.e0, $v04.e0
+  vrcph $v03.e0, $v00.e0
+  vrcph $v03.e1, $v03.e1
+  vrcpl $v04.e1, $v04.e1
+  vrcph $v03.e1, $v00.e1
+  vrcph $v03.e2, $v03.e2
+  vrcpl $v04.e2, $v04.e2
+  vrcph $v03.e2, $v00.e2
+  vrcph $v03.e3, $v03.e3
+  vrcpl $v04.e3, $v04.e3
+  vrcph $v03.e3, $v00.e3
+  vrcph $v03.e4, $v03.e4
+  vrcpl $v04.e4, $v04.e4
+  vrcph $v03.e4, $v00.e4
+  vrcph $v03.e5, $v03.e5
+  vrcpl $v04.e5, $v04.e5
+  vrcph $v03.e5, $v00.e5
+  vrcph $v03.e6, $v03.e6
+  vrcpl $v04.e6, $v04.e6
+  vrcph $v03.e6, $v00.e6
+  vrcph $v03.e7, $v03.e7
+  vrcpl $v04.e7, $v04.e7
+  vrcph $v03.e7, $v00.e7
+  vmudn $v04, $v04, $v30.e6
+  vmadh $v03, $v03, $v30.e6
   jr $ra
   nop`);
   });

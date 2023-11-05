@@ -39,6 +39,14 @@ function opMove(varRes, varRight)
 
   // Assigning an int or float constant to a vector
   if(isConst) {
+    // if the constant is a power of two, use the special vector reg to avoid a load...
+    const pow2 = POW2_SWIZZLE_VAR[varRight.value];
+    if(pow2) {
+      return [    asm("vmov", [regDst[0] + swizzleRes, pow2.reg + SWIZZLE_MAP[pow2.swizzle]]),
+        isVec32 ? asm("vxor", [fractReg(varRes), fractReg(varRes), fractReg(varRes)]) : null
+      ];
+    }
+    // ...otherwise load the constant into a scalar register and move
     const valueFP32 = f32ToFP32(varRight.value);
     const valInt = ((valueFP32 >>> 16) & 0xFFFF);
     const valFract = (valueFP32 & 0xFFFF);

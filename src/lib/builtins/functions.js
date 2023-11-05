@@ -104,7 +104,15 @@ function dma_out(varRes, args, swizzle) {
 function invertHalf(varRes, args, swizzle) {
   if(args.length !== 1)state.throwError("Builtin invertHalf() requires exactly one argument!", args[0]);
   const varArg = state.getRequiredVar(args[0].value, "arg0");
+  if(!isVecType(varArg.type))state.throwError("Builtin invert() requires a vector argument!", args[0]);
   return opsVector.opInvertHalf(varRes, {...varArg, swizzle});
+}
+
+function invert(varRes, args, swizzle) {
+  if(swizzle)state.throwError("Builtin invert() cannot use swizzle, use invertHalf() instead and multiply manually", varRes);
+  const res = invertHalf(varRes, args, swizzle);
+  res.push(...opsVector.opMul(varRes, varRes, {type: "num", value: 2}, true));
+  return res;
 }
 
 function int(varRes, args, swizzle) {
@@ -161,4 +169,4 @@ function swap(varRes, args, swizzle) {
   return res;
 }
 
-export default {load, store, asm: inlineAsm, dma_in, dma_out, invertHalf, int, fract, swap};
+export default {load, store, asm: inlineAsm, dma_in, dma_out, invertHalf, invert, int, fract, swap};
