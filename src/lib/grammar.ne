@@ -40,7 +40,7 @@ const lexer = moo.compile({
 	  ".xxxxXXXX", ".yyyyYYYY", ".zzzzZZZZ", ".wwwwWWWW",
 	  ".xxxxxxxx", ".yyyyyyyy", ".zzzzzzzz", ".wwwwwwww",
 	  ".XXXXXXXX", ".YYYYYYYY", ".ZZZZZZZZ", ".WWWWWWWW",
-	  ".xyzwxyzw",
+	  ".xyzwxyzw", ".xyzw", ".XYZW",
 	  ".x", ".y", ".z", ".w", ".X", ".Y", ".Z", ".W",
 	], value: s => s.substr(1)},
 
@@ -164,9 +164,9 @@ Expression ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarAssign | ExprFuncCall
 
 LabelDecl -> _ %VarName %Colon {% d => ({type: "labelDecl", name: d[1].value, line: d[1].line}) %}
 
-IfStatement -> _ %KWIf _ %ArgsStart ExprCompare _ %ArgsEnd (ScopedBlock | Expression) (_ %KWElse (ScopedBlock | Expression | IfStatement)):? {% d => ({
+IfStatement -> _ %KWIf _ %ArgsStart (ExprCompare | ExprCompareBool) _ %ArgsEnd (ScopedBlock | Expression) (_ %KWElse (ScopedBlock | Expression | IfStatement)):? {% d => ({
 	type: "if",
-	compare: d[4],
+	compare: d[4][0],
 	blockIf: FORCE_SCOPED_BLOCK(d[7][0]),
 	blockElse: FORCE_SCOPED_BLOCK(d[8] && d[8][2][0]),
 	line: d[1].line
@@ -223,6 +223,14 @@ ExprCompare -> _ FuncArg _ (%OperatorCompare | %TypeStart | %TypeEnd) _ FuncArg 
 	line: d[1].line
 })%}
 
+ExprCompareBool -> _ %OperatorUnary:? FuncArg {% d => ({
+	type: "compare",
+	left: d[2],
+	op: (d[1] && d[1].value === "!") ? "==" : "!=",
+	right: {type: "num", value: 0},
+	line: d[2].line
+})%}
+
 # Assignment to a variable which calcualtes something (left-hande operator right-hand)
 ExprVarAssign -> ( %VarName %Swizzle:? _ (%Assignment | %OperatorSelfR) _ ExprCalcAll) {% ([d]) => ({
 	type: "varAssignCalc",
@@ -271,7 +279,7 @@ OperatorLR -> (%OperatorLR | %TypeStart | %TypeEnd) {% d => d[0][0] %} # "<" and
 FuncArgs -> FuncArg {% MAP_FIRST %}
 			 | (FuncArgs _ %Seperator _ FuncArg) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
 
-FuncArg -> %VarName {% d => ({type: "var", value: d[0].value}) %}
+FuncArg -> %VarName %Swizzle:? {% d => ({type: "var", value: d[0].value, swizzle: SAFE_VAL(d[1])}) %}
 	 | ValueNumeric {% d => ({type: "num", value: d[0][0]}) %}
 	 | %String {% d => ({type: "string", value: REM_QUOTES(d[0].value)}) %}
 

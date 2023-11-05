@@ -36,6 +36,7 @@ const rsplHighlightRules = function() {
           "s8","u8","s16","u16","s32","u32",
           "vec16","vec32",
 
+          "xyzwxyzw", "xyzw", "XYZW",
           "xxzzXXZZ", "yywwYYWW",
           "xxxxXXXX", "yyyyYYYY", "zzzzZZZZ", "wwwwWWWW",
           "xxxxxxxx", "yyyyyyyy", "zzzzzzzz", "wwwwwwww",

@@ -182,8 +182,8 @@ VecCmd_Transform:
   vmadm $v27, $v07, $v10.h3
   vmadn $v14, $v08, $v09.h3
   vmadh $v13, $v07, $v09.h3
-  sqv $v13, 0x0, 0x00, $t2
-  sqv $v14, 0x0, 0x10, $t2
+  sqv $v13, 0, 0, $t2
+  sqv $v14, 0, 16, $t2
   j RSPQ_Loop
   nop
 

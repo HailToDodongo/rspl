@@ -10,8 +10,19 @@ import {asm, asmNOP} from "../intsructions/asmWriter.js";
 import {isTwoRegType, isVecType, TYPE_SIZE} from "../types/types.js";
 import {isScalarSwizzle, SWIZZLE_MAP, SWIZZLE_SCALAR_IDX} from "../syntax/swizzle.js";
 
+function assertArgsNoSwizzle(args, offset = 0) {
+  args = args.slice(offset);
+  for(const arg of args) {
+    if(arg.swizzle)state.throwError(offset > 0
+      ? `Only the first ${offset} argument(s) can use swizzling!`
+      : "Arguments with swizzle not allowed in this function!",
+    arg);
+  }
+}
+
 function load(varRes, args, swizzle)
 {
+  assertArgsNoSwizzle(args);
   if(!varRes)state.throwError("Builtin load() needs a left-side", varRes);
   if(args.length === 1) {
     args = [args[0], {type: "num", value: 0}];
@@ -32,8 +43,11 @@ function load(varRes, args, swizzle)
 
 function store(varRes, args, swizzle)
 {
+  assertArgsNoSwizzle(args, 1);
   if(varRes)state.throwError("Builtin store() cannot have a left side!\nUsage: 'store(varToSave, address, optionalOffset);'", varRes);
   const varSrc = state.getRequiredVar(args[0].value, "arg0");
+  varSrc.swizzle = args[0].swizzle;
+
   const isVectorSrc = REGS_VECTOR.includes(varSrc.reg);
 
   if(swizzle)state.throwError("Builtin store() cannot use swizzle!");
@@ -41,10 +55,13 @@ function store(varRes, args, swizzle)
   if(isVectorSrc) {
     return opsVector.opStore(varSrc, args.slice(1));
   }
+
+  if(varSrc.swizzle)state.throwError("Scalar variables cannot use swizzling!", varSrc);
   return opsScalar.opStore(varSrc, args.slice(1));
 }
 
 function inlineAsm(varRes, args, swizzle) {
+  assertArgsNoSwizzle(args);
   if(swizzle)state.throwError("Builtin asm() cannot use swizzle!", varRes);
   if(varRes)state.throwError("Builtin asm() cannot have a left side!", varRes);
   if(args.length !== 1 || args[0].type !== "string") {
@@ -59,6 +76,7 @@ function DMA_SIZE(width, height) {
 }
 
 function genericDMA(varRes, args, swizzle, builtinName, dmaName) {
+  assertArgsNoSwizzle(args);
   if(swizzle)state.throwError("Builtin "+builtinName+"() cannot use swizzle!", varRes);
   if(varRes)state.throwError("Builtin "+builtinName+"() cannot have a left side!", varRes);
   if(args.length !== 2 && args.length !== 3)state.throwError("Builtin "+builtinName+"() requires 2 or 3 arguments!", args[0]);
@@ -102,6 +120,7 @@ function dma_out(varRes, args, swizzle) {
 }
 
 function invertHalf(varRes, args, swizzle) {
+  assertArgsNoSwizzle(args);
   if(args.length !== 1)state.throwError("Builtin invertHalf() requires exactly one argument!", args[0]);
   const varArg = state.getRequiredVar(args[0].value, "arg0");
   if(!isVecType(varArg.type))state.throwError("Builtin invert() requires a vector argument!", args[0]);
@@ -109,6 +128,7 @@ function invertHalf(varRes, args, swizzle) {
 }
 
 function invert(varRes, args, swizzle) {
+  assertArgsNoSwizzle(args);
   if(swizzle)state.throwError("Builtin invert() cannot use swizzle, use invertHalf() instead and multiply manually", varRes);
   const res = invertHalf(varRes, args, swizzle);
   res.push(...opsVector.opMul(varRes, varRes, {type: "num", value: 2}, true));
@@ -116,6 +136,7 @@ function invert(varRes, args, swizzle) {
 }
 
 function int(varRes, args, swizzle) {
+  assertArgsNoSwizzle(args);
   const varArg = state.getRequiredVar(args[0].value, "arg0");
 
   if(args.length !== 1      )state.throwError("Builtin int() requires exactly one argument!", args[0]);
@@ -129,10 +150,12 @@ function int(varRes, args, swizzle) {
 }
 
 function fract() {
+  //assertArgsNoSwizzle(args);
   state.throwError("@TODO: Builtin fract() not implemented!");
 }
 
 function swap(varRes, args, swizzle) {
+  assertArgsNoSwizzle(args);
   if(args.length !== 2)state.throwError("Builtin swap() requires exactly two argument!", args);
   if(swizzle)state.throwError("Builtin swap() cannot use swizzle!", varRes);
   if(varRes)state.throwError("Builtin swap() cannot have a left side!", varRes);

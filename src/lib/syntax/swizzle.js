@@ -32,6 +32,8 @@ export const SWIZZLE_MAP = {
   "W": ".e7",
 };
 
+export const SWIZZLE_MAP_KEYS_STR = Object.keys(SWIZZLE_MAP).filter(Boolean).join(", ");
+
 export const SWIZZLE_SCALAR_IDX = {
   "x": 0, "y": 1, "z": 2, "w": 3,
   "X": 4, "Y": 5, "Z": 6, "W": 7,

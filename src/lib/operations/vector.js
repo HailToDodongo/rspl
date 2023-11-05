@@ -5,7 +5,13 @@
 
 import {fractReg, intReg, isVecReg, nextReg, nextVecReg, REG} from "../syntax/registers";
 import state from "../state";
-import {isScalarSwizzle, POW2_SWIZZLE_VAR, SWIZZLE_MAP, SWIZZLE_SCALAR_IDX} from "../syntax/swizzle";
+import {
+  isScalarSwizzle,
+  POW2_SWIZZLE_VAR,
+  SWIZZLE_MAP,
+  SWIZZLE_MAP_KEYS_STR,
+  SWIZZLE_SCALAR_IDX
+} from "../syntax/swizzle";
 import {f32ToFP32, toHex} from "../types/types";
 import {asm} from "../intsructions/asmWriter.js";
 import opsScalar from "./scalar";
@@ -129,19 +135,33 @@ function opLoad(varRes, varLoc, varOffset, swizzle)
 function opStore(varRes, varOffsets)
 {
   const varLoc = state.getRequiredVarOrMem(varOffsets[0].value, "base");
-  if(varOffsets.length > 1) {
-    state.throwError("Vector stores can only use a single variable as the offset");
-  }
+
   const opsLoad = [];
   if(!varLoc.reg) {
     varLoc.reg = REG.AT;
     opsLoad.push(...opsScalar.loadImmediate(varLoc.reg, "%lo(" +varLoc.name + ")"));
   }
 
+  let baseOffset = 0;
+  const offsets = varOffsets.slice(1);
+  for(let offset of offsets) {
+    if(offset.type !== "num")state.throwError("Vector stores can only use numerical constants as offsets");
+
+    baseOffset += offset.value;
+  }
+
+  const swizzle = varRes.swizzle;
+  if(swizzle && swizzle !== "xyzw" && swizzle !== "XYZW") {
+    state.throwError("Builtin vector store() only supports 'xyzw, XYZW' swizzle!", varRes);
+  }
+  const storeInstr = swizzle ? "sdv" : "sqv";
+  const floatOffset = swizzle ? 0x08 : 0x10;
+  const srcOffset = (swizzle && swizzle === "XYZW") ? 0x08 : 0x00;
+
   const is32 = (varRes.type === "vec32");
   return [...opsLoad,
-          asm("sqv", [           varRes.reg,  "0x0", "0x00", varLoc.reg]),
-   is32 ? asm("sqv", [nextVecReg(varRes.reg), "0x0", "0x10", varLoc.reg]) : null
+          asm(storeInstr, [           varRes.reg,  srcOffset, baseOffset              , varLoc.reg]),
+   is32 ? asm(storeInstr, [nextVecReg(varRes.reg), srcOffset, baseOffset + floatOffset, varLoc.reg]) : null
   ];
 }
 
@@ -155,6 +175,10 @@ function opAdd(varRes, varLeft, varRight)
   }
 
   const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
+  if(swizzleRight === undefined) {
+    state.throwError("Unsupported swizzle (supported: "+SWIZZLE_MAP_KEYS_STR+")!", varRes);
+  }
+
   return (varRes.type === "vec32")
     ? [
       asm("vaddc", [nextReg(varRes.reg), fractReg(varLeft), fractReg(varRight) + swizzleRight]),
@@ -174,6 +198,10 @@ function opSub(varRes, varLeft, varRight)
   }
 
   const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
+  if(swizzleRight === undefined) {
+    state.throwError("Unsupported swizzle (supported: "+SWIZZLE_MAP_KEYS_STR+")!", varRes);
+  }
+
   return (varRes.type === "vec32")
     ? [
       asm("vsubc", [nextReg(varRes.reg), fractReg(varLeft), fractReg(varRight) + swizzleRight]),
@@ -201,12 +229,20 @@ function opMul(varRes, varLeft, varRight, clearAccum)
   const fractOp = clearAccum ? "vmudl" : "vmadl";
   let intOp = clearAccum ? "vmudn": "vmadn";
 
+  if(swizzleRight === undefined) {
+    state.throwError("Unsupported swizzle (supported: "+SWIZZLE_MAP_KEYS_STR+")!", varRes);
+  }
+
   if(right32Bit) {
     res.push(
       asm(fractOp, [REG.VTEMP0, fractReg(varLeft), fractReg(varRight) + swizzleRight]),
       asm("vmadm", [REG.VTEMP0,       varLeft.reg, fractReg(varRight) + swizzleRight]),
     );
     intOp = "vmadn"; // don't clear inbetween
+  } else if(varRes.type === "vec16") {
+    return [
+      asm(intOp, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight]),
+    ];
   }
 
   res.push(
