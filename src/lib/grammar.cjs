@@ -45,6 +45,7 @@ const lexer = moo.compile({
 	  ".xxxxxxxx", ".yyyyyyyy", ".zzzzzzzz", ".wwwwwwww",
 	  ".XXXXXXXX", ".YYYYYYYY", ".ZZZZZZZZ", ".WWWWWWWW",
 	  ".xyzwxyzw", ".xyzw", ".XYZW",
+	  ".xy", ".zw", ".XY", ".ZW",
 	  ".x", ".y", ".z", ".w", ".X", ".Y", ".Z", ".W",
 	], value: s => s.substr(1)},
 

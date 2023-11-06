@@ -155,17 +155,14 @@ function opStore(varRes, varOffsets)
   }
 
   const swizzle = varRes.swizzle;
-  if(swizzle && swizzle !== "xyzw" && swizzle !== "XYZW") {
-    state.throwError("Builtin vector store() only supports 'xyzw, XYZW' swizzle!", varRes);
-  }
-  const storeInstr = swizzle ? "sdv" : "sqv";
-  const floatOffset = swizzle ? 0x08 : 0x10;
-  const srcOffset = (swizzle && swizzle === "XYZW") ? 0x08 : 0x00;
+  const accessLen = swizzle ? (swizzle.length*2) : 16;
+  const storeInstr = {1: "sbv", 2: "ssv", 4: "slv", 8: "sdv", 16: "sqv"}[accessLen];
+  const srcOffset = swizzle ? (SWIZZLE_SCALAR_IDX[swizzle[0]] * 2) : 0;
 
   const is32 = (varRes.type === "vec32");
   return [...opsLoad,
           asm(storeInstr, [           varRes.reg,  srcOffset, baseOffset              , varLoc.reg]),
-   is32 ? asm(storeInstr, [nextVecReg(varRes.reg), srcOffset, baseOffset + floatOffset, varLoc.reg]) : null
+   is32 ? asm(storeInstr, [nextVecReg(varRes.reg), srcOffset, baseOffset + accessLen, varLoc.reg]) : null
   ];
 }
 
