@@ -39,8 +39,8 @@ command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
   trans_vec += VEC_SLOTS;
   trans_out += VEC_SLOTS;
   
-  vec32<$v01> mat0 = load(trans_mtx, 0x00).xyzwxyzw;
-  vec32<$v03> mat1 = load(trans_mtx, 0x08).xyzwxyzw;
+  vec32<$v01> mat0 = load(trans_mtx, 0).xyzwxyzw;
+  vec32<$v03> mat1 = load(trans_mtx, 8).xyzwxyzw;
   vec32<$v05> mat2 = load(trans_mtx, 0x20).xyzwxyzw;
   vec32<$v07> mat3 = load(trans_mtx, 0x28).xyzwxyzw;
   
@@ -148,24 +148,24 @@ VecCmd_Transform:
   addiu $t0, $t0, %lo(VEC_SLOTS)
   addiu $t1, $t1, %lo(VEC_SLOTS)
   addiu $t2, $t2, %lo(VEC_SLOTS)
-  ldv $v01, 0x00, 0, $t0
-  ldv $v01, 0x08, 0, $t0
-  ldv $v02, 0x00, 0 + 8, $t0
-  ldv $v02, 0x08, 0 + 8, $t0
-  ldv $v03, 0x00, 8, $t0
-  ldv $v03, 0x08, 8, $t0
-  ldv $v04, 0x00, 8 + 8, $t0
-  ldv $v04, 0x08, 8 + 8, $t0
-  ldv $v05, 0x00, 32, $t0
-  ldv $v05, 0x08, 32, $t0
-  ldv $v06, 0x00, 32 + 8, $t0
-  ldv $v06, 0x08, 32 + 8, $t0
-  ldv $v07, 0x00, 40, $t0
-  ldv $v07, 0x08, 40, $t0
-  ldv $v08, 0x00, 40 + 8, $t0
-  ldv $v08, 0x08, 40 + 8, $t0
-  lqv $v09, 0x00, 0, $t1
-  lqv $v10, 0x00, 0 + 16, $t1
+  ldv $v01, 0, 0, $t0
+  ldv $v01, 8, 0, $t0
+  ldv $v02, 0, 8, $t0
+  ldv $v02, 8, 8, $t0
+  ldv $v03, 0, 8, $t0
+  ldv $v03, 8, 8, $t0
+  ldv $v04, 0, 16, $t0
+  ldv $v04, 8, 16, $t0
+  ldv $v05, 0, 32, $t0
+  ldv $v05, 8, 32, $t0
+  ldv $v06, 0, 40, $t0
+  ldv $v06, 8, 40, $t0
+  ldv $v07, 0, 40, $t0
+  ldv $v07, 8, 40, $t0
+  ldv $v08, 0, 48, $t0
+  ldv $v08, 8, 48, $t0
+  lqv $v09, 0, 0, $t1
+  lqv $v10, 0, 16, $t1
   vmudl $v27, $v02, $v10.h0
   vmadm $v27, $v01, $v10.h0
   vmadn $v14, $v02, $v09.h0

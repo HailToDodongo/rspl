@@ -98,9 +98,10 @@ function opMove(varRes, varRight)
 function opLoad(varRes, varLoc, varOffset, swizzle)
 {
   const res = [];
+  const ALLOWED_SWIZZLE = ["xyzwxyzw", "xyzw", "XYZW"];
 
-  if(swizzle && swizzle !== "xyzwxyzw") {
-    state.throwError("Builtin load() only support '.xyzwxyzw' swizzle!", varRes);
+  if(swizzle && !ALLOWED_SWIZZLE.includes(swizzle)) {
+    state.throwError("Builtin load() only the following right-hand swizzles: "+ALLOWED_SWIZZLE.join(", "), varRes);
   }
   if(!varLoc.reg) {
     if(varLoc.name) {
@@ -115,19 +116,22 @@ function opLoad(varRes, varLoc, varOffset, swizzle)
 
   let destOffset = varRes.swizzle ? SWIZZLE_SCALAR_IDX[varRes.swizzle] : 0;
   if(destOffset === undefined) {
-    state.throwError("Unsupported destination swizzle (must be scalar .x to .W)!", varRes);
+    state.throwError("Unsupported destination swizzle (must be scalar .x to .W, or .xyzw / .XYZW)!", varRes);
   }
-  destOffset *= 2; // convert to bytes (?)
+  destOffset *= 2; // convert to bytes
 
+  const is32 = (varRes.type === "vec32");
   const loadInstr = swizzle ? "ldv" : "lqv";
-  const floatOffset = swizzle ? 8 : 0x10;
+  const dupeLoad = swizzle === "xyzwxyzw"; // this loads the same data twice, into the lower/upper half
+  const floatOffset = swizzle ? 0x08 : 0x10;
+  const srcOffset = varOffset.value + (swizzle === "XYZW" ? 0x08 : 0x00);
 
-  res.push(           asm(loadInstr, [varRes.reg, toHex(destOffset), varOffset.value, varLoc.reg]));
-  if(swizzle)res.push(asm(loadInstr, [varRes.reg, toHex(destOffset+8), varOffset.value, varLoc.reg]));
+  res.push(            asm(loadInstr, [varRes.reg, destOffset,   srcOffset, varLoc.reg]));
+  if(dupeLoad)res.push(asm(loadInstr, [varRes.reg, destOffset+8, srcOffset, varLoc.reg]));
 
-  if(varRes.type === "vec32") {
-    res.push(           asm(loadInstr, [nextVecReg(varRes.reg), toHex(destOffset), varOffset.value + " + " + floatOffset, varLoc.reg]));
-    if(swizzle)res.push(asm(loadInstr, [nextVecReg(varRes.reg), toHex(destOffset+8), varOffset.value + " + " + floatOffset, varLoc.reg]));
+  if(is32) {
+    res.push(            asm(loadInstr, [nextVecReg(varRes.reg), destOffset,   srcOffset + floatOffset, varLoc.reg]));
+    if(dupeLoad)res.push(asm(loadInstr, [nextVecReg(varRes.reg), destOffset+8, srcOffset + floatOffset, varLoc.reg]));
   }
   return res;
 }
@@ -256,7 +260,8 @@ function opInvertHalf(varRes, varLeft) {
 
   if(!varLeft.swizzle && !varRes.swizzle) {
     const res = [];
-    for(const s of Object.keys(SWIZZLE_SCALAR_IDX)) {
+    const allSwizzles = Object.keys(SWIZZLE_SCALAR_IDX).filter(s => s.length === 1);
+    for(const s of allSwizzles) {
       res.push(...opInvertHalf({...varRes, swizzle: s}, {...varLeft, swizzle: s}));
     }
     return res;

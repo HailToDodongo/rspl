@@ -37,7 +37,9 @@ export const SWIZZLE_MAP_KEYS_STR = Object.keys(SWIZZLE_MAP).filter(Boolean).joi
 export const SWIZZLE_SCALAR_IDX = {
   "x": 0, "y": 1, "z": 2, "w": 3,
   "X": 4, "Y": 5, "Z": 6, "W": 7,
-}
+
+  "xyzw": 0, "XYZW": 4,
+};
 
 export const POW2_SWIZZLE_VAR = {
       1: {type: 'vec16', reg: REG.VSHIFT,  swizzle: 'W'},

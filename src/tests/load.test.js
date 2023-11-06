@@ -31,7 +31,7 @@ describe('Load', () =>
   nop`);
   });
 
-    test('Vector - 32-Bit', () => {
+  test('Vector - 32-Bit', () => {
     const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
       function test_vector_load() 
       {
@@ -59,37 +59,68 @@ describe('Load', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_vector_load:
   ## Whole Vector
-  lqv $v01, 0x00, 0, $t0
-  lqv $v02, 0x00, 0 + 16, $t0
-  lqv $v01, 0x00, 16, $t0
-  lqv $v02, 0x00, 16 + 16, $t0
-  lqv $v01, 0x02, 0, $t0
-  lqv $v02, 0x02, 0 + 16, $t0
-  lqv $v01, 0x04, 16, $t0
-  lqv $v02, 0x04, 16 + 16, $t0
+  lqv $v01, 0, 0, $t0
+  lqv $v02, 0, 16, $t0
+  lqv $v01, 0, 16, $t0
+  lqv $v02, 0, 32, $t0
+  lqv $v01, 2, 0, $t0
+  lqv $v02, 2, 16, $t0
+  lqv $v01, 4, 16, $t0
+  lqv $v02, 4, 32, $t0
   ##dst = load(src, TEST_CONST); Invalid
   ##dst = load(TEST_CONST); Invalid
   ##dst = load(TEST_CONST, 0x10); Invalid
   ## Swizzle
-  ldv $v01, 0x00, 0, $t0
-  ldv $v01, 0x08, 0, $t0
-  ldv $v02, 0x00, 0 + 8, $t0
-  ldv $v02, 0x08, 0 + 8, $t0
-  ldv $v01, 0x00, 16, $t0
-  ldv $v01, 0x08, 16, $t0
-  ldv $v02, 0x00, 16 + 8, $t0
-  ldv $v02, 0x08, 16 + 8, $t0
-  ldv $v01, 0x02, 0, $t0
-  ldv $v01, 0x0A, 0, $t0
-  ldv $v02, 0x02, 0 + 8, $t0
-  ldv $v02, 0x0A, 0 + 8, $t0
-  ldv $v01, 0x04, 16, $t0
-  ldv $v01, 0x0C, 16, $t0
-  ldv $v02, 0x04, 16 + 8, $t0
-  ldv $v02, 0x0C, 16 + 8, $t0
+  ldv $v01, 0, 0, $t0
+  ldv $v01, 8, 0, $t0
+  ldv $v02, 0, 8, $t0
+  ldv $v02, 8, 8, $t0
+  ldv $v01, 0, 16, $t0
+  ldv $v01, 8, 16, $t0
+  ldv $v02, 0, 24, $t0
+  ldv $v02, 8, 24, $t0
+  ldv $v01, 2, 0, $t0
+  ldv $v01, 10, 0, $t0
+  ldv $v02, 2, 8, $t0
+  ldv $v02, 10, 8, $t0
+  ldv $v01, 4, 16, $t0
+  ldv $v01, 12, 16, $t0
+  ldv $v02, 4, 24, $t0
+  ldv $v02, 12, 24, $t0
   ##dst = load(src, TEST_CONST).xyzwxyzw; Invalid
   ##dst = load(TEST_CONST).xyzwxyzw; Invalid
   ##dst = load(TEST_CONST, 0x10).xyzwxyzw; Invalid
+  jr $ra
+  nop`);
+  });
+
+  test('Vector - 32-Bit Split', () => {
+    const {asm, warn} = transpileSource(`function test() 
+      {
+        u32<$t0> src;
+        vec32<$v01> dst;
+        
+        // Left-Side
+        dst.xyzw = load(src, 0x00).xyzw;
+        dst.xyzw = load(src, 0x10).xyzw;
+        
+        // Right-Side
+        dst.XYZW = load(src, 0x00).XYZW;
+        dst.XYZW = load(src, 0x10).XYZW;
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  ## Left-Side
+  ldv $v01, 0, 0, $t0
+  ldv $v02, 0, 8, $t0
+  ldv $v01, 0, 16, $t0
+  ldv $v02, 0, 24, $t0
+  ## Right-Side
+  ldv $v01, 8, 8, $t0
+  ldv $v02, 8, 16, $t0
+  ldv $v01, 8, 24, $t0
+  ldv $v02, 8, 32, $t0
   jr $ra
   nop`);
   });

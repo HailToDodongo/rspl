@@ -2,13 +2,13 @@
 * @copyright 2023 - Max Bebök
 * @license GPL-3.0
 */
-import {fractReg, intReg, nextReg, nextVecReg, REG, REGS_VECTOR} from "../syntax/registers";
+import {nextReg, REG, REGS_VECTOR} from "../syntax/registers";
 import state from "../state";
 import opsScalar from "../operations/scalar";
 import opsVector from "../operations/vector";
 import {asm, asmNOP} from "../intsructions/asmWriter.js";
 import {isTwoRegType, isVecType, TYPE_SIZE} from "../types/types.js";
-import {isScalarSwizzle, SWIZZLE_MAP, SWIZZLE_SCALAR_IDX} from "../syntax/swizzle.js";
+import {SWIZZLE_MAP} from "../syntax/swizzle.js";
 
 function assertArgsNoSwizzle(args, offset = 0) {
   args = args.slice(offset);

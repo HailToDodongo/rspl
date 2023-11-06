@@ -15,6 +15,7 @@ import rsplHighlightRules from './editorMode/rspl_highlight_rules';
 import modeGLSL from 'ace-builds/src-min-noconflict/mode-glsl';
 
 import { edit as aceEdit } from "ace-builds";
+import "ace-builds/src-min-noconflict/ext-searchbox.js";
 import "ace-builds/src-min-noconflict/theme-tomorrow_night_eighties";
 import "ace-builds/src-min-noconflict/mode-glsl";
 
