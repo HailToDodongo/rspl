@@ -9,6 +9,7 @@ import opsVector from "../operations/vector";
 import {asm, asmNOP} from "../intsructions/asmWriter.js";
 import {isTwoRegType, isVecType, TYPE_SIZE} from "../types/types.js";
 import {SWIZZLE_MAP} from "../syntax/swizzle.js";
+import {DMA_FLAGS} from "./libdragon.js";
 
 function assertArgsNoSwizzle(args, offset = 0) {
   args = args.slice(offset);
@@ -81,8 +82,12 @@ function genericDMA(varRes, args, swizzle, builtinName, dmaName) {
   if(varRes)state.throwError("Builtin "+builtinName+"() cannot have a left side!", varRes);
   if(args.length !== 2 && args.length !== 3)state.throwError("Builtin "+builtinName+"() requires 2 or 3 arguments!", args[0]);
 
-  const targetMem = state.getRequiredMem(args[0].value, "dest");
+  const targetMem = state.getRequiredVarOrMem(args[0].value, "dest");
   const varRDRAM = state.getRequiredVar(args[1].value, "RDRAM");
+
+  if(targetMem.reg && args.length !== 3) {
+    state.throwError("Builtin "+builtinName+"() requires size-argument when using a variable as destination!", args[0]);
+  }
 
   let sizeLoadOps = [];
 
@@ -97,26 +102,52 @@ function genericDMA(varRes, args, swizzle, builtinName, dmaName) {
       if(sizeVar.reg !== REG.T0)state.throwError("Builtin "+builtinName+"() requires size-argument to be in $t0!", sizeArg);
       sizeLoadOps = [asm("addiu", [REG.T0, REG.T0, -1])]; // part of the DMA_SIZE calculation, assuming height=1
     }
+
+    if(targetMem.reg) {
+      if(targetMem.reg !== REG.S4)state.throwError("Builtin "+builtinName+"() requires dest. var to be in $s4!", args);
+    } else {
+      sizeLoadOps.push(asm("ori", [REG.S4, REG.ZERO, "%lo("+targetMem.name+")"]));
+    }
+
   } else { // ...as a fallback, use the declared state size (incl. array size)
     const targetSize = TYPE_SIZE[targetMem.type] * (targetMem.arraySize || 1);
-    sizeLoadOps = [asm("ori", [REG.T0, REG.ZERO, DMA_SIZE(targetSize, 1)])];
+    sizeLoadOps = [
+      asm("ori", [REG.T0, REG.ZERO, DMA_SIZE(targetSize, 1)]),
+      asm("ori", [REG.S4, REG.ZERO, "%lo("+targetMem.name+")"]),
+    ];
   }
 
   return [
     varRDRAM.reg === REG.S0 ? null : asm("or", [REG.S0, REG.ZERO, varRDRAM.reg]),
     ...sizeLoadOps,
-    asm("ori", [REG.S4, REG.ZERO, "%lo("+targetMem.name+")"]),
-    asm("jal", [dmaName]),
+    ...opsScalar.loadImmediate(REG.T2, DMA_FLAGS[dmaName]),
+    asm("jal", ["DMAExec"]),
     asmNOP(),
   ];
 }
 
 function dma_in(varRes, args, swizzle) {
-  return genericDMA(varRes, args, swizzle, "dma_in", "DMAIn");
+  return genericDMA(varRes, args, swizzle, "dma_in", "DMA_IN");
+}
+
+function dma_in_async(varRes, args, swizzle) {
+  return genericDMA(varRes, args, swizzle, "dma_in_async", "DMA_IN_ASYNC");
 }
 
 function dma_out(varRes, args, swizzle) {
-  return genericDMA(varRes, args, swizzle, "dma_out", "DMAOut")
+  return genericDMA(varRes, args, swizzle, "dma_out", "DMA_OUT")
+}
+
+function dma_out_async(varRes, args, swizzle) {
+  return genericDMA(varRes, args, swizzle, "dma_out_async", "DMA_OUT_ASYNC")
+}
+
+function dma_await(varRes, args, swizzle) {
+  if(varRes)state.throwError("Builtin dma_await() cannot have a left side!", varRes);
+  if(args.length > 0)state.throwError("Builtin dma_await() requires no arguments!", args);
+  if(swizzle)state.throwError("Builtin dma_await() cannot use swizzle!", varRes);
+
+  return [asm("jal", ["DMAWaitIdle"]), asmNOP()];
 }
 
 function invertHalf(varRes, args, swizzle) {
@@ -192,4 +223,7 @@ function swap(varRes, args, swizzle) {
   return res;
 }
 
-export default {load, store, asm: inlineAsm, dma_in, dma_out, invertHalf, invert, int, fract, swap};
+export default {
+  load, store, asm: inlineAsm,
+  dma_in, dma_out, dma_in_async, dma_out_async, dma_await,
+  invertHalf, invert, int, fract, swap};

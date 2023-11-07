@@ -56,11 +56,10 @@ const lexer = moo.compile({
 	KWContinue: "continue",
 	KWInclude : "include",
 
-	ValueHex: /0x[0-9A-F]+/,
-	ValueBin: /0b[0-1]+/,
+	ValueHex: /0x[0-9A-F']+/,
+	ValueBin: /0b[0-1']+/,
 	ValueFloat: /[-]?[0-9]+[.][0-9]+/,
-	ValueDec: /[0-9]+/,
-	ValueDecNeg: /-[0-9]+/,
+	ValueDec: /[-]?[0-9][0-9']*/,
 
 	OperatorSelfR: [
 		"&&=", "||=",
@@ -120,7 +119,7 @@ SectionIncl -> %KWInclude _ %String {% d => d[2].value %}
 
 ######### State-Section #########
 SectionState -> %KWState _ %BlockStart _ StateVarDef:* %BlockEnd {% d => d[4] %}
-StateVarDef -> (%KWExtern _):? %DataType _ %VarName IndexDef:? %StmEnd _ {% d => ({
+StateVarDef -> (%KWExtern _):? %DataType _ %VarName IndexDef:* %StmEnd _ {% d => ({
 	type: "varState",
 	extern: !!d[0],
 	varType: d[1].value,
@@ -297,11 +296,10 @@ RegNumDef -> %TypeStart ValueNumeric %TypeEnd {% d => d[1][0] %}
 
 ######## Values ########
 ValueNumeric -> (
-  %ValueBin {% d => parseInt(d[0].value.substring(2), 2) %} |
-  %ValueFloat {% d => parseFloat(d[0].value) %} |
-  %ValueDec {% d => parseInt(d[0].value, 10) %} |
-  %ValueDecNeg {% d => parseInt(d[0].value, 10) %} |
-  %ValueHex {% d => parseInt(d[0].value.substring(2), 16) %}
+  %ValueBin    {% d =>   parseInt(d[0].value.substring(2).replaceAll("'", ""), 2)  %} |
+  %ValueFloat  {% d => parseFloat(d[0].value.replaceAll("'", "")) 				   %} |
+  %ValueDec    {% d =>   parseInt(d[0].value.replaceAll("'", ""), 10)			   %} |
+  %ValueHex    {% d =>   parseInt(d[0].value.substring(2).replaceAll("'", ""), 16) %}
 )
 
 _ -> %_:* {% d => null %}

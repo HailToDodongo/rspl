@@ -8,6 +8,9 @@ import {fractReg, intReg, REG} from "../syntax/registers";
 import {asm, asmComment} from "../intsructions/asmWriter.js";
 import {SWIZZLE_MAP} from "../syntax/swizzle.js";
 
+const MUL_TO_SHIFT = {}
+for(let i = 0; i < 32; i++)MUL_TO_SHIFT[Math.pow(2, i)] = i;
+
 /**
  * Loads a 32bit int into a register with as few instructions as possible.
  * @param regDst target register
@@ -194,9 +197,26 @@ function opBitFlip(varRes, varRight)
   return [asm("nor", [varRes.reg, REG.ZERO, varRight.reg])];
 }
 
-function opMul() { state.throwError("Scalar-Multiplication not implemented!"); }
-function opDiv() { state.throwError("Scalar-Division not implemented!"); }
-
+function opMul(varRes, varLeft, varRight) {
+  const shiftVal = MUL_TO_SHIFT[varRight.value || 0];
+  if(varRight.reg || shiftVal === undefined) {
+    state.throwError("Scalar-Multiplication only allowed with a power-of-two constant on the right side!\nFor example 'a = b * 4;' or 'a *= 8;' is allowed.", [varRes, varLeft, varRight]);
+  }
+  if(varRight.value === 1) {
+    state.throwError("Scalar-Multiplication with 1 is a NOP!", [varRes, varLeft, varRight]);
+  }
+  return opShiftLeft(varRes, varLeft, {type: 'u32', value: shiftVal});
+}
+function opDiv(varRes, varLeft, varRight) {
+  const shiftVal = MUL_TO_SHIFT[varRight.value || 0];
+  if(varRight.reg || shiftVal === undefined) {
+    state.throwError("Scalar-Division only allowed with a power-of-two constant on the right side!\nFor example 'a = b / 4;' or 'a /= 8;' is allowed.", [varRes, varLeft, varRight]);
+  }
+  if(varRight.value === 1) {
+    state.throwError("Scalar-Division by 1 is a NOP!", [varRes, varLeft, varRight]);
+  }
+  return opShiftRight(varRes, varLeft, {type: 'u32', value: shiftVal});
+}
 export default {
   opMove, opLoad, opStore, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opXOR, opBitFlip,
   loadImmediate

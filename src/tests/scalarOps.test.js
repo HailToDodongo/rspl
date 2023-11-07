@@ -110,6 +110,34 @@ describe('Scalar - Ops', () =>
   nop`);
   });
 
+  test('Multiplication (2^x)', () => {
+    const src = `function test() {
+      u32<$t0> a, b;
+      a = b * 4;
+    }`;
+
+    const {asm, warn} = transpileSource(src, CONF);
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  sll $t0, $t1, 2
+  jr $ra
+  nop`);
+  });
+
+  test('Division (2^x)', () => {
+    const src = `function test() {
+      u32<$t0> a, b;
+      a = b / 8;
+    }`;
+
+    const {asm, warn} = transpileSource(src, CONF);
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  srl $t0, $t1, 3
+  jr $ra
+  nop`);
+  });
+
   test('Invalid (multiplication)', () => {
     const src = `function test() {
       u32<$t0> a, b;
@@ -117,7 +145,17 @@ describe('Scalar - Ops', () =>
     }`;
 
    expect(() => transpileSource(src, CONF))
-    .toThrowError(/line 3: Scalar-Multiplication not implemented!/);
+    .toThrowError(/line 3: Scalar-Multiplication only allowed with a power-of-two /);
+  });
+
+  test('Invalid (division)', () => {
+    const src = `function test() {
+      u32<$t0> a, b;
+      a = a / b;
+    }`;
+
+   expect(() => transpileSource(src, CONF))
+    .toThrowError(/line 3: Scalar-Division only allowed with a power-of-two /);
   });
 
   test('Invalid (sub with label)', () => {

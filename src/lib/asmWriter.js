@@ -45,14 +45,20 @@ export function writeASM(ast, functionsAsm, config)
     postIncludes += `#include <${inc.replaceAll('"', '')}>\n`;
   }
 
+  let totalSaveByteSize = 0;
   for(const stateVar of ast.state) {
     if(stateVar.extern)continue;
 
-    const byteSize = TYPE_SIZE[stateVar.varType] * stateVar.arraySize;
+    const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
+    const byteSize = TYPE_SIZE[stateVar.varType] * arraySize;
     const align = TYPE_ALIGNMENT[stateVar.varType];
     savedState += `    .align ${align}\n`;
     savedState += `    ${stateVar.varName}: .ds.b ${byteSize}\n`;
+
+    totalSaveByteSize += byteSize;
   }
+  const saveUsagePerc = totalSaveByteSize / 4096 * 100;
+  state.logInfo(`Total state size: ${totalSaveByteSize} bytes (${saveUsagePerc.toFixed(2)}%)`);
 
   for(const block of functionsAsm)
   {

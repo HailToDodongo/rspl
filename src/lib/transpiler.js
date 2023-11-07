@@ -43,5 +43,6 @@ export function transpile(ast, config = {})
   return {
     asm: writeASM(ast, functionsAsm, config),
     warn: state.outWarn,
+    info: state.outInfo,
   };
 }

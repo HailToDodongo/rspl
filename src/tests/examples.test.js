@@ -21,6 +21,14 @@ describe('Examples', () =>
     expect(asm).toBeDefined();
   });
 
+  test('Example code - Tiny 3D', () => {
+    const code = readFileSync("./src/tests/examples/tiny3d.rspl", "utf8");
+    const {asm, warn} = transpileSource(code, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBeDefined();
+  });
+
   test('Matrix x Vector', () => {
     const {asm, warn} = transpileSource(`include "rsp_queue.inc"
 state { 

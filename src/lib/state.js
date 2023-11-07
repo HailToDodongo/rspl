@@ -33,6 +33,7 @@ const state =
     state.scopeStack = [];
     state.memVarMap = {};
     state.outWarn = "";
+    state.outInfo = "";
     state.funcMap = {};
   },
 
@@ -46,6 +47,10 @@ const state =
     const lineStr = state.line === 0 ? "(???)" : state.line+"";
     const funcStr = state.func === "" ? "(???)" : state.func+"";
     state.outWarn += `Warning in ${funcStr}, line ${lineStr}: ${message}\n  -> AST: ${JSON.stringify(context)}\n`;
+  },
+
+  logInfo: (message) => {
+    state.outInfo += message + '\n';
   },
 
   declareFunction: (name, args) => {

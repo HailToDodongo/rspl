@@ -82,6 +82,10 @@ function writeASM(data) {
   hljs.highlightElement(outputASM);
 }
 
+function setErrorState(hasError, hasWarn) {
+  outputError.className = hasError ? "error" : (hasWarn ? " warn" : "");
+}
+
 async function update()
 {
   try {
@@ -104,8 +108,9 @@ async function update()
     }
 
     console.time("transpile");
-    const {asm, warn} = transpile(res.results[0]);
+    const {asm, warn, info} = transpile(res.results[0]);
     console.timeEnd("transpile");
+    outputError.innerHTML += info;
     outputError.innerHTML += warn + "\nTranspiled successfully!\n";
     writeASM(asm);
 
@@ -113,11 +118,13 @@ async function update()
       await saveASMFile(asm);
     }
 
+    setErrorState(false, warn !== "");
   } catch(e) {
     outputError.innerHTML = e.message;
     if(!e.message.includes("Syntax error")) {
       console.error(e);
     }
+    setErrorState(true, false);
   }
 
 }
