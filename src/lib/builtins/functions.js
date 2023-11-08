@@ -61,6 +61,46 @@ function store(varRes, args, swizzle)
   return opsScalar.opStore(varSrc, args.slice(1));
 }
 
+function load_vec_u8(varRes, args, swizzle, isSigned = false) {
+  assertArgsNoSwizzle(args);
+  if(args.length < 1)state.throwError("Builtin loadVecU8() requires at least one argument!", args[0]);
+  if(!varRes)state.throwError("Builtin loadVecU8() needs a left-side", varRes);
+  if(!isVecType(varRes.type))state.throwError("Builtin loadVecU8() must store the result into a vector!", varRes);
+
+  if(args.length === 1) {
+    args = [args[0], {type: "num", value: 0}];
+  }
+
+  const argVar = state.getRequiredVarOrMem(args[0].value, "arg0");
+  const argOffset = (args[1].type === "num")
+    ? args[1] : state.getRequiredMem(args[1].value, "arg1");
+
+  return opsVector.opLoadBytes(varRes, argVar, argOffset, swizzle, isSigned);
+}
+
+function load_vec_s8(varRes, args, swizzle) {
+  return load_vec_u8(varRes, args, swizzle, true);
+}
+
+function store_vec_u8(varRes, args, swizzle, isSigned = false) {
+  assertArgsNoSwizzle(args, 1);
+  if(varRes)state.throwError("Builtin store_vec_x8() cannot have a left side!\nUsage: 'store_vec_u8(varToSave, address, optionalOffset);'", varRes);
+  const varSrc = state.getRequiredVar(args[0].value, "arg0");
+  varSrc.swizzle = args[0].swizzle;
+
+  const isVectorSrc = REGS_VECTOR.includes(varSrc.reg);
+
+  if(swizzle)state.throwError("Builtin store_vec_x8() cannot use swizzle!");
+
+  if(isVectorSrc) {
+    return opsVector.opStoreBytes(varSrc, args.slice(1), isSigned);
+  }
+}
+
+function store_vec_s8(varRes, args, swizzle) {
+  return store_vec_u8(varRes, args, swizzle, true);
+}
+
 function inlineAsm(varRes, args, swizzle) {
   assertArgsNoSwizzle(args);
   if(swizzle)state.throwError("Builtin asm() cannot use swizzle!", varRes);
@@ -224,6 +264,8 @@ function swap(varRes, args, swizzle) {
 }
 
 export default {
-  load, store, asm: inlineAsm,
+  load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
+  asm: inlineAsm,
   dma_in, dma_out, dma_in_async, dma_out_async, dma_await,
-  invertHalf, invert, int, fract, swap};
+  invertHalf, invert, int, fract, swap
+};

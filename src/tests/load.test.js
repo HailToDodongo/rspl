@@ -124,4 +124,31 @@ describe('Load', () =>
   jr $ra
   nop`);
   });
+
+ test('Vector - Packed-Load', () => {
+    const {asm, warn} = transpileSource(`function test() 
+      {
+        u32<$t0> src;
+        vec16<$v01> dst;
+        
+        // Unsigned
+        dst = load_vec_u8(src, 0x00);
+        dst.z = load_vec_u8(src, 0x10);
+        
+        // Signed
+        dst.x = load_vec_s8(src, 0x00);
+        dst.z = load_vec_s8(src, 0x10);
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  ## Unsigned
+  luv $v01, 0, 0, $t0
+  luv $v01, 4, 16, $t0
+  ## Signed
+  lpv $v01, 0, 0, $t0
+  lpv $v01, 4, 16, $t0
+  jr $ra
+  nop`);
+  });
 });

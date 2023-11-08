@@ -95,13 +95,12 @@ function opMove(varRes, varRight)
   ];
 }
 
-function opLoad(varRes, varLoc, varOffset, swizzle)
+function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSigned = true)
 {
   const res = [];
-  const ALLOWED_SWIZZLE = ["xyzwxyzw", "xyzw", "XYZW"];
 
-  if(swizzle && !ALLOWED_SWIZZLE.includes(swizzle)) {
-    state.throwError("Builtin load() only the following right-hand swizzles: "+ALLOWED_SWIZZLE.join(", "), varRes);
+  if(swizzle && SWIZZLE_SCALAR_IDX[swizzle[0]] === undefined) {
+    state.throwError("Unsupported load swizzle, this is a bug in RSPL, please let me know :/", varRes);
   }
   if(!varLoc.reg) {
     if(varLoc.name) {
@@ -114,30 +113,45 @@ function opLoad(varRes, varLoc, varOffset, swizzle)
   if(isVecReg(varLoc.reg))state.throwError("Load base-address must be a scalar register!", varRes);
   if(varOffset.type !== "num")state.throwError("Load offset must be a numerical-constant!");
 
-  let destOffset = varRes.swizzle ? SWIZZLE_SCALAR_IDX[varRes.swizzle] : 0;
+  let destOffset = varRes.swizzle ? SWIZZLE_SCALAR_IDX[varRes.swizzle[0]] : 0;
   if(destOffset === undefined) {
-    state.throwError("Unsupported destination swizzle (must be scalar .x to .W, or .xyzw / .XYZW)!", varRes);
+    state.throwError("Unsupported destination swizzle, this is a bug in RSPL, please let me know :/", varRes);
   }
   destOffset *= 2; // convert to bytes
 
   const is32 = (varRes.type === "vec32");
-  const loadInstr = swizzle ? "ldv" : "lqv";
   const dupeLoad = swizzle === "xyzwxyzw"; // this loads the same data twice, into the lower/upper half
-  const floatOffset = swizzle ? 0x08 : 0x10;
-  const srcOffset = varOffset.value + (swizzle === "XYZW" ? 0x08 : 0x00);
+  if(dupeLoad)swizzle = "xyzw"; // @TODO: use a less hacky way
+
+  let accessLen = swizzle ? (swizzle.length*2) : 16;
+  let loadInstr = {1: "lbv", 2: "lsv", 4: "llv", 8: "ldv", 16: "lqv"}[accessLen];
+  let srcOffset = swizzle ? (SWIZZLE_SCALAR_IDX[swizzle[0]] * 2) : 0;
+
+  if(isPackedByte) {
+    if(is32)state.throwError("Packed byte loads are not supported for 32-bit vectors!");
+    loadInstr = isSigned ? "lpv" : "luv";
+    srcOffset /= 2;
+  }
+
+  srcOffset += varOffset.value;
 
   res.push(            asm(loadInstr, [varRes.reg, destOffset,   srcOffset, varLoc.reg]));
   if(dupeLoad)res.push(asm(loadInstr, [varRes.reg, destOffset+8, srcOffset, varLoc.reg]));
 
   if(is32) {
-    res.push(            asm(loadInstr, [nextVecReg(varRes.reg), destOffset,   srcOffset + floatOffset, varLoc.reg]));
-    if(dupeLoad)res.push(asm(loadInstr, [nextVecReg(varRes.reg), destOffset+8, srcOffset + floatOffset, varLoc.reg]));
+    res.push(            asm(loadInstr, [nextVecReg(varRes.reg), destOffset,   srcOffset + accessLen, varLoc.reg]));
+    if(dupeLoad)res.push(asm(loadInstr, [nextVecReg(varRes.reg), destOffset+8, srcOffset + accessLen, varLoc.reg]));
   }
   return res;
 }
 
-function opStore(varRes, varOffsets)
+function opLoadBytes(varRes, varLoc, varOffset, swizzle, isSigned) {
+  return opLoad(varRes, varLoc, varOffset, swizzle, true, isSigned);
+}
+
+function opStore(varRes, varOffsets, isPackedByte = false, isSigned = true)
 {
+  if(varOffsets.length < 1)state.throwError("Vector stores need at least one offset / more than 1 argument!");
   const varLoc = state.getRequiredVarOrMem(varOffsets[0].value, "base");
 
   const opsLoad = [];
@@ -154,17 +168,30 @@ function opStore(varRes, varOffsets)
     baseOffset += offset.value;
   }
 
+  const is32 = (varRes.type === "vec32");
   const swizzle = varRes.swizzle;
   const accessLen = swizzle ? (swizzle.length*2) : 16;
-  const storeInstr = {1: "sbv", 2: "ssv", 4: "slv", 8: "sdv", 16: "sqv"}[accessLen];
-  const srcOffset = swizzle ? (SWIZZLE_SCALAR_IDX[swizzle[0]] * 2) : 0;
+  let storeInstr = {1: "sbv", 2: "ssv", 4: "slv", 8: "sdv", 16: "sqv"}[accessLen];
+  let srcOffset = swizzle ? (SWIZZLE_SCALAR_IDX[swizzle[0]] * 2) : 0;
 
-  const is32 = (varRes.type === "vec32");
+  if(isPackedByte) {
+    if(is32)state.throwError("Packed byte stores are not supported for 32-bit vectors!");
+    if(swizzle && swizzle.length !== 1)state.throwError("Packed byte stores only support single-lane swizzles! (.x to .W)");
+
+    storeInstr = isSigned ? "spv" : "suv";
+    srcOffset /= 2;
+  }
+
   return [...opsLoad,
           asm(storeInstr, [           varRes.reg,  srcOffset, baseOffset              , varLoc.reg]),
    is32 ? asm(storeInstr, [nextVecReg(varRes.reg), srcOffset, baseOffset + accessLen, varLoc.reg]) : null
   ];
 }
+
+function opStoreBytes(varRes, varLoc, isSigned) {
+  return opStore(varRes, varLoc, true, isSigned);
+}
+
 
 function opAdd(varRes, varLeft, varRight)
 {
@@ -257,8 +284,7 @@ function opInvertHalf(varRes, varLeft) {
 
   if(!varLeft.swizzle && !varRes.swizzle) {
     const res = [];
-    const allSwizzles = Object.keys(SWIZZLE_SCALAR_IDX).filter(s => s.length === 1);
-    for(const s of allSwizzles) {
+    for(const s of Object.keys(SWIZZLE_SCALAR_IDX)) {
       res.push(...opInvertHalf({...varRes, swizzle: s}, {...varLeft, swizzle: s}));
     }
     return res;
@@ -295,4 +321,4 @@ function opDiv(varRes, varLeft, varRight) {
   ];
 }
 
-export default {opMove, opLoad, opStore, opAdd, opSub, opMul, opInvertHalf, opDiv};
+export default {opMove, opLoad, opStore, opAdd, opSub, opMul, opInvertHalf, opDiv, opLoadBytes, opStoreBytes};

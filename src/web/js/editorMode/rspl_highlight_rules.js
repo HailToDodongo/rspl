@@ -37,6 +37,7 @@ const rsplHighlightRules = function() {
           "vec16","vec32",
 
           "xyzwxyzw", "xyzw", "XYZW",
+          "xy", "zw", "XY", "ZW",
           "xxzzXXZZ", "yywwYYWW",
           "xxxxXXXX", "yyyyYYYY", "zzzzZZZZ", "wwwwWWWW",
           "xxxxxxxx", "yyyyyyyy", "zzzzzzzz", "wwwwwwww",
@@ -63,6 +64,7 @@ const rsplHighlightRules = function() {
       "load", "store", "asm",
       "dma_in", "dma_out", "dma_size", "dma_in_async", "dma_out_async", "dma_await",
       "invertHalf", "int", "fract", "swap", "invert",
+      "load_vec_u8", "load_vec_s8", "store_vec_u8", "store_vec_s8"
     ].join("|");
 
     var keywordMapper = this.createKeywordMapper({
