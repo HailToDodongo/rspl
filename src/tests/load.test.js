@@ -144,10 +144,10 @@ describe('Load', () =>
     expect(asm).toBe(`test:
   ## Unsigned
   luv $v01, 0, 0, $t0
-  luv $v01, 4, 16, $t0
+  luv $v01, 2, 16, $t0
   ## Signed
   lpv $v01, 0, 0, $t0
-  lpv $v01, 4, 16, $t0
+  lpv $v01, 2, 16, $t0
   jr $ra
   nop`);
   });

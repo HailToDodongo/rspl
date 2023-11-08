@@ -101,6 +101,189 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
+  test('AND (vec16)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v02> res16, a16;
+      vec32<$v04> a32;
+      
+      res16 = a16 & a16;
+      res16 = a32 & a16;
+      res16 = a16 & a32;
+      res16 = a32 & a32;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vand $v02, $v03, $v03.v
+  vand $v02, $v04, $v03.v
+  vand $v02, $v03, $v04.v
+  vand $v02, $v04, $v04.v
+  jr $ra
+  nop`);
+  });
+
+  test('AND (vec32)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec32<$v02> res32, a32;
+      vec16<$v06> a16;
+      
+      res32 = a16 & a16; //
+      res32 = a32 & a16; //
+      res32 = a16 & a32; //
+      res32 = a32 & a32;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vand $v02, $v06, $v06.v
+  vand $v03, $v00, $v00.v
+  ##
+  vand $v02, $v04, $v06.v
+  vand $v03, $v05, $v00.v
+  ##
+  vand $v02, $v06, $v04.v
+  vand $v03, $v00, $v05.v
+  ##
+  vand $v02, $v04, $v04.v
+  vand $v03, $v05, $v05.v
+  jr $ra
+  nop`);
+  });
+
+  test('OR (vec16)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v02> res16, a16;
+      vec32<$v04> a32;
+      
+      res16 = a16 | a16;
+      res16 = a32 | a16;
+      res16 = a16 | a32;
+      res16 = a32 | a32;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vor $v02, $v03, $v03.v
+  vor $v02, $v04, $v03.v
+  vor $v02, $v03, $v04.v
+  vor $v02, $v04, $v04.v
+  jr $ra
+  nop`);
+  });
+
+  test('OR (vec32)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec32<$v02> res32, a32;
+      vec16<$v06> a16;
+      
+      res32 = a16 | a16; //
+      res32 = a32 | a16; //
+      res32 = a16 | a32; //
+      res32 = a32 | a32;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vor $v02, $v06, $v06.v
+  vor $v03, $v00, $v00.v
+  ##
+  vor $v02, $v04, $v06.v
+  vor $v03, $v05, $v00.v
+  ##
+  vor $v02, $v06, $v04.v
+  vor $v03, $v00, $v05.v
+  ##
+  vor $v02, $v04, $v04.v
+  vor $v03, $v05, $v05.v
+  jr $ra
+  nop`);
+  });
+
+  test('XOR (vec16)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v02> res16, a16;
+      vec32<$v04> a32;
+      
+      res16 = a16 ^ a16;
+      res16 = a32 ^ a16;
+      res16 = a16 ^ a32;
+      res16 = a32 ^ a32;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vxor $v02, $v03, $v03.v
+  vxor $v02, $v04, $v03.v
+  vxor $v02, $v03, $v04.v
+  vxor $v02, $v04, $v04.v
+  jr $ra
+  nop`);
+  });
+
+  test('XOR (vec32)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec32<$v02> res32, a32;
+      vec16<$v06> a16;
+      
+      res32 = a16 ^ a16; //
+      res32 = a32 ^ a16; //
+      res32 = a16 ^ a32; //
+      res32 = a32 ^ a32;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vxor $v02, $v06, $v06.v
+  vxor $v03, $v00, $v00.v
+  ##
+  vxor $v02, $v04, $v06.v
+  vxor $v03, $v05, $v00.v
+  ##
+  vxor $v02, $v06, $v04.v
+  vxor $v03, $v00, $v05.v
+  ##
+  vxor $v02, $v04, $v04.v
+  vxor $v03, $v05, $v05.v
+  jr $ra
+  nop`);
+  });
+
+  test('NOT (vec16)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v02> res16, a16;
+      vec32<$v04> a32;
+      
+      res16 = ~a16;
+      res16 = ~a32;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vnor $v02, $v03, $v00.v
+  vnor $v02, $v04, $v00.v
+  jr $ra
+  nop`);
+  });
+
+  test('NOT (vec32)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec32<$v02> res32, a32;
+      vec16<$v06> a16;
+      
+      res32 = ~a16;
+      res32 = ~a32;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vnor $v02, $v06, $v00.v
+  vnor $v03, $v00, $v00.v
+  vnor $v02, $v04, $v00.v
+  vnor $v03, $v05, $v00.v
+  jr $ra
+  nop`);
+  });
+
   test('Invert-Half (vec32)', () => {
     const {asm, warn} = transpileSource(`function test() {
       vec32<$v01> res, a;

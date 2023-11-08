@@ -131,6 +131,7 @@ function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSign
     if(is32)state.throwError("Packed byte loads are not supported for 32-bit vectors!");
     loadInstr = isSigned ? "lpv" : "luv";
     srcOffset /= 2;
+    destOffset /= 2;
   }
 
   srcOffset += varOffset.value;
@@ -239,6 +240,47 @@ function opSub(varRes, varLeft, varRight)
     ];
 }
 
+function genericLogicOp(varRes, varLeft, varRight, op) {
+  const funcName = op.toUpperCase().substring(1);
+  if(!varRight.reg)state.throwError(funcName + " cannot be done with a constant!");
+  if(varRes.swizzle || varLeft.swizzle)state.throwError(funcName + " only allows swizzle on the right side!");
+
+  const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
+  if(swizzleRight === undefined) {
+    state.throwError("Unsupported swizzle (supported: "+SWIZZLE_MAP_KEYS_STR+")!", varRes);
+  }
+
+  const is32 = (varRes.type === "vec32");
+  return [asm(op, [        varRes.reg,       varLeft.reg,       varRight.reg  + swizzleRight]),
+   is32 ? asm(op, [nextReg(varRes.reg), fractReg(varLeft), fractReg(varRight) + swizzleRight]) : null,
+  ];
+}
+
+function opAnd(varRes, varLeft, varRight) {
+  return genericLogicOp(varRes, varLeft, varRight, "vand");
+}
+
+function opOr(varRes, varLeft, varRight) {
+  return genericLogicOp(varRes, varLeft, varRight, "vor");
+}
+
+function opXOR(varRes, varLeft, varRight) {
+  return genericLogicOp(varRes, varLeft, varRight, "vxor");
+}
+
+function opShiftLeft(varRes, varLeft, varRight) {
+  return state.throwError("Shift-Left is not supported for vectors! (@TODO: implement this)");
+}
+
+function opShiftRight(varRes, varLeft, varRight) {
+  return state.throwError("Shift-Right is not supported for vectors! (@TODO: implement this)");
+}
+
+function opBitFlip(varRes, varRight) {
+  if(varRight.swizzle)state.throwError("NOT operator is only supported for variables!");
+  return genericLogicOp(varRes, varRight, {reg: REG.VZERO}, "vnor");
+}
+
 function opMul(varRes, varLeft, varRight, clearAccum)
 {
   if(!varRight.reg) {
@@ -321,4 +363,9 @@ function opDiv(varRes, varLeft, varRight) {
   ];
 }
 
-export default {opMove, opLoad, opStore, opAdd, opSub, opMul, opInvertHalf, opDiv, opLoadBytes, opStoreBytes};
+export default {
+  opMove, opLoad, opStore,
+  opAdd, opSub, opMul, opInvertHalf, opDiv, opAnd, opOr, opXOR, opBitFlip,
+  opShiftLeft, opShiftRight,
+  opLoadBytes, opStoreBytes
+};
