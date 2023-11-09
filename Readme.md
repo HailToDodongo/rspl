@@ -288,6 +288,7 @@ if(a > 10) {
 The following operations are available for vector types:
 - Arithmetic: `+`, `-`, `*`, `+*`, `/`
 - Bitwise: `&`, `|`, `^`, `~`
+- Assignment: `=`
 
 Note: Division is very expensive, since it will be converted to a multiplication with the inverse.<br>
 If you need the inverse, look at the `invertHalf()` builtin.<br>
