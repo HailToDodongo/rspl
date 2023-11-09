@@ -262,7 +262,7 @@ macro loadCurrentMat(vec32 mat0, vec32 mat1, vec32 mat2, vec32 mat3)
 ## Scalar operations
 The following operations are available for scalar types:
 - Arithmetic: `+`, `-`, `*`, `/`
-- Bitwise: `&`, `|`, `^`, `~`
+- Bitwise: `&`, `|`, `^`, `~`. `<<`, `>>`
 - Assignment: `=`
 
 Note: `*` and `/` is only supported with `x^2` contants (which use a shift instead).<br>
