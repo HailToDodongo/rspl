@@ -1,7 +1,7 @@
 {
   "name": "rspl",
   "version": "1.0.0",
-  "source": "src/index.html",
+  "source": "src/web/index.html",
   "license": "MIT",
   "type": "module",
   "devDependencies": {
