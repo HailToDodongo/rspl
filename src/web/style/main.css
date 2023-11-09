@@ -90,9 +90,18 @@ pre {
 .pageContainer {
   display: flex;
   justify-content: center;
-  flex-direction: column;
+  flex-direction: row;
   width: calc(100% - 48px);
-  height: calc(100% - 16px);
+  height: calc(100% - 46px);
+  padding: 16px 0;
+  gap: 16px;
+}
+
+.leftContainer {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  flex-grow: 1;
 }
 
 .mainContainer {
@@ -104,15 +113,58 @@ pre {
 }
 
 .mainContainer > div, .mainContainer  > pre {
-  flex-grow: 1;
+  flex-grow: 5;
   position: relative;
+}
+
+.mainContainer  > pre {
+  flex-grow: 1;
 }
 
 #inputRSPL {
   height: 100%;
   border-radius: 10px;
   font-family: FiraCode, monospace;
-  min-width: 300px;
+  min-width: 200px;
+}
+
+#RSPL_DOCS {
+  border-radius: 10px;
+  padding: 5px 10px;
+  background-color: #252525;
+  overflow-y: auto;
+  overflow-x: auto;
+  flex-grow: 1;
+  max-width: 640px;
+  color: #eee;
+  font-size: 16px;
+}
+
+#RSPL_DOCS code {
+  padding: 2px 4px;
+  background-color: #333333;
+}
+
+#RSPL_DOCS pre {
+  background-color: #333333;
+  width: auto;
+}
+
+#RSPL_DOCS pre > code {
+  padding: 0;
+}
+
+#RSPL_DOCS h2, #RSPL_DOCS h1 {
+  color: #bb874b;
+}
+
+#RSPL_DOCS h3 code {
+  font-size: 16px;
+  color: #dab28a;
+}
+
+#RSPL_DOCS a {
+  color: #dab28a;
 }
 
 .mainContainer  > pre:last-child {
@@ -171,4 +223,16 @@ svg#copyASM {
 
 .error {
   border: 2px solid #db5656;
+}
+
+#footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  padding-bottom: 6px;
+  font-weight: bold;
+  color: #858585;
 }

@@ -1,4 +1,5 @@
 # RSPL - Documentation
+<a href="../../Readme.md" target="_blank">Download Markdown</a>
 
 This project provides tools for a high-level RSP language which can be transpiled into assembly in text form.<br>
 The output is a completely functional overlay usable by libdragon.
@@ -10,16 +11,17 @@ Here are a few noteworthy differences:
 - Variables only exist in registers
 - Memory access is explicit (e.g. with the use of `load()` / `store()`)
 - Statements only allow one "computation" (`a = b + 2` is ok, `a = (b * 2 ) + 4` is not)
-- Computations have no inherit return-value, they always assign to a variable in the end.
+- Computations have no inherent value, they always assign to a variable in the end.
 - Builtin functions are aware of the whole expression, allowing for "return-type overloading"
 
 Further details can be found in the following sections.
 
 ## File Layout
 
-An RSPL file contains three sections, an optional state section at the start, includes, and zero or more functions after that.
+An RSPL file contains three sections, an optional state section at the start,<br>
+includes, and zero or more functions after that.
 
-The state section can allocate memory which gets saved across overlay-switches.
+The state section can allocate memory which gets saved across overlay-switches.<br>
 While functions can implement the actual code and register themselves as commands to libdragon.
 
 An include, currently only for raw assembly files, can be added to the very beginning or end of a file.

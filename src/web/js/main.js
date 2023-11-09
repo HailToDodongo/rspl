@@ -22,8 +22,10 @@ import "ace-builds/src-min-noconflict/mode-glsl";
 import { transpile } from "../../lib/transpiler";
 import {EXAMPLE_CODE} from "./exampleCode.js";
 
+const STORAGE_KEY = "lastCode00";
+
 // Restore old code from last session
-let oldSource = localStorage.getItem("lastCode") || "";
+let oldSource = localStorage.getItem(STORAGE_KEY) || "";
 if(oldSource === "") {
   oldSource = EXAMPLE_CODE;
 }
@@ -70,12 +72,6 @@ async function saveASMFile(asmString) {
   }
 }
 
-function writeAST(data) {
-  outputAST.textContent = data;
-  delete outputAST.dataset.highlighted;
-  hljs.highlightElement(outputAST);
-}
-
 function writeASM(data) {
   outputASM.textContent = data;
   delete outputASM.dataset.highlighted;
@@ -91,7 +87,7 @@ async function update()
   try {
     console.clear();
     const source = editor.getValue();
-    localStorage.setItem("lastCode", source);
+    localStorage.setItem(STORAGE_KEY, source);
 
     const parser = new Parser(Grammar.fromCompiled(grammarDef));
 
@@ -99,9 +95,7 @@ async function update()
     const res = parser.feed(source);
     console.timeEnd("parse");
 
-    outputError.innerHTML = "";
-    writeAST(JSON.stringify(res.results, null, 2));
-    outputError.innerHTML += "Code parsed successfully.\n";
+    outputError.innerHTML = "Code parsed successfully.\n";
 
     if(res.results.length > 1) {
       outputError.innerHTML += "Warning: ambiguous syntax!\n";
@@ -134,7 +128,7 @@ update();
 let timerUpdate = 0;
 editor.getSession().on('change', () => {
   clearTimeout(timerUpdate);
-  timerUpdate = setTimeout(() => update(), 500);
+  timerUpdate = setTimeout(() => update(), 150);
 });
 
 copyASM.onclick = async () => {

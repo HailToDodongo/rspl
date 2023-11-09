@@ -4,95 +4,266 @@
 */
 
 export const EXAMPLE_CODE = `include "rsp_queue.inc"
+include "rdpq_macros.h"
 
 state
 {
   extern u32 RDPQ_CMD_STAGING;
-  
-  vec32 VEC_SLOTS[20];
-  u32 TEST_CONST;
+
+  vec32 MAT_PROJ_DATA[1][2];
+  vec32 MAT_MODEL_DATA[8][2];
+
+  vec32 TRI2D_DATA[16];
+  vec32 TRI3D_DATA[16];
+
+  vec16 SCREEN_SIZE_VEC;
+  u32 CURRENT_MAT_ADDR;
 }
 
+function DMAIn(u32<$t0> size, u32<$t1> pitch, u32<$s0> rdram, u32<$s4> dmem);
 function RDPQ_Send(u32<$s4> buffStart, u32<$s3> buffEnd);
+function RDPQ_Finalize();
 
-command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
+function RDPQ_Triangle(
+  u32<$a0> triCmd,
+  u32<$a1> ptrVert0, u32<$a2> ptrVert1, u32<$a3> ptrVert2,
+  u32<$v0> cull, u32<$s3>buffOut
+);
+
+command<0> T3DCmd_TriDraw(u32 triCmd, u32 vert0)
 {
-  u32<$t0> trans_mtx = mat_in >> 16;
-  trans_mtx &= 0xFF0;
-
-  u32<$t1> trans_vec = mat_in & 0xFF0;
-  u32<$t2> trans_out = vec_out & 0xFF0;
-  
-  trans_mtx += VEC_SLOTS;
-  trans_vec += VEC_SLOTS;
-  trans_out += VEC_SLOTS;
-  
-  vec32<$v01> mat0 = load(trans_mtx, 0x00).xyzwxyzw;
-  vec32<$v03> mat1 = load(trans_mtx, 0x08).xyzwxyzw;
-  vec32<$v05> mat2 = load(trans_mtx, 0x20).xyzwxyzw;
-  vec32<$v07> mat3 = load(trans_mtx, 0x28).xyzwxyzw;
-  
-  vec32<$v09> vecIn = load(trans_vec);
-  vec32<$v13> res;
-  
-  res = mat0  * vecIn.xxxxXXXX;
-  res = mat1 +* vecIn.yyyyYYYY;
-  res = mat2 +* vecIn.zzzzZZZZ;
-  res = mat3 +* vecIn.wwwwWWWW;
-
-  store(res, trans_out);
-}
-
-function vec_add(vec32<$v13> test)
-{
-  vec32<$v01> testAdd;
-  testAdd.x = 12.7;
-  
-  test += testAdd.x;
-}
-
-function func_extern()
-{
+  u32<$s5> vertIdx = vert0;
   u32<$s4> buffer = RDPQ_CMD_STAGING;
   u32<$s3> buffEnd = buffer;
-  
+
+  vert0 = vertIdx << 5;
+  vert0 &= 0x1FFF;
+  vert0 += TRI2D_DATA;
+
+  u32<$a2> vert1 = vertIdx >> 3;
+  vert1 &= 0x1FFF;
+  vert1 += TRI2D_DATA;
+
+  u32<$a3> vert2 = vertIdx >> 11;
+  vert2 &= 0x1FFF;
+  vert2 += TRI2D_DATA;
+
+  // may get overwritten by RDPQ_Triangle
+  u32<$k0> _vert0 = vert0;
+  u32<$k1> _vert2 = vert2;
+  u32<$s6> _triCmd = triCmd;
+
+  RDPQ_Triangle(triCmd, vert0, vert1, vert2, 2, buffEnd);
+
+  // single triangle has vert3 set to 0xFF
+  if(vertIdx < 0xFF000000)
+  {
+    vert0 = _vert2;
+    vert2 = _vert0;
+
+    vert1 = vertIdx >> 19;
+    vert1 &= 0x1FFF;
+    vert1 += TRI2D_DATA;
+
+    triCmd = _triCmd;
+    RDPQ_Triangle(triCmd, vert0, vert1, vert2, 2, buffEnd);
+  }
+
   RDPQ_Send(buffer, buffEnd);
 }
 
-function branching() 
+command<1> T3DCmd_SetScreenSize(u32 _, u32 sizeXY)
 {
-  u32<$t0> a, b;
-  if(a > 0x112233) {
-    b = 11;
-  } else {
-    if(b != 42) {
-      b += 10;
+  vec16 screenSize;
+  u32 sizeX = sizeXY >> 16;
+  u32 sizeY = sizeXY & 0xFFFF;
+
+  screenSize.x = sizeX;
+  screenSize.y = sizeY;
+  screenSize.X = sizeX;
+  screenSize.Y = sizeY;
+
+  store(screenSize, SCREEN_SIZE_VEC);
+}
+
+macro mulMat4Mat4(u32 addrOut, u32 addrMatL, u32 addrMatR)
+{
+  vec32 matL0 = load(addrMatL, 0x00).xyzwxyzw;
+  vec32 matL1 = load(addrMatL, 0x10).xyzwxyzw;
+  vec32 matL2 = load(addrMatL, 0x20).xyzwxyzw;
+  vec32 matL3 = load(addrMatL, 0x30).xyzwxyzw;
+
+  vec32 matR01, matR23;
+
+  matR01.xyzw = load(addrMatR, 0x00).xyzw;
+  matR01.XYZW = load(addrMatR, 0x10).xyzw;
+  matR23.xyzw = load(addrMatR, 0x20).xyzw;
+  matR23.XYZW = load(addrMatR, 0x30).xyzw;
+
+  vec32 tmp;
+  tmp    = matL0  * matR01.xxxxXXXX;
+  tmp    = matL1 +* matR01.yyyyYYYY;
+  tmp    = matL2 +* matR01.zzzzZZZZ;
+  matR01 = matL3 +* matR01.wwwwWWWW;
+
+  tmp    = matL0  * matR23.xxxxXXXX;
+  tmp    = matL1 +* matR23.yyyyYYYY;
+  tmp    = matL2 +* matR23.zzzzZZZZ;
+  matR23 = matL3 +* matR23.wwwwWWWW;
+
+  store(matR01.xyzw, addrOut, 0x00);
+  store(matR01.XYZW, addrOut, 0x10);
+  store(matR23.xyzw, addrOut, 0x20);
+  store(matR23.XYZW, addrOut, 0x30);
+}
+
+macro mulMat4Vec8(
+  vec32 mat0, vec32 mat1, vec32 mat2, vec32 mat3,
+  vec16 vec, vec32 out
+) {
+  out = mat0  * vec.xxxxXXXX;
+  out = mat1 +* vec.yyyyYYYY;
+  out = mat2 +* vec.zzzzZZZZ;
+  out = mat3 +* vec.wwwwWWWW;
+}
+
+command<2> T3DCmd_MatSet(u32 typeIdx, u32 addressMat)
+{
+  u32 isModelMat = typeIdx & 0x0001'0000;
+  if(isModelMat)
+  {
+    u32<$s4> addrDst = typeIdx & 0xFF;
+    addrDst *= 0x40;
+    addrDst += MAT_MODEL_DATA;
+    store(addrDst, CURRENT_MAT_ADDR);
+
+    dma_in_async(addrDst, addressMat, 0x40);
+
+    u32 addrMul = typeIdx & 0xFF00;
+
+    // if set to 0xFF, mul. will default to the projection matrix...
+    if(addrMul == 0xFF00) {
+      addrMul = MAT_PROJ_DATA;
+    } else {
+      // ...otherise use the model matrix in the given slot
+      addrMul >>= 2; // (x >> 8) * 0x40
+      addrMul += MAT_MODEL_DATA;
     }
-    b = 22;
+
+    dma_await();
+    mulMat4Mat4(addrDst, addrMul, addrDst);
+
+  } else {
+    dma_in(MAT_PROJ_DATA, addressMat, 0x40);
   }
 }
 
-function scope() 
+command<3> T3DCmd_MatRead(u32 _, u32 addressMat)
 {
-  u32<$t0> a;
-  {
-     u32<$t1> b;
-     b += 2;
-  } // 'b' is no longer defined now
-  a += 2;
+  dma_out(MAT_PROJ_DATA, addressMat);
 }
 
-function labels()
+macro loadCurrentMat(vec32 mat0, vec32 mat1, vec32 mat2, vec32 mat3)
 {
-  u32<$t0> a;
-  
-  label_a:
-    a += 2;
-    goto label_b;
-    a += 0xFF;
-    
-  label_b:
-    goto label_a;
+  u32 address = load(CURRENT_MAT_ADDR);
+  mat0 = load(address, 0x00).xyzwxyzw;
+  mat1 = load(address, 0x10).xyzwxyzw;
+  mat2 = load(address, 0x20).xyzwxyzw;
+  mat3 = load(address, 0x30).xyzwxyzw;
+}
+
+macro storeVerts(u32 ptrDest, vec32 pos, vec32 depthAndW, vec16 uv, vec16 color)
+{
+  store(pos.x,          ptrDest, 0x00); // @TODO only store int part
+  store(pos.y,          ptrDest, 0x02);
+  store(depthAndW.z,    ptrDest, 0x04); // Z
+  store_vec_u8(color.x, ptrDest, 0x08);
+  store(uv.xy,          ptrDest, 0x0C);
+  store(depthAndW.x,    ptrDest, 0x10); // W
+  store(depthAndW.y,    ptrDest, 0x14); // InvW
+
+  store(pos.X,          ptrDest, 0x20); // @TODO only store int part
+  store(pos.Y,          ptrDest, 0x22);
+  store(depthAndW.Z,    ptrDest, 0x24);
+  store_vec_u8(color.X, ptrDest, 0x28);
+  store(uv.XY,          ptrDest, 0x2C);
+  store(depthAndW.X,    ptrDest, 0x30);
+  store(depthAndW.Y,    ptrDest, 0x34);
+  ptrDest += 0x40;
+}
+
+command<4> T3DCmd_VertLoad(u32 offsetCount, u32 dramVerts)
+{
+  u32<$t1> offset = offsetCount & 0xFF00;
+  offset >>= 3; // @TODO: use this parameter
+
+  offsetCount &= 0xFF;
+  u32<$t0> copySize = offsetCount << 5;
+
+  dma_in_async(TRI3D_DATA, dramVerts, copySize);
+
+  vec32 mat0, mat1, mat2, mat3;
+  loadCurrentMat(mat0, mat1, mat2, mat3);
+
+  vec16 screenSize = load(SCREEN_SIZE_VEC);
+
+  vec16 maskLR = 0;
+  maskLR.x = 0xFFFF; // use .xxxxXXXX to keep the left-half of a reg
+  maskLR.Y = 0xFFFF; // use .yyyyYYYY to keep the right-half of a reg
+
+  u32 prt3d = TRI3D_DATA;
+  u32 prt2d = TRI2D_DATA;
+
+  dma_await();
+
+  // Process all vertices and apply transformation & lighting (@TODO).
+  // This always handle 2 vertices at once, most sitting in one register.
+  while(offsetCount != 0)
+  {
+    vec16 pos;
+    pos.x = load(prt3d, 0x00); pos.w = 1;
+    pos.X = load(prt3d, 0x10); pos.W = 1;
+
+    vec16 uv;
+    uv.xy = load(prt3d, 0x0C).xy;
+    uv.XY = load(prt3d, 0x1C).xy;
+
+    vec16 color = load_vec_u8(prt3d, 0x08);
+    {
+      vec16 colorTmp;
+      colorTmp.X = load_vec_u8(prt3d, 0x18); // (Load sadly wraps around)
+      color &= maskLR.xxxxXXXX;    // keep left-side of color...
+      colorTmp &= maskLR.yyyyYYYY; // right-side of colorTmp...
+      color |= colorTmp;           // and merge them together
+    }
+
+    vec32 posNorm, posNormInv;
+
+    // object-space to clip-spcae
+    mulMat4Vec8(mat0, mat1, mat2, mat3, pos, posNorm);
+
+    // calc. Z buffer value
+    posNormInv.z = posNorm.z;
+    posNormInv.Z = posNorm.Z;
+    posNormInv *= 128; // @TODO better depth
+
+    posNormInv.y = invertHalf(posNorm).w;
+    posNormInv.Y = invertHalf(posNorm).W;
+    posNormInv.x = posNorm.w; // backup raw W value
+    posNormInv.X = posNorm.W;
+
+    posNorm *= posNormInv.yyyyYYYY;
+    posNorm *= 2; // invertHalf to invert
+
+    // clip-space to screen-space
+    posNorm *= screenSize;
+    posNorm += screenSize;
+
+    storeVerts(prt2d, posNorm, posNormInv, uv, color);
+
+    prt3d += 0x20;
+    offsetCount -= 2;
+  }
 }
 
 include "rsp_rdpq.inc"
