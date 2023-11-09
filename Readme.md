@@ -187,8 +187,8 @@ vec32 a,b,c;
 a.y = 1.25; // assign 1.25 as a fixed-point to the second lane
 a.x = b.z; // single-lane assignment
 
-// This does: a: xyzwXYZW *
-//            b: yyyyYYYY
+// This does: b: xyzwXYZW *
+//            c: yyyyYYYY
 a = b * c.yyyyYYYY;
 
 u32 address;
