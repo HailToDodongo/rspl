@@ -4,7 +4,7 @@
 This project provides tools for a high-level RSP language which can be transpiled into assembly in text form.<br>
 The output is a completely functional overlay usable by libdragon.
 
-RSPL is intended to be a simple language stying close to the hardware/ASM instructions, while proving a GLSL-like "swizzle" syntax to make use of the vector/lane instructions on the RSP.
+RSPL is intended to be a simple language staying close to the hardware/ASM instructions, while proving a GLSL-like "swizzle" syntax to make use of the vector/lane instructions on the RSP.
 
 While it may look like C / GLSL, the syntax/behaviour is quite different.<br>
 Here are a few noteworthy differences:
