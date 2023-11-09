@@ -250,7 +250,7 @@ A macro could look like this:</p>
 <p>The following operations are available for scalar types:</p>
 <ul>
 <li>Arithmetic: <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code></li>
-<li>Bitwise: <code>&amp;</code>, <code>|</code>, <code>^</code>, <code>~</code></li>
+<li>Bitwise: <code>&amp;</code>, <code>|</code>, <code>^</code>, <code>~</code>. <code>&lt;&lt;</code>, <code>&gt;&gt;</code></li>
 <li>Assignment: <code>=</code></li>
 </ul>
 <p>Note: <code>*</code> and <code>/</code> is only supported with <code>x^2</code> contants (which use a shift instead).<br>
@@ -353,7 +353,7 @@ c.Y = load(address, 0x00);
 </code></pre>
 <p>There is some special behaviour for<code>vec32</code>:<br>
 The assumed memory-layout is that the fractional part follows the integer part after each register.<br>
-Meaning it should look like this (one letter per byte): <code>IIII IIII FFFF FFFF</code>.<br>
+Meaning it should look like this (two bytes per letter): <code>IIII IIII FFFF FFFF</code>.<br>
 If you specify a partial or repeating load (e.g. <code>.xyzw</code>, <code>.xyzwxyzw</code>)  it should look like this: <code>IIII FFFF</code>.<br></p>
 <p>In general, the swizzle will specify the amount of components and the target offset.<br>
 The fractional part always comes after that block.</p>

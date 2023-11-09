@@ -383,7 +383,7 @@ c.Y = load(address, 0x00);
 ```
 There is some special behaviour for`vec32`:<br>
 The assumed memory-layout is that the fractional part follows the integer part after each register.<br>
-Meaning it should look like this (one letter per byte): `IIII IIII FFFF FFFF`.<br>
+Meaning it should look like this (two bytes per letter): `IIII IIII FFFF FFFF`.<br>
 If you specify a partial or repeating load (e.g. `.xyzw`, `.xyzwxyzw`)  it should look like this: `IIII FFFF`.<br>
 
 In general, the swizzle will specify the amount of components and the target offset.<br>
