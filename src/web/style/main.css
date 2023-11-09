@@ -101,7 +101,8 @@ pre {
   display: flex;
   justify-content: center;
   flex-direction: column;
-  flex-grow: 1;
+  _flex-grow: 1;
+  min-width: 70%;
 }
 
 .mainContainer {
@@ -221,7 +222,12 @@ svg#copyASM {
   height: 1px;
 }
 
-.error {
+#outputError {
+  border: 2px solid transparent;
+  max-width: 100%;
+}
+
+#outputError.error {
   border: 2px solid #db5656;
 }
 
