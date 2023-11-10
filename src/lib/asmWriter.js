@@ -1,6 +1,6 @@
 /**
 * @copyright 2023 - Max Bebök
-* @license GPL-3.0
+* @license Apache-2.0
 */
 
 import {TYPE_ALIGNMENT, TYPE_SIZE} from "./types/types";

@@ -1,7 +1,7 @@
 import showdown from 'showdown';
 import fs from 'fs';
 
-const markdown = fs.readFileSync('./Readme.md', 'utf8');
+const markdown = fs.readFileSync('./Docs.md', 'utf8');
 
 const converter = new showdown.Converter();
 const html = converter.makeHtml(markdown);

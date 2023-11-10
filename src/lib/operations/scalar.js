@@ -1,6 +1,6 @@
 /**
 * @copyright 2023 - Max Bebök
-* @license GPL-3.0
+* @license Apache-2.0
 */
 import state from "../state";
 import {isSigned, toHex, u32InS16Range, u32InU16Range} from "../types/types";

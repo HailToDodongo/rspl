@@ -1,6 +1,6 @@
 /**
 * @copyright 2023 - Max Bebök
-* @license GPL-3.0
+* @license Apache-2.0
 */
 
 export const REG = {
