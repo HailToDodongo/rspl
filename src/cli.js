@@ -3,26 +3,16 @@
 * @license Apache-2.0
 */
 
-import { Parser, Grammar } from "nearley";
-import grammarDef from './lib/grammar';
-import { transpile } from "./lib/transpiler";
+import { transpileSource } from "./lib/transpiler";
 import { readFileSync, writeFileSync } from "fs";
 
 const source = readFileSync(process.argv[2], "utf8");
 const pathOut = process.argv[2] + ".S";
 
-const parser = new Parser(Grammar.fromCompiled(grammarDef));
-
-console.time("parse");
-const res = parser.feed(source);
-console.timeEnd("parse");
-
-if(res.results.length > 1) {
-  throw Error("Warning: ambiguous syntax!");
-}
+let config = {optimize: true, rspqWrapper: true};
 
 console.time("transpile");
-const asmRes = transpile(res.results[0]);
+const asmRes = transpileSource(source, config);
 console.timeEnd("transpile");
 
 if(asmRes.warn) {

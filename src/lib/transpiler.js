@@ -10,6 +10,8 @@ import nearly from "nearley";
 import grammarDef from "./grammar.cjs";
 import state from "./state.js";
 
+const grammar = nearly.Grammar.fromCompiled(grammarDef);
+
 /**
  * @param {RSPLConfig} config
  */
@@ -25,8 +27,12 @@ function normalizeConfig(config)
  */
 export function transpileSource(source, config)
 {
-  const parser = new nearly.Parser(nearly.Grammar.fromCompiled(grammarDef));
+  const parser = new nearly.Parser(grammar);
+
+  //console.time("parser");
   const astList = parser.feed(source);
+  //console.timeEnd("parser");
+
   if(astList.results.length > 1) {
     throw Error("Warning: ambiguous syntax!");
   }
@@ -41,16 +47,14 @@ export function transpile(ast, config = {})
 {
   state.reset();
   normalizeConfig(config);
-  //console.log("AST", ast);
 
   ast.functions = astNormalizeFunctions(ast);
-
-  // @TODO: optimize AST
-  
   const functionsAsm = ast2asm(ast);
-  
-  // @TODO: optimize ASM
-  
+
+  // @TODO: ASM to tree with register deps.
+  // @TODO: optimize tree
+  // @TODO: flatten tree back into ASM
+
   return {
     asm: writeASM(ast, functionsAsm, config),
     warn: state.outWarn,

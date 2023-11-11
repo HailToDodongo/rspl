@@ -219,25 +219,25 @@ pre {
   padding: 0;
 }
 
-img#saveASM {
+img#buttonSaveASM {
   width: 26px;
   height: 26px;
   margin-right: 4px;
 }
 
-img#copyASM {
+img#buttonCopyASM {
   width: 24px;
   height: 24px;
   margin-right: 10px;
   margin-top: 10px;
 }
 
-#outputError {
+#logOutput {
   border: 2px solid transparent;
   max-width: 100%;
 }
 
-#outputError.error {
+#logOutput.error {
   border: 2px solid #db5656;
 }
 
