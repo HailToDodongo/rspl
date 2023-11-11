@@ -135,6 +135,15 @@ function opStore(varRes, varOffsets)
   }*/
 }
 
+/**
+ * @param {string} opReg
+ * @param {string} opImm
+ * @param {(number) => boolean} rangeCheckFunc
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @return {ASM[]|(ASM|ASM)[]}
+ */
 function opRegOrImmediate(opReg, opImm, rangeCheckFunc, varRes, varLeft, varRight)
 {
   if(varRight.reg) {
@@ -274,7 +283,7 @@ function opMul(varRes, varLeft, varRight) {
   if(varRight.value === 1) {
     state.throwError("Scalar-Multiplication with 1 is a NOP!", [varRes, varLeft, varRight]);
   }
-  return opShiftLeft(varRes, varLeft, {type: 'num', value: shiftVal});
+  return opShiftLeft(varRes, varLeft, {type: 'u32', value: shiftVal});
 }
 
 /**

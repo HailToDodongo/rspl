@@ -52,7 +52,7 @@ export const isTwoRegType = type => type === "vec32";
 export const isVecType = type => type.startsWith("vec");
 
 /**
- * @param {DataType} type
+ * @param {string} type
  * @returns {boolean}
  */
 export const isSigned = type => type.startsWith("s");

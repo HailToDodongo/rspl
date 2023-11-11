@@ -13,7 +13,7 @@ declare global
     type ASTFuncType = 'function' | 'macro' | 'command';
 
     type ASTFuncArg = {
-        type: 'num' | 'var' | 'string';
+        type: 'num' | 'var' | 'string' | DataType;
         reg?: string;
         name?: string;
         value?: number | string;
