@@ -14,7 +14,7 @@ for(let i = 0; i < 32; i++)MUL_TO_SHIFT[Math.pow(2, i)] = i;
 /**
  * Loads a 32bit int into a register with as few instructions as possible.
  * @param {string} regDst target register
- * @param value value to load (can be a string for labels
+ * @param {number|string} value value to load (can be a string for labels)
  * @returns {ASM[]}
  */
 function loadImmediate(regDst, value)
@@ -136,12 +136,13 @@ function opStore(varRes, varOffsets)
 }
 
 /**
- * @param {string} opReg
- * @param {string} opImm
- * @param {(number) => boolean} rangeCheckFunc
- * @param {ASTFuncArg} varRes
- * @param {ASTFuncArg} varLeft
- * @param {ASTFuncArg} varRight
+ * Generic Operation with either a register or an immediate value.
+ * @param {string} opReg opcode for the register version
+ * @param {string} opImm opcode for the immediate version
+ * @param {(number) => boolean} rangeCheckFunc checks if the value is in range for the immediate version
+ * @param {ASTFuncArg} varRes result variable
+ * @param {ASTFuncArg} varLeft left operand
+ * @param {ASTFuncArg} varRight right operand
  * @return {ASM[]|(ASM|ASM)[]}
  */
 function opRegOrImmediate(opReg, opImm, rangeCheckFunc, varRes, varLeft, varRight)
@@ -176,7 +177,7 @@ function opSub(varRes, varLeft, varRight)
     return [asm("subu", [varRes.reg, varLeft.reg, varRight.reg])];
   }
   if(typeof(varRight.value) === "string")state.throwError("Subtraction cannot use labels!");
-  return opAdd(varRes, varLeft, {reg: varRight.reg, value: -varRight.value});
+  return opAdd(varRes, varLeft, {type: 's32', reg: varRight.reg, value: -varRight.value});
 }
 
 /**

@@ -9,7 +9,11 @@ export const ASM_TYPE = {
   COMMENT: 2,
 }
 
-/** @returns {ASM} */
+/**
+ * @param {string} op
+ * @param {Array<string|number>} args
+ * @return {ASM}
+ */
 export function asm(op, args) {
   return {type: ASM_TYPE.OP, op, args};
 }
