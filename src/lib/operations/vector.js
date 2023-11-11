@@ -345,7 +345,7 @@ function opShiftRight(varRes, varLeft, varRight) {
  */
 function opBitFlip(varRes, varRight) {
   if(varRight.swizzle)state.throwError("NOT operator is only supported for variables!");
-  return genericLogicOp(varRes, varRight, {reg: REG.VZERO}, "vnor");
+  return genericLogicOp(varRes, varRight, {type: 'u32', reg: REG.VZERO}, "vnor");
 }
 
 /**

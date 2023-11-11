@@ -39,7 +39,6 @@ export function transpileSource(source, config)
  */
 export function transpile(ast, config = {})
 {
-
   state.reset();
   normalizeConfig(config);
   //console.log("AST", ast);

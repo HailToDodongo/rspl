@@ -103,11 +103,11 @@ function calcLRToAsm(calc, varRes, varLeft, varRight)
   }
 
   switch (op) {
-    case  "+":  return opsHandler.opAdd(varRes, varLeft, varRight, true);
-    case  "-":  return opsHandler.opSub(varRes, varLeft, varRight, true);
+    case  "+":  return opsHandler.opAdd(varRes, varLeft, varRight);
+    case  "-":  return opsHandler.opSub(varRes, varLeft, varRight);
     case  "*":  return opsHandler.opMul(varRes, varLeft, varRight, true);
     case "+*":  return opsHandler.opMul(varRes, varLeft, varRight, false);
-    case  "/":  return opsHandler.opDiv(varRes, varLeft, varRight, true);
+    case  "/":  return opsHandler.opDiv(varRes, varLeft, varRight);
 
     case "&":  return opsHandler.opAnd(varRes, varLeft, varRight);
     case "|":  return opsHandler.opOr(varRes, varLeft, varRight);

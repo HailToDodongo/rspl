@@ -90,6 +90,7 @@ declare global
         calc: ASTCalc;
         swizzle?: Swizzle;
         varName: string;
+        assignType: "=" | "&&=" | "||=" | "&=" | "|=" | "<<=" | ">>=" | "+*=" | "+=" | "-=" | "*=" | "/=",
     };
 
     type ASTFuncCall = ASTStatementBase & {
@@ -103,7 +104,17 @@ declare global
         comment: string;
     };
 
-    type ASTStatement = ASTScopedBlock | ASTIf | ASTWhile | ASTDeclAssign | ASTDeclMulti | ASTDecl | ASTFuncCall | ASTComment | ASTDeclAlias | ASTAssignCalc;
+    type ASTLabelDecl = ASTStatementBase & {
+        type: 'labelDecl';
+        name: string;
+    };
+
+    type ASTGoto = ASTStatementBase & {
+        type: 'goto';
+        label: string;
+    };
+
+    type ASTStatement = ASTScopedBlock | ASTIf | ASTWhile | ASTDeclAssign | ASTDeclMulti | ASTDecl | ASTFuncCall | ASTComment | ASTDeclAlias | ASTAssignCalc | ASTLabelDecl | ASTGoto;
 
     type AST = {
         includes: string[];

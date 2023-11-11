@@ -46,7 +46,8 @@ function normalizeScopedBlock(block, astState, macros)
           statements.push({
             type: "varAssignCalc",
             varName: st.varName,
-            calc: st.calc, assignType: "=",
+            calc: st.calc,
+            assignType: "=",
             line: st.line,
           });
         }
