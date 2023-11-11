@@ -163,6 +163,14 @@ while(a > 20) {
 }
 ```
 
+Labels in combination with `goto` are supported too:<br>
+```c++
+u32 a;
+
+LabelA:
+a += 10;
+goto LabelA;
+```
 
 ### Swizzle
 For vector types, there is a syntax-feature called "swizzle" which you may know from GLSL.<br>
