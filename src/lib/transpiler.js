@@ -10,12 +10,19 @@ import nearly from "nearley";
 import grammarDef from "./grammar.cjs";
 import state from "./state.js";
 
+/**
+ * @param {RSPLConfig} config
+ */
 function normalizeConfig(config)
 {
   if(config.rspqWrapper === undefined)config.rspqWrapper = true;
   if(config.optimize    === undefined)config.optimize = true;
 }
 
+/**
+ * @param {string} source
+ * @param {RSPLConfig} config
+ */
 export function transpileSource(source, config)
 {
   const parser = new nearly.Parser(nearly.Grammar.fromCompiled(grammarDef));
@@ -26,8 +33,13 @@ export function transpileSource(source, config)
   return transpile(astList.results[0], config);
 }
 
+/**
+ * @param {AST} ast
+ * @param {RSPLConfig} config
+ */
 export function transpile(ast, config = {})
 {
+
   state.reset();
   normalizeConfig(config);
   //console.log("AST", ast);

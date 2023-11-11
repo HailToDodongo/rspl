@@ -89,6 +89,15 @@ For an interactive mode, which watches for changes, run:
 yarn test --watch
 ```
 
+## Types
+While this project is written in plain JS, it still makes use of type-hints.<br>
+This is using a combination of [JSDoc](https://jsdoc.app/) and [TypeScript](https://www.typescriptlang.org/)-Definitions.<br>
+Type-definition files are located in `src/lib/types`.<br>
+Given an IDE that can understand these, it will provide auto-completion and type-checking.
+
+> **Note**<br>
+> There is no need to install TypeScript, IDEs will understand the type-hints without it.
+
 ## License
 This software is licensed under "Apache License 2.0".<br>
 

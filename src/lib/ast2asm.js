@@ -14,6 +14,11 @@ import {callUserFunction} from "./operations/userFunction.js";
 
 const VECTOR_TYPES = ["vec16", "vec32"];
 
+/**
+ * @param {ASTCalc} calc
+ * @param {ASTFuncArg} varRes
+ * @returns {[{args: *, op: *, type: number},({args: *, op: *, type: number}|null)]|[{args: *, op: *, type: number}]|*|[{args: *, op: *, type: number},{args: *, op: *, type: number},{args: *, op: *, type: number}]|[{comment: *, type: number}]|[{args: *, op: *, type: number},{args: *, op: *, type: number},{args: *, op: *, type: number},{args: *, op: *, type: number},{args: *, op: *, type: number}]|{args: *, op: *, type: number}[]|[{args: *, op: *, type: number},{args: *, op: *, type: number}]}
+ */
 function calcToAsm(calc, varRes)
 {
   switch(calc.type)
@@ -41,9 +46,8 @@ function calcToAsm(calc, varRes)
     case "calcVarNum": {
       const varLeft = state.getRequiredVar(calc.left, "Left", calc);
       varLeft.swizzle = calc.swizzleLeft;
-      const varRight = {type: varLeft.type, value: calc.right};
 
-      return calcLRToAsm(calc, varRes, varLeft, varRight);
+      return calcLRToAsm(calc, varRes, varLeft, {type: varLeft.type, value: calc.right});
     }
 
     case "calcFunc": {
@@ -56,6 +60,12 @@ function calcToAsm(calc, varRes)
   }
 }
 
+/**
+ * @param {ASTCalc} calc
+ * @param varRes
+ * @param varRight
+ * @returns {ASM[]}
+ */
 function calcAssignToAsm(calc, varRes, varRight) {
   const isVector = VECTOR_TYPES.includes(varRes.type);
   const opsHandler = isVector ? opsVector : opsScalar;
@@ -71,6 +81,13 @@ function calcAssignToAsm(calc, varRes, varRight) {
   }
 }
 
+/**
+ * @param {ASTCalc} calc
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function calcLRToAsm(calc, varRes, varLeft, varRight)
 {
   const op = calc.op;
@@ -88,11 +105,9 @@ function calcLRToAsm(calc, varRes, varLeft, varRight)
   switch (op) {
     case  "+":  return opsHandler.opAdd(varRes, varLeft, varRight, true);
     case  "-":  return opsHandler.opSub(varRes, varLeft, varRight, true);
-    case "++":  return opsHandler.opAdd(varRes, varLeft, varRight, false);
     case  "*":  return opsHandler.opMul(varRes, varLeft, varRight, true);
     case "+*":  return opsHandler.opMul(varRes, varLeft, varRight, false);
     case  "/":  return opsHandler.opDiv(varRes, varLeft, varRight, true);
-    case "+/":  return opsHandler.opDiv(varRes, varLeft, varRight, false);
 
     case "&":  return opsHandler.opAnd(varRes, varLeft, varRight);
     case "|":  return opsHandler.opOr(varRes, varLeft, varRight);
@@ -105,6 +120,10 @@ function calcLRToAsm(calc, varRes, varLeft, varRight)
   }
 }
 
+/**
+ * @param {ASTIf} st
+ * @returns {ASM[]}
+ */
 function ifToASM(st)
 {
   if(st.compare.left.type === "num") {
@@ -139,6 +158,10 @@ function ifToASM(st)
   return res;
 }
 
+/**
+ * @param {ASTWhile} st
+ * @returns {ASM[]}
+ */
 function whileToASM(st)
 {
   if(st.compare.left.type === "num") {
@@ -171,6 +194,11 @@ function whileToASM(st)
   ];
 }
 
+/**
+ * @param {ASTScopedBlock} block
+ * @param args
+ * @returns {ASM[]}
+ */
 function scopedBlockToASM(block, args = [])
 {
   const res = [];

@@ -3,6 +3,7 @@
 * @license Apache-2.0
 */
 
+/** @type {Record<DataType, number>} */
 export const TYPE_SIZE = {
   s8   : 1,
   u8   : 1,
@@ -14,6 +15,7 @@ export const TYPE_SIZE = {
   vec32: 4*8, // 16bit per lane @ 8 lanes, two register (int, fract)
 };
 
+/** @type {Record<DataType, number>} */
 export const TYPE_ALIGNMENT = {
   s8   : 1,
   u8   : 1,
@@ -25,6 +27,7 @@ export const TYPE_ALIGNMENT = {
   vec32: 4,
 };
 
+/** @type {Record<DataType, number>} */
 export const TYPE_REG_COUNT = {
   s8   : 1,
   u8   : 1,
@@ -36,23 +39,52 @@ export const TYPE_REG_COUNT = {
   vec32: 2,
 };
 
+/**
+ * @param {DataType} type
+ * @returns {boolean}
+ */
 export const isTwoRegType = type => type === "vec32";
 
+/**
+ * @param {DataType} type
+ * @returns {boolean}
+ */
 export const isVecType = type => type.startsWith("vec");
 
+/**
+ * @param {DataType} type
+ * @returns {boolean}
+ */
 export const isSigned = type => type.startsWith("s");
 
+/**
+ * @param {number} val
+ * @param {number} pad
+ * @returns {string}
+ */
 export const toHex = (val, pad = 2) =>
   "0x" + val.toString(16).padStart(pad, '0').toUpperCase();
 
+/**
+ * @param {number} valueU32
+ * @returns {boolean}
+ */
 export function u32InS16Range(valueU32) {
   return valueU32 <= 0x7FFF || valueU32 >= 0xFFFF8000;
 }
 
+/**
+ * @param {number} valueU32
+ * @returns {boolean}
+ */
 export function u32InU16Range(valueU32) {
   return valueU32 <= 0xFFFF;
 }
 
+/**
+ * @param {number} valueF32
+ * @returns {number}
+ */
 export function f32ToFP32(valueF32) {
   return Math.round(valueF32 * (1<<16)) >>> 0;
 }

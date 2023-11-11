@@ -15,7 +15,7 @@
     "cli": {
       "optimize": true,
       "context": "node",
-      "isLibrary": true,
+      "isLibrary": false,
       "sourceMap": false,
       "outputFormat": "esmodule",
       "includeNodeModules": {

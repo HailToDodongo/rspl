@@ -7,7 +7,7 @@ import state from "../state";
 import opsScalar from "../operations/scalar";
 import opsVector from "../operations/vector";
 import {asm, asmNOP} from "../intsructions/asmWriter.js";
-import {isTwoRegType, isVecType, TYPE_SIZE} from "../types/types.js";
+import {isTwoRegType, isVecType, TYPE_SIZE} from "../dataTypes/dataTypes.js";
 import {SWIZZLE_MAP} from "../syntax/swizzle.js";
 import {DMA_FLAGS} from "./libdragon.js";
 

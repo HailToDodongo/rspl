@@ -4,14 +4,13 @@
 */
 import {
   nextReg,
-  REG,
   REGS_ALLOC_SCALAR,
   REGS_ALLOC_VECTOR,
   REGS_FORBIDDEN,
   REGS_SCALAR,
   REGS_VECTOR
 } from "./syntax/registers.js";
-import {isVecType, isTwoRegType} from "./types/types.js";
+import {isVecType, isTwoRegType} from "./dataTypes/dataTypes.js";
 
 const state =
 {
@@ -21,8 +20,13 @@ const state =
   line: 0,
   outWarn: "",
 
+  /** @type {ScopeStack} */
   scopeStack: [], // function & block scope (variables)
+
+  /** @type {Record<string, MemVarDef>} */
   memVarMap: {}, // global variables, which are actually constants
+
+  /** @type {Record<string, FuncDef>} */
   funcMap: {}, // function names to function objects
 
   reset() {
@@ -37,6 +41,12 @@ const state =
     state.funcMap = {};
   },
 
+  /**
+   * @param {string} message
+   * @param {any} context
+   * @throws {Error}
+   * @returns {never}
+   */
   throwError: (message, context = {}) => {
     const lineStr = state.line === 0 ? "(???)" : state.line+"";
     const funcStr = state.func === "" ? "(???)" : state.func+"";
@@ -53,6 +63,11 @@ const state =
     state.outInfo += message + '\n';
   },
 
+  /**
+   * Declare function in the global scope.
+   * @param {string} name
+   * @param {FuncArg[]} args
+   */
   declareFunction: (name, args) => {
     state.funcMap[name] = {name, args};
   },
@@ -95,6 +110,11 @@ const state =
     return ++state.nextLabelId;
   },
 
+  /**
+   * Allocate register in current scope, throws if no register is available.
+   * @param {DataType} type data type
+   * @returns {string}
+   */
   allocRegister(type) {
     // avoid collisions, this assumes a command to be the main code path, and 1 level deep calls
     const reverse = state.funcType === "command";
@@ -109,9 +129,15 @@ const state =
       if(twoRegs && (!regList.includes(regNext) || scope.regVarMap[regNext]))continue;
       return reg;
     }
-    return state.throwError("Out of free registers!");
+    state.throwError("Out of free registers!");
   },
 
+  /**
+   * Declare variable in current scope.
+   * @param {string} name
+   * @param {DataType} type
+   * @param {string} reg
+   */
   declareVar: (name, type, reg) => {
     const scope = state.getScope();
     if(!reg)state.throwError("Cannot declare variable without register!", {name});
@@ -137,16 +163,34 @@ const state =
     }
   },
 
+  /**
+   * Declare variable alias (used for macro calls) in the current scope.
+   * @param {string} aliasName
+   * @param {string} varName
+   */
   declareVarAlias(aliasName, varName) {
     state.getRequiredVar(varName, "alias"); // check if varName exists
     const scope = state.getScope();
     scope.varAliasMap[aliasName] = varName;
   },
 
+  /**
+   *
+   * @param {string} name
+   * @param {string} type
+   * @param {number} arraySize
+   */
   declareMemVar: (name, type, arraySize) => {
     state.memVarMap[name] = {name, type, arraySize};
   },
 
+  /**
+   * Fetch variable from scope, throw if undeclared.
+   * @param name {string} variable name
+   * @param {string} contextName context (only for logging)
+   * @param {any} context (only for logging)
+   * @returns {VarRegDef}
+   */
   getRequiredVar: (name, contextName, context = {}) => {
     const scope = state.getScope();
     name = scope.varAliasMap[name] || name;
@@ -155,12 +199,26 @@ const state =
     return res;
   },
 
+  /**
+   * Fetch memory variable from global scope, throw if undeclared.
+   * @param {string} name
+   * @param {string} contextName context (only for logging)
+   * @param {any} context (only for logging)
+   * @returns {MemVarDef}
+   */
   getRequiredMem: (name, contextName, context = {}) => {
     const res = structuredClone(state.memVarMap[name]);
     if(!res)state.throwError(contextName + " Memory-Var "+name+" not known!", context);
     return res;
   },
 
+  /**
+   * Fetches a variable or memory variable from scope, throw if undeclared.
+   * @param {string} name
+   * @param {string} contextName context (only for logging)
+   * @param {any} context (only for logging)
+   * @returns {VarRegDef|MemVarDef}
+   */
   getRequiredVarOrMem: (name, contextName, context = {}) => {
     const scope = state.getScope();
     name = scope.varAliasMap[name] || name;
@@ -171,6 +229,12 @@ const state =
     return res;
   },
 
+  /**
+   * Fetch function from global scope, throw if undeclared.
+   * @param {string} name
+   * @param {any} context (only for logging)
+   * @returns {FuncDef}
+   */
   getRequiredFunction: (name, context = {}) => {
     const res = structuredClone(state.funcMap[name]);
     if(!res)state.throwError("Function "+name+" not known!", context);

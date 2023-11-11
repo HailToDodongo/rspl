@@ -61,15 +61,28 @@ export const REGS_FORBIDDEN = [
   REG.VTEMP0, REG.VTEMP1, REG.VTEMP2
 ];
 
+/**
+ * @param {string} regName
+ * @returns {boolean}
+ */
 export function isVecReg(regName) {
   return REGS_VECTOR.includes(regName);
 }
 
+/**
+ * @param {string} regName
+ * @returns {string|null}
+ */
 export function nextVecReg(regName) {
   const idx = REGS_VECTOR.indexOf(regName);
   return idx === -1 ? null : REGS_VECTOR[idx+1];
 }
 
+/**
+ * @param {string} regName
+ * @param {number} offset
+ * @returns {string|null}
+ */
 export function nextReg(regName, offset = 1) {
   let idx = REGS_VECTOR.indexOf(regName);
   if(idx >= 0) {
@@ -82,10 +95,18 @@ export function nextReg(regName, offset = 1) {
   return null;
 }
 
+/**
+ * @param {ASTFuncArg} varRef
+ * @returns {*}
+ */
 export function intReg(varRef) {
   return varRef.reg;
 }
 
+/**
+ * @param {ASTFuncArg} varRef
+ * @returns {*}
+ */
 export function fractReg(varRef) {
   return varRef.type === "vec32" ? nextVecReg(varRef.reg) : REG.VZERO;
 }

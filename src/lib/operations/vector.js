@@ -12,10 +12,15 @@ import {
   SWIZZLE_MAP_KEYS_STR,
   SWIZZLE_SCALAR_IDX
 } from "../syntax/swizzle";
-import {f32ToFP32, toHex} from "../types/types";
+import {f32ToFP32} from "../dataTypes/dataTypes.js";
 import {asm} from "../intsructions/asmWriter.js";
 import opsScalar from "./scalar";
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opMove(varRes, varRight)
 {
   const isVec32 = varRes.type === "vec32";
@@ -95,6 +100,15 @@ function opMove(varRes, varRight)
   ];
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLoc
+ * @param {ASTFuncArg} varOffset
+ * @param {string} swizzle
+ * @param {boolean} isPackedByte
+ * @param {boolean} isSigned
+ * @returns {ASM[]}
+ */
 function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSigned = true)
 {
   const res = [];
@@ -105,7 +119,7 @@ function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSign
   if(!varLoc.reg) {
     if(varLoc.name) {
       res.push(...opsScalar.loadImmediate(REG.AT, "%lo(" +varLoc.name + ")"));
-      varLoc = {type: "u32", reg: REG.AT};
+      varLoc = {type: "num", reg: REG.AT};
     } else {
       state.throwError("Load base-address must be a variable!");
     }
@@ -193,7 +207,12 @@ function opStoreBytes(varRes, varLoc, isSigned) {
   return opStore(varRes, varLoc, true, isSigned);
 }
 
-
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opAdd(varRes, varLeft, varRight)
 {
   if(!varRight.reg) {
@@ -217,6 +236,12 @@ function opAdd(varRes, varLeft, varRight)
     ];
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opSub(varRes, varLeft, varRight)
 {
   if(!varRight.reg) {
@@ -240,6 +265,13 @@ function opSub(varRes, varLeft, varRight)
     ];
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @param {string} op
+ * @returns {ASM[]}
+ */
 function genericLogicOp(varRes, varLeft, varRight, op) {
   const funcName = op.toUpperCase().substring(1);
   if(!varRight.reg)state.throwError(funcName + " cannot be done with a constant!");
@@ -256,31 +288,73 @@ function genericLogicOp(varRes, varLeft, varRight, op) {
   ];
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opAnd(varRes, varLeft, varRight) {
   return genericLogicOp(varRes, varLeft, varRight, "vand");
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opOr(varRes, varLeft, varRight) {
   return genericLogicOp(varRes, varLeft, varRight, "vor");
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opXOR(varRes, varLeft, varRight) {
   return genericLogicOp(varRes, varLeft, varRight, "vxor");
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opShiftLeft(varRes, varLeft, varRight) {
   return state.throwError("Shift-Left is not supported for vectors! (@TODO: implement this)");
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opShiftRight(varRes, varLeft, varRight) {
   return state.throwError("Shift-Right is not supported for vectors! (@TODO: implement this)");
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opBitFlip(varRes, varRight) {
   if(varRight.swizzle)state.throwError("NOT operator is only supported for variables!");
   return genericLogicOp(varRes, varRight, {reg: REG.VZERO}, "vnor");
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @param {boolean} clearAccum
+ * @returns {ASM[]}
+ */
 function opMul(varRes, varLeft, varRight, clearAccum)
 {
   if(!varRight.reg) {
@@ -322,6 +396,11 @@ function opMul(varRes, varLeft, varRight, clearAccum)
   return res;
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @returns {ASM[]}
+ */
 function opInvertHalf(varRes, varLeft) {
 
   if(!varLeft.swizzle && !varRes.swizzle) {
@@ -349,6 +428,12 @@ function opInvertHalf(varRes, varLeft) {
   ];
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opDiv(varRes, varLeft, varRight) {
   if(!varRight.swizzle || !isScalarSwizzle(varRight.swizzle)) {
     state.throwError("Vector division needs swizzling on the right side (must be scalar .x to .W)!", varRes);

@@ -6,6 +6,11 @@ import state from "../state.js";
 import {asm, asmNOP} from "../intsructions/asmWriter.js";
 import opsScalar from "./scalar.js";
 
+/**
+ * @param {string} name
+ * @param {ASTFuncArg[]} args
+ * @returns {ASM[]}
+ */
 export function callUserFunction(name, args)
 {
   const userFunc = state.getRequiredFunction(name);

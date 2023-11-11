@@ -3,15 +3,24 @@
 * @license Apache-2.0
 */
 
-import {TYPE_ALIGNMENT, TYPE_SIZE} from "./types/types";
+import {TYPE_ALIGNMENT, TYPE_SIZE} from "./dataTypes/dataTypes.js";
 import state from "./state.js";
 import {ASM_TYPE} from "./intsructions/asmWriter.js";
 import {REGS_SCALAR} from "./syntax/registers.js";
 
+/**
+ * @param {ASM} asm
+ * @returns {string}
+ */
 function stringifyInstr(asm) {
   return asm.op + (asm.args.length ? (" " + asm.args.join(", ")) : "");
 }
 
+/**
+ *
+ * @param {ASTFunc} func
+ * @returns {string}
+ */
 function functionToASM(func)
 {
   let str = func.name + ":\n";
@@ -26,6 +35,13 @@ function functionToASM(func)
   return str.trimEnd();
 }
 
+/**
+ * Writes the ASM of all functions and the AST into a string.
+ * @param {AST} ast
+ * @param {Array} functionsAsm
+ * @param {RSPLConfig} config
+ * @returns {string}
+ */
 export function writeASM(ast, functionsAsm, config)
 {
   state.func = "(ASM)";

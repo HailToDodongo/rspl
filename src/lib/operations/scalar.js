@@ -3,7 +3,7 @@
 * @license Apache-2.0
 */
 import state from "../state";
-import {isSigned, toHex, u32InS16Range, u32InU16Range} from "../types/types";
+import {isSigned, toHex, u32InS16Range, u32InU16Range} from "../dataTypes/dataTypes.js";
 import {fractReg, intReg, REG} from "../syntax/registers";
 import {asm, asmComment} from "../intsructions/asmWriter.js";
 import {SWIZZLE_MAP} from "../syntax/swizzle.js";
@@ -13,9 +13,9 @@ for(let i = 0; i < 32; i++)MUL_TO_SHIFT[Math.pow(2, i)] = i;
 
 /**
  * Loads a 32bit int into a register with as few instructions as possible.
- * @param regDst target register
+ * @param {string} regDst target register
  * @param value value to load (can be a string for labels
- * @returns {{args: *, op: *, type: number}[]}
+ * @returns {ASM[]}
  */
 function loadImmediate(regDst, value)
 {
@@ -48,6 +48,11 @@ function loadImmediate(regDst, value)
   ];
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opMove(varRes, varRight)
 {
   if(varRight.reg) {
@@ -74,6 +79,12 @@ function opMove(varRes, varRight)
   return loadImmediate(varRes.reg, varRight.value);
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLoc
+ * @param {ASTFuncArg} varOffset
+ * @returns {ASM[]}
+ */
 function opLoad(varRes, varLoc, varOffset)
 {
   const offsetStr = varOffset.type === "num" ? varOffset.value : `%lo(${varOffset.name})`;
@@ -91,13 +102,18 @@ function opLoad(varRes, varLoc, varOffset)
   return [asm(loadOp, [varRes.reg, `%lo(${varLoc.name} + ${offsetStr})`])];
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg[]} varOffsets
+ * @returns {ASM[]}
+ */
 function opStore(varRes, varOffsets)
 {
   const varLoc = state.getRequiredVarOrMem(varOffsets[0].value, "base");
 
   const offsets = varOffsets.slice(1);
   if(!varLoc.reg) {
-    offsets.push({type: "const", value: varLoc.name});
+    offsets.push({type: "var", value: varLoc.name});
   }
 
   const offsetStr = offsets
@@ -139,6 +155,12 @@ function opRegOrImmediate(opReg, opImm, rangeCheckFunc, varRes, varLeft, varRigh
   ];
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opSub(varRes, varLeft, varRight)
 {
   if(varRight.reg) {
@@ -148,10 +170,22 @@ function opSub(varRes, varLeft, varRight)
   return opAdd(varRes, varLeft, {reg: varRight.reg, value: -varRight.value});
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opAdd(varRes, varLeft, varRight) {
   return opRegOrImmediate("addu", "addiu", u32InS16Range, varRes, varLeft, varRight);
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opShiftLeft(varRes, varLeft, varRight)
 {
   if(typeof(varRight.value) === "string")state.throwError("Shift-Left cannot use labels!");
@@ -165,6 +199,12 @@ function opShiftLeft(varRes, varLeft, varRight)
   ];
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opShiftRight(varRes, varLeft, varRight)
 {
   if(typeof(varRight.value) === "string")state.throwError("Shift-Right cannot use labels!");
@@ -179,24 +219,53 @@ function opShiftRight(varRes, varLeft, varRight)
   return [asm(instr, [varRes.reg, varLeft.reg, valRight])];
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opAnd(varRes, varLeft, varRight) {
   return opRegOrImmediate("and", "andi", u32InU16Range, varRes, varLeft, varRight);
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opOr(varRes, varLeft, varRight) {
   return opRegOrImmediate("or", "ori", u32InU16Range, varRes, varLeft, varRight);
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opXOR(varRes, varLeft, varRight) {
   return opRegOrImmediate("xor", "xori", u32InU16Range, varRes, varLeft, varRight);
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opBitFlip(varRes, varRight)
 {
   if(!varRight.reg)state.throwError("Bitflip is only supported for variables!");
   return [asm("nor", [varRes.reg, REG.ZERO, varRight.reg])];
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opMul(varRes, varLeft, varRight) {
   const shiftVal = MUL_TO_SHIFT[varRight.value || 0];
   if(varRight.reg || shiftVal === undefined) {
@@ -205,8 +274,15 @@ function opMul(varRes, varLeft, varRight) {
   if(varRight.value === 1) {
     state.throwError("Scalar-Multiplication with 1 is a NOP!", [varRes, varLeft, varRight]);
   }
-  return opShiftLeft(varRes, varLeft, {type: 'u32', value: shiftVal});
+  return opShiftLeft(varRes, varLeft, {type: 'num', value: shiftVal});
 }
+
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opDiv(varRes, varLeft, varRight) {
   const shiftVal = MUL_TO_SHIFT[varRight.value || 0];
   if(varRight.reg || shiftVal === undefined) {

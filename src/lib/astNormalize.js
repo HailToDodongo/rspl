@@ -2,12 +2,18 @@
 * @copyright 2023 - Max Bebök
 * @license Apache-2.0
 */
-import {TYPE_REG_COUNT} from "./types/types";
+import {TYPE_REG_COUNT} from "./dataTypes/dataTypes.js";
 import {nextReg} from "./syntax/registers";
 import state from "./state.js";
 
+/**
+ * @param {ASTScopedBlock} block
+ * @param {ASTState[]} astState
+ * @param {ASTMacroMap} macros
+ */
 function normalizeScopedBlock(block, astState, macros)
 {
+  /** @type {ASTStatement[]} */
   const statements = [];
   for(const st of block.statements)
   {
@@ -58,6 +64,7 @@ function normalizeScopedBlock(block, astState, macros)
       case "funcCall":
         if(macros[st.func]) {
           const macro = structuredClone(macros[st.func]);
+
           if(st.args.length !== macro.args.length) {
             state.throwError(`Macro '${st.func}' expects ${macro.args.length} arguments, got ${st.args.length}!`, st);
           }
@@ -115,9 +122,15 @@ function normalizeScopedBlock(block, astState, macros)
   block.statements = statements;
 }
 
+/**
+ * @param {AST} ast
+ * @returns {ASTFunc[]}
+ */
 export function astNormalizeFunctions(ast)
 {
   const astFunctions = ast.functions;
+
+  /** @type {ASTMacroMap} */
   const macros = {};
 
   for(const block of astFunctions) {
@@ -126,6 +139,7 @@ export function astNormalizeFunctions(ast)
     if(block.type === "command" && block.resultType === null) {
       state.throwError("Commands must specify an index (e.g. 'command<4>')!", block)
     }
+
     if(block.type === "macro") {
       if(block.resultType != null) {
         state.throwError("Macros must not specify an result-type (use 'macro' without `< >`)!", block);

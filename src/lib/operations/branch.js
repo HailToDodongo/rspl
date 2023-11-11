@@ -1,7 +1,7 @@
 import {REG} from "../syntax/registers.js";
 import state from "../state.js";
 import {asm, asmNOP} from "../intsructions/asmWriter.js";
-import {isSigned, u32InS16Range} from "../types/types.js";
+import {isSigned, u32InS16Range} from "../dataTypes/dataTypes.js";
 import opsScalar from "./scalar.js";
 
 /**
@@ -9,9 +9,9 @@ import opsScalar from "./scalar.js";
  * Immediate values are loaded into a register first if necessary.
  * This will only jump if the comparison fails, so the "true" case is expected to follow the branch.
  *
- * @param compare operation and left/right values
+ * @param {ASTCompare} compare operation and left/right values
  * @param labelElse label to jump to if the comparison fails (aka "else")
- * @returns {*[]} list of ASM instructions
+ * @returns {ASM[]} list of ASM instructions
  */
 export function opBranch(compare, labelElse)
 {

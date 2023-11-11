@@ -58,6 +58,10 @@ export const POW2_SWIZZLE_VAR = {
   32768: {type: 'vec16', reg: REG.VSHIFT8, swizzle: 'x'},
 };
 
+/**
+ * @param {string} swizzle
+ * @returns {boolean}
+ */
 export const isScalarSwizzle = (swizzle) => {
   return swizzle.length === 1;
 }
