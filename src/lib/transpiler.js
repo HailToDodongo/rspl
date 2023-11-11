@@ -55,8 +55,11 @@ export function transpile(ast, config = {})
   // @TODO: optimize tree
   // @TODO: flatten tree back into ASM
 
+  const {asm, debug} = writeASM(ast, functionsAsm, config);
+
   return {
-    asm: writeASM(ast, functionsAsm, config),
+    asm: asm.trimEnd(),
+    debug,
     warn: state.outWarn,
     info: state.outInfo,
   };

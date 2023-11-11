@@ -17,126 +17,120 @@ function stringifyInstr(asm) {
 }
 
 /**
- *
- * @param {ASTFunc} func
- * @returns {string}
- */
-function functionToASM(func)
-{
-  let str = func.name + ":\n";
-  for(const asm of func.asm) {
-    switch (asm.type) {
-      case ASM_TYPE.OP     : str += `  ${stringifyInstr(asm)}\n`; break;
-      case ASM_TYPE.LABEL  : str += `  ${asm.label}:\n`;          break;
-      case ASM_TYPE.COMMENT: str += `  ##${asm.comment}\n`;       break;
-      default: state.throwError("Unknown ASM type: " + asm.type, asm);
-    }
-  }
-  return str.trimEnd();
-}
-
-/**
  * Writes the ASM of all functions and the AST into a string.
  * @param {AST} ast
  * @param {Array} functionsAsm
  * @param {RSPLConfig} config
- * @returns {string}
+ * @returns {ASMOutput}
  */
 export function writeASM(ast, functionsAsm, config)
 {
   state.func = "(ASM)";
   state.line = 0;
 
-  let text = "";
-  let commandList = [];
-  let savedState = "";
-  let includes = "";
-  let postIncludes = "";
+  /** @type {ASMOutput} */
+  const res = {
+    asm: "",
+    debug: {lineMap: {}}
+  };
+
+  const writeLine = line => {
+    res.asm += line + "\n";
+    ++state.line;
+  }
+  const writeLines = lines => {
+    res.asm += lines.join("\n") + "\n";
+    state.line += lines.length;
+  };
+
+  writeLine("## Auto-generated file, transpiled with RSPL");
 
   for(const inc of ast.includes) {
-    includes += `#include <${inc.replaceAll('"', '')}>\n`;
+    writeLine(`#include <${inc.replaceAll('"', '')}>`);
   }
 
-  for(const inc of ast.postIncludes) {
-    postIncludes += `#include <${inc.replaceAll('"', '')}>\n`;
-  }
+  writeLines(["", ".set noreorder", ".set noat", ".set nomacro", ""]);
 
-  let totalSaveByteSize = 0;
-  for(const stateVar of ast.state) {
-    if(stateVar.extern)continue;
+  REGS_SCALAR.forEach(reg => writeLine("#undef " + reg.substring(1)));
+  REGS_SCALAR.forEach((reg, i) => writeLine(`.equ hex.${reg}, ${i}`));
 
-    const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
-    const byteSize = TYPE_SIZE[stateVar.varType] * arraySize;
-    const align = TYPE_ALIGNMENT[stateVar.varType];
-    savedState += `    .align ${align}\n`;
-    savedState += `    ${stateVar.varName}: .ds.b ${byteSize}\n`;
+  writeLines(["", ".data", "  RSPQ_BeginOverlayHeader"]);
 
-    totalSaveByteSize += byteSize;
-  }
-  const saveUsagePerc = totalSaveByteSize / 4096 * 100;
-  state.logInfo(`Total state size: ${totalSaveByteSize} bytes (${saveUsagePerc.toFixed(2)}%)`);
-
-  for(const block of functionsAsm)
-  {
-    if(["function", "command"].includes(block.type)) {
-      text += functionToASM(block) + "\n\n";
-    }
-
+  let commandList = [];
+  for(const block of functionsAsm) {
     if(block.type === "command") {
       commandList[block.resultType] = "    RSPQ_DefineCommand " + block.name + ", " + block.argSize;
     }
   }
-  text = text.trimEnd();
 
-  // commands have a gap, insert a dummy function to pad indices
-  if(commandList.includes(undefined)) {
-    text += "\nCMD_NOP:\n  jr $ra\n  nop\n";
-    for(let i = 0; i < commandList.length; i++) {
-      if(commandList[i] === undefined) {
-        commandList[i] = "    RSPQ_DefineCommand CMD_NOP, 0 ## Warning: Empty Command!";
+  if(commandList.includes(undefined))state.throwError("Command list has gaps!", ast);
+  writeLines(commandList);
+  writeLines(["  RSPQ_EndOverlayHeader", ""]);
+
+  let totalSaveByteSize = 0;
+  const hasState = !!ast.state.find(v => !v.extern);
+  if(hasState) {
+    writeLine("  RSPQ_BeginSavedState");
+
+    for(const stateVar of ast.state) {
+      if(stateVar.extern)continue;
+
+      const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
+      const byteSize = TYPE_SIZE[stateVar.varType] * arraySize;
+      const align = TYPE_ALIGNMENT[stateVar.varType];
+
+      writeLine(`    .align ${align}`);
+      writeLine(`    ${stateVar.varName}: .ds.b ${byteSize}`);
+      totalSaveByteSize += byteSize;
+    }
+
+    writeLine("  RSPQ_EndSavedState");
+  } else {
+    writeLine("  RSPQ_EmptySavedState");
+  }
+
+  const saveUsagePerc = totalSaveByteSize / 4096 * 100;
+  state.logInfo(`Total state size: ${totalSaveByteSize} bytes (${saveUsagePerc.toFixed(2)}%)`);
+
+  writeLines(["", ".text", ""]);
+
+  if(!config.rspqWrapper) {
+    state.line = 1;
+    res.asm = "";
+  }
+
+  for(const block of functionsAsm) {
+    if(["function", "command"].includes(block.type)) {
+      writeLine(block.name + ":");
+      for(const asm of block.asm)
+      {
+        const lineRSPL = asm.debug.lineRSPL;
+        if(!res.debug.lineMap[lineRSPL])res.debug.lineMap[lineRSPL] = [];
+        res.debug.lineMap[lineRSPL].push(state.line);
+
+        switch (asm.type) {
+          case ASM_TYPE.OP     : writeLine(`  ${stringifyInstr(asm)}`);break;
+          case ASM_TYPE.LABEL  : writeLine(`  ${asm.label}:`);         break;
+          case ASM_TYPE.COMMENT: writeLine(`  ##${asm.comment}`);      break;
+          default: state.throwError("Unknown ASM type: " + asm.type, asm);
+        }
       }
     }
   }
 
-  if(!config.rspqWrapper) {
-    return text;
-  }
+  writeLine("");
 
-  // libdragon defines *some* registers without a "$", undo this to be consistent
-  const regUndefs = REGS_SCALAR.map(reg => "#undef " + reg.substring(1)).join("\n");
-  const regDefs = REGS_SCALAR.map((reg, i) => "#define " + reg.substring(1) + " $" + i)
+  if(!config.rspqWrapper)return res;
+
+  REGS_SCALAR.map((reg, i) => "#define " + reg.substring(1) + " $" + i)
     .filter((_, i) => i !== 1)
-    .join("\n");
-  const regHexDef = REGS_SCALAR.map((reg, i) => `.equ hex.${reg}, ${i}`).join("\n");
+    .forEach(line => writeLine(line));
 
-  return `## Auto-generated file, transpiled with RSPL
-${includes}
-.set noreorder
-.set noat
-.set nomacro
+  writeLines(["", ".set at", ".set macro"]);
 
-${regUndefs}
-${regHexDef}
-
-.data
-  RSPQ_BeginOverlayHeader
-${commandList.join("\n")}
-  RSPQ_EndOverlayHeader
-
-  ${savedState 
-    ? "RSPQ_BeginSavedState\n"+savedState+"  RSPQ_EndSavedState"
-    : "RSPQ_EmptySavedState"
+  for(const inc of ast.postIncludes) {
+    writeLine(`#include <${inc.replaceAll('"', '')}>`);
   }
 
-.text
-
-${text}
-
-${regDefs}
-
-.set at
-.set macro
-
-${postIncludes}
-`;
+  return res;
 }

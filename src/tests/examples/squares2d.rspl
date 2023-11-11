@@ -172,7 +172,7 @@ function getPosColor(u32<$s6> idxX, u32<$s7> idxY)
   tilePos.z = scale.x;
 }
 
-command<4> T3DCmd_Init()
+command<0> T3DCmd_Init()
 {
   u32<$zero> ZERO;
   store(ZERO, VER_OFFSET); // @TODO: syntax for zero
@@ -188,7 +188,7 @@ command<4> T3DCmd_Init()
   store(vecData, CIRLCE_POS);
 }
 
-command<5> T3DCmd_Test()
+command<1> T3DCmd_Test()
 {
   u32<$s6> idxX = 0;
   u32<$s7> idxY = 0;

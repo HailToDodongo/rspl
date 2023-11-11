@@ -17,7 +17,7 @@ const VECTOR_TYPES = ["vec16", "vec32"];
 /**
  * @param {ASTCalc} calc
  * @param {ASTFuncArg} varRes
- * @returns {[{args: *, op: *, type: number},({args: *, op: *, type: number}|null)]|[{args: *, op: *, type: number}]|*|[{args: *, op: *, type: number},{args: *, op: *, type: number},{args: *, op: *, type: number}]|[{comment: *, type: number}]|[{args: *, op: *, type: number},{args: *, op: *, type: number},{args: *, op: *, type: number},{args: *, op: *, type: number},{args: *, op: *, type: number}]|{args: *, op: *, type: number}[]|[{args: *, op: *, type: number},{args: *, op: *, type: number}]}
+ * @returns {ASM[]}
  */
 function calcToAsm(calc, varRes)
 {
