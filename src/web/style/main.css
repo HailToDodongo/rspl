@@ -101,7 +101,6 @@ pre {
   display: flex;
   justify-content: center;
   flex-direction: column;
-  _flex-grow: 1;
   min-width: 70%;
 }
 
@@ -113,13 +112,46 @@ pre {
   min-height: 0;
 }
 
-.mainContainer > div, .mainContainer  > pre {
+.mainContainer > div {
   flex-grow: 5;
   position: relative;
 }
 
-.mainContainer  > pre {
+.mainContainer .asmContainer {
   flex-grow: 1;
+  width: 25%;
+  min-width: 150px;
+}
+
+.asmContainer pre {
+  width: auto;
+  padding: 0;
+  margin: 0;
+}
+
+.stickyOverlay {
+  position: sticky;
+  padding-right: 4px;
+  text-align: right;
+  height: 0;
+  width: 100%;
+}
+
+.stickyOverlay > img:last-child {
+  padding-right: 4px;
+}
+
+.stickyOverlay img {
+  cursor: pointer;
+  user-select: none;
+}
+
+.stickyOverlay img:hover {
+  opacity: 0.9;
+}
+
+.stickyOverlay img:active {
+  opacity: 0.7;
 }
 
 #inputRSPL {
@@ -129,7 +161,7 @@ pre {
   min-width: 200px;
 }
 
-#RSPL_DOCS {
+.rsplDocs {
   border-radius: 10px;
   padding: 5px 10px;
   background-color: #252525;
@@ -141,30 +173,30 @@ pre {
   font-size: 16px;
 }
 
-#RSPL_DOCS code {
+.rsplDocs code {
   padding: 2px 4px;
   background-color: #333333;
 }
 
-#RSPL_DOCS pre {
+.rsplDocs pre {
   background-color: #333333;
   width: auto;
 }
 
-#RSPL_DOCS pre > code {
+.rsplDocs pre > code {
   padding: 0;
 }
 
-#RSPL_DOCS h2, #RSPL_DOCS h1 {
+.rsplDocs h2, .rsplDocs h1 {
   color: #bb874b;
 }
 
-#RSPL_DOCS h3 code {
+.rsplDocs h3 code {
   font-size: 16px;
   color: #dab28a;
 }
 
-#RSPL_DOCS a {
+.rsplDocs a {
   color: #dab28a;
 }
 
@@ -187,39 +219,17 @@ pre {
   padding: 0;
 }
 
-.stickyOverlay svg {
-  cursor: pointer;
-  user-select: none;
-}
-
-.stickyOverlay svg:hover {
-  opacity: 0.9;
-}
-
-.stickyOverlay svg:active {
-  opacity: 0.7;
-}
-
-svg#saveASM {
+img#saveASM {
   width: 26px;
   height: 26px;
   margin-right: 4px;
 }
 
-svg#copyASM {
+img#copyASM {
   width: 24px;
   height: 24px;
   margin-right: 10px;
   margin-top: 10px;
-}
-
-.stickyOverlay {
-  position: sticky;
-  top: 0;
-  left: 0;
-  width: 100%;
-  text-align: right;
-  height: 1px;
 }
 
 #outputError {
@@ -253,7 +263,7 @@ svg#copyASM {
 }
 
 @media(max-width: 1000px) {
-  #RSPL_DOCS {
+  .rsplDocs {
     display: none;
   }
   .leftContainer {

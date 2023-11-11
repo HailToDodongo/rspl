@@ -7,6 +7,8 @@
   "devDependencies": {
     "jest": "^29.7.0",
     "parcel": "^2.10.0",
+    "posthtml-doctype": "^1.1.1",
+    "posthtml-include": "^1.7.4",
     "showdown": "^2.1.0"
   },
   "targets": {
