@@ -15,7 +15,7 @@ describe('Scalar - Ops', () =>
         c = a + b; sc = sa + sb;
         c = a + 1; sc = sa + 1;
         c = a + TEST_CONST; sc = sa + TEST_CONST;
-        
+                
         // Sub
         c = a - b; sc = sa - sb;
         c = a - 1; sc = sa - 1;

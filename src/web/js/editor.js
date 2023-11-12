@@ -75,11 +75,26 @@ export function codeHighlightElem(elem, newText = undefined)
 export function codeHighlightLines(elem, lines = undefined)
 {
     if(lines)highlightLines = lines;
+    let hMin = Infinity, hMax = -Infinity;
 
-    // Scroll first line into view
+    // Create overlays and insert into DOM
+    const ovl = document.getElementById("asmOverlay");
+    const newElements = [];
+    for(const line of highlightLines) {
+      const lineElem = document.createElement("span");
+      const height = getLineHeight(line);
+      hMin = Math.min(hMin, height);
+      hMax = Math.max(hMax, height);
+      lineElem.style.top = height + "px";
+      newElements.push(lineElem);
+    }
+    ovl.replaceChildren(...newElements);
+
+    // Scroll to midpoint of all highlighted lines
     const elemHeight = elem.parentElement.clientHeight;
-    let newScroll = getLineHeight(highlightLines[0] || 0);
+    let newScroll = (hMin + hMax) / 2;
     newScroll = Math.max(0, newScroll - (elemHeight / 2));
+    if(isNaN(newScroll))return;
 
     const oldScroll = elem.parentElement.scrollTop;
     if(Math.abs(oldScroll - newScroll) > 200) {
@@ -87,14 +102,4 @@ export function codeHighlightLines(elem, lines = undefined)
     } else {
       elem.parentElement.scrollTop = newScroll;
     }
-
-    // Create overlays and insert into DOM
-    const ovl = document.getElementById("asmOverlay");
-    const newElements = [];
-    for(const line of highlightLines) {
-      const lineElem = document.createElement("span");
-      lineElem.style.top = getLineHeight(line) + "px";
-      newElements.push(lineElem);
-    }
-    ovl.replaceChildren(...newElements);
 }

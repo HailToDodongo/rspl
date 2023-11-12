@@ -29,6 +29,33 @@ describe('Store', () =>
   nop`);
   });
 
+  test('Scalar - Cast', () => {
+    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+      function test_scalar_store()
+      {
+        u32<$t0> val, dst;
+
+        store(val:u32, dst);
+        store(val:u16, dst);
+        store(val:u8, dst);
+        
+        store(val:s32, dst);
+        store(val:s16, dst);
+        store(val:s8, dst);
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test_scalar_store:
+  sw $t0, ($t1)
+  sh $t0, ($t1)
+  sb $t0, ($t1)
+  sw $t0, ($t1)
+  sh $t0, ($t1)
+  sb $t0, ($t1)
+  jr $ra
+  nop`);
+  });
+
   test('Vector - 32-Bit', () => {
     const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
       function test_vector_store() 
@@ -70,6 +97,34 @@ describe('Store', () =>
   sdv $v02, 8, 8, $t0
   sdv $v01, 8, 16, $t0
   sdv $v02, 8, 24, $t0
+  jr $ra
+  nop`);
+  });
+
+  test('Vector - Cast', () => {
+    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+      function test_vector_store() 
+      {
+        u32<$t0> dst;
+        vec32<$v01> val;
+        
+        // Whole Vector
+        store(val:int, dst);
+        store(val:fract, dst);
+        
+        // Swizzle
+        store(val:int.XYZW, dst);
+        store(val:fract.XYZW, dst);
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test_vector_store:
+  ## Whole Vector
+  sqv $v01, 0, 0, $t0
+  sqv $v02, 0, 0, $t0
+  ## Swizzle
+  sdv $v01, 8, 0, $t0
+  sdv $v02, 8, 0, $t0
   jr $ra
   nop`);
   });

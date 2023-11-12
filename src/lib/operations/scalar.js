@@ -89,9 +89,9 @@ function opLoad(varRes, varLoc, varOffset)
 {
   const offsetStr = varOffset.type === "num" ? varOffset.value : `%lo(${varOffset.name})`;
   const loadOp = {
-    "u8":  "lb", "s8":  "lb",
-    "u16": "lh", "s16": "lh",
-    "u32": "lw", "s32": "lw",
+    u8:  "lbu", s8:  "lb",
+    u16: "lhu", s16: "lh",
+    u32: "lw",  s32: "lw", // no "lwu", 32bit CPU
   }[varRes.type];
 
   if(varLoc.reg) {
@@ -121,18 +121,13 @@ function opStore(varRes, varOffsets)
     .join(" + ");
 
   const baseReg = varLoc.reg || REG.ZERO;
+  const op = {
+     u8: "sb",  s8: "sb",
+    u16: "sh", s16: "sh",
+    u32: "sw", s32: "sw",
+  }[varRes.type];
 
-  return [asm("sw", [varRes.reg, `${offsetStr}(${baseReg})`])];
-
-  /*switch (varRes.type) {
-    case "u8":
-    case "s8": return [asm("sb", [varSrc.reg, "0x0", varRes.reg])];
-    case "u16":
-    case "s16": return [asm("sh", [varSrc.reg, "0x0", varRes.reg])];
-    case "u32":
-    case "s32": return [asm("sw", [varSrc.reg, "0x0", varRes.reg])];
-    default: state.throwError("Unknown type: " + varRes.type, varRes);
-  }*/
+  return [asm(op, [varRes.reg, `${offsetStr}(${baseReg})`])];
 }
 
 /**

@@ -39,6 +39,8 @@ export const TYPE_REG_COUNT = {
   vec32: 2,
 };
 
+export const SCALAR_TYPES = ["s8", "u8", "s16", "u16", "s32", "u32"];
+
 /**
  * @param {DataType} type
  * @returns {boolean}

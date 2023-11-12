@@ -97,11 +97,11 @@ const lexer = moo.compile({
 	Seperator : ",",
 	IdxStart  : "[",
 	IdxEnd    : "]",
-	Colon     : ":",
 
 	Assignment: "=",
 
-	VarName: /[a-zA-Z0-9_]+/,
+	VarName: /[a-zA-Z0-9_]+(?:\:[a-z0-9]+)?/,
+	Colon     : ":",
 
 	_:  { match: /[ \t\n]+/, lineBreaks: true },
 

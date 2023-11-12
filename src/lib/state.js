@@ -3,14 +3,14 @@
 * @license Apache-2.0
 */
 import {
-  nextReg,
+  nextReg, nextVecReg,
   REGS_ALLOC_SCALAR,
   REGS_ALLOC_VECTOR,
   REGS_FORBIDDEN,
   REGS_SCALAR,
   REGS_VECTOR
 } from "./syntax/registers.js";
-import {isVecType, isTwoRegType} from "./dataTypes/dataTypes.js";
+import {isVecType, isTwoRegType, TYPE_SIZE, SCALAR_TYPES} from "./dataTypes/dataTypes.js";
 
 const state =
 {
@@ -139,6 +139,9 @@ const state =
    * @param {string} reg
    */
   declareVar: (name, type, reg) => {
+    if(name.includes(":")) {
+      state.throwError("Variable name cannot contain a cast (':')!", {name});
+    }
     const scope = state.getScope();
     if(!reg)state.throwError("Cannot declare variable without register!", {name});
     if(REGS_FORBIDDEN.includes(reg)) {
@@ -193,9 +196,34 @@ const state =
    */
   getRequiredVar: (name, contextName, context = {}) => {
     const scope = state.getScope();
-    name = scope.varAliasMap[name] || name;
-    const res = structuredClone(scope.varMap[name]);
-    if(!res)state.throwError(contextName + " Variable "+name+" not known!", context);
+    let [nameNorm, castType] = /** @type {[string, CastType]} */ name.split(":");
+    nameNorm = scope.varAliasMap[nameNorm] || nameNorm;
+    const res = structuredClone(scope.varMap[nameNorm]);
+    if(!res)state.throwError(contextName + " Variable "+nameNorm+" not known!", context);
+
+    // Types cast will create a "fake" variable by changing the type and register if needed.
+    // For scalar types, only the type changes.
+    // For vectors, they are forced to a vec16, and moved to the next register if it was a vec32+fract cast.
+    // To handle special cases, the cast is preserved (mainly used for fractional vectors).
+    if(castType) {
+      res.castType = castType;
+      if(isVecType(res.type)) {
+        if(!["int", "fract"].includes(castType)) {
+          state.throwError("Invalid cast type '"+castType+"' for variable "+nameNorm+", expected 'int' or 'fract'!", context);
+        }
+        if(res.type === "vec32" && castType === "fract") {
+          res.reg = nextVecReg(res.reg);
+        }
+        res.type = "vec16";
+
+      } else {
+        if(!SCALAR_TYPES.includes(castType)) {
+          state.throwError("Invalid cast type '"+castType+"' for variable "+nameNorm+", expected: "+SCALAR_TYPES.join(", ")+"!", context);
+        }
+        res.type = castType;
+      }
+    }
+
     return res;
   },
 

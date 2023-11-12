@@ -31,6 +31,33 @@ describe('Load', () =>
   nop`);
   });
 
+  test('Scalar - Cast', () => {
+    const {asm, warn} = transpileSource(`
+      function test_scalar_load()
+      {
+        u32<$t0> src, dst;
+
+        dst:u32 = load(src, 0x10);
+        dst:u16 = load(src, 0x10);
+        dst:u8 = load(src, 0x10);
+        
+        dst:s32 = load(src, 0x10);
+        dst:s16 = load(src, 0x10);
+        dst:s8 = load(src, 0x10);
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test_scalar_load:
+  lw $t1, 16($t0)
+  lhu $t1, 16($t0)
+  lbu $t1, 16($t0)
+  lw $t1, 16($t0)
+  lh $t1, 16($t0)
+  lb $t1, 16($t0)
+  jr $ra
+  nop`);
+  });
+
   test('Vector - 32-Bit', () => {
     const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
       function test_vector_load() 
@@ -121,6 +148,34 @@ describe('Load', () =>
   ldv $v02, 8, 16, $t0
   ldv $v01, 8, 24, $t0
   ldv $v02, 8, 32, $t0
+  jr $ra
+  nop`);
+  });
+
+  test('Vector - Cast', () => {
+    const {asm, warn} = transpileSource(`function test() 
+      {
+        u32<$t0> addr;
+        vec32<$v01> dst;
+        
+        dst:int   = load(addr, 0x10);
+        dst:fract = load(addr, 0x10);
+        
+        dst:int   = load(addr, 0x10).XY;
+        dst:fract = load(addr, 0x10).XY;
+        
+        dst:int.z   = load(addr, 0x10).XY;
+        dst:fract.z = load(addr, 0x10).XY;
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  lqv $v01, 0, 16, $t0
+  lqv $v02, 0, 16, $t0
+  llv $v01, 0, 24, $t0
+  llv $v02, 0, 24, $t0
+  llv $v01, 4, 24, $t0
+  llv $v02, 4, 24, $t0
   jr $ra
   nop`);
   });
