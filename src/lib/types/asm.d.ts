@@ -22,10 +22,12 @@ declare global
         debug: ASMDebug;
     };
 
+    type ASMOutputDebug = {
+        lineMap: Record<number, number[]>;
+    };
+
     type ASMOutput = {
       asm: string;
-      debug: {
-        lineMap: Record<number, number[]>;
-      }
+      debug: ASMOutputDebug;
     };
 }

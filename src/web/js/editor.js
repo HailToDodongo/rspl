@@ -17,6 +17,9 @@ import hljs from 'highlight.js/lib/core';
 import mipsasm from 'highlight.js/lib/languages/mipsasm';
 import json from 'highlight.js/lib/languages/json';
 
+let highlightLines = [];
+let currentAsmText = "";
+
 hljs.registerLanguage('mipsasm', mipsasm);
 hljs.registerLanguage('json', json);
 hljs.highlightAll();
@@ -48,10 +51,62 @@ export function createEditor(id, source)
 
 export function codeHighlightElem(elem, newText = undefined)
 {
-  if(newText !== undefined)elem.textContent = newText;
+  if(newText !== undefined)currentAsmText = newText;
+  elem.textContent = currentAsmText;
 
   if(elem.dataset.highlighted) {
     delete elem.dataset.highlighted;
   }
+
+  console.time("highlight");
   hljs.highlightElement(elem);
+  console.timeEnd("highlight");
+  codeHighlightLines(elem);
+}
+
+/**
+ * @param {number[]|undefined} lines
+ */
+export function codeHighlightLines(elem, lines = undefined)
+{
+    if(lines)highlightLines = lines;
+
+    const elemHeight = elem.parentElement.clientHeight;
+    let newScroll = 11 + (15 * highlightLines[0]);
+    newScroll = Math.max(0, newScroll - (elemHeight / 2));
+    elem.parentElement.scrollTop = newScroll;
+
+    console.time("highlightLine");
+
+    if(highlightLines.length === 0) return;
+
+    /** @type {string} */
+    const code = elem.innerHTML;
+
+    let idx = 0;
+    let lineNum = 0;
+    let output = "";
+    while(code.indexOf("\n", idx) !== -1)
+    {
+        const nextIdx = code.indexOf("\n", idx);
+        const line = code.substring(idx, nextIdx);
+        if(highlightLines.includes(lineNum)) {
+            if(!line.includes("lineMarked")) {
+                output += `<span class="lineMarked">${line}</span>\n`;
+            } else {
+                output += line + "\n";
+            }
+        } else  {
+            if(line.includes("lineMarked")) {
+                output += line.substring(25, line.length-7) + "\n";
+            } else {
+                output += line + "\n";
+            }
+        }
+        idx = nextIdx + 1;
+        ++lineNum;
+    }
+
+    elem.innerHTML = output;
+    console.timeEnd("highlightLine");
 }

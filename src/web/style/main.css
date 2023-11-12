@@ -241,6 +241,11 @@ img#buttonCopyASM {
   border: 2px solid #db5656;
 }
 
+.lineMarked {
+  font-weight: bold;
+  background-color: #484848;
+}
+
 #footer {
   position: fixed;
   bottom: 0;
