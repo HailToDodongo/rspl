@@ -134,6 +134,13 @@ while(a &gt; 20) {
   a -= 1;
 }
 </code></pre>
+<p>Labels in combination with <code>goto</code> are supported too:<br></p>
+<pre><code class="c++ language-c++">u32 a;
+
+LabelA:
+a += 10;
+goto LabelA;
+</code></pre>
 <h3 id="swizzle">Swizzle</h3>
 <p>For vector types, there is a syntax-feature called "swizzle" which you may know from GLSL.<br>
 This allows to specify one or more lanes/components of a vector.<br>
@@ -162,6 +169,39 @@ a = b * c.yyyyYYYY;
 
 u32 address;
 store(a.xy, address); // stores the first two lanes to memory
+</code></pre>
+<h3 id="cast">Cast</h3>
+<p>RSPL comes with a unified cast and partial-access syntax, specified by a colon (<code>:</code>) and type.<br>
+This means you can treat scalar values as different types, for example during a load and store:</p>
+<pre><code class="c++ language-c++">u32 a, address;
+a:u8 = load(address); // load unsigned 8-bit value
+store(a:u16, address); // store back as 16-bit value
+</code></pre>
+<p>Allowed cast types: <code>u8</code>, <code>s8</code>, <code>u16</code>, <code>s16</code>, <code>u32</code>, <code>s32</code></p>
+<p>For vector types, this allows you partially access the integer or fraction part of a <code>vec32</code>.<br>
+Using it on a <code>vec16</code> is also safe, and usually affects how it will be treated by 32-bit operations and assignments.<br> </p>
+<p>For example, here is a partial load and store:</p>
+<pre><code class="c++ language-c++">u32 address;
+vec32 res;
+res:int = load(address); // load only integer part, fraction stays intact
+store(res:fract, address); // store only fraction part
+</code></pre>
+<p>This can also be combined with swizzling:</p>
+<pre><code class="c++ language-c++">u32 address;
+vec32 res;
+res:int.xy = load(address).xy; // load only first two lanes of integer part
+store(res:fract.XY, address); // only store upper two lanes of fraction part
+</code></pre>
+<p>Assignment can also make use of it, in all combinations:</p>
+<pre><code class="c++ language-c++">vec32 a, b;
+a:int = b; // assign only integer part, leave fraction intact
+a = b:int; // assign only integer part, zero out fraction
+a:fract = b:fract; // assign fraction to fraction, leave integer intact
+</code></pre>
+<p>As well as operations:
+Assignment can also make use of it, in all combinations:</p>
+<pre><code class="c++ language-c++">vec32 a, b;
+a += b:int; // only add an integer, leave fraction unchanged
 </code></pre>
 <h2 id="functions">Functions</h2>
 <p>Functions exist in 3 different forms, specified by a keyword: <code>function</code>, <code>command</code>, <code>macro</code>.</p>
@@ -222,7 +262,7 @@ A macro could look like this:</p>
 <li>Bitwise: <code>&amp;</code>, <code>|</code>, <code>^</code>, <code>~</code>. <code>&lt;&lt;</code>, <code>&gt;&gt;</code></li>
 <li>Assignment: <code>=</code></li>
 </ul>
-<p>Note: <code>*</code> and <code>/</code> is only supported with <code>x^2</code> contants (which use a shift instead).<br>
+<p>Note: <code>*</code> and <code>/</code> is only supported with <code>2^x</code> contants (which use a shift instead).<br>
 This is a hardware limitation.<br>
 The shorthand operators for all (e.g. <code>+=</code>) are also available.</p>
 <p>Inside <code>if</code>-statements, you have to use one of the following comparison-operators:</p>
@@ -297,13 +337,6 @@ The <code>invertHalf</code> version maps directly to the hardware instruction, r
 <p>Example:</p>
 <pre><code class="c++ language-c++">vec32 pos;
 posInv.w = invertHalf(pos).w;
-</code></pre>
-<h3 id="intvecvswizzle"><code>int(vec v)</code> + swizzle</h3>
-<p>Returns the integer part of a single vector component.<br>
-Example:</p>
-<pre><code class="c++ language-c++">vec32 a; 
-a.y = 42.99;
-u32 b = int(a).y; // 'b' will be 42
 </code></pre>
 <h3 id="loadu32addressoffset"><code>load(u32 address, offset, ...)</code></h3>
 <p>Loads a value from memory <code>address</code> into a register.<br>

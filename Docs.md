@@ -203,6 +203,47 @@ u32 address;
 store(a.xy, address); // stores the first two lanes to memory
 ```
 
+### Cast
+RSPL comes with a unified cast and partial-access syntax, specified by a colon (`:`) and type.<br>
+This means you can treat scalar values as different types, for example during a load and store:
+```c++
+u32 a, address;
+a:u8 = load(address); // load unsigned 8-bit value
+store(a:u16, address); // store back as 16-bit value
+```
+Allowed cast types: `u8`, `s8`, `u16`, `s16`, `u32`, `s32`
+
+For vector types, this allows you partially access the integer or fraction part of a `vec32`.<br>
+Using it on a `vec16` is also safe, and usually affects how it will be treated by 32-bit operations and assignments.<br> 
+
+For example, here is a partial load and store:
+```c++
+u32 address;
+vec32 res;
+res:int = load(address); // load only integer part, fraction stays intact
+store(res:fract, address); // store only fraction part
+```
+This can also be combined with swizzling:
+```c++
+u32 address;
+vec32 res;
+res:int.xy = load(address).xy; // load only first two lanes of integer part
+store(res:fract.XY, address); // only store upper two lanes of fraction part
+```
+Assignment can also make use of it, in all combinations:
+```c++
+vec32 a, b;
+a:int = b; // assign only integer part, leave fraction intact
+a = b:int; // assign only integer part, zero out fraction
+a:fract = b:fract; // assign fraction to fraction, leave integer intact
+```
+As well as operations:
+Assignment can also make use of it, in all combinations:
+```c++
+vec32 a, b;
+a += b:int; // only add an integer, leave fraction unchanged
+```
+
 ## Functions
 Functions exist in 3 different forms, specified by a keyword: `function`, `command`, `macro`.
 
@@ -273,7 +314,7 @@ The following operations are available for scalar types:
 - Bitwise: `&`, `|`, `^`, `~`. `<<`, `>>`
 - Assignment: `=`
 
-Note: `*` and `/` is only supported with `x^2` contants (which use a shift instead).<br>
+Note: `*` and `/` is only supported with `2^x` contants (which use a shift instead).<br>
 This is a hardware limitation.<br>
 The shorthand operators for all (e.g. `+=`) are also available.
 
@@ -362,15 +403,6 @@ Example:
 ```c++
 vec32 pos;
 posInv.w = invertHalf(pos).w;
-```
-
-### `int(vec v)` + swizzle
-Returns the integer part of a single vector component.<br>
-Example:
-```c++
-vec32 a; 
-a.y = 42.99;
-u32 b = int(a).y; // 'b' will be 42
 ```
 
 ### `load(u32 address, offset, ...)`

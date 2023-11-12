@@ -31,6 +31,75 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
+  test('Assign (swizzle, 2^x)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v01> a;
+      vec32<$v02> b;
+      a.x = 2;
+      b.x = 8;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmov $v01.e0, $v30.e6
+  vmov $v02.e0, $v30.e4
+  vxor $v03, $v03, $v03
+  jr $ra
+  nop`);
+  });
+
+  test('Assign (swizzle, float)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v01> a;
+      vec32<$v02> b;
+      a.x = 10.25;
+      b.x = 42.125;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  addiu $at, $zero, 10
+  mtc2 $at, $v01.e0
+  addiu $at, $zero, 42
+  mtc2 $at, $v02.e0
+  addiu $at, $zero, 8192
+  mtc2 $at, $v03.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Assign (swizzle, 0)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v01> a;
+      vec32<$v02> b;
+      a.x = 0;
+      b.x = 0;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  mtc2 $zero, $v01.e0
+  mtc2 $zero, $v02.e0
+  mtc2 $zero, $v03.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Assign (0)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v01> a = 0;
+      vec32<$v02> b = 0;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vxor $v01, $v01, $v01
+  vxor $v02, $v02, $v02
+  vxor $v03, $v03, $v03
+  jr $ra
+  nop`);
+  });
+
   test('Add (vec32 vs vec32)', () => {
     const {asm, warn} = transpileSource(`function test() {
       vec32<$v01> res, a;

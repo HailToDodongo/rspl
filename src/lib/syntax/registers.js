@@ -110,3 +110,19 @@ export function intReg(varRef) {
 export function fractReg(varRef) {
   return varRef.type === "vec32" ? nextVecReg(varRef.reg) : REG.VZERO;
 }
+
+/**
+ * Returns 2 registers for all vector types, defaults to $zero.
+ * This is used to handle vectors with casts (e.g. vec32 to vec32:fract)
+ * @param {ASTFuncArg} varRef
+ * @returns {[string, string]}
+ */
+export function getVec32Regs(varRef) {
+  if(varRef.type === "vec32") {
+    return [varRef.reg, nextVecReg(varRef.reg)];
+  }
+  if(varRef.castType === "fract") {
+    return [REG.VZERO, varRef.reg];
+  }
+  return [varRef.reg, REG.VZERO];
+}

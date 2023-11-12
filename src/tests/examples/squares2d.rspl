@@ -135,8 +135,8 @@ function getPosColor(u32<$s6> idxX, u32<$s7> idxY)
   store(centerDist, CIRLCE_POS);
 
   // chek if an edge was hit, invert direction
-  s32 checkX = int(centerDist).x;
-  s32 checkY = int(centerDist).y;
+  s32 checkX = centerDist:int.x;
+  s32 checkY = centerDist:int.y;
 
   if(checkX <   0)circleDir.x =  0.006;
   if(checkX > 320)circleDir.x = -0.006;

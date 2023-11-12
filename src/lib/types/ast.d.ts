@@ -18,6 +18,7 @@ declare global
         name?: string;
         value?: number | string;
         swizzle?: Swizzle;
+        castType?: CastType;
     };
 
     type ASTFunc = {

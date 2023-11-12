@@ -18,6 +18,44 @@ describe('Syntax - Swizzle', () =>
   nop`);
   });
 
+  test('Assign single (vec32 <- vec32, cast)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec32<$v01> a, b;
+      // all <- int
+      a.x = b:int.X;
+      // int <- int
+      a:int.x = b:int.X;
+      // fract <- int
+      a:fract.x = b:int.X;
+      
+      // all <- fract
+      a.x = b:fract.X;
+      // int <- fract
+      a:int.x = b:fract.X;
+      // fract <- fract
+      a:fract.x = b:fract.X;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  ## all <- int
+  vmov $v01.e0, $v03.e4
+  vmov $v02.e0, $v00.e4
+  ## int <- int
+  vmov $v01.e0, $v03.e4
+  ## fract <- int
+  vmov $v02.e0, $v03.e4
+  ## all <- fract
+  vmov $v01.e0, $v00.e4
+  vmov $v02.e0, $v04.e4
+  ## int <- fract
+  vmov $v01.e0, $v04.e4
+  ## fract <- fract
+  vmov $v02.e0, $v04.e4
+  jr $ra
+  nop`);
+  });
+
   test('Assign single (vec16 <- vec16)', () => {
     const {asm, warn} = transpileSource(`function test() {
       vec16<$v01> a, b;

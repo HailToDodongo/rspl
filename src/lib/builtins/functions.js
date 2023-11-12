@@ -206,25 +206,6 @@ function invert(varRes, args, swizzle) {
   return res;
 }
 
-function int(varRes, args, swizzle) {
-  assertArgsNoSwizzle(args);
-  const varArg = state.getRequiredVar(args[0].value, "arg0");
-
-  if(args.length !== 1      )state.throwError("Builtin int() requires exactly one argument!", args[0]);
-  if(!varRes                )state.throwError("Builtin int() needs a left-side", varRes);
-  if(isVecType(varRes.type) )state.throwError("Builtin int() must store the result into an integer!", varRes);
-  if(!swizzle               )state.throwError("Builtin int() requires swizzling! (.x to .W)", varArg);
-  if(swizzle.length !== 1   )state.throwError("Builtin int() swizzle must use a single element (.x to .W)", varArg);
-  if(!isVecType(varArg.type))state.throwError("The argument of builtin int() must be a vector!", varArg);
-
-  return [asm("mfc2", [varRes.reg, varArg.reg + SWIZZLE_MAP[swizzle]])];
-}
-
-function fract() {
-  //assertArgsNoSwizzle(args);
-  state.throwError("@TODO: Builtin fract() not implemented!");
-}
-
 function swap(varRes, args, swizzle) {
   assertArgsNoSwizzle(args);
   if(args.length !== 2)state.throwError("Builtin swap() requires exactly two argument!", args);
@@ -267,5 +248,5 @@ export default {
   load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
   asm: inlineAsm,
   dma_in, dma_out, dma_in_async, dma_out_async, dma_await,
-  invertHalf, invert, int, fract, swap
+  invertHalf, invert, swap
 };

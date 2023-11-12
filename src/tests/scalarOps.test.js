@@ -138,6 +138,51 @@ describe('Scalar - Ops', () =>
   nop`);
   });
 
+  test('Assign - scalar', () => {
+    const {asm, warn} = transpileSource(`function test() {
+        u32<$t0> a;
+        u32<$t1> b = a;
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  or $t1, $zero, $t0
+  jr $ra
+  nop`);
+  });
+
+  test('Assign - Vector (fract)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+        vec32 v0;
+        vec16 v1;
+        u32 a = v0:fract.y;
+        u32 b = v1:fract.y;
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  mfc2 $t0, $v02.e1
+  mfc2 $t1, $v03.e1
+  jr $ra
+  nop`);
+  });
+
+  test('Assign - Vector (int)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+        vec32 v0;
+        vec16 v1;
+        u32 a = v0:int.y;
+        u32 b = v1:int.y;
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  mfc2 $t0, $v01.e1
+  mfc2 $t1, $v03.e1
+  jr $ra
+  nop`);
+  });
+
   test('Invalid (multiplication)', () => {
     const src = `function test() {
       u32<$t0> a, b;

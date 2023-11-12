@@ -3,7 +3,7 @@
 * @license Apache-2.0
 */
 
-import {fractReg, intReg, isVecReg, nextReg, nextVecReg, REG} from "../syntax/registers";
+import {fractReg, getVec32Regs, intReg, isVecReg, nextReg, nextVecReg, REG} from "../syntax/registers";
 import state from "../state";
 import {
   isScalarSwizzle,
@@ -46,15 +46,21 @@ function opMove(varRes, varRight)
   }
 
   const swizzleRes = SWIZZLE_MAP[varRes.swizzle || ""];
-  const regDst = [varRes.reg, fractReg(varRes)];
+
+  let regDst = getVec32Regs(varRes);
+  let regsR = getVec32Regs(varRight);
+  if(varRes.castType && varRight.castType) {
+    regDst = [varRes.reg, REG.VZERO];
+    regsR = [varRight.reg, REG.VZERO];
+  }
 
   // Assigning an int or float constant to a vector
   if(isConst) {
     // if the constant is a power of two, use the special vector reg to avoid a load...
     const pow2 = POW2_SWIZZLE_VAR[varRight.value];
     if(pow2) {
-      return [    asm("vmov", [regDst[0] + swizzleRes, pow2.reg + SWIZZLE_MAP[pow2.swizzle]]),
-        isVec32 ? asm("vxor", [fractReg(varRes), fractReg(varRes), fractReg(varRes)]) : null
+      return [asm("vmov", [regDst[0] + swizzleRes, pow2.reg + SWIZZLE_MAP[pow2.swizzle]]),
+              asm("vxor", [regDst[1], regDst[1], regDst[1]]) // clear fractional part
       ];
     }
     // ...otherwise load the constant into a scalar register and move
@@ -88,16 +94,14 @@ function opMove(varRes, varRight)
 
   // moving an entire vector from A to B
   if(!varRight.swizzle) {
-    return [    asm("vor", [regDst[0], REG.VZERO,          varRight.reg]),
-      isVec32 ? asm("vor", [regDst[1], REG.VZERO, fractReg(varRight)]) : null
-    ];
+    return [asm("vor", [regDst[0], REG.VZERO, regsR[0]]),
+            asm("vor", [regDst[1], REG.VZERO, regsR[1]])];
   }
 
   // moving a single element/lane form A to B
   const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
-  return [    asm("vmov", [regDst[0] + swizzleRes,       varRight.reg + swizzleRight]),
-    isVec32 ? asm("vmov", [regDst[1] + swizzleRes, fractReg(varRight) + swizzleRight]) : null
-  ];
+  return [asm("vmov", [regDst[0] + swizzleRes, regsR[0] + swizzleRight]),
+          asm("vmov", [regDst[1] + swizzleRes, regsR[1] + swizzleRight])];
 }
 
 /**
