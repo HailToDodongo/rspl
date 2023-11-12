@@ -388,9 +388,11 @@ function opMul(varRes, varLeft, varRight, clearAccum)
     );
     intOp = "vmadn"; // don't clear inbetween
   } else if(varRes.type === "vec16") {
-    return [
-      asm(intOp, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight]),
-    ];
+    if(varRes.castType === "fract") {
+      intOp = clearAccum ? "vmulf": "vmacf";
+      return [asm(intOp, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight])];
+    }
+    return [asm(intOp, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight])];
   }
 
   res.push(
