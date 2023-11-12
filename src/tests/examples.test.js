@@ -61,7 +61,10 @@ command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
   res = mat3 +* vecIn.wwwwWWWW;
 
   store(res, trans_out);
-}`, CONF);
+}
+
+include "rsp_rdpq.inc"
+`, CONF);
 
     expect(warn).toBe("");
     expect(asm.trimEnd()).toBe(`## Auto-generated file, transpiled with RSPL
@@ -228,6 +231,7 @@ VecCmd_Transform:
 #define ra $31
 
 .set at
-.set macro`);
+.set macro
+#include <rsp_rdpq.inc>`);
   });
 });

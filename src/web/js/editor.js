@@ -24,6 +24,10 @@ hljs.registerLanguage('mipsasm', mipsasm);
 hljs.registerLanguage('json', json);
 hljs.highlightAll();
 
+function getLineHeight(lineCount) {
+  return 12 + (15 * lineCount);
+}
+
 /**
  * Create a new RSPL editor
  * @param {string} id HTML id
@@ -65,48 +69,32 @@ export function codeHighlightElem(elem, newText = undefined)
 }
 
 /**
+ * @param {HTMLElement} elem
  * @param {number[]|undefined} lines
  */
 export function codeHighlightLines(elem, lines = undefined)
 {
     if(lines)highlightLines = lines;
 
+    // Scroll first line into view
     const elemHeight = elem.parentElement.clientHeight;
-    let newScroll = 11 + (15 * highlightLines[0]);
+    let newScroll = getLineHeight(highlightLines[0] || 0);
     newScroll = Math.max(0, newScroll - (elemHeight / 2));
-    elem.parentElement.scrollTop = newScroll;
 
-    console.time("highlightLine");
-
-    if(highlightLines.length === 0) return;
-
-    /** @type {string} */
-    const code = elem.innerHTML;
-
-    let idx = 0;
-    let lineNum = 0;
-    let output = "";
-    while(code.indexOf("\n", idx) !== -1)
-    {
-        const nextIdx = code.indexOf("\n", idx);
-        const line = code.substring(idx, nextIdx);
-        if(highlightLines.includes(lineNum)) {
-            if(!line.includes("lineMarked")) {
-                output += `<span class="lineMarked">${line}</span>\n`;
-            } else {
-                output += line + "\n";
-            }
-        } else  {
-            if(line.includes("lineMarked")) {
-                output += line.substring(25, line.length-7) + "\n";
-            } else {
-                output += line + "\n";
-            }
-        }
-        idx = nextIdx + 1;
-        ++lineNum;
+    const oldScroll = elem.parentElement.scrollTop;
+    if(Math.abs(oldScroll - newScroll) > 200) {
+      elem.parentElement.scrollTo({top: newScroll, behavior: 'smooth'});
+    } else {
+      elem.parentElement.scrollTop = newScroll;
     }
 
-    elem.innerHTML = output;
-    console.timeEnd("highlightLine");
+    // Create overlays and insert into DOM
+    const ovl = document.getElementById("asmOverlay");
+    const newElements = [];
+    for(const line of highlightLines) {
+      const lineElem = document.createElement("span");
+      lineElem.style.top = getLineHeight(line) + "px";
+      newElements.push(lineElem);
+    }
+    ovl.replaceChildren(...newElements);
 }

@@ -129,8 +129,30 @@ pre {
   margin: 0;
 }
 
+#asmOverlay {
+  display: block;
+  position: relative;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 0;
+}
+
+#asmOverlay span {
+  display: inline-block;
+  width: calc(100% - 10px);
+  height: 15px;
+  background-color: #868686;
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0.15;
+  pointer-events: none;
+  user-select: none;
+}
+
 .stickyOverlay {
-  position: sticky;
+  position: absolute;
   padding-right: 4px;
   text-align: right;
   height: 0;
@@ -239,11 +261,6 @@ img#buttonCopyASM {
 
 #logOutput.error {
   border: 2px solid #db5656;
-}
-
-.lineMarked {
-  font-weight: bold;
-  background-color: #484848;
 }
 
 #footer {
