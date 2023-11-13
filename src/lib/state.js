@@ -10,7 +10,7 @@ import {
   REGS_SCALAR,
   REGS_VECTOR
 } from "./syntax/registers.js";
-import {isVecType, isTwoRegType, TYPE_SIZE, SCALAR_TYPES} from "./dataTypes/dataTypes.js";
+import {isVecType, isTwoRegType, TYPE_SIZE, SCALAR_TYPES, VEC_CASTS} from "./dataTypes/dataTypes.js";
 
 const state =
 {
@@ -203,15 +203,15 @@ const state =
 
     // Types cast will create a "fake" variable by changing the type and register if needed.
     // For scalar types, only the type changes.
-    // For vectors, they are forced to a vec16, and moved to the next register if it was a vec32+fract cast.
+    // For vectors, they are forced to a vec16, and moved to the next register if it was a vec32+fraction cast.
     // To handle special cases, the cast is preserved (mainly used for fractional vectors).
     if(castType) {
       res.castType = castType;
       if(isVecType(res.type)) {
-        if(!["int", "fract"].includes(castType)) {
-          state.throwError("Invalid cast type '"+castType+"' for variable "+nameNorm+", expected 'int' or 'fract'!", context);
+        if(!VEC_CASTS.includes(castType)) {
+          state.throwError("Invalid cast type '"+castType+"' for variable "+nameNorm+", expected '"+VEC_CASTS.join(", ")+"'!", context);
         }
-        if(res.type === "vec32" && castType === "fract") {
+        if(res.type === "vec32" && (castType === "sfract" || castType === "ufract")) {
           res.reg = nextVecReg(res.reg);
         }
         res.type = "vec16";

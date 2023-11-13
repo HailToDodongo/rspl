@@ -109,12 +109,12 @@ describe('Store', () =>
         vec32<$v01> val;
         
         // Whole Vector
-        store(val:int, dst);
-        store(val:fract, dst);
+        store(val:uint, dst);
+        store(val:ufract, dst);
         
         // Swizzle
-        store(val:int.XYZW, dst);
-        store(val:fract.XYZW, dst);
+        store(val:uint.XYZW, dst);
+        store(val:ufract.XYZW, dst);
       }`, CONF);
 
     expect(warn).toBe("");

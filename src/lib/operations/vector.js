@@ -54,7 +54,7 @@ function opMove(varRes, varRight)
     regsR = [varRight.reg, REG.VZERO];
   }
 
-  // Assigning an int or float constant to a vector
+  // Assigning an integer or float constant to a vector
   if(isConst) {
     // if the constant is a power of two, use the special vector reg to avoid a load...
     const pow2 = POW2_SWIZZLE_VAR[varRight.value];
@@ -388,8 +388,10 @@ function opMul(varRes, varLeft, varRight, clearAccum)
     );
     intOp = "vmadn"; // don't clear inbetween
   } else if(varRes.type === "vec16") {
-    if(varRes.castType === "fract") {
-      intOp = clearAccum ? "vmulf": "vmacf";
+    if(varRes.castType === "ufract" || varRes.castType === "sfract")
+    {
+      intOp = clearAccum ? "vmul": "vmac";
+      intOp += (varRes.castType === "ufract") ? "u" : "f";
       return [asm(intOp, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight])];
     }
     return [asm(intOp, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight])];

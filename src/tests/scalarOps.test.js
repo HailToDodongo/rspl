@@ -151,12 +151,12 @@ describe('Scalar - Ops', () =>
   nop`);
   });
 
-  test('Assign - Vector (fract)', () => {
+  test('Assign - Vector (ufract)', () => {
     const {asm, warn} = transpileSource(`function test() {
         vec32 v0;
         vec16 v1;
-        u32 a = v0:fract.y;
-        u32 b = v1:fract.y;
+        u32 a = v0:ufract.y;
+        u32 b = v1:ufract.y;
       }`, CONF);
 
     expect(warn).toBe("");
@@ -167,12 +167,12 @@ describe('Scalar - Ops', () =>
   nop`);
   });
 
-  test('Assign - Vector (int)', () => {
+  test('Assign - Vector (sint)', () => {
     const {asm, warn} = transpileSource(`function test() {
         vec32 v0;
         vec16 v1;
-        u32 a = v0:int.y;
-        u32 b = v1:int.y;
+        u32 a = v0:sint.y;
+        u32 b = v1:sint.y;
       }`, CONF);
 
     expect(warn).toBe("");

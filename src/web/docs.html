@@ -183,24 +183,24 @@ Using it on a <code>vec16</code> is also safe, and usually affects how it will b
 <p>For example, here is a partial load and store:</p>
 <pre><code class="c++ language-c++">u32 address;
 vec32 res;
-res:int = load(address); // load only integer part, fraction stays intact
-store(res:fract, address); // store only fraction part
+res:sint = load(address); // load only integer part, fraction stays intact
+store(res:ufract, address); // store only fraction part
 </code></pre>
 <p>This can also be combined with swizzling:</p>
 <pre><code class="c++ language-c++">u32 address;
 vec32 res;
-res:int.xy = load(address).xy; // load only first two lanes of integer part
-store(res:fract.XY, address); // only store upper two lanes of fraction part
+res:sint.xy = load(address).xy; // load only first two lanes of integer part
+store(res:ufract.XY, address); // only store upper two lanes of fraction part
 </code></pre>
 <p>Assignment can also make use of it, in all combinations:</p>
 <pre><code class="c++ language-c++">vec32 a, b;
-a:int = b; // assign only integer part, leave fraction intact
-a = b:int; // assign only integer part, zero out fraction
-a:fract = b:fract; // assign fraction to fraction, leave integer intact
+a:sint = b; // assign only integer part, leave fraction intact
+a = b:sint; // assign only integer part, zero out fraction
+a:ufract = b:ufract; // assign fraction to fraction, leave integer intact
 </code></pre>
 <p>As well as operations:</p>
 <pre><code class="c++ language-c++">vec32 a, b;
-a += b:int; // only add an integer, leave fraction unchanged
+a += b:sint; // only add an integer, leave fraction unchanged
 </code></pre>
 <h2 id="functions">Functions</h2>
 <p>Functions exist in 3 different forms, specified by a keyword: <code>function</code>, <code>command</code>, <code>macro</code>.</p>

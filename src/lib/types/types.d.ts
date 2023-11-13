@@ -5,7 +5,7 @@
 
 declare global {
     type DataType = 'u8' | 's8' | 'u16' | 's16' | 'u32' | 's32' | 'vec16' | 'vec32';
-    type CastType = DataType | 'int' | 'fract';
+    type CastType = DataType | 'uint' | 'sint' | 'ufract' | 'sfract';
     type Swizzle = string;
 
     type VarRegDef = {

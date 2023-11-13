@@ -33,7 +33,7 @@ describe('Syntax - Vars', () =>
 
   test('Declare - Invalid (cast)', () => {
     const src = `function test() {
-      vec16<$v03> a:int;
+      vec16<$v03> a:sint;
     }`;
 
     expect(() => transpileSource(src, CONF))

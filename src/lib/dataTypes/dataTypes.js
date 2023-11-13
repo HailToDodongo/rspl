@@ -12,7 +12,7 @@ export const TYPE_SIZE = {
   s32  : 4,
   u32  : 4,
   vec16: 2*8, // 16bit per lane @ 8 lanes
-  vec32: 4*8, // 16bit per lane @ 8 lanes, two register (int, fract)
+  vec32: 4*8, // 16bit per lane @ 8 lanes, two register
 };
 
 /** @type {Record<DataType, number>} */
@@ -40,6 +40,7 @@ export const TYPE_REG_COUNT = {
 };
 
 export const SCALAR_TYPES = ["s8", "u8", "s16", "u16", "s32", "u32"];
+export const VEC_CASTS = ["uint", "sint", "ufract", "sfract"];
 
 /**
  * @param {DataType} type

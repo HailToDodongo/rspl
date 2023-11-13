@@ -174,7 +174,7 @@ macro loadCurrentMat(vec32 mat0, vec32 mat1, vec32 mat2, vec32 mat3)
 
 macro storeVerts(u32 ptrDest, vec32 pos, vec32 depthAndW, vec16 uv, vec16 color)
 {
-  store(pos.x,          ptrDest, 0x00); // @TODO only store int part
+  store(pos.x,          ptrDest, 0x00);
   store(pos.y,          ptrDest, 0x02);
   store(depthAndW.z,    ptrDest, 0x04); // Z
   store_vec_u8(color.x, ptrDest, 0x08);
@@ -182,7 +182,7 @@ macro storeVerts(u32 ptrDest, vec32 pos, vec32 depthAndW, vec16 uv, vec16 color)
   store(depthAndW.x,    ptrDest, 0x10); // W
   store(depthAndW.y,    ptrDest, 0x14); // InvW
 
-  store(pos.X,          ptrDest, 0x20); // @TODO only store int part
+  store(pos.X,          ptrDest, 0x20);
   store(pos.Y,          ptrDest, 0x22);
   store(depthAndW.Z,    ptrDest, 0x24);
   store_vec_u8(color.X, ptrDest, 0x28);

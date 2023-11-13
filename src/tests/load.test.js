@@ -158,14 +158,14 @@ describe('Load', () =>
         u32<$t0> addr;
         vec32<$v01> dst;
         
-        dst:int   = load(addr, 0x10);
-        dst:fract = load(addr, 0x10);
+        dst:sint   = load(addr, 0x10);
+        dst:ufract = load(addr, 0x10);
         
-        dst:int   = load(addr, 0x10).XY;
-        dst:fract = load(addr, 0x10).XY;
+        dst:sint   = load(addr, 0x10).XY;
+        dst:ufract = load(addr, 0x10).XY;
         
-        dst:int.z   = load(addr, 0x10).XY;
-        dst:fract.z = load(addr, 0x10).XY;
+        dst:sint.z   = load(addr, 0x10).XY;
+        dst:ufract.z = load(addr, 0x10).XY;
       }`, CONF);
 
     expect(warn).toBe("");

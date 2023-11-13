@@ -21,36 +21,36 @@ describe('Syntax - Swizzle', () =>
   test('Assign single (vec32 <- vec32, cast)', () => {
     const {asm, warn} = transpileSource(`function test() {
       vec32<$v01> a, b;
-      // all <- int
-      a.x = b:int.X;
-      // int <- int
-      a:int.x = b:int.X;
-      // fract <- int
-      a:fract.x = b:int.X;
+      // all <- sint
+      a.x = b:sint.X;
+      // sint <- sint
+      a:sint.x = b:sint.X;
+      // ufract <- sint
+      a:ufract.x = b:sint.X;
       
-      // all <- fract
-      a.x = b:fract.X;
-      // int <- fract
-      a:int.x = b:fract.X;
-      // fract <- fract
-      a:fract.x = b:fract.X;
+      // all <- ufract
+      a.x = b:ufract.X;
+      // sint <- ufract
+      a:sint.x = b:ufract.X;
+      // ufract <- ufract
+      a:ufract.x = b:ufract.X;
     }`, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  ## all <- int
+  ## all <- sint
   vmov $v01.e0, $v03.e4
   vmov $v02.e0, $v00.e4
-  ## int <- int
+  ## sint <- sint
   vmov $v01.e0, $v03.e4
-  ## fract <- int
+  ## ufract <- sint
   vmov $v02.e0, $v03.e4
-  ## all <- fract
+  ## all <- ufract
   vmov $v01.e0, $v00.e4
   vmov $v02.e0, $v04.e4
-  ## int <- fract
+  ## sint <- ufract
   vmov $v01.e0, $v04.e4
-  ## fract <- fract
+  ## ufract <- ufract
   vmov $v02.e0, $v04.e4
   jr $ra
   nop`);

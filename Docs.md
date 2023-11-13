@@ -220,27 +220,27 @@ For example, here is a partial load and store:
 ```c++
 u32 address;
 vec32 res;
-res:int = load(address); // load only integer part, fraction stays intact
-store(res:fract, address); // store only fraction part
+res:sint = load(address); // load only integer part, fraction stays intact
+store(res:ufract, address); // store only fraction part
 ```
 This can also be combined with swizzling:
 ```c++
 u32 address;
 vec32 res;
-res:int.xy = load(address).xy; // load only first two lanes of integer part
-store(res:fract.XY, address); // only store upper two lanes of fraction part
+res:sint.xy = load(address).xy; // load only first two lanes of integer part
+store(res:ufract.XY, address); // only store upper two lanes of fraction part
 ```
 Assignment can also make use of it, in all combinations:
 ```c++
 vec32 a, b;
-a:int = b; // assign only integer part, leave fraction intact
-a = b:int; // assign only integer part, zero out fraction
-a:fract = b:fract; // assign fraction to fraction, leave integer intact
+a:sint = b; // assign only integer part, leave fraction intact
+a = b:sint; // assign only integer part, zero out fraction
+a:ufract = b:ufract; // assign fraction to fraction, leave integer intact
 ```
 As well as operations:
 ```c++
 vec32 a, b;
-a += b:int; // only add an integer, leave fraction unchanged
+a += b:sint; // only add an integer, leave fraction unchanged
 ```
 
 ## Functions

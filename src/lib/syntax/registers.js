@@ -113,7 +113,7 @@ export function fractReg(varRef) {
 
 /**
  * Returns 2 registers for all vector types, defaults to $zero.
- * This is used to handle vectors with casts (e.g. vec32 to vec32:fract)
+ * This is used to handle vectors with casts (e.g. vec32 to vec32:ufract)
  * @param {ASTFuncArg} varRef
  * @returns {[string, string]}
  */
@@ -121,7 +121,7 @@ export function getVec32Regs(varRef) {
   if(varRef.type === "vec32") {
     return [varRef.reg, nextVecReg(varRef.reg)];
   }
-  if(varRef.castType === "fract") {
+  if(varRef.castType === "ufract" || varRef.castType === "sfract") {
     return [REG.VZERO, varRef.reg];
   }
   return [varRef.reg, REG.VZERO];

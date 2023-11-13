@@ -12,7 +12,7 @@ const MUL_TO_SHIFT = {}
 for(let i = 0; i < 32; i++)MUL_TO_SHIFT[Math.pow(2, i)] = i;
 
 /**
- * Loads a 32bit int into a register with as few instructions as possible.
+ * Loads a 32bit integer into a register with as few instructions as possible.
  * @param {string} regDst target register
  * @param {number|string} value value to load (can be a string for labels)
  * @returns {ASM[]}
