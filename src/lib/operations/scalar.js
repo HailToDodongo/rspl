@@ -55,6 +55,8 @@ function loadImmediate(regDst, value)
  */
 function opMove(varRes, varRight)
 {
+  if(varRes.swizzle)state.throwError("Swizzling not allowed on scalar variables!");
+
   if(varRight.reg) {
     if(varRight.swizzle && !varRight.type.startsWith("vec")) {
       state.throwError("Swizzling not allowed for scalar operations!");

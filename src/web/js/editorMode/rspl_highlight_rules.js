@@ -63,7 +63,7 @@ const rsplHighlightRules = function() {
     const functions = [
       "load", "store", "asm",
       "dma_in", "dma_out", "dma_size", "dma_in_async", "dma_out_async", "dma_await",
-      "invertHalf", "ufract", "sfract", "swap", "invert",
+      "invertHalf", "sint", "uint", "ufract", "sfract", "swap", "invert",
       "load_vec_u8", "load_vec_s8", "store_vec_u8", "store_vec_s8"
     ].join("|");
 

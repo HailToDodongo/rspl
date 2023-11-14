@@ -13,10 +13,15 @@ state
   vec32 MAT_PROJ_DATA[1][2];
   vec32 MAT_MODEL_DATA[8][2];
 
-  vec32 TRI2D_DATA[16];
-  vec32 TRI3D_DATA[16];
+  vec32 TRI2D_DATA[32];
+  vec16 TRI3D_DATA[32];
 
   vec16 SCREEN_SIZE_VEC;
+
+  vec16 COLOR_AMBIENT;
+  vec16 LIGHT_DIR_COLOR;
+  vec16 LIGHT_DIR_VEC;
+
   u32 CURRENT_MAT_ADDR;
 }
 
@@ -86,6 +91,27 @@ command<1> T3DCmd_SetScreenSize(u32 _, u32 sizeXY)
   store(screenSize, SCREEN_SIZE_VEC);
 }
 
+command<5> T3DCmd_LightSet(u32 type, u32 rgba8, u32 dirXYZ)
+{
+  type &= 0xFF;
+  type *= 0x10; // type to offset
+  u32 addr = type + COLOR_AMBIENT;
+
+  // convert packed 8bit values into vector
+  store(rgba8, addr, 0x00);
+  store(rgba8, addr, 0x04);
+  vec16 color = load_vec_u8(addr);
+  store(color, addr);
+
+  if(dirXYZ) {
+    addr = LIGHT_DIR_VEC;
+    store(dirXYZ, addr, 0x00);
+    store(dirXYZ, addr, 0x04);
+    vec16 dirVec = load_vec_s8(addr);
+    store(dirVec, addr);
+  }
+}
+
 macro mulMat4Mat4(u32 addrOut, u32 addrMatL, u32 addrMatR)
 {
   vec32 matL0 = load(addrMatL, 0x00).xyzwxyzw;
@@ -125,6 +151,13 @@ macro mulMat4Vec8(
   out = mat1 +* vec.yyyyYYYY;
   out = mat2 +* vec.zzzzZZZZ;
   out = mat3 +* vec.wwwwWWWW;
+}
+
+macro dotXYZ(vec16 res, vec16 a, vec16 b)
+{
+  res:sfract = a * b;
+  vec16 tmp:sfract = res + res.yyyyYYYY;
+  res:sfract += tmp.zzzzZZZZ;
 }
 
 command<2> T3DCmd_MatSet(u32 typeIdx, u32 addressMat)
@@ -174,22 +207,42 @@ macro loadCurrentMat(vec32 mat0, vec32 mat1, vec32 mat2, vec32 mat3)
 
 macro storeVerts(u32 ptrDest, vec32 pos, vec32 depthAndW, vec16 uv, vec16 color)
 {
-  store(pos.x,          ptrDest, 0x00);
-  store(pos.y,          ptrDest, 0x02);
+  store(pos:sint.xy,    ptrDest, 0x00);
   store(depthAndW.z,    ptrDest, 0x04); // Z
   store_vec_u8(color.x, ptrDest, 0x08);
   store(uv.xy,          ptrDest, 0x0C);
   store(depthAndW.x,    ptrDest, 0x10); // W
   store(depthAndW.y,    ptrDest, 0x14); // InvW
 
-  store(pos.X,          ptrDest, 0x20);
-  store(pos.Y,          ptrDest, 0x22);
+  store(pos:sint.XY,    ptrDest, 0x20);
   store(depthAndW.Z,    ptrDest, 0x24);
   store_vec_u8(color.X, ptrDest, 0x28);
   store(uv.XY,          ptrDest, 0x2C);
   store(depthAndW.X,    ptrDest, 0x30);
   store(depthAndW.Y,    ptrDest, 0x34);
   ptrDest += 0x40;
+}
+
+macro loadNormals(vec16 norm, u32 prt3d)
+{
+  // Normals are stored as signed 5-bit values in a 16bit int (MSB unused).
+  // Load shifted (and unmasked) values into each register.
+  // Then perform masking and shifting on the entire vector at once.
+  u16 normInt = load(prt3d, 0x06);
+  norm.w = 0b11111; // mask
+
+  norm.z = normInt; normInt >>= 5;
+  norm.y = normInt; normInt >>= 5;
+  norm.x = normInt;
+
+  normInt = load(prt3d, 0x16);
+
+  norm.Z = normInt; normInt >>= 5;
+  norm.Y = normInt; normInt >>= 5;
+  norm.X = normInt;
+
+  norm &= norm.w;
+  norm *= 2048;
 }
 
 command<4> T3DCmd_VertLoad(u32 offsetCount, u32 dramVerts)
@@ -206,6 +259,10 @@ command<4> T3DCmd_VertLoad(u32 offsetCount, u32 dramVerts)
   loadCurrentMat(mat0, mat1, mat2, mat3);
 
   vec16 screenSize = load(SCREEN_SIZE_VEC);
+  vec16 colorAmbient = load(COLOR_AMBIENT);
+
+  vec16 lightDirColor = load(LIGHT_DIR_COLOR);
+  vec16 lightDirVec   = load(LIGHT_DIR_VEC);
 
   vec16 maskLR = 0;
   maskLR.x = 0xFFFF; // use .xxxxXXXX to keep the left-half of a reg
@@ -216,8 +273,8 @@ command<4> T3DCmd_VertLoad(u32 offsetCount, u32 dramVerts)
 
   dma_await();
 
-  // Process all vertices and apply transformation & lighting (@TODO).
-  // This always handle 2 vertices at once, most sitting in one register.
+  // Process all vertices and apply transformation & lighting.
+  // This always handles 2 vertices at once, most sitting in one register.
   while(offsetCount != 0)
   {
     vec16 pos;
@@ -228,6 +285,9 @@ command<4> T3DCmd_VertLoad(u32 offsetCount, u32 dramVerts)
     uv.xy = load(prt3d, 0x0C).xy;
     uv.XY = load(prt3d, 0x1C).xy;
 
+    vec16 norm;
+    loadNormals(norm, prt3d);
+    
     vec16 color = load_vec_u8(prt3d, 0x08);
     {
       vec16 colorTmp;
@@ -241,6 +301,8 @@ command<4> T3DCmd_VertLoad(u32 offsetCount, u32 dramVerts)
 
     // object-space to clip-spcae
     mulMat4Vec8(mat0, mat1, mat2, mat3, pos, posNorm);
+    
+    // @TODO: transform normals
 
     // calc. Z buffer value
     posNormInv.z = posNorm.z;
@@ -252,6 +314,17 @@ command<4> T3DCmd_VertLoad(u32 offsetCount, u32 dramVerts)
     posNormInv.x = posNorm.w; // backup raw W value
     posNormInv.X = posNorm.W;
 
+    // lighting
+    {
+      vec16 lightDirScale, lightColor;
+      dotXYZ(lightDirScale, norm, lightDirVec);
+
+      lightColor:ufract = lightDirColor * lightDirScale.xxxxXXXX;
+      lightColor:ufract += colorAmbient;
+      color:ufract *= lightColor;
+    }
+
+    // perpective div.
     posNorm *= posNormInv.yyyyYYYY;
     posNorm *= 2; // invertHalf to invert
 

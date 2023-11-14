@@ -41,7 +41,7 @@ function normalizeScopedBlock(block, astState, macros)
 
       // Split up declaration and assignment
       case "varDeclAssign":
-        statements.push({...st, type: "varDecl"});
+        statements.push({...st, type: "varDecl", varName: st.varName.split(":")[0]});
         if(st.calc) { // ... and ignore empty assignments
           statements.push({
             type: "varAssignCalc",
@@ -116,6 +116,18 @@ function normalizeScopedBlock(block, astState, macros)
         st.calc.swizzleLeft = undefined; // @TODO: handle this?
         st.calc.op = expOp;
         st.assignType = "=";
+      }
+
+      // normalize cast-syntax, if the destination has a cast but the rest doesn't,
+      // assume the L and R variable use the same by default
+      if(['calcVarNum', 'calcVarVar'].includes(st.calc.type) && st.varName.includes(":"))
+      {
+        if(!st.calc.left.includes(":")) {
+          st.calc.left += ":" + st.varName.split(":")[1];
+        }
+        if(st.calc.type === 'calcVarVar' && !st.calc.right.includes(":")) {
+          st.calc.right += ":" + st.varName.split(":")[1];
+        }
       }
     }
   }

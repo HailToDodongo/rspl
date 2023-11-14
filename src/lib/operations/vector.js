@@ -230,14 +230,20 @@ function opAdd(varRes, varLeft, varRight)
   if(swizzleRight === undefined) {
     state.throwError("Unsupported swizzle (supported: "+SWIZZLE_MAP_KEYS_STR+")!", varRes);
   }
+  const regsDst = getVec32Regs(varRes);
+  const regsL = getVec32Regs(varLeft);
+  const regsR = getVec32Regs(varRight);
 
-  return (varRes.type === "vec32")
-    ? [
-      asm("vaddc", [nextReg(varRes.reg), fractReg(varLeft), fractReg(varRight) + swizzleRight]),
-      asm("vadd",  [        varRes.reg,        varLeft.reg,      varRight.reg  + swizzleRight]),
-    ] : [
-      asm("vaddc", [        varRes.reg,        varLeft.reg,      varRight.reg  + swizzleRight]),
-    ];
+  let fractOp = ["sfract", "ufract"].includes(varRes.castType) ? "vadd" : "vaddc";
+  let intOp = varRes.castType === "sint" ? "vadd" : "vaddc";
+  if(varRes.type === "vec32") {
+    fractOp = "vaddc"; intOp = "vadd";
+  }
+
+  return [
+    asm(fractOp, [regsDst[1], regsL[1], regsR[1] + swizzleRight]),
+    asm(intOp,   [regsDst[0], regsL[0], regsR[0] + swizzleRight]),
+  ];
 }
 
 /**
