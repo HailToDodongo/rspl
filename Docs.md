@@ -205,7 +205,10 @@ store(a.xy, address); // stores the first two lanes to memory
 
 ### Cast
 RSPL comes with a unified cast and partial-access syntax, specified by a colon (`:`) and type.<br>
-This means you can treat scalar values as different types, for example during a load and store:
+This works for both scalar and vector types.<br>
+
+#### Scalar
+You can treat scalar values as different types, for example during a load and store:
 ```c++
 u32 a, address;
 a:u8 = load(address); // load unsigned 8-bit value
@@ -213,8 +216,11 @@ store(a:u16, address); // store back as 16-bit value
 ```
 Allowed cast types: `u8`, `s8`, `u16`, `s16`, `u32`, `s32`
 
+#### Vector
 For vector types, this allows you partially access the integer or fraction part of a `vec32`.<br>
 Using it on a `vec16` is also safe, and usually affects how it will be treated by 32-bit operations and assignments.<br> 
+
+Allowed cast types: `sint`, `uint`, `sfract`, `ufract`.
 
 For example, here is a partial load and store:
 ```c++
@@ -241,7 +247,26 @@ As well as operations:
 ```c++
 vec32 a, b;
 a += b:sint; // only add an integer, leave fraction unchanged
+vec16 fA, fB; // assumed to be a 1.16 fixed-point
+fA += fB:sfract; // only add fraction, forcing a singed addition
 ```
+While you can set a cast on all variables of an expression (if supported),<br/>
+the main deciding factor is the destination variable.<br/>
+If the destination variable has a cast, but one of the source variables doesn't, it will add a cast automatically.<br/>
+For example:
+```c++
+vec16 a, b;
+a:sfract = a * b; // assumes that 'a' & 'b' are 'sfract' too. (using 'vmulf')
+a:ufract = a * b; // assumes that 'a' & 'b' are 'ufract' too. (using 'vmulu')
+```
+
+As a shorthand, a cast can be specified at a variable declaration if it's using a calculation.<br>
+For example:
+```c++
+vec16 a, b;
+vec16 varA:sfract = a * b; // <- OK, assumes sfract multiplication
+vec16 varB:sfract; // <- ERROR
+``` 
 
 ## Functions
 Functions exist in 3 different forms, specified by a keyword: `function`, `command`, `macro`.
@@ -449,7 +474,7 @@ store(uv.XYZW, address, 0x0C); // stores the last 4 lanes to address + 0x0C
 ### `load_vec_u8(address, offset)` & `load_vec_s8(...)`
 Special load for packed 8-bit vectors, using the `lpv` / `luv` instructions.<br>
 Instead of loading 16-bit per lane, it loads 8-bit per lane expanding the value.<br>
-This only accepts `vec16` variables.<br>
+This only accepts `vec16` variables, and an `ufract`/`sfract` type should be assumed.<br>
 Example:
 ```c++
 vec16 color = load_vec_u8(ptrColor, 0x08);
@@ -457,8 +482,8 @@ vec16 color = load_vec_u8(ptrColor, 0x08);
 
 ### `store_vec_u8(valuem, address, offset)` & `store_vec_s8(...)`
 Special store for packed 8-bit vectors, using the `spv` / `suv` instructions.<br>
-Instead of storing 16-bit per lane, it stores 8-bit per lane truncating the value.<br>
-This only accepts `vec16` variables.<br>
+Instead of storing 16-bit per lane, it stores 8-bit per lane scaling the value.<br>
+This only accepts `vec16` variables, and an `ufract`/`sfract` type should be assumed.<br>
 Example:
 ```c++
 vec16 color;

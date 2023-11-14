@@ -18,6 +18,26 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
+  test('Assign (vec16 vs vec32:cast)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v01> res;
+      vec32<$v03> a;
+      res = a:uint;
+      res = a:sint;
+      res:ufract = a:ufract;
+      res:sfract = a:sfract;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vor $v01, $v00, $v03
+  vor $v01, $v00, $v03
+  vor $v01, $v00, $v04
+  vor $v01, $v00, $v04
+  jr $ra
+  nop`);
+  });
+
   test('Assign (vec16 vs vec16)', () => {
     const {asm, warn} = transpileSource(`function test() {
       vec16<$v01> res, a;
@@ -127,6 +147,25 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
+  test('Add (vec16 cast)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v01> res, a;
+      res:uint += a.x;
+      res:sint += a.x;
+      res:sfract += a.x;
+      res:ufract += a.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vaddc $v01, $v01, $v02.e0
+  vadd $v01, $v01, $v02.e0
+  vadd $v01, $v01, $v02.e0
+  vadd $v01, $v01, $v02.e0
+  jr $ra
+  nop`);
+  });
+
   test('Sub (vec32 vs vec32)', () => {
     const {asm, warn} = transpileSource(`function test() {
       vec32<$v01> res, a;
@@ -166,6 +205,38 @@ describe('Vector - Ops', () =>
   vmadm $v27, $v01, $v04.e0
   vmadn $v02, $v02, $v03.e0
   vmadh $v01, $v01, $v03.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Mul (vec16 vs vec16)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v01> res, a;
+      res *= a.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudn $v01, $v01, $v02.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Mul (vec16 cast)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v01> res, a;
+      res:uint *= a.x;
+      res:sint *= a.x;
+      res:ufract *= a.x;
+      res:sfract *= a.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudn $v01, $v01, $v02.e0
+  vmudn $v01, $v01, $v02.e0
+  vmulu $v01, $v01, $v02.e0
+  vmulf $v01, $v01, $v02.e0
   jr $ra
   nop`);
   });

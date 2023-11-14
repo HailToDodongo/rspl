@@ -26,6 +26,8 @@ build:
 pages:
   image: alpine:3.18.0
   stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
     - rm -rf public
     - mv dist public

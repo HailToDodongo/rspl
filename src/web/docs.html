@@ -172,14 +172,18 @@ store(a.xy, address); // stores the first two lanes to memory
 </code></pre>
 <h3 id="cast">Cast</h3>
 <p>RSPL comes with a unified cast and partial-access syntax, specified by a colon (<code>:</code>) and type.<br>
-This means you can treat scalar values as different types, for example during a load and store:</p>
+This works for both scalar and vector types.<br></p>
+<h4 id="scalar">Scalar</h4>
+<p>You can treat scalar values as different types, for example during a load and store:</p>
 <pre><code class="c++ language-c++">u32 a, address;
 a:u8 = load(address); // load unsigned 8-bit value
 store(a:u16, address); // store back as 16-bit value
 </code></pre>
 <p>Allowed cast types: <code>u8</code>, <code>s8</code>, <code>u16</code>, <code>s16</code>, <code>u32</code>, <code>s32</code></p>
+<h4 id="vector">Vector</h4>
 <p>For vector types, this allows you partially access the integer or fraction part of a <code>vec32</code>.<br>
 Using it on a <code>vec16</code> is also safe, and usually affects how it will be treated by 32-bit operations and assignments.<br> </p>
+<p>Allowed cast types: <code>sint</code>, <code>uint</code>, <code>sfract</code>, <code>ufract</code>.</p>
 <p>For example, here is a partial load and store:</p>
 <pre><code class="c++ language-c++">u32 address;
 vec32 res;
@@ -201,6 +205,22 @@ a:ufract = b:ufract; // assign fraction to fraction, leave integer intact
 <p>As well as operations:</p>
 <pre><code class="c++ language-c++">vec32 a, b;
 a += b:sint; // only add an integer, leave fraction unchanged
+vec16 fA, fB; // assumed to be a 1.16 fixed-point
+fA += fB:sfract; // only add fraction, forcing a singed addition
+</code></pre>
+<p>While you can set a cast on all variables of an expression (if supported),<br/>
+the main deciding factor is the destination variable.<br/>
+If the destination variable has a cast, but one of the source variables doesn't, it will add a cast automatically.<br/>
+For example:</p>
+<pre><code class="c++ language-c++">vec16 a, b;
+a:sfract = a * b; // assumes that 'a' &amp; 'b' are 'sfract' too. (using 'vmulf')
+a:ufract = a * b; // assumes that 'a' &amp; 'b' are 'ufract' too. (using 'vmulu')
+</code></pre>
+<p>As a shorthand, a cast can be specified at a variable declaration if it's using a calculation.<br>
+For example:</p>
+<pre><code class="c++ language-c++">vec16 a, b;
+vec16 varA:sfract = a * b; // &lt;- OK, assumes sfract multiplication
+vec16 varB:sfract; // &lt;- ERROR
 </code></pre>
 <h2 id="functions">Functions</h2>
 <p>Functions exist in 3 different forms, specified by a keyword: <code>function</code>, <code>command</code>, <code>macro</code>.</p>
@@ -376,14 +396,14 @@ store(uv.XYZW, address, 0x0C); // stores the last 4 lanes to address + 0x0C
 <h3 id="load_vec_u8addressoffsetload_vec_s8"><code>load_vec_u8(address, offset)</code> &amp; <code>load_vec_s8(...)</code></h3>
 <p>Special load for packed 8-bit vectors, using the <code>lpv</code> / <code>luv</code> instructions.<br>
 Instead of loading 16-bit per lane, it loads 8-bit per lane expanding the value.<br>
-This only accepts <code>vec16</code> variables.<br>
+This only accepts <code>vec16</code> variables, and an <code>ufract</code>/<code>sfract</code> type should be assumed.<br>
 Example:</p>
 <pre><code class="c++ language-c++">vec16 color = load_vec_u8(ptrColor, 0x08);
 </code></pre>
 <h3 id="store_vec_u8valuemaddressoffsetstore_vec_s8"><code>store_vec_u8(valuem, address, offset)</code> &amp; <code>store_vec_s8(...)</code></h3>
 <p>Special store for packed 8-bit vectors, using the <code>spv</code> / <code>suv</code> instructions.<br>
-Instead of storing 16-bit per lane, it stores 8-bit per lane truncating the value.<br>
-This only accepts <code>vec16</code> variables.<br>
+Instead of storing 16-bit per lane, it stores 8-bit per lane scaling the value.<br>
+This only accepts <code>vec16</code> variables, and an <code>ufract</code>/<code>sfract</code> type should be assumed.<br>
 Example:</p>
 <pre><code class="c++ language-c++">vec16 color;
 store_vec_u8(color, ptrColor, 0x08);
