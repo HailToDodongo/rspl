@@ -445,6 +445,38 @@ function opInvertHalf(varRes, varLeft) {
 /**
  * @param {ASTFuncArg} varRes
  * @param {ASTFuncArg} varLeft
+ * @returns {ASM[]}
+ */
+function opInvertSqrtHalf(varRes, varLeft) {
+
+  if(!varLeft.swizzle && !varRes.swizzle) {
+    const res = [];
+    for(const s of Object.keys(SWIZZLE_SCALAR_IDX)) {
+      res.push(...opInvertSqrtHalf({...varRes, swizzle: s}, {...varLeft, swizzle: s}));
+    }
+    return res;
+  }
+
+  if(!varLeft.swizzle || !varRes.swizzle) {
+    state.throwError("Builtin invert_sqrt() needs swizzling either on both sides or none (e.g.: 'res.y = invert_sqrt(res).x')!", varRes);
+  }
+  if(!isScalarSwizzle(varRes.swizzle) || !isScalarSwizzle(varLeft.swizzle)) {
+    return state.throwError("Swizzle on both sides must be single-lane! (.x to .W)");
+  }
+
+  const swizzleRes = SWIZZLE_MAP[varRes.swizzle || ""];
+  const swizzleArg = SWIZZLE_MAP[varLeft.swizzle || ""];
+
+  return [
+    asm("vrsqh", [      intReg(varRes) + swizzleRes,   intReg(varLeft) + swizzleArg]),
+    asm("vrsql", [    fractReg(varRes) + swizzleRes, fractReg(varLeft) + swizzleArg]),
+    asm("vrsqh", [      intReg(varRes) + swizzleRes,        REG.VZERO + swizzleArg]),
+  ];
+}
+
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
  * @param {ASTFuncArg} varRight
  * @returns {ASM[]}
  */
@@ -464,7 +496,7 @@ function opDiv(varRes, varLeft, varRight) {
 
 export default {
   opMove, opLoad, opStore,
-  opAdd, opSub, opMul, opInvertHalf, opDiv, opAnd, opOr, opXOR, opBitFlip,
+  opAdd, opSub, opMul, opInvertHalf, opInvertSqrtHalf, opDiv, opAnd, opOr, opXOR, opBitFlip,
   opShiftLeft, opShiftRight,
   opLoadBytes, opStoreBytes
 };

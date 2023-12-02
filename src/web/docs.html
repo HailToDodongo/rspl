@@ -306,7 +306,7 @@ if(a &gt; 10) {
 <li>Assignment: <code>=</code></li>
 </ul>
 <p>Note: Division is very expensive, since it will be converted to a multiplication with the inverse.<br>
-If you need the inverse, look at the <code>invertHalf()</code> builtin.<br></p>
+If you need the inverse, look at the <code>invert_half()</code> builtin.<br></p>
 <p>Due to the hardware using an accumulator for multiplication, there is a special operator <code>+*</code>.<br>
 This keeps the accumulator intact, allowing for multiple mul.+add. in a row.<br>
 As an example, you can use this to perform a matrix-vector multiplication:<br></p>
@@ -349,13 +349,13 @@ Examples:</p>
 swap(a, b); // swap two scalars
 swap(v0, v1); // swap two vectors
 </code></pre>
-<h3 id="inverthalfvecainvertveca"><code>invertHalf(vec a)</code> &amp; <code>invert(vec a)</code></h3>
+<h3 id="inverthalfvecainvertveca"><code>invert_half(vec a)</code> &amp; <code>invert(vec a)</code></h3>
 <p>Inverts a (single component of a) vector (<code>1 / x</code>).<br>
-The <code>invertHalf</code> version maps directly to the hardware instruction, returning <code>0.5 / x</code>.<br>
+The <code>invert_half</code> version maps directly to the hardware instruction, returning <code>0.5 / x</code>.<br>
 <code>invert</code> already multiplies the result by 2.</p>
 <p>Example:</p>
 <pre><code class="c++ language-c++">vec32 pos;
-posInv.w = invertHalf(pos).w;
+posInv.w = invert_half(pos).w;
 </code></pre>
 <h3 id="loadu32addressoffset"><code>load(u32 address, offset, ...)</code></h3>
 <p>Loads a value from memory <code>address</code> into a register.<br>

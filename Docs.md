@@ -364,7 +364,7 @@ The following operations are available for vector types:
 - Assignment: `=`
 
 Note: Division is very expensive, since it will be converted to a multiplication with the inverse.<br>
-If you need the inverse, look at the `invertHalf()` builtin.<br>
+If you need the inverse, look at the `invert_half()` builtin.<br>
 
 Due to the hardware using an accumulator for multiplication, there is a special operator `+*`.<br>
 This keeps the accumulator intact, allowing for multiple mul.+add. in a row.<br>
@@ -418,15 +418,15 @@ swap(a, b); // swap two scalars
 swap(v0, v1); // swap two vectors
 ```
 
-### `invertHalf(vec a)` & `invert(vec a)`
+### `invert_half(vec a)` & `invert(vec a)`
 Inverts a (single component of a) vector (`1 / x`).<br>
-The `invertHalf` version maps directly to the hardware instruction, returning `0.5 / x`.<br>
+The `invert_half` version maps directly to the hardware instruction, returning `0.5 / x`.<br>
 `invert` already multiplies the result by 2.
 
 Example:
 ```c++
 vec32 pos;
-posInv.w = invertHalf(pos).w;
+posInv.w = invert_half(pos).w;
 ```
 
 ### `load(u32 address, offset, ...)`

@@ -190,18 +190,26 @@ function dma_await(varRes, args, swizzle) {
   return [asm("jal", ["DMAWaitIdle"]), asmNOP()];
 }
 
-function invertHalf(varRes, args, swizzle) {
+function invert_half(varRes, args, swizzle) {
   assertArgsNoSwizzle(args);
-  if(args.length !== 1)state.throwError("Builtin invertHalf() requires exactly one argument!", args[0]);
+  if(args.length !== 1)state.throwError("Builtin invert_half() requires exactly one argument!", args[0]);
   const varArg = state.getRequiredVar(args[0].value, "arg0");
-  if(!isVecType(varArg.type))state.throwError("Builtin invert() requires a vector argument!", args[0]);
+  if(!isVecType(varArg.type))state.throwError("Builtin invert_half() requires a vector argument!", args[0]);
   return opsVector.opInvertHalf(varRes, {...varArg, swizzle});
+}
+
+function invert_half_sqrt(varRes, args, swizzle) {
+  assertArgsNoSwizzle(args);
+  if(args.length !== 1)state.throwError("Builtin invertSqrtHalf() requires exactly one argument!", args[0]);
+  const varArg = state.getRequiredVar(args[0].value, "arg0");
+  if(!isVecType(varArg.type))state.throwError("Builtin invertSqrtHalf() requires a vector argument!", args[0]);
+  return opsVector.opInvertSqrtHalf(varRes, {...varArg, swizzle});
 }
 
 function invert(varRes, args, swizzle) {
   assertArgsNoSwizzle(args);
-  if(swizzle)state.throwError("Builtin invert() cannot use swizzle, use invertHalf() instead and multiply manually", varRes);
-  const res = invertHalf(varRes, args, swizzle);
+  if(swizzle)state.throwError("Builtin invert() cannot use swizzle, use invert_half() instead and multiply manually", varRes);
+  const res = invert_half(varRes, args, swizzle);
   res.push(...opsVector.opMul(varRes, varRes, {type: "num", value: 2}, true));
   return res;
 }
@@ -248,5 +256,5 @@ export default {
   load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
   asm: inlineAsm,
   dma_in, dma_out, dma_in_async, dma_out_async, dma_await,
-  invertHalf, invert, swap
+  invert_half, invert_half_sqrt, invert, swap
 };

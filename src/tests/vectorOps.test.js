@@ -427,7 +427,7 @@ describe('Vector - Ops', () =>
   test('Invert-Half (vec32)', () => {
     const {asm, warn} = transpileSource(`function test() {
       vec32<$v01> res, a;
-      a.x = invertHalf(a).x;
+      a.x = invert_half(a).x;
     }`, CONF);
 
     expect(warn).toBe("");
@@ -442,7 +442,7 @@ describe('Vector - Ops', () =>
   test('Invert-Half - all (vec32)', () => {
     const {asm, warn} = transpileSource(`function test() {
       vec32<$v01> res, a;
-      a = invertHalf(a);
+      a = invert_half(a);
     }`, CONF);
 
     expect(warn).toBe("");
@@ -471,6 +471,21 @@ describe('Vector - Ops', () =>
   vrcph $v03.e7, $v03.e7
   vrcpl $v04.e7, $v04.e7
   vrcph $v03.e7, $v00.e7
+  jr $ra
+  nop`);
+  });
+
+  test('Invert-SQRT-Half (vec32)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec32<$v01> res, a;
+      a.x = invert_half_sqrt(a).x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vrsqh $v03.e0, $v03.e0
+  vrsql $v04.e0, $v04.e0
+  vrsqh $v03.e0, $v00.e0
   jr $ra
   nop`);
   });

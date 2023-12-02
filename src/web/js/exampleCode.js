@@ -309,8 +309,8 @@ command<4> T3DCmd_VertLoad(u32 offsetCount, u32 dramVerts)
     posNormInv.Z = posNorm.Z;
     posNormInv *= 128; // @TODO better depth
 
-    posNormInv.y = invertHalf(posNorm).w;
-    posNormInv.Y = invertHalf(posNorm).W;
+    posNormInv.y = invert_half(posNorm).w;
+    posNormInv.Y = invert_half(posNorm).W;
     posNormInv.x = posNorm.w; // backup raw W value
     posNormInv.X = posNorm.W;
 
@@ -326,7 +326,7 @@ command<4> T3DCmd_VertLoad(u32 offsetCount, u32 dramVerts)
 
     // perpective div.
     posNorm *= posNormInv.yyyyYYYY;
-    posNorm *= 2; // invertHalf to invert
+    posNorm *= 2; // invert_half to invert
 
     // clip-space to screen-space
     posNorm *= screenSize;

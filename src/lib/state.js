@@ -174,7 +174,8 @@ const state =
   declareVarAlias(aliasName, varName) {
     state.getRequiredVar(varName, "alias"); // check if varName exists
     const scope = state.getScope();
-    scope.varAliasMap[aliasName] = varName;
+    const realName = scope.varAliasMap[varName] || varName; // allow alias->alias
+    scope.varAliasMap[aliasName] = realName;
   },
 
   /**
