@@ -115,7 +115,19 @@ declare global
         label: string;
     };
 
-    type ASTStatement = ASTScopedBlock | ASTIf | ASTWhile | ASTDeclAssign | ASTDeclMulti | ASTDecl | ASTFuncCall | ASTComment | ASTDeclAlias | ASTAssignCalc | ASTLabelDecl | ASTGoto;
+    type ASTBreak = ASTStatementBase & {
+        type: 'break';
+        label: string;
+    };
+
+    type ASTContinue = ASTStatementBase & {
+        type: 'continue';
+        label: string;
+    };
+
+    type ASTStatement = ASTScopedBlock | ASTIf | ASTWhile | ASTDeclAssign | ASTDeclMulti
+        | ASTDecl | ASTFuncCall | ASTComment | ASTDeclAlias | ASTAssignCalc
+        | ASTLabelDecl | ASTGoto | ASTBreak | ASTContinue;
 
     type AST = {
         includes: string[];

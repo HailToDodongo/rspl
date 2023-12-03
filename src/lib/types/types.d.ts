@@ -18,6 +18,8 @@ declare global {
         varMap: Record<string, VarRegDef>;
         regVarMap: Record<string, string>;
         varAliasMap: Record<string, string>;
+        labelStart?: string;
+        labelEnd?: string;
     };
 
     type ScopeStack = Scope[];

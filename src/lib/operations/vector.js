@@ -12,7 +12,7 @@ import {
   SWIZZLE_MAP_KEYS_STR,
   SWIZZLE_SCALAR_IDX
 } from "../syntax/swizzle";
-import {f32ToFP32} from "../dataTypes/dataTypes.js";
+import {f32ToFP32, isTwoRegType} from "../dataTypes/dataTypes.js";
 import {asm} from "../intsructions/asmWriter.js";
 import opsScalar from "./scalar";
 
@@ -202,7 +202,7 @@ function opStore(varRes, varOffsets, isPackedByte = false, isSigned = true)
   }
 
   return [...opsLoad,
-          asm(storeInstr, [           varRes.reg,  srcOffset, baseOffset              , varLoc.reg]),
+          asm(storeInstr, [           varRes.reg,  srcOffset, baseOffset            , varLoc.reg]),
    is32 ? asm(storeInstr, [nextVecReg(varRes.reg), srcOffset, baseOffset + accessLen, varLoc.reg]) : null
   ];
 }
@@ -494,9 +494,44 @@ function opDiv(varRes, varLeft, varRight) {
   ];
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @param {CalcOp} op
+ * @returns {ASM[]}
+ */
+function opCompare(varRes, varLeft, varRight, op) {
+  if(isTwoRegType(varRes.type))state.throwError("Vector comparison can only use vec16!", varRes);
+  if(isTwoRegType(varLeft.type))state.throwError("Vector comparison can only use vec16!", varLeft);
+  if(isTwoRegType(varRight.type))state.throwError("Vector comparison can only use vec16!", varRight);
+  if(varRes.swizzle)state.throwError("Vector comparison result variable cannot use swizzle!", varRes);
+  if(varLeft.swizzle)state.throwError("Vector comparison left-side cannot use swizzle!", varLeft);
+
+  const ops = {
+    "<":  "vlt",
+    "==": "veq",
+    "!=": "vne",
+    ">=":  "vge",
+  };
+  const opInstr = ops[op];
+  if(!opInstr)state.throwError(`Unsupported comparison operator: ${op}, allowed: ${Object.keys(ops).join(", ")}`);
+
+  let swizzleRight = "";
+  if(varRight.swizzle) {
+    swizzleRight = SWIZZLE_MAP[varRight.swizzle];
+    if(!swizzleRight)state.throwError("Unsupported swizzle (supported: "+SWIZZLE_MAP_KEYS_STR+")!", varRes);
+  }
+
+  return [
+    asm(opInstr, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight]),
+  ];
+}
+
 export default {
   opMove, opLoad, opStore,
   opAdd, opSub, opMul, opInvertHalf, opInvertSqrtHalf, opDiv, opAnd, opOr, opXOR, opBitFlip,
   opShiftLeft, opShiftRight,
-  opLoadBytes, opStoreBytes
+  opLoadBytes, opStoreBytes,
+  opCompare,
 };

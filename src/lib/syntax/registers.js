@@ -2,6 +2,7 @@
 * @copyright 2023 - Max Bebök
 * @license Apache-2.0
 */
+import {isTwoRegType} from "../dataTypes/dataTypes.js";
 
 export const REG = {
   AT: "$at", ZERO: "$zero",
@@ -125,4 +126,24 @@ export function getVec32Regs(varRef) {
     return [REG.VZERO, varRef.reg];
   }
   return [varRef.reg, REG.VZERO];
+}
+
+/**
+ * Shorthand for getVec32Regs() in the context of assigment-calculations.
+ * Meaning the form: varRes = varLeft op varRight.
+ * This correctly handles casted vec32 L/R vars with an assignment to a vec16 var.
+ * @param varRes
+ * @param varLeft
+ * @param varRight
+ * @return {[string,string][]}
+ */
+export function getVec32RegsResLR(varRes, varLeft, varRight) {
+  const regsDst = getVec32Regs(varRes);
+  const regsL = getVec32Regs(varLeft);
+  const regsR = getVec32Regs(varRight);
+  if(!isTwoRegType(varRes.type)) {
+    regsL[0] = varLeft.reg;
+    regsR[0] = varRight.reg;
+  }
+  return [regsDst, regsL, regsR];
 }

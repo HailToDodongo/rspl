@@ -91,12 +91,24 @@ const state =
     return state.scopeStack[state.scopeStack.length - 1];
   },
 
-  pushScope() {
+  /**
+   * Push new scope to the scope stack.
+   * This can a function, if-else, loop or manual scope.
+   * @param {?string} labelStart
+   * @param {?string} labelEnd
+   */
+  pushScope(labelStart = undefined, labelEnd = undefined)
+  {
     const currScope = state.getScope();
+    labelStart = labelStart || (currScope ? currScope.labelStart : undefined);
+    labelEnd = labelEnd || (currScope ? currScope.labelEnd : undefined);
+
     state.scopeStack.push({
       varMap   : currScope ? {...currScope.varMap} : {},
       regVarMap: currScope ? {...currScope.regVarMap} : {},
       varAliasMap: currScope ? {...currScope.varAliasMap} : {},
+      labelStart,
+      labelEnd,
     });
     return undefined;
   },

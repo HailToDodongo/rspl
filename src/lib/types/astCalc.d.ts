@@ -60,5 +60,13 @@ declare global
         swizzleRight?: Swizzle;
     };
 
-    type ASTCalc = ASTCalcNum | ASTCalcVarNum | ASTCalcVar | ASTCalcFunc | ASTCalcVarVar;
+    type ASTCalcCompare = {
+        type: 'calcCompare';
+        left: string;
+        op: CalcOp;
+        right: string | number;
+        swizzleRight?: Swizzle;
+    };
+
+    type ASTCalc = ASTCalcNum | ASTCalcVarNum | ASTCalcVar | ASTCalcFunc | ASTCalcVarVar | ASTCalcCompare;
 }
