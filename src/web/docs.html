@@ -47,7 +47,6 @@ Types can be put into two categories: scalar-types and vector-types.<br></p>
 <li>Scalar: <code>u8</code>, <code>s8</code>, <code>u16</code>, <code>s16</code>, <code>u32</code>, <code>s32</code></li>
 <li>Vector: <code>vec16</code>, <code>vec32</code></li>
 </ul>
-<p>(@TODO: implement signed/unsigned/fraction vector types)</p>
 <p>Like with C, the emitted instructions for operations are dependent on the types involved.</p>
 <h3 id="vec32"><code>vec32</code></h3>
 <p>One special case is the type <code>vec32</code>, which is assumed to be a 16.16 32-bit vector.<br>
@@ -304,9 +303,11 @@ if(a &gt; 10) {
 <li>Arithmetic: <code>+</code>, <code>-</code>, <code>*</code>, <code>+*</code>, <code>/</code></li>
 <li>Bitwise: <code>&amp;</code>, <code>|</code>, <code>^</code>, <code>~</code></li>
 <li>Assignment: <code>=</code></li>
+<li>Compare: <code>&lt;</code>, <code>&gt;=</code>, <code>==</code>, <code>!=</code></li>
+<li>Ternary: <code>?:</code></li>
 </ul>
 <p>Note: Division is very expensive, since it will be converted to a multiplication with the inverse.<br>
-If you need the inverse, look at the <code>invertHalf()</code> builtin.<br></p>
+If you need the inverse, look at the <code>invert_half()</code> builtin.<br></p>
 <p>Due to the hardware using an accumulator for multiplication, there is a special operator <code>+*</code>.<br>
 This keeps the accumulator intact, allowing for multiple mul.+add. in a row.<br>
 As an example, you can use this to perform a matrix-vector multiplication:<br></p>
@@ -318,6 +319,40 @@ As an example, you can use this to perform a matrix-vector multiplication:<br></
 }
 </code></pre>
 <p>For basic operations, the usage is identical to scalars.<br></p>
+<h3 id="compare">Compare</h3>
+<p>In contrast to scalars, vectors have special comparison operators, only usable outside of <code>if</code>-statements.<br>
+These act like simple ternary/select instructions by first comparing the two vectors, and then storing the matching value in the destination.<br>
+To use different values than the ones used in the comparison, you can use the <code>select()</code> builtin.<br>
+Internally, comparisons keep the result stored in the <code>VCC_LO</code> register.</p>
+<blockquote>
+  <p><strong>Note:</strong>
+  Both compare and assignment are operating on each lane/component individually.<br></p>
+</blockquote>
+<p>Examples:</p>
+<pre><code class="c++ language-c++">vec16 res, a, b;
+// if true, stores 'a' into 'res', otherwise 'b'
+res = a &lt; b;
+// constant values (0 or 2^x) are also allowed
+res = a &gt;= 32;
+
+// full ternary:
+vec32 x, y;
+res = a != b; // (result can be ignored here)
+res = select(x, y); // uses 'x' if a != b, otherwise 'y'
+</code></pre>
+<h3 id="ternary">Ternary</h3>
+<p>As a shorthand for the compare +<code>select()</code> builtin, you can use the ternary operator <code>?:</code>.<br>
+Example:</p>
+<pre><code class="c++ language-c++">vec16 res, a, b;
+vec16 x, y;
+res = a &lt; b ? x : y;
+</code></pre>
+<p>This is equivalent to:</p>
+<pre><code class="c++ language-c++">vec16 res, a, b;
+vec16 x, y;
+dummy = a &lt; b;
+res = select(x, y);
+</code></pre>
 <h3 id="swizzle-1">Swizzle</h3>
 <p>Some operators can make use of swizzling, allowing for more complex operations.<br>
 You can however only use swizzling on the right-hand side of an operation.<br>
@@ -349,13 +384,31 @@ Examples:</p>
 swap(a, b); // swap two scalars
 swap(v0, v1); // swap two vectors
 </code></pre>
-<h3 id="inverthalfvecainvertveca"><code>invertHalf(vec a)</code> &amp; <code>invert(vec a)</code></h3>
+<h3 id="selectvecab"><code>select(vec a, b)</code></h3>
+<p>Selects between two vectors, based on the result of the last comparison.<br>
+This can be used to implement a ternary operator.<br>
+Note that this operates on each lane/component individually.<br></p>
+<p>Examples:</p>
+<pre><code class="c++ language-c++">vec16 a, b;
+vec32 res, dummy;
+
+dummy = a &lt; b; // compare, result doesn't matter here
+res = select(a, b); // 'a' if last comparison was true, otherwise 'b'
+res = select(a, 32); // constants are allowed too
+</code></pre>
+<h3 id="invert_halfvecainvertveca"><code>invert_half(vec a)</code> &amp; <code>invert(vec a)</code></h3>
 <p>Inverts a (single component of a) vector (<code>1 / x</code>).<br>
-The <code>invertHalf</code> version maps directly to the hardware instruction, returning <code>0.5 / x</code>.<br>
+The <code>invert_half</code> version maps directly to the hardware instruction, returning <code>0.5 / x</code>.<br>
 <code>invert</code> already multiplies the result by 2.</p>
 <p>Example:</p>
 <pre><code class="c++ language-c++">vec32 pos;
-posInv.w = invertHalf(pos).w;
+posInv.w = invert_half(pos).w;
+</code></pre>
+<h3 id="invert_half_sqrtveca"><code>invert_half_sqrt(vec a)</code></h3>
+<p>Inverted square-root a (single component of a) vector (<code>1 / sqrt(x)</code>).<br></p>
+<p>Example:</p>
+<pre><code class="c++ language-c++">vec32 pos;
+posSqrtInv.w = invert_half_sqrt(pos).w;
 </code></pre>
 <h3 id="loadu32addressoffset"><code>load(u32 address, offset, ...)</code></h3>
 <p>Loads a value from memory <code>address</code> into a register.<br>
@@ -413,3 +466,7 @@ store_vec_u8(color, ptrColor, 0x08);
 Example:</p>
 <pre><code class="c++ language-c++">asm("sll $a1, $s5, 5"); 
 </code></pre>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://emudev.org/2020/03/28/RSP.html" target="_blank">RSP Instruction Set</a></li>
+</ul>

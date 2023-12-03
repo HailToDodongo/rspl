@@ -58,8 +58,6 @@ Here is a list of all available types:
 - Scalar: `u8`, `s8`, `u16`, `s16`, `u32`, `s32`
 - Vector: `vec16`, `vec32`
 
-(@TODO: implement signed/unsigned/fraction vector types)
-
 Like with C, the emitted instructions for operations are dependent on the types involved.
 
 ### `vec32`
@@ -362,9 +360,11 @@ The following operations are available for vector types:
 - Arithmetic: `+`, `-`, `*`, `+*`, `/`
 - Bitwise: `&`, `|`, `^`, `~`
 - Assignment: `=`
+- Compare: `<`, `>=`, `==`, `!=`
+- Ternary: `?:`
 
 Note: Division is very expensive, since it will be converted to a multiplication with the inverse.<br>
-If you need the inverse, look at the `invertHalf()` builtin.<br>
+If you need the inverse, look at the `invert_half()` builtin.<br>
 
 Due to the hardware using an accumulator for multiplication, there is a special operator `+*`.<br>
 This keeps the accumulator intact, allowing for multiple mul.+add. in a row.<br>
@@ -378,6 +378,45 @@ macro matMulVec(vec32 mat0, vec32 mat1, vec32 mat2, vec32 mat3, vec16 vec, vec32
 }
 ```
 For basic operations, the usage is identical to scalars.<br>
+
+### Compare
+In contrast to scalars, vectors have special comparison operators, only usable outside of `if`-statements.<br>
+These act like simple ternary/select instructions by first comparing the two vectors, and then storing the matching value in the destination.<br>
+To use different values than the ones used in the comparison, you can use the `select()` builtin.<br>
+Internally, comparisons keep the result stored in the `VCC_LO` register.
+
+> **Note:**
+> Both compare and assignment are operating on each lane/component individually.<br>
+
+Examples:
+```c++
+vec16 res, a, b;
+// if true, stores 'a' into 'res', otherwise 'b'
+res = a < b;
+// constant values (0 or 2^x) are also allowed
+res = a >= 32;
+
+// full ternary:
+vec32 x, y;
+res = a != b; // (result can be ignored here)
+res = select(x, y); // uses 'x' if a != b, otherwise 'y'
+```
+
+### Ternary
+As a shorthand for the compare +`select()` builtin, you can use the ternary operator `?:`.<br>
+Example:
+```c++
+vec16 res, a, b;
+vec16 x, y;
+res = a < b ? x : y;
+```
+This is equivalent to:
+```c++
+vec16 res, a, b;
+vec16 x, y;
+dummy = a < b;
+res = select(x, y);
+```
 
 ### Swizzle
 Some operators can make use of swizzling, allowing for more complex operations.<br>
@@ -418,15 +457,39 @@ swap(a, b); // swap two scalars
 swap(v0, v1); // swap two vectors
 ```
 
-### `invertHalf(vec a)` & `invert(vec a)`
+### `select(vec a, b)`
+Selects between two vectors, based on the result of the last comparison.<br>
+This can be used to implement a ternary operator.<br>
+Note that this operates on each lane/component individually.<br>
+
+Examples:
+```c++
+vec16 a, b;
+vec32 res, dummy;
+
+dummy = a < b; // compare, result doesn't matter here
+res = select(a, b); // 'a' if last comparison was true, otherwise 'b'
+res = select(a, 32); // constants are allowed too
+```
+
+### `invert_half(vec a)` & `invert(vec a)`
 Inverts a (single component of a) vector (`1 / x`).<br>
-The `invertHalf` version maps directly to the hardware instruction, returning `0.5 / x`.<br>
+The `invert_half` version maps directly to the hardware instruction, returning `0.5 / x`.<br>
 `invert` already multiplies the result by 2.
 
 Example:
 ```c++
 vec32 pos;
-posInv.w = invertHalf(pos).w;
+posInv.w = invert_half(pos).w;
+```
+
+### `invert_half_sqrt(vec a)`
+Inverted square-root a (single component of a) vector (`1 / sqrt(x)`).<br>
+
+Example:
+```c++
+vec32 pos;
+posSqrtInv.w = invert_half_sqrt(pos).w;
 ```
 
 ### `load(u32 address, offset, ...)`
@@ -496,3 +559,6 @@ Example:
 ```c++
 asm("sll $a1, $s5, 5"); 
 ```
+
+## References
+- <a href="https://emudev.org/2020/03/28/RSP.html" target="_blank">RSP Instruction Set</a>

@@ -30,7 +30,7 @@ const rsplHighlightRules = function() {
   const keywords =
         [
           "state", "function", "command", "macro",
-          "if", "else", "for", "goto",
+          "if", "else", "for", "goto", "break", "continue",
           "include", "extern", "while",
 
           "s8","u8","s16","u16","s32","u32",
@@ -63,8 +63,8 @@ const rsplHighlightRules = function() {
     const functions = [
       "load", "store", "asm",
       "dma_in", "dma_out", "dma_size", "dma_in_async", "dma_out_async", "dma_await",
-      "invertHalf", "sint", "uint", "ufract", "sfract", "swap", "invert",
-      "load_vec_u8", "load_vec_s8", "store_vec_u8", "store_vec_s8"
+      "invert_half", "invert_half_sqrt", "sint", "uint", "ufract", "sfract", "swap", "invert",
+      "load_vec_u8", "load_vec_s8", "store_vec_u8", "store_vec_s8", "select"
     ].join("|");
 
     var keywordMapper = this.createKeywordMapper({

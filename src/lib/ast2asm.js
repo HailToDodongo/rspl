@@ -11,6 +11,8 @@ import {isVecReg, REG} from "./syntax/registers.js";
 import {asm, asmComment, asmLabel, asmNOP} from "./intsructions/asmWriter.js";
 import {opBranch} from "./operations/branch.js";
 import {callUserFunction} from "./operations/userFunction.js";
+import {isVecType} from "./dataTypes/dataTypes.js";
+import {POW2_SWIZZLE_VAR} from "./syntax/swizzle.js";
 
 const VECTOR_TYPES = ["vec16", "vec32"];
 
@@ -54,6 +56,24 @@ function calcToAsm(calc, varRes)
       const builtinFunc = builtins[calc.funcName];
       if(!builtinFunc)state.throwError("Unknown builtin: " + calc.funcName, calc);
       return builtinFunc(varRes, calc.args, calc.swizzleRight);
+    }
+
+    case "calcCompare": {
+      if(!isVecType(varRes.type))state.throwError("Compare calculations only allowed for vectors! (@TODO: add scalar support)", calc);
+
+      const varLeft = state.getRequiredVar(calc.left, "left", calc);
+      /** @type {ASTFuncArg} */
+      let varRight;
+
+      // right side of a compare can be a 2^x constant, resolve this back into a var
+      if(typeof (calc.right) === "number") {
+        varRight = POW2_SWIZZLE_VAR[calc.right + ""];
+        if(!varRight)state.throwError("Constant must be a power of two! " + calc.right, calc);
+      } else {
+        varRight = state.getRequiredVar(calc.right, "right", calc);
+        varRight.swizzle = calc.swizzleRight;
+      }
+      return opsVector.opCompare(varRes, varLeft, varRight, calc.op, calc.ternary);
     }
 
     default: state.throwError("Unknown calculation type: " + calc.type, calc);
@@ -149,7 +169,7 @@ function ifToASM(st)
 
   // ELSE-Block
   if(st.blockElse) {
-    state.pushScope();
+    state.pushScope(undefined, labelElse);
     res.push(asmLabel(labelElse), ...scopedBlockToASM(st.blockElse));
     state.popScope();
   }
@@ -185,7 +205,7 @@ function whileToASM(st)
   return [
     asmLabel(labelStart),
     ...opBranch(st.compare, labelEnd+"f"),
-    state.pushScope(),
+    state.pushScope(labelStart, labelEnd),
       ...scopedBlockToASM(st.block),
       asm("j", [labelStart+"b"]),
       asmNOP(),
@@ -264,6 +284,18 @@ function scopedBlockToASM(block, args = [])
       case "goto" : res.push(asm("j", [st.label]), asmNOP()); break;
       case "if"   : res.push(...ifToASM(st));           break;
       case "while": res.push(...whileToASM(st));        break;
+
+      case "break": {
+        const labelEnd = state.getScope().labelEnd;
+        if(!labelEnd)state.throwError("'break' cannot find a label to jump to!", st);
+        res.push(asm("j", [labelEnd+"f"]), asmNOP());
+      } break;
+
+      case "continue": {
+        const labelStart = state.getScope().labelStart;
+        if(!labelStart)state.throwError("'continue' cannot find a label to jump to!", st);
+        res.push(asm("j", [labelStart+"b"]), asmNOP());
+      } break;
 
       case "scopedBlock":
         state.pushScope();

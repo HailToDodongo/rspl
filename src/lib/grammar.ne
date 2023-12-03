@@ -82,6 +82,7 @@ const lexer = moo.compile({
 	OperatorUnary: [
 		"!", "~",
 	],
+	QuestionMark: '?',
 
 	BlockStart: "{",
 	BlockEnd  : "}",
@@ -242,7 +243,7 @@ ExprVarAssign -> ( %VarName %Swizzle:? _ (%Assignment | %OperatorSelfR) _ ExprCa
 })%}
 
 #### Calculations ####
-ExprCalcAll -> ExprCalcVarVar | ExprCalcVarNum | ExprCalcNum | ExprCalcVar | ExprCalcFunc
+ExprCalcAll -> ExprCalcVarVar | ExprCalcVarNum | ExprCalcNum | ExprCalcVar | ExprCalcFunc | ExprCalcCompare
 
 ExprCalcNum -> ValueNumeric {% d => ({type: "calcNum", right: d[0][0]}) %}
 
@@ -252,14 +253,14 @@ ExprCalcVar -> %OperatorUnary:? %VarName %Swizzle:? {% d => ({
 	right: d[1].value, swizzleRight: SAFE_VAL(d[2])
 })%}
 
-ExprCalcVarVar -> %VarName %Swizzle:? _ OperatorLR _ %VarName %Swizzle:? {% d => ({
+ExprCalcVarVar -> %VarName %Swizzle:? _ %OperatorLR _ %VarName %Swizzle:? {% d => ({
 	type: "calcVarVar",
 	left: d[0].value, swizzleLeft: SAFE_VAL(d[1]),
 	op: d[3].value,
 	right: d[5].value, swizzleRight: SAFE_VAL(d[6])
 })%}
 
-ExprCalcVarNum -> %VarName %Swizzle:? _ OperatorLR _ ValueNumeric {% d => ({
+ExprCalcVarNum -> %VarName %Swizzle:? _ %OperatorLR _ ValueNumeric {% d => ({
 	type: "calcVarNum",
 	left: d[0].value, swizzleLeft: SAFE_VAL(d[1]),
 	op: d[3].value,
@@ -273,7 +274,20 @@ ExprCalcFunc -> %VarName %ArgsStart _ FuncArgs:* _ %ArgsEnd %Swizzle:? {% d => (
 	swizzleRight: SAFE_VAL(d[6])
 })%}
 
-OperatorLR -> (%OperatorLR | %TypeStart | %TypeEnd) {% d => d[0][0] %} # "<" and ">" are overloaded (comparision & type-spec)
+ExprPartTernary -> _ %QuestionMark _ %VarName _ %Colon _ (%VarName | ValueNumeric) %Swizzle:? _ {% d => ({
+	left: d[3].value,
+	right: d[7][0].value || d[7][0][0],
+	swizzleRight: SAFE_VAL(d[8]),
+})%}
+
+ExprCalcCompare -> %VarName _ (%OperatorCompare | %TypeStart | %TypeEnd) _ (%VarName | ValueNumeric) %Swizzle:? ExprPartTernary:? {% d => ({
+	type: "calcCompare",
+	left: d[0].value,
+	right: d[4][0].value || d[4][0][0],
+	op: d[2][0].value,
+	swizzleRight: SAFE_VAL(d[5]),
+	ternary: d[6]
+})%}
 
 ######## Arguments ########
 FuncArgs -> FuncArg {% MAP_FIRST %}

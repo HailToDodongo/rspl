@@ -63,7 +63,7 @@ describe('Vector - Ops', () =>
     expect(asm).toBe(`test:
   vmov $v01.e0, $v30.e6
   vmov $v02.e0, $v30.e4
-  vxor $v03, $v03, $v03
+  vmov $v03.e0, $v00.e0
   jr $ra
   nop`);
   });
@@ -98,9 +98,25 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  mtc2 $zero, $v01.e0
-  mtc2 $zero, $v02.e0
-  mtc2 $zero, $v03.e0
+  vmov $v01.e0, $v00.e0
+  vmov $v02.e0, $v00.e0
+  vmov $v03.e0, $v00.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Assign (cast, swizzle, 0)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v01> a;
+      vec32<$v02> b;
+      a:sint.x = 0;
+      b:sfract.x = 0;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmov $v01.e0, $v00.e0
+  vmov $v03.e0, $v00.e0
   jr $ra
   nop`);
   });
@@ -427,7 +443,7 @@ describe('Vector - Ops', () =>
   test('Invert-Half (vec32)', () => {
     const {asm, warn} = transpileSource(`function test() {
       vec32<$v01> res, a;
-      a.x = invertHalf(a).x;
+      a.x = invert_half(a).x;
     }`, CONF);
 
     expect(warn).toBe("");
@@ -442,7 +458,7 @@ describe('Vector - Ops', () =>
   test('Invert-Half - all (vec32)', () => {
     const {asm, warn} = transpileSource(`function test() {
       vec32<$v01> res, a;
-      a = invertHalf(a);
+      a = invert_half(a);
     }`, CONF);
 
     expect(warn).toBe("");
@@ -471,6 +487,21 @@ describe('Vector - Ops', () =>
   vrcph $v03.e7, $v03.e7
   vrcpl $v04.e7, $v04.e7
   vrcph $v03.e7, $v00.e7
+  jr $ra
+  nop`);
+  });
+
+  test('Invert-SQRT-Half (vec32)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec32<$v01> res, a;
+      a.x = invert_half_sqrt(a).x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vrsqh $v03.e0, $v03.e0
+  vrsql $v04.e0, $v04.e0
+  vrsqh $v03.e0, $v00.e0
   jr $ra
   nop`);
   });

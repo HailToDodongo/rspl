@@ -12,13 +12,16 @@ import {
   SWIZZLE_MAP_KEYS_STR,
   SWIZZLE_SCALAR_IDX
 } from "../syntax/swizzle";
-import {f32ToFP32} from "../dataTypes/dataTypes.js";
+import {f32ToFP32, isTwoRegType} from "../dataTypes/dataTypes.js";
 import {asm} from "../intsructions/asmWriter.js";
 import opsScalar from "./scalar";
+import builtins from "../builtins/functions.js";
 
 /**
- * @param {ASTFuncArg} varRes
- * @param {ASTFuncArg} varRight
+ * Function to handle all possible forms of direct assignment.
+ * Scalar to vector, vector to vector, immediate-values, single lane-access, casting, ...
+ * @param {ASTFuncArg} varRes target
+ * @param {ASTFuncArg} varRight source
  * @returns {ASM[]}
  */
 function opMove(varRes, varRight)
@@ -57,10 +60,11 @@ function opMove(varRes, varRight)
   // Assigning an integer or float constant to a vector
   if(isConst) {
     // if the constant is a power of two, use the special vector reg to avoid a load...
-    const pow2 = POW2_SWIZZLE_VAR[varRight.value];
-    if(pow2) {
-      return [asm("vmov", [regDst[0] + swizzleRes, pow2.reg + SWIZZLE_MAP[pow2.swizzle]]),
-              asm("vxor", [regDst[1], regDst[1], regDst[1]]) // clear fractional part
+    const regPow2 = POW2_SWIZZLE_VAR[varRight.value];
+    const regZero = POW2_SWIZZLE_VAR[0]; // assigning an int to a vec32 needs to clear th fraction to zero
+    if(regPow2) {
+      return [asm("vmov", [regDst[0] + swizzleRes, regPow2.reg + SWIZZLE_MAP[regPow2.swizzle]]),
+              asm("vmov", [regDst[1] + swizzleRes, regZero.reg + SWIZZLE_MAP[regZero.swizzle]]),
       ];
     }
     // ...otherwise load the constant into a scalar register and move
@@ -202,7 +206,7 @@ function opStore(varRes, varOffsets, isPackedByte = false, isSigned = true)
   }
 
   return [...opsLoad,
-          asm(storeInstr, [           varRes.reg,  srcOffset, baseOffset              , varLoc.reg]),
+          asm(storeInstr, [           varRes.reg,  srcOffset, baseOffset            , varLoc.reg]),
    is32 ? asm(storeInstr, [nextVecReg(varRes.reg), srcOffset, baseOffset + accessLen, varLoc.reg]) : null
   ];
 }
@@ -445,6 +449,38 @@ function opInvertHalf(varRes, varLeft) {
 /**
  * @param {ASTFuncArg} varRes
  * @param {ASTFuncArg} varLeft
+ * @returns {ASM[]}
+ */
+function opInvertSqrtHalf(varRes, varLeft) {
+
+  if(!varLeft.swizzle && !varRes.swizzle) {
+    const res = [];
+    for(const s of Object.keys(SWIZZLE_SCALAR_IDX)) {
+      res.push(...opInvertSqrtHalf({...varRes, swizzle: s}, {...varLeft, swizzle: s}));
+    }
+    return res;
+  }
+
+  if(!varLeft.swizzle || !varRes.swizzle) {
+    state.throwError("Builtin invert_sqrt() needs swizzling either on both sides or none (e.g.: 'res.y = invert_sqrt(res).x')!", varRes);
+  }
+  if(!isScalarSwizzle(varRes.swizzle) || !isScalarSwizzle(varLeft.swizzle)) {
+    return state.throwError("Swizzle on both sides must be single-lane! (.x to .W)");
+  }
+
+  const swizzleRes = SWIZZLE_MAP[varRes.swizzle || ""];
+  const swizzleArg = SWIZZLE_MAP[varLeft.swizzle || ""];
+
+  return [
+    asm("vrsqh", [      intReg(varRes) + swizzleRes,   intReg(varLeft) + swizzleArg]),
+    asm("vrsql", [    fractReg(varRes) + swizzleRes, fractReg(varLeft) + swizzleArg]),
+    asm("vrsqh", [      intReg(varRes) + swizzleRes,        REG.VZERO + swizzleArg]),
+  ];
+}
+
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
  * @param {ASTFuncArg} varRight
  * @returns {ASM[]}
  */
@@ -462,9 +498,52 @@ function opDiv(varRes, varLeft, varRight) {
   ];
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @param {CalcOp} op
+ * @param {?ASTTernary} ternary
+ * @returns {ASM[]}
+ */
+function opCompare(varRes, varLeft, varRight, op, ternary) {
+  if(!ternary && isTwoRegType(varRes.type))state.throwError("Vector comparison can only use vec16!", varRes);
+  if(isTwoRegType(varLeft.type))state.throwError("Vector comparison can only use vec16!", varLeft);
+  if(isTwoRegType(varRight.type))state.throwError("Vector comparison can only use vec16!", varRight);
+  if(varRes.swizzle)state.throwError("Vector comparison result variable cannot use swizzle!", varRes);
+  if(varLeft.swizzle)state.throwError("Vector comparison left-side cannot use swizzle!", varLeft);
+
+  const ops = {
+    "<":  "vlt",
+    "==": "veq",
+    "!=": "vne",
+    ">=":  "vge",
+  };
+  const opInstr = ops[op];
+  if(!opInstr)state.throwError(`Unsupported comparison operator: ${op}, allowed: ${Object.keys(ops).join(", ")}`);
+
+  let swizzleRight = "";
+  if(varRight.swizzle) {
+    swizzleRight = SWIZZLE_MAP[varRight.swizzle];
+    if(!swizzleRight)state.throwError("Unsupported swizzle (supported: "+SWIZZLE_MAP_KEYS_STR+")!", varRes);
+  }
+
+  let regCompareDst = ternary ? REG.VTEMP0 : varRes.reg;
+  let res = [asm(opInstr, [regCompareDst, varLeft.reg, varRight.reg + swizzleRight])];
+
+  if(ternary) {
+    res.push(...builtins.select(varRes, [
+      {type: "var", value: ternary.left},
+      {type: typeof(ternary.right) === "number" ? "num" : "var", value: ternary.right},
+    ], ternary.swizzleRight));
+  }
+  return res;
+}
+
 export default {
   opMove, opLoad, opStore,
-  opAdd, opSub, opMul, opInvertHalf, opDiv, opAnd, opOr, opXOR, opBitFlip,
+  opAdd, opSub, opMul, opInvertHalf, opInvertSqrtHalf, opDiv, opAnd, opOr, opXOR, opBitFlip,
   opShiftLeft, opShiftRight,
-  opLoadBytes, opStoreBytes
+  opLoadBytes, opStoreBytes,
+  opCompare,
 };

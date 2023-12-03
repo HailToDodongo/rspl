@@ -91,12 +91,24 @@ const state =
     return state.scopeStack[state.scopeStack.length - 1];
   },
 
-  pushScope() {
+  /**
+   * Push new scope to the scope stack.
+   * This can a function, if-else, loop or manual scope.
+   * @param {?string} labelStart
+   * @param {?string} labelEnd
+   */
+  pushScope(labelStart = undefined, labelEnd = undefined)
+  {
     const currScope = state.getScope();
+    labelStart = labelStart || (currScope ? currScope.labelStart : undefined);
+    labelEnd = labelEnd || (currScope ? currScope.labelEnd : undefined);
+
     state.scopeStack.push({
       varMap   : currScope ? {...currScope.varMap} : {},
       regVarMap: currScope ? {...currScope.regVarMap} : {},
       varAliasMap: currScope ? {...currScope.varAliasMap} : {},
+      labelStart,
+      labelEnd,
     });
     return undefined;
   },
@@ -174,7 +186,8 @@ const state =
   declareVarAlias(aliasName, varName) {
     state.getRequiredVar(varName, "alias"); // check if varName exists
     const scope = state.getScope();
-    scope.varAliasMap[aliasName] = varName;
+    const realName = scope.varAliasMap[varName] || varName; // allow alias->alias
+    scope.varAliasMap[aliasName] = realName;
   },
 
   /**

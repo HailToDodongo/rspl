@@ -40,6 +40,7 @@ export const SWIZZLE_SCALAR_IDX = {
 };
 
 export const POW2_SWIZZLE_VAR = {
+      0: {type: 'vec16', reg: REG.VZERO,   swizzle: 'x'},
       1: {type: 'vec16', reg: REG.VSHIFT,  swizzle: 'W'},
       2: {type: 'vec16', reg: REG.VSHIFT,  swizzle: 'Z'},
       4: {type: 'vec16', reg: REG.VSHIFT,  swizzle: 'Y'},

@@ -2,13 +2,13 @@
 * @copyright 2023 - Max Bebök
 * @license Apache-2.0
 */
-import {nextReg, REG, REGS_VECTOR} from "../syntax/registers";
+import {getVec32Regs, getVec32RegsResLR, nextReg, REG, REGS_VECTOR} from "../syntax/registers";
 import state from "../state";
 import opsScalar from "../operations/scalar";
 import opsVector from "../operations/vector";
 import {asm, asmNOP} from "../intsructions/asmWriter.js";
 import {isTwoRegType, isVecType, TYPE_SIZE} from "../dataTypes/dataTypes.js";
-import {SWIZZLE_MAP} from "../syntax/swizzle.js";
+import {POW2_SWIZZLE_VAR, SWIZZLE_MAP, SWIZZLE_MAP_KEYS_STR} from "../syntax/swizzle.js";
 import {DMA_FLAGS} from "./libdragon.js";
 
 function assertArgsNoSwizzle(args, offset = 0) {
@@ -190,18 +190,26 @@ function dma_await(varRes, args, swizzle) {
   return [asm("jal", ["DMAWaitIdle"]), asmNOP()];
 }
 
-function invertHalf(varRes, args, swizzle) {
+function invert_half(varRes, args, swizzle) {
   assertArgsNoSwizzle(args);
-  if(args.length !== 1)state.throwError("Builtin invertHalf() requires exactly one argument!", args[0]);
+  if(args.length !== 1)state.throwError("Builtin invert_half() requires exactly one argument!", args[0]);
   const varArg = state.getRequiredVar(args[0].value, "arg0");
-  if(!isVecType(varArg.type))state.throwError("Builtin invert() requires a vector argument!", args[0]);
+  if(!isVecType(varArg.type))state.throwError("Builtin invert_half() requires a vector argument!", args[0]);
   return opsVector.opInvertHalf(varRes, {...varArg, swizzle});
+}
+
+function invert_half_sqrt(varRes, args, swizzle) {
+  assertArgsNoSwizzle(args);
+  if(args.length !== 1)state.throwError("Builtin invertSqrtHalf() requires exactly one argument!", args[0]);
+  const varArg = state.getRequiredVar(args[0].value, "arg0");
+  if(!isVecType(varArg.type))state.throwError("Builtin invertSqrtHalf() requires a vector argument!", args[0]);
+  return opsVector.opInvertSqrtHalf(varRes, {...varArg, swizzle});
 }
 
 function invert(varRes, args, swizzle) {
   assertArgsNoSwizzle(args);
-  if(swizzle)state.throwError("Builtin invert() cannot use swizzle, use invertHalf() instead and multiply manually", varRes);
-  const res = invertHalf(varRes, args, swizzle);
+  if(swizzle)state.throwError("Builtin invert() cannot use swizzle, use invert_half() instead and multiply manually", varRes);
+  const res = invert_half(varRes, args, swizzle);
   res.push(...opsVector.opMul(varRes, varRes, {type: "num", value: 2}, true));
   return res;
 }
@@ -244,9 +252,53 @@ function swap(varRes, args, swizzle) {
   return res;
 }
 
+/**
+ * ternary operator for vectors, uses the result of the last comparison
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg[]} args
+ * @param {?Swizzle} swizzle
+ */
+function select(varRes, args, swizzle) {
+  if(swizzle)state.throwError("Builtin select() cannot use swizzle (use swizzle on the second argument)!", varRes);
+  if(args.length !== 2)state.throwError("Builtin select() requires exactly two argument!", args);
+  if(args[0].swizzle)state.throwError("Builtin select() can only use swizzle on the second argument!", args[0]);
+
+  /** @type {ASTFuncArg} */
+  let varLeft;
+  /** @type {ASTFuncArg} */
+  let varRight;
+
+  if(args[0].type === "num") {
+    if(args[0].value !== 0)state.throwError("Builtin select() requires first argument to be a variable or '0'!", args[0]);
+    varLeft = {type: "vec16", reg: REG.VZERO};
+  } else {
+    varLeft = state.getRequiredVar(args[0].value, "arg0");
+  }
+
+  if(args[1].type === "num") {
+    varRight = POW2_SWIZZLE_VAR[args[1].value];
+    if(!varRight)state.throwError("The second arg. for select() must be a variable or power-of-two constant!");
+  } else {
+    varRight = state.getRequiredVar(args[1].value, "arg1");
+    varRight.swizzle = args[1].swizzle;
+  }
+
+  let swizzleRight = "";
+  if(varRight.swizzle) {
+    swizzleRight = SWIZZLE_MAP[varRight.swizzle];
+    if(!swizzleRight)state.throwError("Unsupported swizzle (supported: "+SWIZZLE_MAP_KEYS_STR+")!", varRight.swizzle);
+  }
+
+  const [regsDst, regsL, regsR] = getVec32RegsResLR(varRes, varLeft, varRight);
+  return [
+    asm("vmrg", [regsDst[0], regsL[0], regsR[0] + swizzleRight]),
+    asm("vmrg", [regsDst[1], regsL[1], regsR[1] + swizzleRight]),
+  ];
+}
+
 export default {
   load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
   asm: inlineAsm,
   dma_in, dma_out, dma_in_async, dma_out_async, dma_await,
-  invertHalf, invert, swap
+  invert_half, invert_half_sqrt, invert, swap, select
 };
