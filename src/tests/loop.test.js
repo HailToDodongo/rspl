@@ -65,4 +65,88 @@ describe('Loops', () =>
   jr $ra
   nop`);
   });
+
+  test('While Loop - Break', () => {
+    const {asm, warn} = transpileSource(`function test()
+    {
+      u32<$t0> i=0;
+      while(i<10) {
+        break;
+        i+=1;
+      }
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  or $t0, $zero, $zero
+  1:
+  sltiu $at, $t0, 10
+  beq $at, $zero, 2f
+  nop
+  j 2f
+  nop
+  addiu $t0, $t0, 1
+  j 1b
+  nop
+  2:
+  jr $ra
+  nop`);
+  });
+
+  test('While Loop - scoped Break', () => {
+    const {asm, warn} = transpileSource(`function test()
+    {
+      u32<$t0> i=0;
+      while(i<10) {
+        if(!i)break;
+        i+=1;
+      }
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  or $t0, $zero, $zero
+  1:
+  sltiu $at, $t0, 10
+  beq $at, $zero, 2f
+  nop
+  bne $t0, $zero, 3f
+  nop
+  j 2f
+  nop
+  3:
+  addiu $t0, $t0, 1
+  j 1b
+  nop
+  2:
+  jr $ra
+  nop`);
+  });
+
+  test('While Loop - Continue', () => {
+    const {asm, warn} = transpileSource(`function test()
+    {
+      u32<$t0> i=0;
+      while(i<10) {
+        continue;
+        i+=1;
+      }
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  or $t0, $zero, $zero
+  1:
+  sltiu $at, $t0, 10
+  beq $at, $zero, 2f
+  nop
+  j 1b
+  nop
+  addiu $t0, $t0, 1
+  j 1b
+  nop
+  2:
+  jr $ra
+  nop`);
+  });
 });

@@ -63,7 +63,7 @@ describe('Vector - Ops', () =>
     expect(asm).toBe(`test:
   vmov $v01.e0, $v30.e6
   vmov $v02.e0, $v30.e4
-  vxor $v03, $v03, $v03
+  vmov $v03.e0, $v00.e0
   jr $ra
   nop`);
   });
@@ -98,9 +98,25 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  mtc2 $zero, $v01.e0
-  mtc2 $zero, $v02.e0
-  mtc2 $zero, $v03.e0
+  vmov $v01.e0, $v00.e0
+  vmov $v02.e0, $v00.e0
+  vmov $v03.e0, $v00.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Assign (cast, swizzle, 0)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v01> a;
+      vec32<$v02> b;
+      a:sint.x = 0;
+      b:sfract.x = 0;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmov $v01.e0, $v00.e0
+  vmov $v03.e0, $v00.e0
   jr $ra
   nop`);
   });

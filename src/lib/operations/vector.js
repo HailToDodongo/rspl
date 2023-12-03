@@ -17,8 +17,10 @@ import {asm} from "../intsructions/asmWriter.js";
 import opsScalar from "./scalar";
 
 /**
- * @param {ASTFuncArg} varRes
- * @param {ASTFuncArg} varRight
+ * Function to handle all possible forms of direct assignment.
+ * Scalar to vector, vector to vector, immediate-values, single lane-access, casting, ...
+ * @param {ASTFuncArg} varRes target
+ * @param {ASTFuncArg} varRight source
  * @returns {ASM[]}
  */
 function opMove(varRes, varRight)
@@ -57,10 +59,11 @@ function opMove(varRes, varRight)
   // Assigning an integer or float constant to a vector
   if(isConst) {
     // if the constant is a power of two, use the special vector reg to avoid a load...
-    const pow2 = POW2_SWIZZLE_VAR[varRight.value];
-    if(pow2) {
-      return [asm("vmov", [regDst[0] + swizzleRes, pow2.reg + SWIZZLE_MAP[pow2.swizzle]]),
-              asm("vxor", [regDst[1], regDst[1], regDst[1]]) // clear fractional part
+    const regPow2 = POW2_SWIZZLE_VAR[varRight.value];
+    const regZero = POW2_SWIZZLE_VAR[0]; // assigning an int to a vec32 needs to clear th fraction to zero
+    if(regPow2) {
+      return [asm("vmov", [regDst[0] + swizzleRes, regPow2.reg + SWIZZLE_MAP[regPow2.swizzle]]),
+              asm("vmov", [regDst[1] + swizzleRes, regZero.reg + SWIZZLE_MAP[regZero.swizzle]]),
       ];
     }
     // ...otherwise load the constant into a scalar register and move
