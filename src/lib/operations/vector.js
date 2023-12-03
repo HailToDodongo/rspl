@@ -508,8 +508,8 @@ function opDiv(varRes, varLeft, varRight) {
  */
 function opCompare(varRes, varLeft, varRight, op, ternary) {
   if(!ternary && isTwoRegType(varRes.type))state.throwError("Vector comparison can only use vec16!", varRes);
-  if(isTwoRegType(varLeft.type))state.throwError("Vector comparison can only use vec16!", varLeft);
-  if(isTwoRegType(varRight.type))state.throwError("Vector comparison can only use vec16!", varRight);
+  if(varLeft.type !== "vec16")state.throwError("Vector comparison can only use vec16!", varLeft);
+  if(varRight.type !== "vec16")state.throwError("Vector comparison can only use vec16!", varRight);
   if(varRes.swizzle)state.throwError("Vector comparison result variable cannot use swizzle!", varRes);
   if(varLeft.swizzle)state.throwError("Vector comparison left-side cannot use swizzle!", varLeft);
 

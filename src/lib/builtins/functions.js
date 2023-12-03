@@ -283,6 +283,9 @@ function select(varRes, args, swizzle) {
     varRight.swizzle = args[1].swizzle;
   }
 
+  if(!isVecType(varLeft.type))state.throwError("select() can only use vector types as arguments!");
+  if(!isVecType(varRight.type))state.throwError("select() can only use vector types as arguments!");
+
   let swizzleRight = "";
   if(varRight.swizzle) {
     swizzleRight = SWIZZLE_MAP[varRight.swizzle];
