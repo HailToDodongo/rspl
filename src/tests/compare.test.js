@@ -118,4 +118,48 @@ describe('Comparison', () =>
   jr $ra
   nop`);
   });
+
+  test('Vector-Ternary (vec16)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v01> res, a, b;
+      vec16<$v10> x, y;
+      
+      res = x != y ? a : b; //
+      res = x != 4 ? a : 32; //
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vne $v27, $v10, $v11
+  vmrg $v01, $v02, $v03
+  ##
+  vne $v27, $v10, $v30.e5
+  vmrg $v01, $v02, $v30.e2
+  ##
+  jr $ra
+  nop`);
+  });
+
+  test('Vector-Ternary (vec32)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec32<$v01> res, a, b;
+      vec16<$v10> x, y;
+      
+      res = x != y ? a : b; //
+      res = x != 4 ? a : 32; //
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vne $v27, $v10, $v11
+  vmrg $v01, $v03, $v05
+  vmrg $v02, $v04, $v06
+  ##
+  vne $v27, $v10, $v30.e5
+  vmrg $v01, $v03, $v30.e2
+  vmrg $v02, $v04, $v00.e2
+  ##
+  jr $ra
+  nop`);
+  });
 });

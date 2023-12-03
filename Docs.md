@@ -58,8 +58,6 @@ Here is a list of all available types:
 - Scalar: `u8`, `s8`, `u16`, `s16`, `u32`, `s32`
 - Vector: `vec16`, `vec32`
 
-(@TODO: implement signed/unsigned/fraction vector types)
-
 Like with C, the emitted instructions for operations are dependent on the types involved.
 
 ### `vec32`
@@ -363,6 +361,7 @@ The following operations are available for vector types:
 - Bitwise: `&`, `|`, `^`, `~`
 - Assignment: `=`
 - Compare: `<`, `>=`, `==`, `!=`
+- Ternary: `?:`
 
 Note: Division is very expensive, since it will be converted to a multiplication with the inverse.<br>
 If you need the inverse, look at the `invert_half()` builtin.<br>
@@ -386,6 +385,9 @@ These act like simple ternary/select instructions by first comparing the two vec
 To use different values than the ones used in the comparison, you can use the `select()` builtin.<br>
 Internally, comparisons keep the result stored in the `VCC_LO` register.
 
+> **Note:**
+> Both compare and assignment are operating on each lane/component individually.<br>
+
 Examples:
 ```c++
 vec16 res, a, b;
@@ -398,6 +400,22 @@ res = a >= 32;
 vec32 x, y;
 res = a != b; // (result can be ignored here)
 res = select(x, y); // uses 'x' if a != b, otherwise 'y'
+```
+
+### Ternary
+As a shorthand for the compare +`select()` builtin, you can use the ternary operator `?:`.<br>
+Example:
+```c++
+vec16 res, a, b;
+vec16 x, y;
+res = a < b ? x : y;
+```
+This is equivalent to:
+```c++
+vec16 res, a, b;
+vec16 x, y;
+dummy = a < b;
+res = select(x, y);
 ```
 
 ### Swizzle
@@ -442,6 +460,7 @@ swap(v0, v1); // swap two vectors
 ### `select(vec a, b)`
 Selects between two vectors, based on the result of the last comparison.<br>
 This can be used to implement a ternary operator.<br>
+Note that this operates on each lane/component individually.<br>
 
 Examples:
 ```c++

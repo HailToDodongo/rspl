@@ -8,336 +8,215 @@ include "rdpq_macros.h"
 
 state
 {
-  extern u32 RDPQ_CMD_STAGING;
-
-  vec32 MAT_PROJ_DATA[1][2];
-  vec32 MAT_MODEL_DATA[8][2];
-
-  vec32 TRI2D_DATA[32];
-  vec16 TRI3D_DATA[32];
-
-  vec16 SCREEN_SIZE_VEC;
-
-  vec16 COLOR_AMBIENT;
-  vec16 LIGHT_DIR_COLOR;
-  vec16 LIGHT_DIR_VEC;
-
-  u32 CURRENT_MAT_ADDR;
+  vec32 OFFSET;
+  vec32 SCALE; 
+  
+  vec16 COLOR_BUFF[128];
+  u32 ITERATIONS;
 }
 
-function DMAIn(u32<$t0> size, u32<$t1> pitch, u32<$s0> rdram, u32<$s4> dmem);
-function RDPQ_Send(u32<$s4> buffStart, u32<$s3> buffEnd);
-function RDPQ_Finalize();
-
-function RDPQ_Triangle(
-  u32<$a0> triCmd,
-  u32<$a1> ptrVert0, u32<$a2> ptrVert1, u32<$a3> ptrVert2,
-  u32<$v0> cull, u32<$s3>buffOut
-);
-
-command<0> T3DCmd_TriDraw(u32 triCmd, u32 vert0)
+macro flushScreen(u32 ptrScreen, u32 copySize)
 {
-  u32<$s5> vertIdx = vert0;
-  u32<$s4> buffer = RDPQ_CMD_STAGING;
-  u32<$s3> buffEnd = buffer;
-
-  vert0 = vertIdx << 5;
-  vert0 &= 0x1FFF;
-  vert0 += TRI2D_DATA;
-
-  u32<$a2> vert1 = vertIdx >> 3;
-  vert1 &= 0x1FFF;
-  vert1 += TRI2D_DATA;
-
-  u32<$a3> vert2 = vertIdx >> 11;
-  vert2 &= 0x1FFF;
-  vert2 += TRI2D_DATA;
-
-  // may get overwritten by RDPQ_Triangle
-  u32<$k0> _vert0 = vert0;
-  u32<$k1> _vert2 = vert2;
-  u32<$s6> _triCmd = triCmd;
-
-  RDPQ_Triangle(triCmd, vert0, vert1, vert2, 2, buffEnd);
-
-  // single triangle has vert3 set to 0xFF
-  if(vertIdx < 0xFF000000)
-  {
-    vert0 = _vert2;
-    vert2 = _vert0;
-
-    vert1 = vertIdx >> 19;
-    vert1 &= 0x1FFF;
-    vert1 += TRI2D_DATA;
-
-    triCmd = _triCmd;
-    RDPQ_Triangle(triCmd, vert0, vert1, vert2, 2, buffEnd);
-  }
-
-  RDPQ_Send(buffer, buffEnd);
+  u32<$t0> dmaSize = copySize;
+  // async, the next time this data-slice is touched is in the next frame
+  dma_out_async(COLOR_BUFF, ptrScreen, dmaSize);
+  ptrScreen += copySize;
+  ptrScreen += copySize; // skip every other line
 }
 
-command<1> T3DCmd_SetScreenSize(u32 _, u32 sizeXY)
+macro complexMul(vec32 res, vec16 mask) 
 {
-  vec16 screenSize;
-  u32 sizeX = sizeXY >> 16;
-  u32 sizeY = sizeXY & 0xFFFF;
-
-  screenSize.x = sizeX;
-  screenSize.y = sizeY;
-  screenSize.X = sizeX;
-  screenSize.Y = sizeY;
-
-  store(screenSize, SCREEN_SIZE_VEC);
-}
-
-command<5> T3DCmd_LightSet(u32 type, u32 rgba8, u32 dirXYZ)
-{
-  type &= 0xFF;
-  type *= 0x10; // type to offset
-  u32 addr = type + COLOR_AMBIENT;
-
-  // convert packed 8bit values into vector
-  store(rgba8, addr, 0x00);
-  store(rgba8, addr, 0x04);
-  vec16 color = load_vec_u8(addr);
-  store(color, addr);
-
-  if(dirXYZ) {
-    addr = LIGHT_DIR_VEC;
-    store(dirXYZ, addr, 0x00);
-    store(dirXYZ, addr, 0x04);
-    vec16 dirVec = load_vec_s8(addr);
-    store(dirVec, addr);
-  }
-}
-
-macro mulMat4Mat4(u32 addrOut, u32 addrMatL, u32 addrMatR)
-{
-  vec32 matL0 = load(addrMatL, 0x00).xyzwxyzw;
-  vec32 matL1 = load(addrMatL, 0x10).xyzwxyzw;
-  vec32 matL2 = load(addrMatL, 0x20).xyzwxyzw;
-  vec32 matL3 = load(addrMatL, 0x30).xyzwxyzw;
-
-  vec32 matR01, matR23;
-
-  matR01.xyzw = load(addrMatR, 0x00).xyzw;
-  matR01.XYZW = load(addrMatR, 0x10).xyzw;
-  matR23.xyzw = load(addrMatR, 0x20).xyzw;
-  matR23.XYZW = load(addrMatR, 0x30).xyzw;
-
-  vec32 tmp;
-  tmp    = matL0  * matR01.xxxxXXXX;
-  tmp    = matL1 +* matR01.yyyyYYYY;
-  tmp    = matL2 +* matR01.zzzzZZZZ;
-  matR01 = matL3 +* matR01.wwwwWWWW;
-
-  tmp    = matL0  * matR23.xxxxXXXX;
-  tmp    = matL1 +* matR23.yyyyYYYY;
-  tmp    = matL2 +* matR23.zzzzZZZZ;
-  matR23 = matL3 +* matR23.wwwwWWWW;
-
-  store(matR01.xyzw, addrOut, 0x00);
-  store(matR01.XYZW, addrOut, 0x10);
-  store(matR23.xyzw, addrOut, 0x20);
-  store(matR23.XYZW, addrOut, 0x30);
-}
-
-macro mulMat4Vec8(
-  vec32 mat0, vec32 mat1, vec32 mat2, vec32 mat3,
-  vec16 vec, vec32 out
-) {
-  out = mat0  * vec.xxxxXXXX;
-  out = mat1 +* vec.yyyyYYYY;
-  out = mat2 +* vec.zzzzZZZZ;
-  out = mat3 +* vec.wwwwWWWW;
-}
-
-macro dotXYZ(vec16 res, vec16 a, vec16 b)
-{
-  res:sfract = a * b;
-  vec16 tmp:sfract = res + res.yyyyYYYY;
-  res:sfract += tmp.zzzzZZZZ;
-}
-
-command<2> T3DCmd_MatSet(u32 typeIdx, u32 addressMat)
-{
-  u32 isModelMat = typeIdx & 0x0001'0000;
-  if(isModelMat)
-  {
-    u32<$s4> addrDst = typeIdx & 0xFF;
-    addrDst *= 0x40;
-    addrDst += MAT_MODEL_DATA;
-    store(addrDst, CURRENT_MAT_ADDR);
-
-    dma_in_async(addrDst, addressMat, 0x40);
-
-    u32 addrMul = typeIdx & 0xFF00;
-
-    // if set to 0xFF, mul. will default to the projection matrix...
-    if(addrMul == 0xFF00) {
-      addrMul = MAT_PROJ_DATA;
-    } else {
-      // ...otherise use the model matrix in the given slot
-      addrMul >>= 2; // (x >> 8) * 0x40
-      addrMul += MAT_MODEL_DATA;
-    }
-
-    dma_await();
-    mulMat4Mat4(addrDst, addrMul, addrDst);
-
-  } else {
-    dma_in(MAT_PROJ_DATA, addressMat, 0x40);
-  }
-}
-
-command<3> T3DCmd_MatRead(u32 _, u32 addressMat)
-{
-  dma_out(MAT_PROJ_DATA, addressMat);
-}
-
-macro loadCurrentMat(vec32 mat0, vec32 mat1, vec32 mat2, vec32 mat3)
-{
-  u32 address = load(CURRENT_MAT_ADDR);
-  mat0 = load(address, 0x00).xyzwxyzw;
-  mat1 = load(address, 0x10).xyzwxyzw;
-  mat2 = load(address, 0x20).xyzwxyzw;
-  mat3 = load(address, 0x30).xyzwxyzw;
-}
-
-macro storeVerts(u32 ptrDest, vec32 pos, vec32 depthAndW, vec16 uv, vec16 color)
-{
-  store(pos:sint.xy,    ptrDest, 0x00);
-  store(depthAndW.z,    ptrDest, 0x04); // Z
-  store_vec_u8(color.x, ptrDest, 0x08);
-  store(uv.xy,          ptrDest, 0x0C);
-  store(depthAndW.x,    ptrDest, 0x10); // W
-  store(depthAndW.y,    ptrDest, 0x14); // InvW
-
-  store(pos:sint.XY,    ptrDest, 0x20);
-  store(depthAndW.Z,    ptrDest, 0x24);
-  store_vec_u8(color.X, ptrDest, 0x28);
-  store(uv.XY,          ptrDest, 0x2C);
-  store(depthAndW.X,    ptrDest, 0x30);
-  store(depthAndW.Y,    ptrDest, 0x34);
-  ptrDest += 0x40;
-}
-
-macro loadNormals(vec16 norm, u32 prt3d)
-{
-  // Normals are stored as signed 5-bit values in a 16bit int (MSB unused).
-  // Load shifted (and unmasked) values into each register.
-  // Then perform masking and shifting on the entire vector at once.
-  u16 normInt = load(prt3d, 0x06);
-  norm.w = 0b11111; // mask
-
-  norm.z = normInt; normInt >>= 5;
-  norm.y = normInt; normInt >>= 5;
-  norm.x = normInt;
-
-  normInt = load(prt3d, 0x16);
-
-  norm.Z = normInt; normInt >>= 5;
-  norm.Y = normInt; normInt >>= 5;
-  norm.X = normInt;
-
-  norm &= norm.w;
-  norm *= 2048;
-}
-
-command<4> T3DCmd_VertLoad(u32 offsetCount, u32 dramVerts)
-{
-  u32<$t1> offset = offsetCount & 0xFF00;
-  offset >>= 3; // @TODO: use this parameter
-
-  offsetCount &= 0xFF;
-  u32<$t0> copySize = offsetCount << 5;
-
-  dma_in_async(TRI3D_DATA, dramVerts, copySize);
-
-  vec32 mat0, mat1, mat2, mat3;
-  loadCurrentMat(mat0, mat1, mat2, mat3);
-
-  vec16 screenSize = load(SCREEN_SIZE_VEC);
-  vec16 colorAmbient = load(COLOR_AMBIENT);
-
-  vec16 lightDirColor = load(LIGHT_DIR_COLOR);
-  vec16 lightDirVec   = load(LIGHT_DIR_VEC);
-
-  vec16 maskLR = 0;
-  maskLR.x = 0xFFFF; // use .xxxxXXXX to keep the left-half of a reg
-  maskLR.Y = 0xFFFF; // use .yyyyYYYY to keep the right-half of a reg
-
-  u32 prt3d = TRI3D_DATA;
-  u32 prt2d = TRI2D_DATA;
-
-  dma_await();
-
-  // Process all vertices and apply transformation & lighting.
-  // This always handles 2 vertices at once, most sitting in one register.
-  while(offsetCount != 0)
-  {
-    vec16 pos;
-    pos.x = load(prt3d, 0x00); pos.w = 1;
-    pos.X = load(prt3d, 0x10); pos.W = 1;
-
-    vec16 uv;
-    uv.xy = load(prt3d, 0x0C).xy;
-    uv.XY = load(prt3d, 0x1C).xy;
-
-    vec16 norm;
-    loadNormals(norm, prt3d);
+    vec32 resSq = res * res;
+    vec32 resSqDiff = resSq - resSq.yywwYYWW;
     
-    vec16 color = load_vec_u8(prt3d, 0x08);
-    {
-      vec16 colorTmp;
-      colorTmp.X = load_vec_u8(prt3d, 0x18); // (Load sadly wraps around)
-      color &= maskLR.xxxxXXXX;    // keep left-side of color...
-      colorTmp &= maskLR.yyyyYYYY; // right-side of colorTmp...
-      color |= colorTmp;           // and merge them together
-    }
+    vec32 res2 = res * res.xxzzXXZZ;
+    res2 += res2;
 
-    vec32 posNorm, posNormInv;
+    res = mask != 0 ? res2 : resSqDiff;
+}
 
-    // object-space to clip-spcae
-    mulMat4Vec8(mat0, mat1, mat2, mat3, pos, posNorm);
+macro mandelbrot(vec16 color, vec32 c, u32 maxIter, vec16 maskMulInv, u32 maskAllSet)
+{
+  vec32 res = 0;
+  s32 maskDone = 0;
+  u32 iteration = maxIter;
+  
+  while(iteration != 0) 
+  {
+    complexMul(res, maskMulInv);
+    res += c;
     
-    // @TODO: transform normals
+    // test if we can stop the loop
+    vec16 isOutside = res:uint + res:uint.yywwYYWW;
+    isOutside:sfract *= isOutside;
+    isOutside = isOutside < 1;
 
-    // calc. Z buffer value
-    posNormInv.z = posNorm.z;
-    posNormInv.Z = posNorm.Z;
-    posNormInv *= 128; // @TODO better depth
+    // 4 pixels are prcessed at the same time across lanes
+    // keep track which pixel is ready, and stop only if all are
+    s32 isOutsideA = isOutside.x;
+    s32 isOutsideB = isOutside.z;
+    s32 isOutsideC = isOutside.X;
+    s32 isOutsideD = isOutside.Z;
 
-    posNormInv.y = invert_half(posNorm).w;
-    posNormInv.Y = invert_half(posNorm).W;
-    posNormInv.x = posNorm.w; // backup raw W value
-    posNormInv.X = posNorm.W;
-
-    // lighting
+    if(isOutsideA) 
     {
-      vec16 lightDirScale, lightColor;
-      dotXYZ(lightDirScale, norm, lightDirVec);
-
-      lightColor:ufract = lightDirColor * lightDirScale.xxxxXXXX;
-      lightColor:ufract += colorAmbient;
-      color:ufract *= lightColor;
+      // only do this once per pixel to lock in the correct color
+      u32 isDone = maskDone & 0b0001;
+      if(!isDone) {
+        color.x = iteration;
+        maskDone |= 0b0001;
+        if(maskDone == maskAllSet)break;
+      }
     }
-
-    // perpective div.
-    posNorm *= posNormInv.yyyyYYYY;
-    posNorm *= 2; // invert_half to invert
-
-    // clip-space to screen-space
-    posNorm *= screenSize;
-    posNorm += screenSize;
-
-    storeVerts(prt2d, posNorm, posNormInv, uv, color);
-
-    prt3d += 0x20;
-    offsetCount -= 2;
+    
+    if(isOutsideB) 
+    {
+      u32 isDone = maskDone & 0b0010;
+      if(!isDone) {
+        color.z = iteration;
+        maskDone |= 0b0010;
+        if(maskDone == maskAllSet)break;
+      }
+    }
+    
+    if(isOutsideC) 
+    {
+      u32 isDone = maskDone & 0b0100;
+      if(!isDone) {
+        color.X = iteration;
+        maskDone |= 0b0100;
+        if(maskDone == maskAllSet)break;
+      }
+    }
+    
+    if(isOutsideD) 
+    {
+      u32 isDone = maskDone & 0b1000;
+      if(!isDone) {
+        color.Z = iteration;
+        maskDone |= 0b1000;
+        if(maskDone == maskAllSet)break;
+      }
+    }
+  
+    iteration -= 4096; // 1 << 12
   }
 }
+
+command<0> Cmd_Render(u32 ptrScreen, u32 sizeXY, u32 isOddLine)
+{
+  u32<$s4> _; // reserved for dma stuff
+  
+  u32 maxIter = load(ITERATIONS);
+  s32 sizeY = sizeXY & 0xFFFF;
+  
+  // bytes to copy per batch, a batch is a screen-line
+  u32 copySize = sizeXY >> 16;
+  copySize *= 2; // 2-bytes per pixel
+  
+  // internal buffer in DMEM, start/end for a single batch
+  u32 colorBuff = COLOR_BUFF;
+  u32 colorBuffEnd = colorBuff + copySize;
+  
+  vec32 posScale = load(SCALE);
+  vec32 offset = load(OFFSET);
+  
+  vec32 incX = 0;
+  incX:sint.x = 4;
+  incX:sint.z = 4;
+  incX:sint.X = 4;
+  incX:sint.Z = 4;
+  
+  vec32 incY = 0;
+  incY:sint.y = 2;
+  incY:sint.w = 2;
+  incY:sint.Y = 2;
+  incY:sint.W = 2;
+  
+  incX *= posScale;
+  incY *= posScale;
+
+  vec32 pos = 0;
+  //pos:sint.x = 0;
+  pos:sint.z = 1;
+  pos:sint.X = 2;
+  pos:sint.Z = 3;
+  
+  if(isOddLine) {
+    ptrScreen += copySize;
+    pos:sint.y = 1;
+    pos:sint.w = 1;
+    pos:sint.Y = 1;
+    pos:sint.W = 1;
+  }
+  
+  pos *= posScale;
+  pos += offset;
+
+  // mask used in complexMul()
+  vec16 maskMul = 0;
+  maskMul.y = 0xFFFF;
+  maskMul.w = maskMul.y;
+  maskMul.Y = maskMul.y;
+  maskMul.W = maskMul.y;
+  
+  u32 maskAllSet = 0b1111; // full per-pixel mask (4 at a time)
+  vec32 posOrgX = pos;
+
+  while(sizeY != 0)
+  {
+    while(colorBuff != colorBuffEnd)
+    {
+      vec16 color = 0;
+      mandelbrot(color, pos, maxIter, maskMul, maskAllSet);
+
+      store_vec_s8(color, colorBuff);
+      
+      colorBuff += 0x08;
+      pos += incX;
+    }
+    
+    flushScreen(ptrScreen, copySize);
+    
+    posOrgX += incY;
+    colorBuff = COLOR_BUFF;
+    sizeY -= 2;
+    pos = posOrgX;
+  }
+  
+}
+
+command<1> Cmd_SetScale(u32 iter, s32 scaleXY, s32 offsetX, s32 offsetY)
+{
+  vec32 scale = 0;
+  scale.x = scaleXY;
+  scale.y = scaleXY;
+  scale.z = scale.x;
+  scale.w = scale.y;
+  scale.X = scale.x;
+  scale.Y = scale.y;
+  scale.Z = scale.x;
+  scale.W = scale.y;
+  
+  store(scale, SCALE);
+  
+  vec32 offset = 0;
+  offset.x = offsetX;
+  offset.y = offsetY;
+  offset.z = offset.x;
+  offset.w = offset.y;
+  offset.X = offset.x;
+  offset.Y = offset.y;
+  offset.Z = offset.x;
+  offset.W = offset.y;
+  
+  store(offset, OFFSET);
+  
+  iter &= 0xFFFF;
+  iter <<= 12;
+  store(iter, ITERATIONS);
+}
+
 
 include "rsp_rdpq.inc"
 `;

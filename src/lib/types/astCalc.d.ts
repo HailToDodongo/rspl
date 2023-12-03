@@ -60,12 +60,19 @@ declare global
         swizzleRight?: Swizzle;
     };
 
+    type ASTTernary = {
+        left: string;
+        right: string;
+        swizzleRight?: Swizzle;
+    };
+
     type ASTCalcCompare = {
         type: 'calcCompare';
         left: string;
         op: CalcOp;
         right: string | number;
         swizzleRight?: Swizzle;
+        ternary?: ASTTernary
     };
 
     type ASTCalc = ASTCalcNum | ASTCalcVarNum | ASTCalcVar | ASTCalcFunc | ASTCalcVarVar | ASTCalcCompare;

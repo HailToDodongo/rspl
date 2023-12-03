@@ -274,12 +274,19 @@ ExprCalcFunc -> %VarName %ArgsStart _ FuncArgs:* _ %ArgsEnd %Swizzle:? {% d => (
 	swizzleRight: SAFE_VAL(d[6])
 })%}
 
-ExprCalcCompare -> %VarName _ (%OperatorCompare | %TypeStart | %TypeEnd) _ (%VarName | ValueNumeric) %Swizzle:? {% d => ({
+ExprPartTernary -> _ %QuestionMark _ %VarName _ %Colon _ (%VarName | ValueNumeric) %Swizzle:? _ {% d => ({
+	left: d[3].value,
+	right: d[7][0].value || d[7][0][0],
+	swizzleRight: SAFE_VAL(d[8]),
+})%}
+
+ExprCalcCompare -> %VarName _ (%OperatorCompare | %TypeStart | %TypeEnd) _ (%VarName | ValueNumeric) %Swizzle:? ExprPartTernary:? {% d => ({
 	type: "calcCompare",
 	left: d[0].value,
 	right: d[4][0].value || d[4][0][0],
 	op: d[2][0].value,
-	swizzleRight: SAFE_VAL(d[5])
+	swizzleRight: SAFE_VAL(d[5]),
+	ternary: d[6]
 })%}
 
 ######## Arguments ########

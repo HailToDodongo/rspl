@@ -47,7 +47,6 @@ Types can be put into two categories: scalar-types and vector-types.<br></p>
 <li>Scalar: <code>u8</code>, <code>s8</code>, <code>u16</code>, <code>s16</code>, <code>u32</code>, <code>s32</code></li>
 <li>Vector: <code>vec16</code>, <code>vec32</code></li>
 </ul>
-<p>(@TODO: implement signed/unsigned/fraction vector types)</p>
 <p>Like with C, the emitted instructions for operations are dependent on the types involved.</p>
 <h3 id="vec32"><code>vec32</code></h3>
 <p>One special case is the type <code>vec32</code>, which is assumed to be a 16.16 32-bit vector.<br>
@@ -305,6 +304,7 @@ if(a &gt; 10) {
 <li>Bitwise: <code>&amp;</code>, <code>|</code>, <code>^</code>, <code>~</code></li>
 <li>Assignment: <code>=</code></li>
 <li>Compare: <code>&lt;</code>, <code>&gt;=</code>, <code>==</code>, <code>!=</code></li>
+<li>Ternary: <code>?:</code></li>
 </ul>
 <p>Note: Division is very expensive, since it will be converted to a multiplication with the inverse.<br>
 If you need the inverse, look at the <code>invert_half()</code> builtin.<br></p>
@@ -324,6 +324,10 @@ As an example, you can use this to perform a matrix-vector multiplication:<br></
 These act like simple ternary/select instructions by first comparing the two vectors, and then storing the matching value in the destination.<br>
 To use different values than the ones used in the comparison, you can use the <code>select()</code> builtin.<br>
 Internally, comparisons keep the result stored in the <code>VCC_LO</code> register.</p>
+<blockquote>
+  <p><strong>Note:</strong>
+  Both compare and assignment are operating on each lane/component individually.<br></p>
+</blockquote>
 <p>Examples:</p>
 <pre><code class="c++ language-c++">vec16 res, a, b;
 // if true, stores 'a' into 'res', otherwise 'b'
@@ -335,6 +339,19 @@ res = a &gt;= 32;
 vec32 x, y;
 res = a != b; // (result can be ignored here)
 res = select(x, y); // uses 'x' if a != b, otherwise 'y'
+</code></pre>
+<h3 id="ternary">Ternary</h3>
+<p>As a shorthand for the compare +<code>select()</code> builtin, you can use the ternary operator <code>?:</code>.<br>
+Example:</p>
+<pre><code class="c++ language-c++">vec16 res, a, b;
+vec16 x, y;
+res = a &lt; b ? x : y;
+</code></pre>
+<p>This is equivalent to:</p>
+<pre><code class="c++ language-c++">vec16 res, a, b;
+vec16 x, y;
+dummy = a &lt; b;
+res = select(x, y);
 </code></pre>
 <h3 id="swizzle-1">Swizzle</h3>
 <p>Some operators can make use of swizzling, allowing for more complex operations.<br>
@@ -369,7 +386,8 @@ swap(v0, v1); // swap two vectors
 </code></pre>
 <h3 id="selectvecab"><code>select(vec a, b)</code></h3>
 <p>Selects between two vectors, based on the result of the last comparison.<br>
-This can be used to implement a ternary operator.<br></p>
+This can be used to implement a ternary operator.<br>
+Note that this operates on each lane/component individually.<br></p>
 <p>Examples:</p>
 <pre><code class="c++ language-c++">vec16 a, b;
 vec32 res, dummy;

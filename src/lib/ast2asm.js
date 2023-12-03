@@ -73,7 +73,7 @@ function calcToAsm(calc, varRes)
         varRight = state.getRequiredVar(calc.right, "right", calc);
         varRight.swizzle = calc.swizzleRight;
       }
-      return opsVector.opCompare(varRes, varLeft, varRight, calc.op);
+      return opsVector.opCompare(varRes, varLeft, varRight, calc.op, calc.ternary);
     }
 
     default: state.throwError("Unknown calculation type: " + calc.type, calc);

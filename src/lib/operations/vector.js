@@ -15,6 +15,7 @@ import {
 import {f32ToFP32, isTwoRegType} from "../dataTypes/dataTypes.js";
 import {asm} from "../intsructions/asmWriter.js";
 import opsScalar from "./scalar";
+import builtins from "../builtins/functions.js";
 
 /**
  * Function to handle all possible forms of direct assignment.
@@ -502,10 +503,11 @@ function opDiv(varRes, varLeft, varRight) {
  * @param {ASTFuncArg} varLeft
  * @param {ASTFuncArg} varRight
  * @param {CalcOp} op
+ * @param {?ASTTernary} ternary
  * @returns {ASM[]}
  */
-function opCompare(varRes, varLeft, varRight, op) {
-  if(isTwoRegType(varRes.type))state.throwError("Vector comparison can only use vec16!", varRes);
+function opCompare(varRes, varLeft, varRight, op, ternary) {
+  if(!ternary && isTwoRegType(varRes.type))state.throwError("Vector comparison can only use vec16!", varRes);
   if(isTwoRegType(varLeft.type))state.throwError("Vector comparison can only use vec16!", varLeft);
   if(isTwoRegType(varRight.type))state.throwError("Vector comparison can only use vec16!", varRight);
   if(varRes.swizzle)state.throwError("Vector comparison result variable cannot use swizzle!", varRes);
@@ -526,9 +528,16 @@ function opCompare(varRes, varLeft, varRight, op) {
     if(!swizzleRight)state.throwError("Unsupported swizzle (supported: "+SWIZZLE_MAP_KEYS_STR+")!", varRes);
   }
 
-  return [
-    asm(opInstr, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight]),
-  ];
+  let regCompareDst = ternary ? REG.VTEMP0 : varRes.reg;
+  let res = [asm(opInstr, [regCompareDst, varLeft.reg, varRight.reg + swizzleRight])];
+
+  if(ternary) {
+    res.push(...builtins.select(varRes, [
+      {type: "var", value: ternary.left},
+      {type: typeof(ternary.right) === "number" ? "num" : "var", value: ternary.right},
+    ], ternary.swizzleRight));
+  }
+  return res;
 }
 
 export default {
