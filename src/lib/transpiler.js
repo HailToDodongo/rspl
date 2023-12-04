@@ -20,7 +20,7 @@ const grammar = nearly.Grammar.fromCompiled(grammarDef);
 function normalizeConfig(config)
 {
   if(config.rspqWrapper === undefined)config.rspqWrapper = true;
-  if(config.optimize    === undefined)config.optimize = true;
+  if(config.optimize    === undefined)config.optimize = false;
 }
 
 /**
