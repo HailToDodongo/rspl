@@ -15,6 +15,12 @@ const editor = createEditor("inputRSPL", loadSource());
 let currentDebug = {lineMap: {}};
 let lastLine = 0;
 
+/** @type {RSPLConfig} */
+let config = {
+  optimize: true,
+  rspqWrapper: true,
+};
+
 function getEditorLine() {
   return editor.getCursorPosition().row + 1;
 }
@@ -36,8 +42,6 @@ async function update()
     console.clear();
     const source = editor.getValue();
     saveSource(source);
-
-    const config = {optimize: true, rspqWrapper: true};
 
     console.time("transpile");
     const {asm, warn, info, debug} = transpileSource(source, config);
@@ -73,6 +77,16 @@ buttonCopyASM.onclick = async () => {
 
 buttonSaveASM.onclick = async () => {
   await saveToDevice("asm", outputASM.textContent);
+};
+
+optionOptimize.onchange = async () => {
+  config.optimize = optionOptimize.checked;
+  await update();
+};
+
+optionWrapper.onchange = async () => {
+  config.rspqWrapper = optionWrapper.checked;
+  await update();
 };
 
 update().catch(console.error);

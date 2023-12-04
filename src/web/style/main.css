@@ -66,7 +66,7 @@ code {
   border-radius: 10px;
 }
 
-pre {
+pre, .settings {
   width: 400px;
   max-height: 100%;
   
@@ -262,7 +262,6 @@ img#buttonCopyASM {
 #logOutput.error {
   border: 2px solid #db5656;
 }
-
 #footer {
   position: fixed;
   bottom: 0;
@@ -277,6 +276,19 @@ img#buttonCopyASM {
   padding-bottom: 6px;
   font-weight: bold;
   color: #858585;
+}
+
+.settings {
+  margin-left: 15px;
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings label {
+  user-select: none;
+  cursor: pointer;
 }
 
 #footer a {
