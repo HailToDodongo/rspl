@@ -19,7 +19,7 @@ function stringifyInstr(asm) {
 /**
  * Writes the ASM of all functions and the AST into a string.
  * @param {AST} ast
- * @param {Array} functionsAsm
+ * @param {ASMFunc[]} functionsAsm
  * @param {RSPLConfig} config
  * @returns {ASMOutput}
  */

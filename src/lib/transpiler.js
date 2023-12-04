@@ -9,6 +9,7 @@ import {astNormalizeFunctions} from "./astNormalize";
 import nearly from "nearley";
 import grammarDef from "./grammar.cjs";
 import state from "./state.js";
+import {normalizeASM} from "./asmNormalize.js";
 
 const grammar = nearly.Grammar.fromCompiled(grammarDef);
 
@@ -50,6 +51,10 @@ export function transpile(ast, config = {})
 
   ast.functions = astNormalizeFunctions(ast);
   const functionsAsm = ast2asm(ast);
+
+  for(const func of functionsAsm) {
+    normalizeASM(func);
+  }
 
   // @TODO: ASM to tree with register deps.
   // @TODO: optimize tree

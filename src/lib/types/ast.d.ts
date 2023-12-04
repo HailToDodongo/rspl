@@ -26,7 +26,6 @@ declare global
       resultType?: number;
       name: string;
       body: ASTScopedBlock;
-      asm: ASM[];
       args: ASTFuncArg[];
     };
 

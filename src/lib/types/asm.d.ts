@@ -2,6 +2,8 @@
  * NOTE: this project does NOT use TypeScript.
  * Types defined here are solely used by JSDoc.
  */
+import "./ast";
+
 declare global
 {
     type ASMType = number;
@@ -20,6 +22,11 @@ declare global
         comment?: string;
 
         debug: ASMDebug;
+    };
+
+    type ASMFunc = ASTFunc | {
+        asm: ASM[];
+        argSize: number;
     };
 
     type ASMOutputDebug = {

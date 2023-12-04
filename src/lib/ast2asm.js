@@ -319,8 +319,13 @@ function getArgSize(block)
   return Math.max(block.args.length * 4, 4);
 }
 
+/**
+ * @param {AST} ast
+ * @return {ASMFunc[]}
+ */
 export function ast2asm(ast)
 {
+  /** @type {ASMFunc[]} */
   const res = [];
 
   for(const stateVar of ast.state) {
