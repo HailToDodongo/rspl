@@ -55,6 +55,7 @@ const lexer = moo.compile({
 	KWExtern  : "extern",
 	KWContinue: "continue",
 	KWInclude : "include",
+	KWConst   : "const",
 
 	ValueHex: /0x[0-9A-F']+/,
 	ValueBin: /0b[0-1']+/,
@@ -183,21 +184,24 @@ WhileStatement -> _ %KWWhile _ %ArgsStart ExprCompare _ %ArgsEnd ScopedBlock {% 
 ######## Expressions ########
 LineComment -> _ %LineComment [\n] {% (d) => ({type: "comment", comment: d[1].value, line: d[1].line}) %}
 
-ExprVarDeclAssign -> (%DataType RegDef:? _ %VarName _ ExprPartAssign) {% d => ({
-	type: "varDeclAssign", varType: d[0][0].value,
-	reg: d[0][1], varName: d[0][3].value,
-	calc: d[0][5],
-	line: d[0][0].line
+ExprVarDeclAssign -> (%KWConst __):? %DataType RegDef:? _ %VarName _ ExprPartAssign {% d => ({
+	type: "varDeclAssign",
+	varType: d[1].value,
+	reg: d[2], varName: d[4].value,
+	calc: d[6],
+	isConst: !!d[0],
+	line: d[1].line
 })%}
 
 ExprPartAssign -> %Assignment _ ExprCalcAll {% d => d[2][0] %}
 
-ExprVarDecl -> (%DataType RegDef:? _ VarList) {% d => ({
+ExprVarDecl -> (%KWConst __):? %DataType RegDef:? _ VarList {% d => ({
 	type: "varDeclMulti",
-	varType: d[0][0].value,
-	reg: d[0][1],
-	varNames: FORCE_ARRAY(d[0][3]).map(x => x.value),
-	line: d[0][0].line
+	varType: d[1].value,
+	reg: d[2],
+	varNames: FORCE_ARRAY(d[4]).map(x => x.value),
+	isConst: !!d[0],
+	line: d[1].line
 })%}
 
 ExprFuncCall -> %VarName %ArgsStart _ FuncArgs:* %ArgsEnd  {% d => ({
@@ -317,3 +321,4 @@ ValueNumeric -> (
 )
 
 _ -> %_:* {% d => null %}
+__ -> %_:+ {% d => null %}

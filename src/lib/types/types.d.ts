@@ -12,6 +12,8 @@ declare global {
         reg: string;
         type: DataType;
         castType?: CastType;
+        isConst: boolean;
+        modifyCount: number;
     };
 
     type Scope = {

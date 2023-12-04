@@ -26,8 +26,8 @@ macro flushScreen(u32 ptrScreen, u32 copySize)
 
 macro complexMul(vec32 res, vec16 mask) 
 {
-    vec32 resSq = res * res;
-    vec32 resSqDiff = resSq - resSq.yywwYYWW;
+    const vec32 resSq = res * res;
+    const vec32 resSqDiff = resSq - resSq.yywwYYWW;
     
     vec32 res2 = res * res.xxzzXXZZ;
     res2 += res2;
@@ -53,10 +53,10 @@ macro mandelbrot(vec16 color, vec32 c, u32 maxIter, vec16 maskMulInv, u32 maskAl
 
     // 4 pixels are prcessed at the same time across lanes
     // keep track which pixel is ready, and stop only if all are
-    s32 isOutsideA = isOutside.x;
-    s32 isOutsideB = isOutside.z;
-    s32 isOutsideC = isOutside.X;
-    s32 isOutsideD = isOutside.Z;
+    const s32 isOutsideA = isOutside.x;
+    const s32 isOutsideB = isOutside.z;
+    const s32 isOutsideC = isOutside.X;
+    const s32 isOutsideD = isOutside.Z;
 
     if(isOutsideA) 
     {
@@ -107,7 +107,7 @@ command<0> Cmd_Render(u32 ptrScreen, u32 sizeXY, u32 isOddLine)
 {
   u32<$s4> _; // reserved for dma stuff
   
-  u32 maxIter = load(ITERATIONS);
+  const u32 maxIter = load(ITERATIONS);
   s32 sizeY = sizeXY & 0xFFFF;
   
   // bytes to copy per batch, a batch is a screen-line
@@ -116,10 +116,10 @@ command<0> Cmd_Render(u32 ptrScreen, u32 sizeXY, u32 isOddLine)
   
   // internal buffer in DMEM, start/end for a single batch
   u32 colorBuff = COLOR_BUFF;
-  u32 colorBuffEnd = colorBuff + copySize;
+  const u32 colorBuffEnd = colorBuff + copySize;
   
-  vec32 posScale = load(SCALE);
-  vec32 offset = load(OFFSET);
+  const vec32 posScale = load(SCALE);
+  const vec32 offset = load(OFFSET);
   
   vec32 incX = 0;
   incX:sint.x = 4;
@@ -160,7 +160,7 @@ command<0> Cmd_Render(u32 ptrScreen, u32 sizeXY, u32 isOddLine)
   maskMul.Y = maskMul.y;
   maskMul.W = maskMul.y;
   
-  u32 maskAllSet = 0b1111; // full per-pixel mask (4 at a time)
+  const u32 maskAllSet = 0b1111; // full per-pixel mask (4 at a time)
   vec32 posOrgX = pos;
 
   while(sizeY != 0)
@@ -216,7 +216,6 @@ command<1> Cmd_SetScale(u32 iter, s32 scaleXY, s32 offsetX, s32 offsetY)
   iter <<= 12;
   store(iter, ITERATIONS);
 }
-
 
 include "rsp_rdpq.inc"
 `;

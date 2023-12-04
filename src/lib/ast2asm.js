@@ -249,7 +249,7 @@ function scopedBlockToASM(block, args = [])
 
       case "varDecl": {
         const reg = st.reg || state.allocRegister(st.varType);
-        state.declareVar(st.varName, st.varType, reg);
+        state.declareVar(st.varName, st.varType, reg, st.isConst || false);
       } break;
 
       case "varDeclAlias":
@@ -261,9 +261,11 @@ function scopedBlockToASM(block, args = [])
         const varRes = structuredClone(
           state.getRequiredVar(st.varName, "result", st)
         );
-        varRes.swizzle = st.swizzle;
         if(!varRes)state.throwError("Destination Variable "+st.varName+" not known!", st);
+        if(varRes.isConst && varRes.modifyCount > 0)state.throwError("Cannot assign to constant variable!", st);
+        varRes.swizzle = st.swizzle;
 
+        state.markVarModified(st.varName);
         res.push(...calcToAsm(calc, varRes));
       } break;
 

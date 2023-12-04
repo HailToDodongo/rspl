@@ -64,6 +64,7 @@ declare global
         type: 'varDeclAssign';
         varName: string;
         calc: ASTCalc;
+        isConst: boolean;
     };
 
     type ASTDeclMulti = ASTStatementBase & {
@@ -71,6 +72,7 @@ declare global
         varNames: string[];
         reg: string;
         varType: DataType;
+        isConst: boolean;
     };
 
     type ASTDecl = ASTStatementBase & {
@@ -78,6 +80,7 @@ declare global
         varName: string;
         reg: string;
         varType: DataType;
+        isConst: boolean;
     };
 
     type ASTDeclAlias = ASTStatementBase & {

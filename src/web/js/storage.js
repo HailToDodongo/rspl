@@ -4,7 +4,7 @@
 */
 import {EXAMPLE_CODE} from "./exampleCode.js";
 
-const STORAGE_KEY = "lastCode02";
+const STORAGE_KEY = "lastCode03";
 const FILE_HANDLES = {};
 
 export function loadSource() {

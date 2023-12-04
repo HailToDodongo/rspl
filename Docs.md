@@ -116,6 +116,16 @@ varB = 42; // <- Error, no longer in scope
 The main use is to efficiently manage registers, since once out of scope, they are free to be re-used again.
 Note that calling a macro (explained later), creates an implicit scope for that exact reason.
 
+### Const
+Variables can be declared as const, allowing them to be initialized once, and then preventing any further writes.<br>
+This can be done by using the `const` keyword at the declaration.<br>
+Example:
+```c++
+const u32 a,b;
+const u32 c = a + b; // <- OK
+c += 10; // <- ERROR
+```
+
 ## Statements
 Code consists of a collection of statements.<br>
 A Statement can be a variables declaration, function call, calculation or control-structure.<br>

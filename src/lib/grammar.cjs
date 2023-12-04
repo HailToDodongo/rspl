@@ -59,6 +59,7 @@ const lexer = moo.compile({
 	KWExtern  : "extern",
 	KWContinue: "continue",
 	KWInclude : "include",
+	KWConst   : "const",
 
 	ValueHex: /0x[0-9A-F']+/,
 	ValueBin: /0b[0-1']+/,
@@ -216,25 +217,32 @@ var grammar = {
         	line: d[1].line
         })},
     {"name": "LineComment", "symbols": ["_", (lexer.has("LineComment") ? {type: "LineComment"} : LineComment), /[\n]/], "postprocess": (d) => ({type: "comment", comment: d[1].value, line: d[1].line})},
-    {"name": "ExprVarDeclAssign$subexpression$1$ebnf$1", "symbols": ["RegDef"], "postprocess": id},
-    {"name": "ExprVarDeclAssign$subexpression$1$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "ExprVarDeclAssign$subexpression$1", "symbols": [(lexer.has("DataType") ? {type: "DataType"} : DataType), "ExprVarDeclAssign$subexpression$1$ebnf$1", "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "_", "ExprPartAssign"]},
-    {"name": "ExprVarDeclAssign", "symbols": ["ExprVarDeclAssign$subexpression$1"], "postprocess":  d => ({
-        	type: "varDeclAssign", varType: d[0][0].value,
-        	reg: d[0][1], varName: d[0][3].value,
-        	calc: d[0][5],
-        	line: d[0][0].line
+    {"name": "ExprVarDeclAssign$ebnf$1$subexpression$1", "symbols": [(lexer.has("KWConst") ? {type: "KWConst"} : KWConst), "__"]},
+    {"name": "ExprVarDeclAssign$ebnf$1", "symbols": ["ExprVarDeclAssign$ebnf$1$subexpression$1"], "postprocess": id},
+    {"name": "ExprVarDeclAssign$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "ExprVarDeclAssign$ebnf$2", "symbols": ["RegDef"], "postprocess": id},
+    {"name": "ExprVarDeclAssign$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "ExprVarDeclAssign", "symbols": ["ExprVarDeclAssign$ebnf$1", (lexer.has("DataType") ? {type: "DataType"} : DataType), "ExprVarDeclAssign$ebnf$2", "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "_", "ExprPartAssign"], "postprocess":  d => ({
+        	type: "varDeclAssign",
+        	varType: d[1].value,
+        	reg: d[2], varName: d[4].value,
+        	calc: d[6],
+        	isConst: !!d[0],
+        	line: d[1].line
         })},
     {"name": "ExprPartAssign", "symbols": [(lexer.has("Assignment") ? {type: "Assignment"} : Assignment), "_", "ExprCalcAll"], "postprocess": d => d[2][0]},
-    {"name": "ExprVarDecl$subexpression$1$ebnf$1", "symbols": ["RegDef"], "postprocess": id},
-    {"name": "ExprVarDecl$subexpression$1$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "ExprVarDecl$subexpression$1", "symbols": [(lexer.has("DataType") ? {type: "DataType"} : DataType), "ExprVarDecl$subexpression$1$ebnf$1", "_", "VarList"]},
-    {"name": "ExprVarDecl", "symbols": ["ExprVarDecl$subexpression$1"], "postprocess":  d => ({
+    {"name": "ExprVarDecl$ebnf$1$subexpression$1", "symbols": [(lexer.has("KWConst") ? {type: "KWConst"} : KWConst), "__"]},
+    {"name": "ExprVarDecl$ebnf$1", "symbols": ["ExprVarDecl$ebnf$1$subexpression$1"], "postprocess": id},
+    {"name": "ExprVarDecl$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "ExprVarDecl$ebnf$2", "symbols": ["RegDef"], "postprocess": id},
+    {"name": "ExprVarDecl$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "ExprVarDecl", "symbols": ["ExprVarDecl$ebnf$1", (lexer.has("DataType") ? {type: "DataType"} : DataType), "ExprVarDecl$ebnf$2", "_", "VarList"], "postprocess":  d => ({
         	type: "varDeclMulti",
-        	varType: d[0][0].value,
-        	reg: d[0][1],
-        	varNames: FORCE_ARRAY(d[0][3]).map(x => x.value),
-        	line: d[0][0].line
+        	varType: d[1].value,
+        	reg: d[2],
+        	varNames: FORCE_ARRAY(d[4]).map(x => x.value),
+        	isConst: !!d[0],
+        	line: d[1].line
         })},
     {"name": "ExprFuncCall$ebnf$1", "symbols": []},
     {"name": "ExprFuncCall$ebnf$1", "symbols": ["ExprFuncCall$ebnf$1", "FuncArgs"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
@@ -374,7 +382,10 @@ var grammar = {
     {"name": "ValueNumeric", "symbols": ["ValueNumeric$subexpression$1"]},
     {"name": "_$ebnf$1", "symbols": []},
     {"name": "_$ebnf$1", "symbols": ["_$ebnf$1", (lexer.has("_") ? {type: "_"} : _)], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "_", "symbols": ["_$ebnf$1"], "postprocess": d => null}
+    {"name": "_", "symbols": ["_$ebnf$1"], "postprocess": d => null},
+    {"name": "__$ebnf$1", "symbols": [(lexer.has("_") ? {type: "_"} : _)]},
+    {"name": "__$ebnf$1", "symbols": ["__$ebnf$1", (lexer.has("_") ? {type: "_"} : _)], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "__", "symbols": ["__$ebnf$1"], "postprocess": d => null}
 ]
   , ParserStart: "main"
 }

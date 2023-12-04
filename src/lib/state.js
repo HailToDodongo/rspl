@@ -149,8 +149,9 @@ const state =
    * @param {string} name
    * @param {DataType} type
    * @param {string} reg
+   * @param {boolean} isConst
    */
-  declareVar: (name, type, reg) => {
+  declareVar: (name, type, reg, isConst = false) => {
     if(name.includes(":")) {
       state.throwError("Variable name cannot contain a cast (':')!", {name});
     }
@@ -172,7 +173,7 @@ const state =
         state.throwError(`Register '${allocReg}' already used for variable '${scope.regVarMap[allocReg]}'!`, {name});
       }
     }
-    scope.varMap[name] = {reg: allocRegs[0], type};
+    scope.varMap[name] = {reg: allocRegs[0], type, isConst, modifyCount: 0};
     for(const allocReg of allocRegs) {
       scope.regVarMap[allocReg] = name;
     }
@@ -238,6 +239,19 @@ const state =
     }
 
     return res;
+  },
+
+  /**
+   * Marks that a variable has been modified.
+   * @param {string} name
+   */
+  markVarModified: (name) => {
+    const scope = state.getScope();
+    let [nameNorm] = /** @type {[string, CastType]} */ name.split(":");
+    nameNorm = scope.varAliasMap[nameNorm] || nameNorm;
+    const varDef = scope.varMap[nameNorm];
+    if(!varDef)state.throwError("Variable "+name+" not known!");
+    varDef.modifyCount++;
   },
 
   /**
