@@ -33,7 +33,7 @@ function highlightASM(line)
   const lines = currentDebug.lineMap[line];
   if(!lines || !lines.length) return;
 
-  codeHighlightLines(outputASM, lines);
+  codeHighlightLines(outputASM, lines, currentDebug.lineDepMap);
 }
 
 async function update()

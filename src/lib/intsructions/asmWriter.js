@@ -18,6 +18,7 @@ function getDebugData() {
   return {
     lineRSPL: state.line,
     lineASM: 0,
+    lineDepsASM: [],
   };
 }
 

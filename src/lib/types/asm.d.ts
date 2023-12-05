@@ -11,6 +11,7 @@ declare global
     type ASMDebug = {
         lineASM: number;
         lineRSPL: number;
+        lineDepsASM: ASMDebug[];
     };
 
     type ASM = {
@@ -31,6 +32,7 @@ declare global
 
     type ASMOutputDebug = {
         lineMap: Record<number, number[]>;
+        lineDepMap: Record<number, number[]>;
     };
 
     type ASMOutput = {

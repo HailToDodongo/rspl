@@ -18,6 +18,7 @@ import mipsasm from 'highlight.js/lib/languages/mipsasm';
 import json from 'highlight.js/lib/languages/json';
 
 let highlightLines = [];
+let highlightLinesDeps = [];
 let currentAsmText = "";
 
 hljs.registerLanguage('mipsasm', mipsasm);
@@ -71,23 +72,49 @@ export function codeHighlightElem(elem, newText = undefined)
 /**
  * @param {HTMLElement} elem
  * @param {number[]|undefined} lines
+ * @param {Record<number,number[]>|undefined} linesDeps
  */
-export function codeHighlightLines(elem, lines = undefined)
+export function codeHighlightLines(elem, lines = undefined, linesDeps = undefined)
 {
     if(lines)highlightLines = lines;
+    if(linesDeps)highlightLinesDeps = linesDeps;
     let hMin = Infinity, hMax = -Infinity;
 
     // Create overlays and insert into DOM
     const ovl = document.getElementById("asmOverlay");
     const newElements = [];
-    for(const line of highlightLines) {
+
+    const addLine = (height) => {
       const lineElem = document.createElement("span");
-      const height = getLineHeight(line);
       hMin = Math.min(hMin, height);
       hMax = Math.max(hMax, height);
       lineElem.style.top = height + "px";
       newElements.push(lineElem);
+      return lineElem;
+    };
+
+    let i=1;
+    let posL = 50;
+    let width = 6;
+    for(const line of highlightLines) {
+      const lineHeight = getLineHeight(line);
+      addLine(lineHeight);
+      const deps = highlightLinesDeps[line] || [];
+
+      for(const dep of deps) {
+        const depLineHeight = getLineHeight(dep) + 6;
+        const elem = addLine(depLineHeight);
+        let relHeight = (lineHeight - depLineHeight + 4);
+        elem.classList.add("dep");
+        elem.style.left = (posL - (i*6)) + "px";
+        elem.style.width = (i*width) + "px";
+        elem.style.borderColor = "hsl(" + ((i*10543) % 360) + ",40%,50%)";
+        elem.style.height = relHeight + "px";
+        elem.style.zIndex = 1000 - relHeight;
+        ++i;
+      }
     }
+
     ovl.replaceChildren(...newElements);
 
     // Scroll to midpoint of all highlighted lines
