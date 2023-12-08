@@ -5,16 +5,17 @@
 import {isVecReg, REG} from "../syntax/registers.js";
 import {SWIZZLE_LANE_MAP} from "../syntax/swizzle.js";
 
-// ops that don't write to any register
-const READ_ONLY_OPS = ["beq", "bne", "j", "jr", "sb", "sh", "sw", "sqv"];
-// registers which can be considered constant, can be ignored for dependencies
-const CONST_REGS = [REG.ZERO, REG.VZERO, REG.VSHIFT, REG.VSHIFT8];
-
+// ops that save data to RAM, and only read from regs
 const SAVE_OPS = [
   "sw", "sh", "sb",
   "sbv", "ssv", "slv", "sdv", "sqv",
   "spv", "suv"
 ];
+
+// ops that don't write to any register
+const READ_ONLY_OPS = ["beq", "bne", "j", "jr", ...SAVE_OPS];
+// registers which can be considered constant, can be ignored for dependencies
+const CONST_REGS = [REG.ZERO, REG.VZERO, REG.VSHIFT, REG.VSHIFT8];
 
 /**
  * Expands vector registers into separate lanes.
@@ -96,16 +97,21 @@ export function asmToTree(asmFunc)
     });
   }
 
-  // for each instruction, map the source register to the last instruction that modified it
+  // for each instruction, map the source register to the last instruction that modified it.
+  // for target registers, map it to al previous instructions that read from it, until an earlier write is found.
   for(let i = 0; i < asmFunc.asm.length; ++i) {
     const deps = regDeps[i];
     const line = asmFunc.asm[i];
 
     let sourceRegs = [...deps.source];
+    let targetRegs = [...deps.target];
+    let targetRegsWrite = []; // filled if a reg in targetRegs is used by another write
+
     // go backwards through all instructions before...
     for(let b=i-1; b >= 0; --b) {
       const lastDeps = regDeps[b];
-      // check if any of out source registers is a destination of a previous instruction
+      // check if any of our source registers is a destination of a previous instruction
+      // (otherwise our read would see a different value if reordered)
       const matchingRegs = lastDeps.target.filter(x => sourceRegs.includes(x));
       if(matchingRegs.length)
       {
@@ -114,8 +120,20 @@ export function asmToTree(asmFunc)
 
         // we found a dependency, all matching registers can be removed for the next iteration
         sourceRegs = sourceRegs.filter(x => !matchingRegs.includes(x));
-        if(sourceRegs.length === 0)break;
       }
+
+      if(targetRegs.length) {
+        // check if any of our target registers is a source of a previous instruction
+        // (otherwise out write could change what the previous instruction(s) reads)
+        const matchingTargetRegs = lastDeps.source.filter(x => targetRegs.includes(x));
+        if(matchingTargetRegs.length)
+        {
+          line.debug.lineDepsASM.push(asmFunc.asm[b].debug);
+          //targetRegs = targetRegs.filter(x => !matchingTargetRegs.includes(x));
+        }
+      }
+
+      if(sourceRegs.length === 0 && targetRegs.length === 0)break;
     }
     console.log(line.op, deps.source, deps.target, deps.ref);
   }
