@@ -11,7 +11,7 @@ import grammarDef from "./grammar.cjs";
 import state from "./state.js";
 import {normalizeASM} from "./asmNormalize.js";
 import {optimizeASM} from "./optimizer/asmOptimizer.js";
-import {asmToTree} from "./optimizer/asmToTree.js";
+import {asmInitDeps, asmScanDeps} from "./optimizer/asmScanDeps.js";
 
 const grammar = nearly.Grammar.fromCompiled(grammarDef);
 
@@ -60,13 +60,14 @@ export function transpile(ast, config = {})
 
   if(config.optimize) {
     for(const func of functionsAsm) {
-     optimizeASM(func);
-     console.time("asmToTree");
-     asmToTree(func);
-      console.timeEnd("asmToTree");
-     // @TODO: ASM to tree with register deps.
-     // @TODO: optimize tree
-     // @TODO: flatten tree back into ASM
+      optimizeASM(func);
+
+      console.time("asmInitDeps");
+      asmInitDeps(func);
+      asmScanDeps(func);
+      console.timeEnd("asmInitDeps");
+
+      // @TODO: optimize tree
     }
   }
 

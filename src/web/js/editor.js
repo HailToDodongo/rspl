@@ -25,6 +25,14 @@ hljs.registerLanguage('mipsasm', mipsasm);
 hljs.registerLanguage('json', json);
 hljs.highlightAll();
 
+/**
+ * @param {number} i
+ * @return {string}
+ */
+function getRandColor(i, color = 30, brightness = 50) {
+  return "hsl(" + ((i*152+200) % 360) + ","+color+"%,"+brightness+"%)";
+}
+
 function getLineHeight(lineCount) {
   return 12 + (15 * lineCount);
 }
@@ -35,7 +43,7 @@ function getLineHeight(lineCount) {
  * @param {string} source
  * @return {Ace.Editor}
  */
-export function createEditor(id, source)
+export function createEditor(id, source, line = 0)
 {
     const editor = aceEdit(id);
     const mode = new modeGLSL.Mode();
@@ -51,6 +59,10 @@ export function createEditor(id, source)
     });
     editor.setValue(source);
     editor.clearSelection();
+
+    editor.gotoLine(line, 0, false);
+    setTimeout(() => editor.scrollToLine(line, false, false, () => {}), 10);
+
     return editor;
 }
 
@@ -93,26 +105,31 @@ export function codeHighlightLines(elem, lines = undefined, linesDeps = undefine
       return lineElem;
     };
 
-    let i=1;
-    let posL = 50;
-    let width = 6;
+    let posL = 42;
+    let width = 10;
+    let i=0;
     for(const line of highlightLines) {
       const lineHeight = getLineHeight(line);
-      addLine(lineHeight);
-      const deps = highlightLinesDeps[line] || [];
+      const elemMain = addLine(lineHeight);
+      elemMain.style.backgroundColor = getRandColor(i, 40, 28);
+      elemMain.innerText = line+"";
+      const deps = (highlightLinesDeps[line] || []);
 
-      for(const dep of deps) {
-        const depLineHeight = getLineHeight(dep) + 6;
-        const elem = addLine(depLineHeight);
-        let relHeight = (lineHeight - depLineHeight + 4);
+      if(deps.length > 0 && deps[0] !== deps[1])
+      {
+        const heightStart = getLineHeight(deps[0]) + 15;
+        const heightEnd = getLineHeight(deps[1]) - 6;
+        const elem = addLine(heightStart);
+        let relHeight = (heightEnd - heightStart+1);
+
         elem.classList.add("dep");
-        elem.style.left = (posL - (i*6)) + "px";
-        elem.style.width = (i*width) + "px";
-        elem.style.borderColor = "hsl(" + ((i*10543) % 360) + ",40%,50%)";
+        elem.style.left = (posL - i*width) + "px";
+        elem.style.width = ((i+1)*width) + "px";
+        elem.style.borderColor = getRandColor(i, 50);
         elem.style.height = relHeight + "px";
         elem.style.zIndex = 1000 - relHeight;
-        ++i;
       }
+      ++i;
     }
 
     ovl.replaceChildren(...newElements);

@@ -6,7 +6,7 @@ import {getVec32Regs, getVec32RegsResLR, nextReg, REG, REGS_VECTOR} from "../syn
 import state from "../state";
 import opsScalar from "../operations/scalar";
 import opsVector from "../operations/vector";
-import {asm, asmNOP} from "../intsructions/asmWriter.js";
+import {asm, asmInline, asmNOP} from "../intsructions/asmWriter.js";
 import {isTwoRegType, isVecType, TYPE_SIZE} from "../dataTypes/dataTypes.js";
 import {POW2_SWIZZLE_VAR, SWIZZLE_MAP, SWIZZLE_MAP_KEYS_STR} from "../syntax/swizzle.js";
 import {DMA_FLAGS} from "./libdragon.js";
@@ -108,7 +108,7 @@ function inlineAsm(varRes, args, swizzle) {
   if(args.length !== 1 || args[0].type !== "string") {
     state.throwError("Builtin asm() requires exactly one string argument!", args[0]);
   }
-  return [asm(args[0].value, ["# inline-ASM"])];
+  return [asmInline(args[0].value, ["# inline-ASM"])];
 }
 
 // Taken from libdragon

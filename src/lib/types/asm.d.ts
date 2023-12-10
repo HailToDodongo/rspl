@@ -11,7 +11,8 @@ declare global
     type ASMDebug = {
         lineASM: number;
         lineRSPL: number;
-        lineDepsASM: ASMDebug[];
+        reorderLineMin?: ASMDebug;
+        reorderLineMax?: ASMDebug;
     };
 
     type ASM = {
@@ -22,6 +23,8 @@ declare global
         label?: string;
         comment?: string;
 
+        depsSource: string[];
+        depsTarget: string[];
         debug: ASMDebug;
     };
 

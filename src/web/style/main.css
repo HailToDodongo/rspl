@@ -138,21 +138,29 @@ pre, .settings {
   height: 0;
 }
 
+.asmContainer pre {
+  background-color: #2D2D2D;
+}
+
 #outputASM {
   padding-left: 40px;
+  position: relative;
+  background: none;
 }
 
 #asmOverlay span {
   display: inline-block;
   width: calc(100% - 10px);
   height: 15px;
-  background-color: #868686;
+  background-color: #808080;
   position: absolute;
   top: 0;
   left: 0;
-  opacity: 0.2;
   pointer-events: none;
   user-select: none;
+  color: #181818;
+  text-align: right;
+  padding-right: 2px;
 }
 
 #asmOverlay span.dep {

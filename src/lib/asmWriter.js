@@ -100,27 +100,33 @@ export function writeASM(ast, functionsAsm, config)
   }
 
   for(const block of functionsAsm) {
-    if(["function", "command"].includes(block.type)) {
-      writeLine(block.name + ":");
-      for(const asm of block.asm)
-      {
-        asm.debug.lineASM = state.line;
-        const lineRSPL = asm.debug.lineRSPL;
-        if(!res.debug.lineMap[lineRSPL])res.debug.lineMap[lineRSPL] = [];
-        res.debug.lineMap[lineRSPL].push(state.line);
+    if(!["function", "command"].includes(block.type))continue;
 
-        if(!res.debug.lineDepMap[state.line])res.debug.lineDepMap[state.line] = [];
-        res.debug.lineDepMap[state.line].push(
-          ...asm.debug.lineDepsASM.map(asm => asm.lineASM)
-        );
+    const lineStart = state.line;
+    writeLine(block.name + ":");
 
-        switch (asm.type) {
-          case ASM_TYPE.OP     : writeLine(`  ${stringifyInstr(asm)}`);break;
-          case ASM_TYPE.LABEL  : writeLine(`  ${asm.label}:`);         break;
-          case ASM_TYPE.COMMENT: writeLine(`  ##${asm.comment}`);      break;
-          default: state.throwError("Unknown ASM type: " + asm.type, asm);
-        }
+    for(const asm of block.asm)
+    {
+      asm.debug.lineASM = state.line;
+      const lineRSPL = asm.debug.lineRSPL;
+      if(!res.debug.lineMap[lineRSPL])res.debug.lineMap[lineRSPL] = [];
+      res.debug.lineMap[lineRSPL].push(state.line);
+
+      switch (asm.type) {
+        case ASM_TYPE.INLINE:
+        case ASM_TYPE.OP     : writeLine(`  ${stringifyInstr(asm)}`);break;
+        case ASM_TYPE.LABEL  : writeLine(`  ${asm.label}:`);         break;
+        case ASM_TYPE.COMMENT: writeLine(`  ##${asm.comment}`);      break;
+        default: state.throwError("Unknown ASM type: " + asm.type, asm);
       }
+    }
+
+    for(const asm of block.asm)
+    {
+      res.debug.lineDepMap[asm.debug.lineASM] = [
+        asm.debug.reorderLineMin?.lineASM || lineStart,
+        asm.debug.reorderLineMax?.lineASM || state.line,
+      ];
     }
   }
 

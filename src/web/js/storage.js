@@ -16,6 +16,14 @@ export function saveSource(source) {
   localStorage.setItem(STORAGE_KEY, source);
 }
 
+export function saveLastLine(line) {
+  localStorage.setItem(STORAGE_KEY + "_line", line);
+}
+
+export function loadLastLine() {
+  return localStorage.getItem(STORAGE_KEY + "_line") || 0;
+}
+
 export async function saveToDevice(id, data, skipDialog = false)
 {
   if(!FILE_HANDLES[id]) {

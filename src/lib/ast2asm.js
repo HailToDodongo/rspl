@@ -345,6 +345,8 @@ export function ast2asm(ast)
       state.enterFunction(block.name, block.type);
 
       const blockAsm = scopedBlockToASM(block.body, block.args);
+      ++state.line;
+
       if(block.type === "command") {
         blockAsm.push(asm("j", ["RSPQ_Loop"]), asmNOP());
       } else {

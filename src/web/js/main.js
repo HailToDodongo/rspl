@@ -6,14 +6,14 @@
 import {transpile, transpileSource} from "../../lib/transpiler";
 import {debounce} from "./utils.js";
 import {codeHighlightElem, codeHighlightLines, createEditor} from "./editor.js";
-import {loadSource, saveSource, saveToDevice} from "./storage.js";
+import {loadLastLine, loadSource, saveLastLine, saveSource, saveToDevice} from "./storage.js";
 import {Log} from "./logger.js";
 
-const editor = createEditor("inputRSPL", loadSource());
-
 /** @type {ASMOutputDebug} */
-let currentDebug = {lineMap: {}};
-let lastLine = 0;
+let currentDebug = {lineMap: {}, lineDepMap: {}};
+let lastLine = loadLastLine();
+
+const editor = createEditor("inputRSPL", loadSource(), lastLine);
 
 /** @type {RSPLConfig} */
 let config = {
@@ -92,4 +92,8 @@ optionWrapper.onchange = async () => {
 update().catch(console.error);
 
 editor.getSession().on('change', debounce(update, 150));
-editor.getSession().selection.on('changeCursor', () => highlightASM(getEditorLine()));
+editor.getSession().selection.on('changeCursor', () => {
+  const line = getEditorLine();
+  highlightASM(line);
+  saveLastLine(line);
+});
