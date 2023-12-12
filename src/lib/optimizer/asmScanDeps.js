@@ -5,6 +5,7 @@
 import {isVecReg, REG} from "../syntax/registers.js";
 import {SWIZZLE_LANE_MAP} from "../syntax/swizzle.js";
 import {ASM_TYPE} from "../intsructions/asmWriter.js";
+import {difference, hasIntersection, intersect} from "../utils.js";
 
 // ops that save data to RAM, and only read from regs
 const STORE_OPS = [
@@ -188,6 +189,11 @@ export function asmInitDeps(asmFunc)
  * @return {boolean} true if there is a dependency
  */
 function checkAsmBackwardDep(asm, asmPrev) {
+  // stop at any label
+  if(asm.type !== ASM_TYPE.OP || asmPrev.type !== ASM_TYPE.OP) {
+    return true;
+  }
+
   // Don't reorder writes to RAM, this is an oversimplification.
   // For a more accurate check, the RAM location/size would need to be checked (if possible).
   const isLoad = LOAD_OPS.includes(asm.op);
@@ -206,11 +212,12 @@ function checkAsmBackwardDep(asm, asmPrev) {
     }
   }
 
-  // register based dependency check
-  return !!(
-     asmPrev.depsTarget.find(x => asm.depsSource.includes(x)) // prev. writes to our source
-  || asmPrev.depsSource.find(x => asm.depsTarget.includes(x)) // prev. reads from our target
-  || asmPrev.depsTarget.find(x => asm.depsTarget.includes(x))
+  // check if any of our source registers is a destination of a previous instruction, and the reserve.
+  // (otherwise our read would see a different value if reordered)
+  // (otherwise out write could change what the previous instruction(s) reads)
+  return (
+     hasIntersection(asmPrev.depsTarget, asm.depsSource) // prev. writes to our source
+  || hasIntersection(asmPrev.depsSource, asm.depsTarget) // prev. reads from our target
  );
 }
 
@@ -230,10 +237,42 @@ export function asmGetReorderRange(asmList, i)
 
   const minMax = [-1, asmList.length];
 
-  // there is chance out target register(s) where also written to by an instruction in between.
-  // This is ok if nothing reads from it, but if something does, we have to stop before the last write.
-  // @TODO: pre-scan
+  // Scan ahead...
+  const lastWrite = {};
+  for(let f=i+1; f < asmList.length; ++f) {
+    const asmNext = asmList[f];
 
+    // stop at a branch, we have to include the delay-slot
+    const asmLast = asmList[f-2];
+    const isBranch = asmLast && BRANCH_OPS.includes(asmLast.op);
+
+    if(isBranch || checkAsmBackwardDep(asmNext, asm)) {
+      // check if there was an instruction in between that wrote to one of our target registers.
+      // if true, fall-back to that position (otherwise register would contain wrong value)
+      let pos = f;
+      for(const reg of asm.depsTarget) {
+        if(lastWrite[reg] !== undefined) {
+          pos = Math.min(lastWrite[reg], pos);
+        }
+      }
+      minMax[1] = pos;
+      break;
+    }
+
+    // Remember the last write that occurs for each register, this is used to fall back if we stop at a read.
+    for(const reg of asmNext.depsTarget) {
+      lastWrite[reg] = f;
+    }
+  }
+
+  // collect all registers that where not overwritten by any instruction after us.
+  // these need to be checked for writes in the backwards-scan.
+  const writeCheckRegs = difference(asm.depsTarget, Object.keys(lastWrite));
+if(asm.op === "vmov") {
+  setTimeout(() => {
+  if(asm.debug.lineASM === 299)console.log(asm, writeCheckRegs, lastWrite);
+  }, 10);
+}
   // go backwards through all instructions before...
   for(let b=i-1; b >= 0; --b)
   {
@@ -243,26 +282,16 @@ export function asmGetReorderRange(asmList, i)
     const asmPrevPrev = asmList[b-1];
     const isBranch = asmPrevPrev && BRANCH_OPS.includes(asmPrevPrev.op);
 
-    // check if any of our source registers is a destination of a previous instruction, and the reserve.
-    // (otherwise our read would see a different value if reordered)
-    // (otherwise out write could change what the previous instruction(s) reads)
-    if(isBranch || asmPrev.type !== ASM_TYPE.OP || checkAsmBackwardDep(asm, asmPrev, false)) {
+if(asm.op === "vmov") {
+  setTimeout(() => {
+  if(asm.debug.lineASM === 299)console.log(b, asm, asmPrev.depsTarget, writeCheckRegs);
+  }, 10);
+}
+
+    if(isBranch || checkAsmBackwardDep(asm, asmPrev)
+      || hasIntersection(asmPrev.depsTarget, writeCheckRegs)
+    ) {
       minMax[0] = b;
-      break;
-    }
-  }
-
-  // Now scan ahead...
-  for(let f=i+1; f < asmList.length; ++f) {
-    const asmNext = asmList[f];
-
-    // stop at a branch, this time we have to include the delay-slot
-    const asmLast = asmList[f-2];
-    const isBranch = asmLast && BRANCH_OPS.includes(asmLast.op);
-
-    // Same logic as in the backwards-scan, but with reversed instructions.
-    if(isBranch || asmNext.type !== ASM_TYPE.OP || checkAsmBackwardDep(asmNext, asm, true)) {
-      minMax[1] = f;
       break;
     }
   }
