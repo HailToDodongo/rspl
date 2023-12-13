@@ -5,12 +5,12 @@
 
 import {transpile, transpileSource} from "../../lib/transpiler";
 import {debounce} from "./utils.js";
-import {codeHighlightElem, codeHighlightLines, createEditor} from "./editor.js";
+import {codeHighlightElem, codeHighlightLines, codeHighlightOptLines, createEditor} from "./editor.js";
 import {loadLastLine, loadSource, saveLastLine, saveSource, saveToDevice} from "./storage.js";
 import {Log} from "./logger.js";
 
 /** @type {ASMOutputDebug} */
-let currentDebug = {lineMap: {}, lineDepMap: {}};
+let currentDebug = {lineMap: {}, lineDepMap: {}, lineOptMap: {}};
 let lastLine = loadLastLine();
 
 const editor = createEditor("inputRSPL", loadSource(), lastLine);
@@ -34,6 +34,7 @@ function highlightASM(line)
   if(!lines || !lines.length) return;
 
   codeHighlightLines(outputASM, lines, currentDebug.lineDepMap);
+  codeHighlightOptLines(outputASMOpt, lines, currentDebug.lineOptMap);
 }
 
 async function update()
@@ -44,14 +45,15 @@ async function update()
     saveSource(source);
 
     console.time("transpile");
-    const {asm, warn, info, debug} = transpileSource(source, config);
+    const {asm, asmUnoptimized, warn, info, debug} = transpileSource(source, config);
     console.timeEnd("transpile");
     currentDebug = debug;
 
     Log.set(info);
     Log.append("Transpiled successfully!");
 
-    codeHighlightElem(outputASM, asm);
+    codeHighlightElem(outputASM, asmUnoptimized || asm);
+    codeHighlightElem(outputASMOpt, asm);
     await saveToDevice("asm", asm, true);
 
     highlightASM(getEditorLine());
@@ -68,7 +70,7 @@ async function update()
 
 buttonCopyASM.onclick = async () => {
   try {
-    await navigator.clipboard.writeText(outputASM.textContent);
+    await navigator.clipboard.writeText(outputASMOpt.textContent);
     Log.append("Copied to clipboard!");
   } catch (err) {
     console.error('Failed to copy: ', err);
@@ -76,7 +78,7 @@ buttonCopyASM.onclick = async () => {
 };
 
 buttonSaveASM.onclick = async () => {
-  await saveToDevice("asm", outputASM.textContent);
+  await saveToDevice("asm", outputASMOpt.textContent);
 };
 
 optionOptimize.onchange = async () => {

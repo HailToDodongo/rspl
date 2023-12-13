@@ -31,7 +31,7 @@ export function writeASM(ast, functionsAsm, config)
   /** @type {ASMOutput} */
   const res = {
     asm: "",
-    debug: {lineMap: {}, lineDepMap: {}},
+    debug: {lineMap: {}, lineDepMap: {}, lineOptMap: {}},
   };
 
   const writeLine = line => {
@@ -102,15 +102,20 @@ export function writeASM(ast, functionsAsm, config)
   for(const block of functionsAsm) {
     if(!["function", "command"].includes(block.type))continue;
 
-    const lineStart = state.line;
     writeLine(block.name + ":");
 
     for(const asm of block.asm)
     {
-      asm.debug.lineASM = state.line;
+      if(!asm.debug.lineASM) {
+        asm.debug.lineASM = state.line;
+      } else {
+        asm.debug.lineRSPLOpt = state.line;
+        res.debug.lineOptMap[asm.debug.lineASM] = asm.debug.lineRSPLOpt;
+      }
+
       const lineRSPL = asm.debug.lineRSPL;
       if(!res.debug.lineMap[lineRSPL])res.debug.lineMap[lineRSPL] = [];
-      res.debug.lineMap[lineRSPL].push(state.line);
+      res.debug.lineMap[lineRSPL].push(asm.debug.lineASM);
 
       switch (asm.type) {
         case ASM_TYPE.INLINE:
@@ -124,8 +129,8 @@ export function writeASM(ast, functionsAsm, config)
     for(const asm of block.asm)
     {
       res.debug.lineDepMap[asm.debug.lineASM] = [
-        asm.debug.reorderLineMin?.lineASM || lineStart,
-        asm.debug.reorderLineMax?.lineASM || state.line,
+        asm.debug.reorderLineMin?.lineASM || block.asm[0].debug.lineASM-1,
+        asm.debug.reorderLineMax?.lineASM || block.asm[block.asm.length-1].debug.lineASM+1,
       ];
     }
   }

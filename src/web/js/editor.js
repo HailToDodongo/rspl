@@ -19,7 +19,7 @@ import json from 'highlight.js/lib/languages/json';
 
 let highlightLines = [];
 let highlightLinesDeps = [];
-let currentAsmText = "";
+let highlightLineOptDeps = [];
 
 hljs.registerLanguage('mipsasm', mipsasm);
 hljs.registerLanguage('json', json);
@@ -68,9 +68,7 @@ export function createEditor(id, source, line = 0)
 
 export function codeHighlightElem(elem, newText = undefined)
 {
-  if(newText !== undefined)currentAsmText = newText;
-  elem.textContent = currentAsmText;
-
+  elem.textContent = newText;
   if(elem.dataset.highlighted) {
     delete elem.dataset.highlighted;
   }
@@ -79,6 +77,28 @@ export function codeHighlightElem(elem, newText = undefined)
   hljs.highlightElement(elem);
   console.timeEnd("highlight");
   codeHighlightLines(elem);
+}
+
+/**
+ *
+ * @param {HTMLElement} elem
+ * @param {number} hMin
+ * @param {number} hMax
+ */
+function scrollTo(elem, hMin, hMax)
+{
+  // Scroll to midpoint of all highlighted lines
+  const elemHeight = elem.parentElement.clientHeight;
+  let newScroll = (hMin + hMax) / 2;
+  newScroll = Math.max(0, newScroll - (elemHeight / 2));
+  if(isNaN(newScroll))return;
+
+  const oldScroll = elem.parentElement.scrollTop;
+  if(Math.abs(oldScroll - newScroll) > 200) {
+    elem.parentElement.scrollTo({top: newScroll, behavior: 'smooth'});
+  } else {
+    elem.parentElement.scrollTop = newScroll;
+  }
 }
 
 /**
@@ -98,19 +118,19 @@ export function codeHighlightLines(elem, lines = undefined, linesDeps = undefine
 
     const addLine = (height) => {
       const lineElem = document.createElement("span");
-      hMin = Math.min(hMin, height);
-      hMax = Math.max(hMax, height);
       lineElem.style.top = height + "px";
       newElements.push(lineElem);
       return lineElem;
     };
 
-    let posL = 42;
-    let width = 10;
+    let posL = 32;
+    let width = 8;
     let i=0;
     for(const line of highlightLines) {
       const lineHeight = getLineHeight(line);
       const elemMain = addLine(lineHeight);
+      hMin = Math.min(hMin, lineHeight);
+      hMax = Math.max(hMax, lineHeight);
       elemMain.style.backgroundColor = getRandColor(i, 40, 28);
       elemMain.innerText = line+"";
       const deps = (highlightLinesDeps[line] || []);
@@ -124,7 +144,7 @@ export function codeHighlightLines(elem, lines = undefined, linesDeps = undefine
 
         elem.classList.add("dep");
         elem.style.left = (posL - i*width) + "px";
-        elem.style.width = ((i+1)*width) + "px";
+        elem.style.width = (i*width+4) + "px";
         elem.style.borderColor = getRandColor(i, 50);
         elem.style.height = relHeight + "px";
         elem.style.zIndex = 1000 - relHeight;
@@ -135,15 +155,42 @@ export function codeHighlightLines(elem, lines = undefined, linesDeps = undefine
     ovl.replaceChildren(...newElements);
 
     // Scroll to midpoint of all highlighted lines
-    const elemHeight = elem.parentElement.clientHeight;
-    let newScroll = (hMin + hMax) / 2;
-    newScroll = Math.max(0, newScroll - (elemHeight / 2));
-    if(isNaN(newScroll))return;
+    scrollTo(elem, hMin, hMax);
+}
 
-    const oldScroll = elem.parentElement.scrollTop;
-    if(Math.abs(oldScroll - newScroll) > 200) {
-      elem.parentElement.scrollTo({top: newScroll, behavior: 'smooth'});
-    } else {
-      elem.parentElement.scrollTop = newScroll;
-    }
+/**
+ * @param {HTMLElement} elem
+ * @param {number[]|undefined} lines
+ * @param {Record<number,number[]>|undefined} linesDeps
+ */
+export function codeHighlightOptLines(elem, lines = undefined, linesOptMap = undefined)
+{
+  if(lines)highlightLines = lines;
+  if(linesOptMap)highlightLineOptDeps = linesOptMap;
+  let hMin = Infinity, hMax = -Infinity;
+
+  const ovl = document.getElementById("asmOptOverlay");
+  const newElements = [];
+
+  const addLine = (height) => {
+    const lineElem = document.createElement("span");
+    hMin = Math.min(hMin, height);
+    hMax = Math.max(hMax, height);
+    lineElem.style.top = height + "px";
+    lineElem.classList.add("opt");
+    newElements.push(lineElem);
+    return lineElem;
+  };
+
+  let i=0;
+  for(const line of highlightLines) {
+    const optLine = highlightLineOptDeps[line];
+    const lineHeight = getLineHeight(optLine);
+    const elemMain = addLine(lineHeight);
+    elemMain.style.backgroundColor = getRandColor(i, 40, 28);
+    elemMain.innerText = optLine+"";
+    ++i;
+  }
+  ovl.replaceChildren(...newElements);
+  scrollTo(elem, hMin, hMax);
 }

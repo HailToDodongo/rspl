@@ -58,7 +58,9 @@ export function transpile(ast, config = {})
     normalizeASM(func);
   }
 
+  let asmUnoptimized = "";
   if(config.optimize) {
+    asmUnoptimized = writeASM(ast, functionsAsm, config).asm;
     for(const func of functionsAsm) {
       optimizeASM(func);
 
@@ -71,10 +73,13 @@ export function transpile(ast, config = {})
     }
   }
 
+  console.time("writeASM");
   const {asm, debug} = writeASM(ast, functionsAsm, config);
+  console.timeEnd("writeASM");
 
   return {
     asm: asm.trimEnd(),
+    asmUnoptimized,
     debug,
     warn: state.outWarn,
     info: state.outInfo,

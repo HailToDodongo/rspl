@@ -11,6 +11,7 @@ declare global
     type ASMDebug = {
         lineASM: number;
         lineRSPL: number;
+        lineRSPLOpt: number;
         reorderLineMin?: ASMDebug;
         reorderLineMax?: ASMDebug;
     };
@@ -36,6 +37,7 @@ declare global
     type ASMOutputDebug = {
         lineMap: Record<number, number[]>;
         lineDepMap: Record<number, number[]>;
+        lineOptMap: Record<number, number>;
     };
 
     type ASMOutput = {

@@ -19,6 +19,7 @@ function getDebugData() {
   return {
     lineRSPL: state.line,
     lineASM: 0,
+    lineASMEnd: 0,
     reorderLineMin: undefined,
     reorderLineMax: undefined,
   };
