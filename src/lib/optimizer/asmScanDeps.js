@@ -238,9 +238,14 @@ export function asmGetReorderRange(asmList, i)
   const minMax = [-1, asmList.length];
 
   // Scan ahead...
-  const lastWrite = {};
+  let lastWrite = {};
+  const lastRead = {};
   for(let f=i+1; f < asmList.length; ++f) {
     const asmNext = asmList[f];
+
+    for(const reg of asmNext.depsSource) {
+      lastRead[reg] = f;
+    }
 
     // stop at a branch, we have to include the delay-slot
     const asmLast = asmList[f-2];
@@ -251,10 +256,11 @@ export function asmGetReorderRange(asmList, i)
       // if true, fall-back to that position (otherwise register would contain wrong value)
       let pos = f;
       for(const reg of asm.depsTarget) {
-        if(lastWrite[reg] !== undefined) {
+        if(lastWrite[reg] !== undefined && lastRead[reg] !== undefined) {
           pos = Math.min(lastWrite[reg], pos);
         }
       }
+
       minMax[1] = pos;
       break;
     }
@@ -268,11 +274,7 @@ export function asmGetReorderRange(asmList, i)
   // collect all registers that where not overwritten by any instruction after us.
   // these need to be checked for writes in the backwards-scan.
   const writeCheckRegs = difference(asm.depsTarget, Object.keys(lastWrite));
-if(asm.op === "vmov") {
-  setTimeout(() => {
-  if(asm.debug.lineASM === 299)console.log(asm, writeCheckRegs, lastWrite);
-  }, 10);
-}
+
   // go backwards through all instructions before...
   for(let b=i-1; b >= 0; --b)
   {
@@ -281,12 +283,6 @@ if(asm.op === "vmov") {
     // stop at the delay-slot of a branch, we cannot fill it backwards
     const asmPrevPrev = asmList[b-1];
     const isBranch = asmPrevPrev && BRANCH_OPS.includes(asmPrevPrev.op);
-
-if(asm.op === "vmov") {
-  setTimeout(() => {
-  if(asm.debug.lineASM === 299)console.log(b, asm, asmPrev.depsTarget, writeCheckRegs);
-  }, 10);
-}
 
     if(isBranch || checkAsmBackwardDep(asm, asmPrev)
       || hasIntersection(asmPrev.depsTarget, writeCheckRegs)
