@@ -17,11 +17,12 @@ export const ASM_TYPE = {
  */
 function getDebugData() {
   return {
-    lineRSPL: state.line,
     lineASM: 0,
-    lineASMEnd: 0,
-    reorderLineMin: undefined,
-    reorderLineMax: undefined,
+    lineRSPL: state.line,
+    lineASMOpt: 0,
+    reorderCount: 0,
+    reorderLineMin: 0,
+    reorderLineMax: 0,
   };
 }
 

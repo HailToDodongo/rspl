@@ -186,6 +186,7 @@ pre, .settings {
   text-align: right;
   height: 0;
   width: 100%;
+  z-index: 10;
 }
 
 .stickyOverlay > img:last-child {

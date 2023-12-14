@@ -10,7 +10,7 @@ import nearly from "nearley";
 import grammarDef from "./grammar.cjs";
 import state from "./state.js";
 import {normalizeASM} from "./asmNormalize.js";
-import {optimizeASM} from "./optimizer/asmOptimizer.js";
+import {asmOptimize, asmOptimizePattern} from "./optimizer/asmOptimizer.js";
 import {asmInitDeps, asmScanDeps} from "./optimizer/asmScanDeps.js";
 
 const grammar = nearly.Grammar.fromCompiled(grammarDef);
@@ -59,17 +59,19 @@ export function transpile(ast, config = {})
   }
 
   let asmUnoptimized = "";
-  if(config.optimize) {
+  if(config.optimize)
+  {
     asmUnoptimized = writeASM(ast, functionsAsm, config).asm;
     for(const func of functionsAsm) {
-      optimizeASM(func);
+      asmOptimizePattern(func);
 
       console.time("asmInitDeps");
       asmInitDeps(func);
-      asmScanDeps(func);
+      asmScanDeps(func); // debugging only
       console.timeEnd("asmInitDeps");
-
-      // @TODO: optimize tree
+      console.time("asmOptimize");
+      asmOptimize(func);
+      console.timeEnd("asmOptimize");
     }
   }
 

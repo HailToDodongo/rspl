@@ -8,28 +8,28 @@ import {ASM_TYPE} from "../intsructions/asmWriter.js";
 import {difference, hasIntersection, intersect} from "../utils.js";
 
 // ops that save data to RAM, and only read from regs
-const STORE_OPS = [
+export const STORE_OPS = [
   "sw", "sh", "sb",
   "sbv", "ssv", "slv", "sdv", "sqv",
   "spv", "suv"
 ];
 
 // ops that load from RAM, r/w register access
-const LOAD_OPS = [
+export const LOAD_OPS = [
   "lw", "lh", "lb",
   "lbv", "lsv", "llv", "ldv", "lqv",
   "lpv", "luv"
 ];
 
-const BRANCH_OPS = ["beq", "bne", "j", "jr", "jal"];
+export const BRANCH_OPS = ["beq", "bne", "j", "jr", "jal"];
 
 // ops that don't write to any register
-const READ_ONLY_OPS = [...BRANCH_OPS, ...STORE_OPS];
+export const READ_ONLY_OPS = [...BRANCH_OPS, ...STORE_OPS];
 // ops not allowed to be moved, other instructions can still be moved around them
-const IMMOVABLE_OPS = [...BRANCH_OPS, "nop"];
+export const IMMOVABLE_OPS = [...BRANCH_OPS, "nop"];
 
 // registers which can be considered constant, can be ignored for dependencies
-const CONST_REGS = [REG.ZERO, REG.VZERO, REG.VSHIFT, REG.VSHIFT8];
+export const CONST_REGS = [REG.ZERO, REG.VZERO, REG.VSHIFT, REG.VSHIFT8];
 
 // regs used by instructions, but not listed as arguments
 const HIDDEN_REGS_READ = {
@@ -301,7 +301,7 @@ export function asmScanDeps(asmFunc)
 {
   for(let i = 0; i < asmFunc.asm.length; ++i) {
     const minMax = asmGetReorderRange(asmFunc.asm, i);
-    asmFunc.asm[i].debug.reorderLineMin = asmFunc.asm[minMax[0]]?.debug;
-    asmFunc.asm[i].debug.reorderLineMax = asmFunc.asm[minMax[1]]?.debug;
+    asmFunc.asm[i].debug.reorderLineMin = asmFunc.asm[minMax[0]+1]?.debug.lineASM - 1;
+    asmFunc.asm[i].debug.reorderLineMax = asmFunc.asm[minMax[1]-1]?.debug.lineASM + 1;
   }
 }

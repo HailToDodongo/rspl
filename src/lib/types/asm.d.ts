@@ -11,9 +11,10 @@ declare global
     type ASMDebug = {
         lineASM: number;
         lineRSPL: number;
-        lineRSPLOpt: number;
-        reorderLineMin?: ASMDebug;
-        reorderLineMax?: ASMDebug;
+        lineASMOpt: number;
+        reorderCount: number;
+        reorderLineMin: number;
+        reorderLineMax: number;
     };
 
     type ASM = {

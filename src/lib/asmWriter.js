@@ -109,8 +109,8 @@ export function writeASM(ast, functionsAsm, config)
       if(!asm.debug.lineASM) {
         asm.debug.lineASM = state.line;
       } else {
-        asm.debug.lineRSPLOpt = state.line;
-        res.debug.lineOptMap[asm.debug.lineASM] = asm.debug.lineRSPLOpt;
+        asm.debug.lineASMOpt = state.line;
+        res.debug.lineOptMap[asm.debug.lineASM] = asm.debug.lineASMOpt;
       }
 
       const lineRSPL = asm.debug.lineRSPL;
@@ -128,10 +128,10 @@ export function writeASM(ast, functionsAsm, config)
 
     for(const asm of block.asm)
     {
-      res.debug.lineDepMap[asm.debug.lineASM] = [
-        asm.debug.reorderLineMin?.lineASM || block.asm[0].debug.lineASM-1,
-        asm.debug.reorderLineMax?.lineASM || block.asm[block.asm.length-1].debug.lineASM+1,
-      ];
+      if(!asm.debug.lineASMOpt)continue;
+      // @TODO: refactor from exl. to incl.
+      console.log(asm.debug.lineASM, [asm.debug.reorderLineMin, asm.debug.reorderLineMax]);
+      res.debug.lineDepMap[asm.debug.lineASM] = [asm.debug.reorderLineMin, asm.debug.reorderLineMax];
     }
   }
 
