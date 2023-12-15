@@ -75,9 +75,9 @@ export function transpile(ast, config = {})
     }
   }
 
-  console.time("writeASM");
+  //console.time("writeASM");
   const {asm, debug} = writeASM(ast, functionsAsm, config);
-  console.timeEnd("writeASM");
+  //console.timeEnd("writeASM");
 
   return {
     asm: asm.trimEnd(),
