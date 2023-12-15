@@ -35,11 +35,11 @@ export function asmOptimize(asmFunc)
     const reorderRange = asmGetReorderRange(asmFunc.asm, i);
 
     // check if we can move the instruction into a delay slot, this can only happen in the forward-direction.
-    const isDelaySlot = asmFunc.asm[reorderRange[1]-1]?.op === "nop";
+    const isDelaySlot = asmFunc.asm[reorderRange[1]]?.op === "nop";
     if(isDelaySlot) {
       //console.log("REORDER", asm.op, asm.debug.lineRSPL, reorderRange, isDelaySlot);
       ++asm.debug.reorderCount;
-      asmFunc.asm[reorderRange[1]-1] = asm;
+      asmFunc.asm[reorderRange[1]] = asm;
       asmFunc.asm.splice(i, 1);
     }
   }

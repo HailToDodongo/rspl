@@ -235,7 +235,7 @@ export function asmGetReorderRange(asmList, i)
     return [i, i];
   }
 
-  const minMax = [-1, asmList.length];
+  const minMax = [0, asmList.length-1];
 
   // Scan ahead...
   let lastWrite = {};
@@ -261,7 +261,7 @@ export function asmGetReorderRange(asmList, i)
         }
       }
 
-      minMax[1] = pos;
+      minMax[1] = pos-1;
       break;
     }
 
@@ -287,7 +287,7 @@ export function asmGetReorderRange(asmList, i)
     if(isBranch || checkAsmBackwardDep(asm, asmPrev)
       || hasIntersection(asmPrev.depsTarget, writeCheckRegs)
     ) {
-      minMax[0] = b;
+      minMax[0] = b+1;
       break;
     }
   }
@@ -301,7 +301,7 @@ export function asmScanDeps(asmFunc)
 {
   for(let i = 0; i < asmFunc.asm.length; ++i) {
     const minMax = asmGetReorderRange(asmFunc.asm, i);
-    asmFunc.asm[i].debug.reorderLineMin = asmFunc.asm[minMax[0]+1]?.debug.lineASM - 1;
-    asmFunc.asm[i].debug.reorderLineMax = asmFunc.asm[minMax[1]-1]?.debug.lineASM + 1;
+    asmFunc.asm[i].debug.reorderLineMin = asmFunc.asm[minMax[0]]?.debug.lineASM;
+    asmFunc.asm[i].debug.reorderLineMax = asmFunc.asm[minMax[1]]?.debug.lineASM;
   }
 }

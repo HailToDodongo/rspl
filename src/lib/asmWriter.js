@@ -129,7 +129,6 @@ export function writeASM(ast, functionsAsm, config)
     for(const asm of block.asm)
     {
       if(!asm.debug.lineASMOpt)continue;
-      // @TODO: refactor from exl. to incl.
       console.log(asm.debug.lineASM, [asm.debug.reorderLineMin, asm.debug.reorderLineMax]);
       res.debug.lineDepMap[asm.debug.lineASM] = [asm.debug.reorderLineMin, asm.debug.reorderLineMax];
     }

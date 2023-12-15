@@ -137,10 +137,10 @@ export function codeHighlightLines(elem, lines = undefined, linesDeps = undefine
 
       if(deps.length > 0 && deps[0] !== deps[1])
       {
-        const heightStart = getLineHeight(deps[0]) + 15;
-        const heightEnd = getLineHeight(deps[1]) - 6;
+        const heightStart = getLineHeight(deps[0]);
+        const heightEnd = getLineHeight(deps[1])+10;
         const elem = addLine(heightStart);
-        let relHeight = (heightEnd - heightStart+1);
+        let relHeight = (heightEnd - heightStart);
 
         elem.classList.add("dep");
         elem.style.left = (posL - i*width) + "px";
