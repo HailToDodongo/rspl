@@ -37,6 +37,13 @@ function getLineHeight(lineCount) {
   return 12 + (15 * lineCount);
 }
 
+export function clearHighlightCache()
+{
+  highlightLines = [];
+  highlightLinesDeps = [];
+  highlightLineOptDeps = [];
+}
+
 /**
  * Create a new RSPL editor
  * @param {string} id HTML id
@@ -113,7 +120,7 @@ export function codeHighlightLines(elem, lines = undefined, linesDeps = undefine
     let hMin = Infinity, hMax = -Infinity;
 
     // Create overlays and insert into DOM
-    const ovl = document.getElementById("asmOverlay");
+    const ovl = elem.parentElement.querySelector(".asmOverlay");
     const newElements = [];
 
     const addLine = (height) => {
@@ -169,7 +176,7 @@ export function codeHighlightOptLines(elem, lines = undefined, linesOptMap = und
   if(linesOptMap)highlightLineOptDeps = linesOptMap;
   let hMin = Infinity, hMax = -Infinity;
 
-  const ovl = document.getElementById("asmOptOverlay");
+  const ovl = elem.parentElement.querySelector(".asmOverlay");
   const newElements = [];
 
   const addLine = (height) => {

@@ -5,7 +5,13 @@
 
 import {transpile, transpileSource} from "../../lib/transpiler";
 import {debounce} from "./utils.js";
-import {codeHighlightElem, codeHighlightLines, codeHighlightOptLines, createEditor} from "./editor.js";
+import {
+  clearHighlightCache,
+  codeHighlightElem,
+  codeHighlightLines,
+  codeHighlightOptLines,
+  createEditor
+} from "./editor.js";
 import {loadLastLine, loadSource, saveLastLine, saveSource, saveToDevice} from "./storage.js";
 import {Log} from "./logger.js";
 
@@ -27,20 +33,29 @@ function getEditorLine() {
 
 function highlightASM(line)
 {
-  if(lastLine === line) return;
+  if(lastLine === line)return;
   lastLine = line;
 
   const lines = currentDebug.lineMap[line];
   if(!lines || !lines.length) return;
 
   codeHighlightLines(outputASM, lines, currentDebug.lineDepMap);
-  codeHighlightOptLines(outputASMOpt, lines, currentDebug.lineOptMap);
+  if(Object.keys(currentDebug.lineOptMap).length > 0) {
+    codeHighlightOptLines(outputASMOpt, lines, currentDebug.lineOptMap);
+  } else {
+    codeHighlightLines(outputASMOpt, lines, currentDebug.lineDepMap);
+  }
 }
 
-async function update()
+async function update(reset = false)
 {
   try {
     console.clear();
+    if(reset) {
+      clearHighlightCache();
+      lastLine = 0;
+    }
+
     const source = editor.getValue();
     saveSource(source);
 
@@ -52,8 +67,12 @@ async function update()
     Log.set(info);
     Log.append("Transpiled successfully!");
 
-    codeHighlightElem(outputASM, asmUnoptimized || asm);
+    outputASM.parentElement.parentElement.hidden = !config.optimize;
+    if(config.optimize) {
+      codeHighlightElem(outputASM, asmUnoptimized);
+    }
     codeHighlightElem(outputASMOpt, asm);
+
     await saveToDevice("asm", asm, true);
 
     highlightASM(getEditorLine());
@@ -83,12 +102,12 @@ buttonSaveASM.onclick = async () => {
 
 optionOptimize.onchange = async () => {
   config.optimize = optionOptimize.checked;
-  await update();
+  await update(true);
 };
 
 optionWrapper.onchange = async () => {
   config.rspqWrapper = optionWrapper.checked;
-  await update();
+  await update(true);
 };
 
 update().catch(console.error);
