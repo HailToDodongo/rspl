@@ -33,70 +33,74 @@ export const CONST_REGS = [REG.ZERO, REG.VZERO, REG.VSHIFT, REG.VSHIFT8];
 
 // regs used by instructions, but not listed as arguments
 const HIDDEN_REGS_READ = {
-  "vmrg": ["VCC"              ],
-  "vcl" : [       "VC0",      ],
-  "vmacf":[              "ACC"],
-  "vmacu":[              "ACC"],
-  "vmudn":[              "ACC"],
-  "vmadn":[              "ACC"],
-  "vmudl":[              "ACC"],
-  "vmadl":[              "ACC"],
-  "vmudm":[              "ACC"],
-  "vmadm":[              "ACC"],
-  "vmudh":[              "ACC"],
-  "vmadh":[              "ACC"],
-  "vrndp":[              "ACC"],
-  "vrndn":[              "ACC"],
-  "vmacq":[              "ACC"],
-  "vsar" :[              "ACC"],
-  "vrcph":[     "DIV_OUT"     ],
-  "vrcpl":[     "DIV_IN"      ],
-  "vrsql":[     "DIV_IN"      ],
+  "vlt" : [       "$VCO"       ],
+  "veq" : [       "$VCO"       ],
+  "vne" : [       "$VCO"       ],
+  "vge" : [       "$VCO"       ],
+  "vmrg": ["$VCC"              ],
+  "vcl" : [       "$VCO",      ],
+  "vmacf":[              "$ACC"],
+  "vmacu":[              "$ACC"],
+  "vmudn":[              "$ACC"],
+  "vmadn":[              "$ACC"],
+  "vmudl":[              "$ACC"],
+  "vmadl":[              "$ACC"],
+  "vmudm":[              "$ACC"],
+  "vmadm":[              "$ACC"],
+  "vmudh":[              "$ACC"],
+  "vmadh":[              "$ACC"],
+  "vrndp":[              "$ACC"],
+  "vrndn":[              "$ACC"],
+  "vmacq":[              "$ACC"],
+  "vsar" :[              "$ACC"],
+  "vrcph":[    "$DIV_OUT"      ],
+  "vrcpl":[    "$DIV_IN"       ],
+  "vrsql":[    "$DIV_IN"       ],
 };
 
 // regs written by instructions, but not listed as arguments
 const HIDDEN_REGS_WRITE = {
-  "vlt" : ["VCC", "VCO", "ACC"],
-  "veq" : ["VCC", "VCO", "ACC"],
-  "vne" : ["VCC", "VCO", "ACC"],
-  "vge" : ["VCC", "VCO", "ACC"],
-  "vch" : ["VCC", "VCO", "ACC"],
-  "vcr" : ["VCC", "VCO", "ACC"],
-  "vcl" : ["VCC",        "ACC"],
-  "vmrg": [              "ACC"],
-  "vmov": [              "ACC"],
-  "vrcp": [              "ACC", "DIV_OUT"],
-  "vrcph":[              "ACC", "DIV_IN" ],
-  "vrsq": [                     "DIV_OUT"],
-  "vrsqh":[              "ACC", "DIV_IN" ],
-  "vrcpl":[              "ACC", "DIV_OUT", "DIV_IN"],
-  "vrsql":[              "ACC", "DIV_OUT", "DIV_IN"],
-  "vadd": [       "VCO", "ACC"],
-  "vsub": [       "VCO", "ACC"],
-  "vaddc":[       "VCO", "ACC"],
-  "vsubc":[       "VCO", "ACC"],
-  "vand": [              "ACC"],
-  "vnand":[              "ACC"],
-  "vor":  [              "ACC"],
-  "vnor": [              "ACC"],
-  "vxor": [              "ACC"],
-  "vnxor":[              "ACC"],
-  "vmulf":[              "ACC"],
-  "vmulu":[              "ACC"],
-  "vmacf":[              "ACC"],
-  "vmacu":[              "ACC"],
-  "vmudn":[              "ACC"],
-  "vmadn":[              "ACC"],
-  "vmudl":[              "ACC"],
-  "vmadl":[              "ACC"],
-  "vmudm":[              "ACC"],
-  "vmadm":[              "ACC"],
-  "vmudh":[              "ACC"],
-  "vmadh":[              "ACC"],
-  "vrndp":[              "ACC"],
-  "vrndn":[              "ACC"],
-  "vmulq":[              "ACC"],
-  "vmacq":[              "ACC"],
+  "vlt" : ["$VCC", "$VCO", "$ACC"],
+  "veq" : ["$VCC", "$VCO", "$ACC"],
+  "vne" : ["$VCC", "$VCO", "$ACC"],
+  "vge" : ["$VCC", "$VCO", "$ACC"],
+  "vch" : ["$VCC", "$VCO", "$ACC"],
+  "vcr" : ["$VCC", "$VCO", "$ACC"],
+  "vcl" : ["$VCC",         "$ACC"],
+  "vmrg": [                "$ACC"],
+  "vmov": [                "$ACC"],
+  "vrcp": [                "$ACC", "$DIV_OUT"],
+  "vrcph":[                "$ACC", "$DIV_IN" ],
+  "vrsq": [                        "$DIV_OUT"],
+  "vrsqh":[                "$ACC", "$DIV_IN" ],
+  "vrcpl":[                "$ACC", "$DIV_OUT", "$DIV_IN"],
+  "vrsql":[                "$ACC", "$DIV_OUT", "$DIV_IN"],
+  "vadd": [        "$VCO", "$ACC"],
+  "vsub": [        "$VCO", "$ACC"],
+  "vaddc":[        "$VCO", "$ACC"],
+  "vsubc":[        "$VCO", "$ACC"],
+  "vand": [                "$ACC"],
+  "vnand":[                "$ACC"],
+  "vor":  [                "$ACC"],
+  "vnor": [                "$ACC"],
+  "vxor": [                "$ACC"],
+  "vnxor":[                "$ACC"],
+  "vmulf":[                "$ACC"],
+  "vmulu":[                "$ACC"],
+  "vmacf":[                "$ACC"],
+  "vmacu":[                "$ACC"],
+  "vmudn":[                "$ACC"],
+  "vmadn":[                "$ACC"],
+  "vmudl":[                "$ACC"],
+  "vmadl":[                "$ACC"],
+  "vmudm":[                "$ACC"],
+  "vmadm":[                "$ACC"],
+  "vmudh":[                "$ACC"],
+  "vmadh":[                "$ACC"],
+  "vrndp":[                "$ACC"],
+  "vrndn":[                "$ACC"],
+  "vmulq":[                "$ACC"],
+  "vmacq":[                "$ACC"],
 };
 
 /**
@@ -143,7 +147,7 @@ function getSourceRegs(line)
     return [];
   }
   const res = line.args.slice(1);
-  res.push(...HIDDEN_REGS_READ[line.op] || []);
+  res.push(...(HIDDEN_REGS_READ[line.op] || []));
   return res;
 }
 
@@ -230,8 +234,9 @@ function checkAsmBackwardDep(asm, asmPrev) {
 export function asmGetReorderRange(asmList, i)
 {
   const asm = asmList[i];
+  const isInDelaySlot = BRANCH_OPS.includes(asmList[i-1]?.op);
 
-  if(asm.type !== ASM_TYPE.OP || IMMOVABLE_OPS.includes(asm.op)) {
+  if(asm.type !== ASM_TYPE.OP || IMMOVABLE_OPS.includes(asm.op) || isInDelaySlot) {
     return [i, i];
   }
 
@@ -248,8 +253,8 @@ export function asmGetReorderRange(asmList, i)
     }
 
     // stop at a branch, we have to include the delay-slot
-    const asmLast = asmList[f-2];
-    const isBranch = asmLast && BRANCH_OPS.includes(asmLast.op);
+    const asmPrevPrev = asmList[f-2];
+    const isBranch = asmPrevPrev && BRANCH_OPS.includes(asmPrevPrev.op);
 
     if(isBranch || checkAsmBackwardDep(asmNext, asm)) {
       // check if there was an instruction in between that wrote to one of our target registers.
@@ -260,7 +265,9 @@ export function asmGetReorderRange(asmList, i)
           pos = Math.min(lastWrite[reg], pos);
         }
       }
-
+      if(isBranch && asmList[f-1].op !== "nop") {
+        pos -= 2;
+      }
       minMax[1] = pos-1;
       break;
     }

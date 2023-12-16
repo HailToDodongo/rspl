@@ -65,10 +65,10 @@ export function transpile(ast, config = {})
     for(const func of functionsAsm) {
       asmOptimizePattern(func);
 
-      console.time("asmInitDeps");
+      //console.time("asmInitDeps");
       asmInitDeps(func);
       asmScanDeps(func); // debugging only
-      console.timeEnd("asmInitDeps");
+      //console.timeEnd("asmInitDeps");
       console.time("asmOptimize");
       asmOptimize(func);
       console.timeEnd("asmOptimize");
