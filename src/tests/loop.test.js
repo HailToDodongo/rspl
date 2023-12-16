@@ -16,14 +16,14 @@ describe('Loops', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   or $t0, $zero, $zero
-  1:
+  LABEL_0001:
   sltiu $at, $t0, 10
-  beq $at, $zero, 2f
+  beq $at, $zero, LABEL_0002
   nop
   addiu $t0, $t0, 1
-  j 1b
+  j LABEL_0001
   nop
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });
@@ -46,22 +46,22 @@ describe('Loops', () =>
     expect(asm).toBe(`test:
   or $t0, $zero, $zero
   or $t1, $zero, $zero
-  1:
+  LABEL_0001:
   sltiu $at, $t0, 10
-  beq $at, $zero, 2f
+  beq $at, $zero, LABEL_0002
   nop
-  3:
+  LABEL_0003:
   sltiu $at, $t1, 20
-  beq $at, $zero, 4f
+  beq $at, $zero, LABEL_0004
   nop
   addiu $t1, $t1, 1
-  j 3b
+  j LABEL_0003
   nop
-  4:
+  LABEL_0004:
   addiu $t0, $t0, 1
-  j 1b
+  j LABEL_0001
   nop
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });
@@ -79,16 +79,16 @@ describe('Loops', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   or $t0, $zero, $zero
-  1:
+  LABEL_0001:
   sltiu $at, $t0, 10
-  beq $at, $zero, 2f
+  beq $at, $zero, LABEL_0002
   nop
-  j 2f
+  j LABEL_0002
   nop
   addiu $t0, $t0, 1
-  j 1b
+  j LABEL_0001
   nop
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });
@@ -106,19 +106,19 @@ describe('Loops', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   or $t0, $zero, $zero
-  1:
+  LABEL_0001:
   sltiu $at, $t0, 10
-  beq $at, $zero, 2f
+  beq $at, $zero, LABEL_0002
   nop
-  bne $t0, $zero, 3f
+  bne $t0, $zero, LABEL_0003
   nop
-  j 2f
+  j LABEL_0002
   nop
-  3:
+  LABEL_0003:
   addiu $t0, $t0, 1
-  j 1b
+  j LABEL_0001
   nop
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });
@@ -136,16 +136,16 @@ describe('Loops', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   or $t0, $zero, $zero
-  1:
+  LABEL_0001:
   sltiu $at, $t0, 10
-  beq $at, $zero, 2f
+  beq $at, $zero, LABEL_0002
   nop
-  j 1b
+  j LABEL_0001
   nop
   addiu $t0, $t0, 1
-  j 1b
+  j LABEL_0001
   nop
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });

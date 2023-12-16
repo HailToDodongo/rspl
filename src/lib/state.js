@@ -118,8 +118,9 @@ const state =
     return undefined;
   },
 
-  generateLocalLabel: () => {
-    return ++state.nextLabelId;
+  generateLabel: () => {
+    ++state.nextLabelId;
+    return `LABEL_${state.nextLabelId.toString(16).toUpperCase().padStart(4, '0')}`;
   },
 
   /**

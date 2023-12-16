@@ -129,7 +129,7 @@ pre, .settings {
   margin: 0;
 }
 
-#asmOverlay {
+.asmOverlay {
   display: block;
   position: relative;
   left: 0;
@@ -138,17 +138,46 @@ pre, .settings {
   height: 0;
 }
 
-#asmOverlay span {
+.asmContainer pre {
+  background-color: #2D2D2D;
+}
+
+#outputASM, #outputASMOpt {
+  padding-left: 28px;
+  position: relative;
+  background: none;
+}
+
+#outputASMOpt {
+  padding-left: 24px;
+}
+
+.asmOverlay span {
   display: inline-block;
   width: calc(100% - 10px);
   height: 15px;
-  background-color: #868686;
+  background-color: #808080;
   position: absolute;
   top: 0;
   left: 0;
-  opacity: 0.15;
   pointer-events: none;
   user-select: none;
+  color: #181818;
+  text-align: right;
+  padding-right: 2px;
+}
+
+.asmOverlay span.dep {
+  width: 4px;
+  background: none;
+  border-style: solid;
+  border-width: 2px 0 2px 2px;
+  opacity: 1.0;
+}
+
+.asmOverlay span.opt {
+  text-align: left;
+  padding-left: 4px;
 }
 
 .stickyOverlay {
@@ -157,6 +186,7 @@ pre, .settings {
   text-align: right;
   height: 0;
   width: 100%;
+  z-index: 10;
 }
 
 .stickyOverlay > img:last-child {

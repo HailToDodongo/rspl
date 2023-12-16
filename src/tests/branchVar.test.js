@@ -12,14 +12,14 @@ describe('Branch (Var vs. Var)', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
-  bne $v0, $v1, 1f
+  bne $v0, $v1, LABEL_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, 2f
+  beq $zero, $zero, LABEL_0002
   nop
-  1:
+  LABEL_0001:
   addiu $v0, $v0, 2222
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });
@@ -32,14 +32,14 @@ describe('Branch (Var vs. Var)', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
-  beq $v0, $v1, 1f
+  beq $v0, $v1, LABEL_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, 2f
+  beq $zero, $zero, LABEL_0002
   nop
-  1:
+  LABEL_0001:
   addiu $v0, $v0, 2222
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });
@@ -53,14 +53,14 @@ describe('Branch (Var vs. Var)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   sltu $at, $v1, $v0
-  beq $at, $zero, 1f
+  beq $at, $zero, LABEL_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, 2f
+  beq $zero, $zero, LABEL_0002
   nop
-  1:
+  LABEL_0001:
   addiu $v0, $v0, 2222
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });
@@ -74,14 +74,14 @@ describe('Branch (Var vs. Var)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   sltu $at, $v0, $v1
-  beq $at, $zero, 1f
+  beq $at, $zero, LABEL_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, 2f
+  beq $zero, $zero, LABEL_0002
   nop
-  1:
+  LABEL_0001:
   addiu $v0, $v0, 2222
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });
@@ -95,14 +95,14 @@ describe('Branch (Var vs. Var)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   sltu $at, $v0, $v1
-  bne $at, $zero, 1f
+  bne $at, $zero, LABEL_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, 2f
+  beq $zero, $zero, LABEL_0002
   nop
-  1:
+  LABEL_0001:
   addiu $v0, $v0, 2222
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });
@@ -116,14 +116,14 @@ describe('Branch (Var vs. Var)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   sltu $at, $v1, $v0
-  bne $at, $zero, 1f
+  bne $at, $zero, LABEL_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, 2f
+  beq $zero, $zero, LABEL_0002
   nop
-  1:
+  LABEL_0001:
   addiu $v0, $v0, 2222
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });
@@ -138,14 +138,14 @@ describe('Branch (Var vs. Var)', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
-  bne $v0, $v1, 1f
+  bne $v0, $v1, LABEL_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, 2f
+  beq $zero, $zero, LABEL_0002
   nop
-  1:
+  LABEL_0001:
   addiu $v0, $v0, 2222
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });
@@ -158,14 +158,14 @@ describe('Branch (Var vs. Var)', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
-  beq $v0, $v1, 1f
+  beq $v0, $v1, LABEL_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, 2f
+  beq $zero, $zero, LABEL_0002
   nop
-  1:
+  LABEL_0001:
   addiu $v0, $v0, 2222
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });
@@ -179,14 +179,14 @@ describe('Branch (Var vs. Var)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   slt $at, $v1, $v0
-  beq $at, $zero, 1f
+  beq $at, $zero, LABEL_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, 2f
+  beq $zero, $zero, LABEL_0002
   nop
-  1:
+  LABEL_0001:
   addiu $v0, $v0, 2222
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });
@@ -200,14 +200,14 @@ describe('Branch (Var vs. Var)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   slt $at, $v0, $v1
-  beq $at, $zero, 1f
+  beq $at, $zero, LABEL_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, 2f
+  beq $zero, $zero, LABEL_0002
   nop
-  1:
+  LABEL_0001:
   addiu $v0, $v0, 2222
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });
@@ -221,14 +221,14 @@ describe('Branch (Var vs. Var)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   slt $at, $v0, $v1
-  bne $at, $zero, 1f
+  bne $at, $zero, LABEL_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, 2f
+  beq $zero, $zero, LABEL_0002
   nop
-  1:
+  LABEL_0001:
   addiu $v0, $v0, 2222
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });
@@ -242,14 +242,14 @@ describe('Branch (Var vs. Var)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   slt $at, $v1, $v0
-  bne $at, $zero, 1f
+  bne $at, $zero, LABEL_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, 2f
+  beq $zero, $zero, LABEL_0002
   nop
-  1:
+  LABEL_0001:
   addiu $v0, $v0, 2222
-  2:
+  LABEL_0002:
   jr $ra
   nop`);
   });

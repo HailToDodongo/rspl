@@ -31,7 +31,7 @@ export function writeASM(ast, functionsAsm, config)
   /** @type {ASMOutput} */
   const res = {
     asm: "",
-    debug: {lineMap: {}}
+    debug: {lineMap: {}, lineDepMap: {}, lineOptMap: {}},
   };
 
   const writeLine = line => {
@@ -100,21 +100,37 @@ export function writeASM(ast, functionsAsm, config)
   }
 
   for(const block of functionsAsm) {
-    if(["function", "command"].includes(block.type)) {
-      writeLine(block.name + ":");
-      for(const asm of block.asm)
-      {
-        const lineRSPL = asm.debug.lineRSPL;
-        if(!res.debug.lineMap[lineRSPL])res.debug.lineMap[lineRSPL] = [];
-        res.debug.lineMap[lineRSPL].push(state.line);
+    if(!["function", "command"].includes(block.type))continue;
 
-        switch (asm.type) {
-          case ASM_TYPE.OP     : writeLine(`  ${stringifyInstr(asm)}`);break;
-          case ASM_TYPE.LABEL  : writeLine(`  ${asm.label}:`);         break;
-          case ASM_TYPE.COMMENT: writeLine(`  ##${asm.comment}`);      break;
-          default: state.throwError("Unknown ASM type: " + asm.type, asm);
-        }
+    writeLine(block.name + ":");
+
+    for(const asm of block.asm)
+    {
+      if(!asm.debug.lineASM) {
+        asm.debug.lineASM = state.line;
+      } else {
+        asm.debug.lineASMOpt = state.line;
+        res.debug.lineOptMap[asm.debug.lineASM] = asm.debug.lineASMOpt;
       }
+
+      const lineRSPL = asm.debug.lineRSPL;
+      if(!res.debug.lineMap[lineRSPL])res.debug.lineMap[lineRSPL] = [];
+      res.debug.lineMap[lineRSPL].push(asm.debug.lineASM);
+
+      switch (asm.type) {
+        case ASM_TYPE.INLINE:
+        case ASM_TYPE.OP     : writeLine(`  ${stringifyInstr(asm)}`);break;
+        case ASM_TYPE.LABEL  : writeLine(`  ${asm.label}:`);         break;
+        case ASM_TYPE.COMMENT: writeLine(`  ##${asm.comment}`);      break;
+        default: state.throwError("Unknown ASM type: " + asm.type, asm);
+      }
+    }
+
+    for(const asm of block.asm)
+    {
+      if(!asm.debug.lineASMOpt)continue;
+      //console.log(asm.debug.lineASM, [asm.debug.reorderLineMin, asm.debug.reorderLineMax]);
+      res.debug.lineDepMap[asm.debug.lineASM] = [asm.debug.reorderLineMin, asm.debug.reorderLineMax];
     }
   }
 

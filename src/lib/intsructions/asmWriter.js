@@ -9,6 +9,7 @@ export const ASM_TYPE = {
   OP: 0,
   LABEL: 1,
   COMMENT: 2,
+  INLINE: 3,
 }
 
 /**
@@ -16,8 +17,12 @@ export const ASM_TYPE = {
  */
 function getDebugData() {
   return {
-    lineRSPL: state.line,
     lineASM: 0,
+    lineRSPL: state.line,
+    lineASMOpt: 0,
+    reorderCount: 0,
+    reorderLineMin: 0,
+    reorderLineMax: 0,
   };
 }
 
@@ -29,6 +34,10 @@ function getDebugData() {
  */
 export function asm(op, args) {
   return {type: ASM_TYPE.OP, op, args, debug: getDebugData()};
+}
+
+export function asmInline(op, args) {
+  return {type: ASM_TYPE.INLINE, op, args, debug: getDebugData()};
 }
 
 /** @returns {ASM} */

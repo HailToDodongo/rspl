@@ -154,17 +154,17 @@ function ifToASM(st)
     return state.throwError("IF-Statements must use scalar-registers!", st);
   }
 
-  const labelElse = state.generateLocalLabel();
-  const labelEnd = st.blockElse ? state.generateLocalLabel() : labelElse;
+  const labelElse = state.generateLabel();
+  const labelEnd = st.blockElse ? state.generateLabel() : labelElse;
   const res = [];
 
   // Branch condition
-  res.push(...opBranch(st.compare, labelElse+"f"));
+  res.push(...opBranch(st.compare, labelElse));
 
   // IF-Block
   state.pushScope();
   res.push(...scopedBlockToASM(st.blockIf));
-  if(st.blockElse)res.push(asm("beq", [REG.ZERO, REG.ZERO, labelEnd+"f"]), asmNOP());
+  if(st.blockElse)res.push(asm("beq", [REG.ZERO, REG.ZERO, labelEnd]), asmNOP());
   state.popScope();
 
   // ELSE-Block
@@ -192,8 +192,8 @@ function whileToASM(st)
     return state.throwError("While-Statements must use scalar-registers!", st);
   }
 
-  const labelStart = state.generateLocalLabel();
-  const labelEnd = state.generateLocalLabel();
+  const labelStart = state.generateLabel();
+  const labelEnd = state.generateLabel();
 
   /***** Loop: *****
    * label_start:
@@ -204,10 +204,10 @@ function whileToASM(st)
    */
   return [
     asmLabel(labelStart),
-    ...opBranch(st.compare, labelEnd+"f"),
+    ...opBranch(st.compare, labelEnd),
     state.pushScope(labelStart, labelEnd),
       ...scopedBlockToASM(st.block),
-      asm("j", [labelStart+"b"]),
+      asm("j", [labelStart]),
       asmNOP(),
     state.popScope(),
     asmLabel(labelEnd),
@@ -290,13 +290,13 @@ function scopedBlockToASM(block, args = [])
       case "break": {
         const labelEnd = state.getScope().labelEnd;
         if(!labelEnd)state.throwError("'break' cannot find a label to jump to!", st);
-        res.push(asm("j", [labelEnd+"f"]), asmNOP());
+        res.push(asm("j", [labelEnd]), asmNOP());
       } break;
 
       case "continue": {
         const labelStart = state.getScope().labelStart;
         if(!labelStart)state.throwError("'continue' cannot find a label to jump to!", st);
-        res.push(asm("j", [labelStart+"b"]), asmNOP());
+        res.push(asm("j", [labelStart]), asmNOP());
       } break;
 
       case "scopedBlock":
@@ -345,6 +345,8 @@ export function ast2asm(ast)
       state.enterFunction(block.name, block.type);
 
       const blockAsm = scopedBlockToASM(block.body, block.args);
+      ++state.line;
+
       if(block.type === "command") {
         blockAsm.push(asm("j", ["RSPQ_Loop"]), asmNOP());
       } else {

@@ -32,6 +32,24 @@ export const SWIZZLE_MAP = {
   "W": ".e7",
 };
 
+export const SWIZZLE_LANE_MAP = {
+  "v" : [0, 1, 2, 3, 4, 5, 6, 7],
+  "q0": [0, 2, 4, 6],
+  "q1": [1, 3, 5, 7],
+  "h0": [0, 4],
+  "h1": [1, 5],
+  "h2": [2, 6],
+  "h3": [3, 7],
+  "e0": [0],
+  "e1": [1],
+  "e2": [2],
+  "e3": [3],
+  "e4": [4],
+  "e5": [5],
+  "e6": [6],
+  "e7": [7],
+};
+
 export const SWIZZLE_MAP_KEYS_STR = Object.keys(SWIZZLE_MAP).filter(Boolean).join(", ");
 
 export const SWIZZLE_SCALAR_IDX = {

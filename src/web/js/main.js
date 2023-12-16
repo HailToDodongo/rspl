@@ -5,15 +5,21 @@
 
 import {transpile, transpileSource} from "../../lib/transpiler";
 import {debounce} from "./utils.js";
-import {codeHighlightElem, codeHighlightLines, createEditor} from "./editor.js";
-import {loadSource, saveSource, saveToDevice} from "./storage.js";
+import {
+  clearHighlightCache,
+  codeHighlightElem,
+  codeHighlightLines,
+  codeHighlightOptLines,
+  createEditor
+} from "./editor.js";
+import {loadLastLine, loadSource, saveLastLine, saveSource, saveToDevice} from "./storage.js";
 import {Log} from "./logger.js";
 
-const editor = createEditor("inputRSPL", loadSource());
-
 /** @type {ASMOutputDebug} */
-let currentDebug = {lineMap: {}};
-let lastLine = 0;
+let currentDebug = {lineMap: {}, lineDepMap: {}, lineOptMap: {}};
+let lastLine = loadLastLine();
+
+const editor = createEditor("inputRSPL", loadSource(), lastLine);
 
 /** @type {RSPLConfig} */
 let config = {
@@ -27,31 +33,46 @@ function getEditorLine() {
 
 function highlightASM(line)
 {
-  if(lastLine === line) return;
+  if(lastLine === line)return;
   lastLine = line;
 
   const lines = currentDebug.lineMap[line];
   if(!lines || !lines.length) return;
 
-  codeHighlightLines(outputASM, lines);
+  codeHighlightLines(outputASM, lines, currentDebug.lineDepMap);
+  if(Object.keys(currentDebug.lineOptMap).length > 0) {
+    codeHighlightOptLines(outputASMOpt, lines, currentDebug.lineOptMap);
+  } else {
+    codeHighlightLines(outputASMOpt, lines, currentDebug.lineDepMap);
+  }
 }
 
-async function update()
+async function update(reset = false)
 {
   try {
     console.clear();
+    if(reset) {
+      clearHighlightCache();
+      lastLine = 0;
+    }
+
     const source = editor.getValue();
     saveSource(source);
 
     console.time("transpile");
-    const {asm, warn, info, debug} = transpileSource(source, config);
+    const {asm, asmUnoptimized, warn, info, debug} = transpileSource(source, config);
     console.timeEnd("transpile");
     currentDebug = debug;
 
     Log.set(info);
     Log.append("Transpiled successfully!");
 
-    codeHighlightElem(outputASM, asm);
+    outputASM.parentElement.parentElement.hidden = !config.optimize;
+    if(config.optimize) {
+      codeHighlightElem(outputASM, asmUnoptimized);
+    }
+    codeHighlightElem(outputASMOpt, asm);
+
     await saveToDevice("asm", asm, true);
 
     highlightASM(getEditorLine());
@@ -68,7 +89,7 @@ async function update()
 
 buttonCopyASM.onclick = async () => {
   try {
-    await navigator.clipboard.writeText(outputASM.textContent);
+    await navigator.clipboard.writeText(outputASMOpt.textContent);
     Log.append("Copied to clipboard!");
   } catch (err) {
     console.error('Failed to copy: ', err);
@@ -76,20 +97,24 @@ buttonCopyASM.onclick = async () => {
 };
 
 buttonSaveASM.onclick = async () => {
-  await saveToDevice("asm", outputASM.textContent);
+  await saveToDevice("asm", outputASMOpt.textContent);
 };
 
 optionOptimize.onchange = async () => {
   config.optimize = optionOptimize.checked;
-  await update();
+  await update(true);
 };
 
 optionWrapper.onchange = async () => {
   config.rspqWrapper = optionWrapper.checked;
-  await update();
+  await update(true);
 };
 
 update().catch(console.error);
 
 editor.getSession().on('change', debounce(update, 150));
-editor.getSession().selection.on('changeCursor', () => highlightASM(getEditorLine()));
+editor.getSession().selection.on('changeCursor', () => {
+  const line = getEditorLine();
+  highlightASM(line);
+  saveLastLine(line);
+});
