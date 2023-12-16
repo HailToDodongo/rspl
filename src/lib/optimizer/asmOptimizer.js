@@ -5,10 +5,13 @@
 
 import {ASM_TYPE} from "../intsructions/asmWriter.js";
 import {asmGetReorderRange, BRANCH_OPS, IMMOVABLE_OPS} from "./asmScanDeps.js";
+import {dedupeLabels} from "./pattern/dedupeLabels.js";
+import {dedupeJumps} from "./pattern/dedupeJumps.js";
 
 /**
  * Optimizes ASM before any dependency analysis.
  * This can be used to strip lines and add pattern-based optimizations.
+ * NOTE: At this point delay-slots are always NOPs.
  * @param {ASMFunc} asmFunc
  */
 export function asmOptimizePattern(asmFunc)
@@ -16,37 +19,8 @@ export function asmOptimizePattern(asmFunc)
   // strip comments
   asmFunc.asm = asmFunc.asm.filter(line => line.type !== ASM_TYPE.COMMENT);
 
-  // de-duplicate labels, first detect duplicates...
-  const labelsDelete = [];
-  const labelsReplace = {};
-  let labels = [];
-  for(const asm of asmFunc.asm)
-  {
-    if(asm.type === ASM_TYPE.LABEL) {
-      labels.push(asm.label);
-    } else {
-      if(labels.length > 1) {
-        const newLabel = labels.pop();
-        labelsDelete.push(...labels);
-        for(const label of labels)labelsReplace[label] = [newLabel];
-      }
-      labels = [];
-    }
-  }
-  // ...now keep the first one, remove the others and patch the references
-  const asmNew = [];
-  for(const asm of asmFunc.asm)
-  {
-    if(labelsDelete.includes(asm.label))continue;
-    if(BRANCH_OPS.includes(asm.op)) {
-      const label = asm.args[asm.args.length-1];
-      if(labelsReplace[label])asm.args[asm.args.length-1] = labelsReplace[label][0];
-    }
-    asmNew.push(asm);
-  }
-  asmFunc.asm = asmNew;
-
-  // @TODO: pattern matching, e.g. tail-call optimization
+  dedupeLabels(asmFunc);
+  dedupeJumps(asmFunc);
 }
 
 /**
