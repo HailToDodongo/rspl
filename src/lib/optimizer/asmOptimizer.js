@@ -7,6 +7,7 @@ import {ASM_TYPE} from "../intsructions/asmWriter.js";
 import {asmGetReorderRange, BRANCH_OPS, IMMOVABLE_OPS} from "./asmScanDeps.js";
 import {dedupeLabels} from "./pattern/dedupeLabels.js";
 import {dedupeJumps} from "./pattern/dedupeJumps.js";
+import {branchJump} from "./pattern/branchJump.js";
 
 /**
  * Optimizes ASM before any dependency analysis.
@@ -21,6 +22,7 @@ export function asmOptimizePattern(asmFunc)
 
   dedupeLabels(asmFunc);
   dedupeJumps(asmFunc);
+  branchJump(asmFunc);
 }
 
 /**

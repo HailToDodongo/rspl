@@ -16,7 +16,7 @@ describe('Const', () =>
     expect(asm).toBe(`test:
   addiu $t0, $zero, 1234
   addu $t1, $t0, $t0
-  vxor $v01, $v01, $v01
+  vxor $v01, $v00, $v00.e0
   jr $ra
   nop`);
   });

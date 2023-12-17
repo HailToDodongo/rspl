@@ -129,9 +129,9 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vxor $v01, $v01, $v01
-  vxor $v02, $v02, $v02
-  vxor $v03, $v03, $v03
+  vxor $v01, $v00, $v00.e0
+  vxor $v02, $v00, $v00.e0
+  vxor $v03, $v00, $v00
   jr $ra
   nop`);
   });

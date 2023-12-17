@@ -3,7 +3,7 @@
 * @license Apache-2.0
 */
 
-import {fractReg, getVec32Regs, intReg, isVecReg, nextReg, nextVecReg, REG} from "../syntax/registers";
+import {fractReg, getVec32Regs, intReg, isVecReg, nextReg, nextVecReg, REG as REGS, REG} from "../syntax/registers";
 import state from "../state";
 import {
   isScalarSwizzle,
@@ -29,14 +29,17 @@ function opMove(varRes, varRight)
   const isVec32 = varRes.type === "vec32";
 
   if(!varRight.reg && !varRes.swizzle) {
-    if(varRight.value === 0) {
-      return [    asm("vxor", [  intReg(varRes),   intReg(varRes),   intReg(varRes)]),
-        isVec32 ? asm("vxor", [fractReg(varRes), fractReg(varRes), fractReg(varRes)]) : null
-      ];
+    const swizzleVar = POW2_SWIZZLE_VAR[varRight.value];
+    if(!swizzleVar) {
+      return state.throwError("Can only assign a constant to a vector if it is a power of two or zero!\n"
+           + "If you want to load a single element, use 'foo.x = "+varRight.value+";' instead",
+            varRight
+      );
     }
-    return state.throwError("Can only assign the scalar '0' to a non-swizzled vector!\n"
-      + "If you want to load a single element, use 'foo.x = "+varRight.value+";' instead"
-    );
+
+    return [    asm("vxor", [  intReg(varRes), REGS.VZERO, swizzleVar.reg + SWIZZLE_MAP[swizzleVar.swizzle]]),
+      isVec32 ? asm("vxor", [fractReg(varRes), REGS.VZERO, REGS.VZERO]) : null
+    ];
   }
 
   const isConst = !varRight.reg;
