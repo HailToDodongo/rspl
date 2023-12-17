@@ -534,8 +534,8 @@ function opCompare(varRes, varLeft, varRight, op, ternary) {
   if(ternary) {
     res.push(...builtins.select(varRes, [
       {type: "var", value: ternary.left},
-      {type: typeof(ternary.right) === "number" ? "num" : "var", value: ternary.right},
-    ], ternary.swizzleRight));
+      {type: typeof(ternary.right) === "number" ? "num" : "var", value: ternary.right, swizzle: ternary.swizzleRight},
+    ], undefined));
   }
   return res;
 }

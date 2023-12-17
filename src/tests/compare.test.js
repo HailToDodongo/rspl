@@ -162,4 +162,27 @@ describe('Comparison', () =>
   jr $ra
   nop`);
   });
+
+  test('Vector-Ternary (swizzle)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v01> res, a, b;
+      res = a == b ? a : b.y; //
+      res = a >= b.z ? a : b.y; //
+      res = a == b.z ? a : b; //
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  veq $v27, $v02, $v03
+  vmrg $v01, $v02, $v03.e1
+  ##
+  vge $v27, $v02, $v03.e2
+  vmrg $v01, $v02, $v03.e1
+  ##
+  veq $v27, $v02, $v03.e2
+  vmrg $v01, $v02, $v03
+  ##
+  jr $ra
+  nop`);
+  });
 });
