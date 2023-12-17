@@ -26,80 +26,61 @@ macro flushScreen(u32 ptrScreen, u32 copySize)
 
 macro complexMul(vec32 res, vec16 mask) 
 {
-    const vec32 resSq = res * res;
-    const vec32 resSqDiff = resSq - resSq.yywwYYWW;
-    
-    vec32 res2 = res * res.xxzzXXZZ;
-    res2 += res2;
+  const vec32 resSq = res * res;
+  const vec32 resSqDiff = resSq - resSq.yywwYYWW;
+  
+  vec32 res2 = res * res.xxzzXXZZ;
+  res2 += res2;
 
-    res = mask != 0 ? res2 : resSqDiff;
+  res = mask != 0 ? res2 : resSqDiff;
 }
 
-macro mandelbrot(vec16 color, vec32 c, u32 maxIter, vec16 maskMulInv, u32 maskAllSet)
+macro mandelbrot(vec16 color, vec32 c, u32 maxIter, vec16 maskOddEven)
 {
   vec32 res = 0;
-  s32 maskDone = 0;
-  u32 iteration = maxIter;
   
-  while(iteration != 0) 
+  // 1=unset, 0=done, pre-shifted for easy color values
+  vec16 colorMaskAdd = 0b1'0000'0000;
+
+  u32 i = maxIter - 1;
+  u32 iEnd = 0xFFFF;
+  vec16 isOutside;
+  
+  LOOP: // @TODO: implement do-while loop
   {
-    complexMul(res, maskMulInv);
+    i -= 1;
+    complexMul(res, maskOddEven);
     res += c;
     
     // test if we can stop the loop
-    vec16 isOutside = res:uint + res:uint.yywwYYWW;
-    isOutside:sfract *= isOutside;
-    isOutside = isOutside < 1;
+    isOutside = res:uint + res:uint.yywwYYWW;
+    isOutside:sfract *= isOutside; //distance check
+    
+    // lanes .xzXZ become either 0x0000 or 0xFFFF
+    isOutside = isOutside >= 1 ? maskOddEven : maskOddEven.w;
+    
+    // mask out color-addend (if set), and apply to the color
+    colorMaskAdd &= isOutside;
+    color += colorMaskAdd;
+    
+    const u32 maskA = colorMaskAdd.x;
+    const u32 maskB = colorMaskAdd.z;
+    const u32 maskC = colorMaskAdd.X;
+    const u32 maskD = colorMaskAdd.Z; 
+    
+    // if all pixels are set (mask=0), stop
+    // otherwise use the large number as the loop condition
+    iEnd = maskA | maskB;
+    iEnd |= maskC;
+    iEnd |= maskD;
+    
+    // vector version (slower)
+    //vec16 maskAll = colorMaskAdd | colorMaskAdd.zzzzZZZZ;
+    //maskAll |= maskAll.X; // result is in .x
 
-    // 4 pixels are prcessed at the same time across lanes
-    // keep track which pixel is ready, and stop only if all are
-    const s32 isOutsideA = isOutside.x;
-    const s32 isOutsideB = isOutside.z;
-    const s32 isOutsideC = isOutside.X;
-    const s32 isOutsideD = isOutside.Z;
-
-    if(isOutsideA) 
-    {
-      // only do this once per pixel to lock in the correct color
-      u32 isDone = maskDone & 0b0001;
-      if(!isDone) {
-        color.x = iteration;
-        maskDone |= 0b0001;
-        if(maskDone == maskAllSet)break;
-      }
-    }
-    
-    if(isOutsideB) 
-    {
-      u32 isDone = maskDone & 0b0010;
-      if(!isDone) {
-        color.z = iteration;
-        maskDone |= 0b0010;
-        if(maskDone == maskAllSet)break;
-      }
-    }
-    
-    if(isOutsideC) 
-    {
-      u32 isDone = maskDone & 0b0100;
-      if(!isDone) {
-        color.X = iteration;
-        maskDone |= 0b0100;
-        if(maskDone == maskAllSet)break;
-      }
-    }
-    
-    if(isOutsideD) 
-    {
-      u32 isDone = maskDone & 0b1000;
-      if(!isDone) {
-        color.Z = iteration;
-        maskDone |= 0b1000;
-        if(maskDone == maskAllSet)break;
-      }
-    }
-  
-    iteration -= 4096; // 1 << 12
+    // Abuse undeflow here, once 'i' is below zero, it's bigger than 'iEnd'.
+    // The other exit condition sets 'iEnd' itself to zero.
+    if(i < iEnd)goto LOOP;
   }
 }
 
@@ -153,14 +134,13 @@ command<0> Cmd_Render(u32 ptrScreen, u32 sizeXY, u32 isOddLine)
   pos *= posScale;
   pos += offset;
 
-  // mask used in complexMul()
-  vec16 maskMul = 0;
-  maskMul.y = 0xFFFF;
-  maskMul.w = maskMul.y;
-  maskMul.Y = maskMul.y;
-  maskMul.W = maskMul.y;
+  // mask used in complexMul() & mandelbrot loop as a color mask
+  vec16 maskOddEven = 0;
+  maskOddEven.y = 0xFFFF;
+  maskOddEven.w = maskOddEven.y;
+  maskOddEven.Y = maskOddEven.y;
+  maskOddEven.W = maskOddEven.y;
   
-  const u32 maskAllSet = 0b1111; // full per-pixel mask (4 at a time)
   vec32 posOrgX = pos;
 
   while(sizeY != 0)
@@ -168,7 +148,7 @@ command<0> Cmd_Render(u32 ptrScreen, u32 sizeXY, u32 isOddLine)
     while(colorBuff != colorBuffEnd)
     {
       vec16 color = 0;
-      mandelbrot(color, pos, maxIter, maskMul, maskAllSet);
+      mandelbrot(color, pos, maxIter, maskOddEven);
 
       store_vec_s8(color, colorBuff);
       
@@ -213,7 +193,6 @@ command<1> Cmd_SetScale(u32 iter, s32 scaleXY, s32 offsetX, s32 offsetY)
   store(offset, OFFSET);
   
   iter &= 0xFFFF;
-  iter <<= 12;
   store(iter, ITERATIONS);
 }
 
