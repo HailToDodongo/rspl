@@ -201,3 +201,20 @@ export function codeHighlightOptLines(elem, lines = undefined, linesOptMap = und
   ovl.replaceChildren(...newElements);
   scrollTo(elem, hMin, hMax);
 }
+
+/**
+ * @param {HTMLElement} elem
+ * @param {Record<number,number>} cycleMap
+ */
+export function codeUpdateCycles(elem, cycleMap)
+{
+  const ovl = elem.parentElement.querySelector(".cycleOverlay");
+  const elems = [];
+  for(const [line, cycle] of Object.entries(cycleMap)) {
+    const span = document.createElement("span");
+    span.style.top = getLineHeight(line) + "px";
+    span.innerText = cycle + "";
+    elems.push(span);
+  }
+  ovl.replaceChildren(...elems);
+}

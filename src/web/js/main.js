@@ -9,14 +9,13 @@ import {
   clearHighlightCache,
   codeHighlightElem,
   codeHighlightLines,
-  codeHighlightOptLines,
-  createEditor
+  codeHighlightOptLines, codeUpdateCycles, createEditor
 } from "./editor.js";
 import {loadLastLine, loadSource, saveLastLine, saveSource, saveToDevice} from "./storage.js";
 import {Log} from "./logger.js";
 
 /** @type {ASMOutputDebug} */
-let currentDebug = {lineMap: {}, lineDepMap: {}, lineOptMap: {}};
+let currentDebug = {lineMap: {}, lineDepMap: {}, lineOptMap: {}, lineCycleMap: {}};
 let lastLine = loadLastLine();
 
 const editor = createEditor("inputRSPL", loadSource(), lastLine);
@@ -72,6 +71,7 @@ async function update(reset = false)
       codeHighlightElem(outputASM, asmUnoptimized);
     }
     codeHighlightElem(outputASMOpt, asm);
+    codeUpdateCycles(outputASMOpt, debug.lineCycleMap);
 
     await saveToDevice("asm", asm, true);
 

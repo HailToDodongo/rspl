@@ -12,6 +12,7 @@ import state from "./state.js";
 import {normalizeASM} from "./asmNormalize.js";
 import {asmOptimize, asmOptimizePattern} from "./optimizer/asmOptimizer.js";
 import {asmInitDeps, asmScanDeps} from "./optimizer/asmScanDeps.js";
+import {evalFunctionCost} from "./optimizer/eval/evalCost.js";
 
 const grammar = nearly.Grammar.fromCompiled(grammarDef);
 
@@ -72,6 +73,8 @@ export function transpile(ast, config = {})
       console.time("asmOptimize");
       asmOptimize(func);
       console.timeEnd("asmOptimize");
+
+      evalFunctionCost(func);
     }
   }
 

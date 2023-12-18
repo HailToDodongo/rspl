@@ -31,7 +31,7 @@ export function writeASM(ast, functionsAsm, config)
   /** @type {ASMOutput} */
   const res = {
     asm: "",
-    debug: {lineMap: {}, lineDepMap: {}, lineOptMap: {}},
+    debug: {lineMap: {}, lineDepMap: {}, lineOptMap: {}, lineCycleMap: {}},
   };
 
   const writeLine = line => {
@@ -106,6 +106,7 @@ export function writeASM(ast, functionsAsm, config)
 
     for(const asm of block.asm)
     {
+      // Debug Information
       if(!asm.debug.lineASM) {
         asm.debug.lineASM = state.line;
       } else {
@@ -117,6 +118,11 @@ export function writeASM(ast, functionsAsm, config)
       if(!res.debug.lineMap[lineRSPL])res.debug.lineMap[lineRSPL] = [];
       res.debug.lineMap[lineRSPL].push(asm.debug.lineASM);
 
+      if(asm.debug.cycle) {
+        res.debug.lineCycleMap[asm.debug.lineASMOpt] = asm.debug.cycle;
+      }
+
+      // ASM Text output
       switch (asm.type) {
         case ASM_TYPE.INLINE:
         case ASM_TYPE.OP     : writeLine(`  ${stringifyInstr(asm)}`);break;

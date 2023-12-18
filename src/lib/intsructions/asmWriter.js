@@ -3,7 +3,6 @@
 * @license Apache-2.0
 */
 import state from "../state.js";
-import {REG} from "../syntax/registers.js";
 
 export const ASM_TYPE = {
   OP: 0,
@@ -23,6 +22,7 @@ function getDebugData() {
     reorderCount: 0,
     reorderLineMin: 0,
     reorderLineMax: 0,
+    cycle: 0,
   };
 }
 

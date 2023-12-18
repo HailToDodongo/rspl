@@ -129,7 +129,7 @@ pre, .settings {
   margin: 0;
 }
 
-.asmOverlay {
+.asmOverlay, .cycleOverlay {
   display: block;
   position: relative;
   left: 0;
@@ -178,6 +178,21 @@ pre, .settings {
 .asmOverlay span.opt {
   text-align: left;
   padding-left: 4px;
+}
+
+.cycleOverlay span {
+  display: inline-block;
+  width: 20px;
+  height: 15px;
+  background-color: rgb(72, 72, 72);
+  position: absolute;
+  top: 0;
+  right: 4px;
+  pointer-events: none;
+  user-select: none;
+  color: #EEE;
+  text-align: right;
+  padding-right: 2px;
 }
 
 .stickyOverlay {

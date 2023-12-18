@@ -15,6 +15,7 @@ declare global
         reorderCount: number;
         reorderLineMin: number;
         reorderLineMax: number;
+        cycle: number;
     };
 
     type ASM = {
@@ -39,6 +40,7 @@ declare global
         lineMap: Record<number, number[]>;
         lineDepMap: Record<number, number[]>;
         lineOptMap: Record<number, number>;
+        lineCycleMap: Record<number, number>;
     };
 
     type ASMOutput = {
