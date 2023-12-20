@@ -50,11 +50,11 @@ export function evalFunctionCost(asmFunc)
     // check for dual-issue (vector/scalar right after each other)
     const isVector = isVectorOp(asm.op);
     let isDualIssue = lastIsVector !== isVector;
-    lastIsVector = isVector;
+    lastIsVector = isDualIssue ? !isVector : isVector;
 
     // check if all our source registers are ready, otherwise wait
-    for(const regSrc of asm.depsSource) {
-      while(activeInstr.some(prev => prev.asm.depsTarget.includes(regSrc))) {
+    for(const regSrc of asm.depsStallSource) {
+      while(activeInstr.some(prev => prev.asm.depsStallTarget.includes(regSrc))) {
         //console.log(asm.op, reg, structuredClone(activeInstr));
         tick();
         isDualIssue = false;

@@ -4,7 +4,7 @@
 */
 import {isVecReg, REG} from "../syntax/registers.js";
 import {SWIZZLE_LANE_MAP} from "../syntax/swizzle.js";
-import {ASM_TYPE} from "../intsructions/asmWriter.js";
+import {ASM_TYPE, asmLabel} from "../intsructions/asmWriter.js";
 import {difference, hasIntersection, intersect} from "../utils.js";
 
 // ops that save data to RAM, and only read from regs
@@ -55,6 +55,8 @@ const HIDDEN_REGS_READ = {
   "vrcph":[    "$DIV_OUT"      ],
   "vrcpl":[    "$DIV_IN"       ],
   "vrsql":[    "$DIV_IN"       ],
+  "vadd": [      "$VCO",       ],
+  "vsub": [      "$VCO",       ],
 };
 
 // regs written by instructions, but not listed as arguments
@@ -65,8 +67,8 @@ const HIDDEN_REGS_WRITE = {
   "vge" : ["$VCC", "$VCO", "$ACC"],
   "vch" : ["$VCC", "$VCO", "$ACC"],
   "vcr" : ["$VCC", "$VCO", "$ACC"],
-  "vcl" : ["$VCC",         "$ACC"],
-  "vmrg": [                "$ACC"],
+  "vcl" : ["$VCC", "$VCO", "$ACC"],
+  "vmrg": [        "$VCO", "$ACC"],
   "vmov": [                "$ACC"],
   "vrcp": [                "$ACC", "$DIV_OUT"],
   "vrcph":[                "$ACC", "$DIV_IN" ],
@@ -127,7 +129,6 @@ function getTargetRegs(line) {
   const targetReg = ["mtc2"].includes(line.op) ? line.args[1] : line.args[0];
   return [targetReg, ...HIDDEN_REGS_WRITE[line.op] || []]
     .filter(Boolean)
-    .flatMap(expandRegister);
 }
 
 /** @param {ASM} line */
@@ -150,10 +151,13 @@ function getSourceRegs(line)
   return res;
 }
 
-/** @param {ASM} line */
+/**
+ * @param {ASM} line
+ * @returns {string[]}
+ */
 function getSourceRegsFiltered(line)
 {
-  let regs = getSourceRegs(line)
+  return getSourceRegs(line)
     .filter(reg => typeof reg === "string")
     .map(reg => {
       // extract register from brackets (e.g. writes with offset)
@@ -161,10 +165,8 @@ function getSourceRegsFiltered(line)
       if(brIdx >= 0)return reg.substring(brIdx+1, reg.length-1);
       return reg;
     })
-    .filter(arg => (arg+"").startsWith("$"))
-    .filter(reg => !CONST_REGS.includes(reg))
-    .flatMap(expandRegister);
-  return [...new Set(regs)]; // make unique
+    .filter(arg => (arg+"").startsWith("$"));
+    //.filter(reg => !CONST_REGS.includes(reg));
 }
 
 /**
@@ -178,11 +180,23 @@ export function asmInitDeps(asmFunc)
     if(asm.type !== ASM_TYPE.OP) {
       asm.depsSource = [];
       asm.depsTarget = [];
+      asm.depsStallSource = [];
+      asm.depsStallTarget = [];
       continue;
     }
 
-    asm.depsSource = getSourceRegsFiltered(asm);
-    asm.depsTarget = getTargetRegs(asm);
+    asm.depsStallSource = [...new Set(getSourceRegsFiltered(asm))];
+    asm.depsStallTarget = [...new Set(getTargetRegs(asm))];
+
+    // @TODO: cut off lanes?
+    // .map(reg => reg.split(".")[0]);
+
+    // stall detection works on whole registers, for logical dependencies we want to check each lane
+    //asm.depsSource = asm.depsStallSource.flatMap(expandRegister);
+    //asm.depsTarget = asm.depsStallTarget.flatMap(expandRegister);
+
+    asm.depsSource = asm.depsStallSource.flatMap(expandRegister);
+    asm.depsTarget = asm.depsStallTarget.flatMap(expandRegister);
   }
 }
 
@@ -228,9 +242,10 @@ function checkAsmBackwardDep(asm, asmPrev) {
  * Returns the min/max index of where an instruction can be reordered to.
  * @param {ASM[]} asmList
  * @param {number} i
+ * @param {string[]} returnRegs
  * @return {[number, number]} min/max index
  */
-export function asmGetReorderRange(asmList, i)
+export function asmGetReorderRange(asmList, i, returnRegs = [])
 {
   const asm = asmList[i];
   const isInDelaySlot = BRANCH_OPS.includes(asmList[i-1]?.op);
@@ -239,35 +254,23 @@ export function asmGetReorderRange(asmList, i)
     return [i, i];
   }
 
-  const minMax = [0, asmList.length-1];
-
   // Scan ahead...
   let lastWrite = {};
   const lastRead = {};
-  for(let f=i+1; f < asmList.length; ++f) {
+  let pos = asmList.length;
+
+  let f = i + 1;
+  for(; f < asmList.length; ++f) {
     const asmNext = asmList[f];
+    for(const reg of asmNext.depsSource)lastRead[reg] = f;
 
-    for(const reg of asmNext.depsSource) {
-      lastRead[reg] = f;
-    }
+    // stop at a branch with an already filled delay-slot,
+    // or once we are past the delay-slot of a branch if it is empty.
+    const isEmptyBranch = asmList[f+1]?.op !== "nop" && BRANCH_OPS.includes(asmNext.op);
+    const isPastBranch = BRANCH_OPS.includes(asmList[f-2]?.op);
 
-    // stop at a branch, we have to include the delay-slot
-    const asmPrevPrev = asmList[f-2];
-    const isBranch = asmPrevPrev && BRANCH_OPS.includes(asmPrevPrev.op);
-
-    if(isBranch || checkAsmBackwardDep(asmNext, asm)) {
-      // check if there was an instruction in between that wrote to one of our target registers.
-      // if true, fall-back to that position (otherwise register would contain wrong value)
-      let pos = f;
-      for(const reg of asm.depsTarget) {
-        if(lastWrite[reg] !== undefined && lastRead[reg] !== undefined) {
-          pos = Math.min(lastWrite[reg], pos);
-        }
-      }
-      if(isBranch && asmList[f-1].op !== "nop") {
-        pos -= 2;
-      }
-      minMax[1] = pos-1;
+    if(isEmptyBranch || isPastBranch || checkAsmBackwardDep(asmNext, asm)) {
+      pos = f;
       break;
     }
 
@@ -276,6 +279,23 @@ export function asmGetReorderRange(asmList, i)
       lastWrite[reg] = f;
     }
   }
+
+  // even though we (may have) found a dependency, we still need to know if something tries to
+  // read from one of our sources. Not doing so would prevent us from reordering the last write of a chain.
+  for(; f < asmList.length; ++f) {
+    const asmNext = asmList[f];
+    for(const reg of asmNext.depsSource)lastRead[reg] = f;
+  }
+
+  // check if there was an instruction in between which wrote to one of our target registers.
+  // if true, fall-back to that position (otherwise register would contain wrong value)
+  for(const reg of asm.depsTarget) {
+    if(lastWrite[reg] && (lastRead[reg] || returnRegs.includes(reg))) {
+      pos = Math.min(lastWrite[reg], pos);
+    }
+  }
+
+  const minMax = [0, pos-1];
 
   // collect all registers that where not overwritten by any instruction after us.
   // these need to be checked for writes in the backwards-scan.

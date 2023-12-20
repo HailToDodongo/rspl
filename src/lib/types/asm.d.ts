@@ -28,6 +28,10 @@ declare global
 
         depsSource: string[];
         depsTarget: string[];
+
+        depsStallSource: string[];
+        depsStallTarget: string[];
+
         debug: ASMDebug;
     };
 
