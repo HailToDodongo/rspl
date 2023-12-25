@@ -138,13 +138,20 @@ var grammar = {
     {"name": "StateVarDef$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
     {"name": "StateVarDef$ebnf$2", "symbols": []},
     {"name": "StateVarDef$ebnf$2", "symbols": ["StateVarDef$ebnf$2", "IndexDef"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "StateVarDef", "symbols": ["StateVarDef$ebnf$1", (lexer.has("DataType") ? {type: "DataType"} : DataType), "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "StateVarDef$ebnf$2", (lexer.has("StmEnd") ? {type: "StmEnd"} : StmEnd), "_"], "postprocess":  d => ({
+    {"name": "StateVarDef$ebnf$3", "symbols": ["StateValueDef"], "postprocess": id},
+    {"name": "StateVarDef$ebnf$3", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "StateVarDef", "symbols": ["StateVarDef$ebnf$1", (lexer.has("DataType") ? {type: "DataType"} : DataType), "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "StateVarDef$ebnf$2", "StateVarDef$ebnf$3", "_", (lexer.has("StmEnd") ? {type: "StmEnd"} : StmEnd), "_"], "postprocess":  d => ({
         	type: "varState",
         	extern: !!d[0],
         	varType: d[1].value,
         	varName: d[3].value,
-        	arraySize: d[4] || 1
+        	arraySize: d[4] || 1,
+        	value: d[5],
         })},
+    {"name": "StateValueDef", "symbols": ["_", (lexer.has("Assignment") ? {type: "Assignment"} : Assignment), "_", (lexer.has("BlockStart") ? {type: "BlockStart"} : BlockStart), "_", "NumList", "_", (lexer.has("BlockEnd") ? {type: "BlockEnd"} : BlockEnd)], "postprocess": d => d[5]},
+    {"name": "NumList", "symbols": ["ValueNumeric"], "postprocess": MAP_FIRST},
+    {"name": "NumList$subexpression$1", "symbols": ["NumList", "_", (lexer.has("Seperator") ? {type: "Seperator"} : Seperator), "_", "ValueNumeric"]},
+    {"name": "NumList", "symbols": ["NumList$subexpression$1"], "postprocess": d => MAP_FLATTEN_TREE(d[0], 0, 4)},
     {"name": "Function$ebnf$1$subexpression$1", "symbols": ["RegDef"]},
     {"name": "Function$ebnf$1$subexpression$1", "symbols": ["RegNumDef"]},
     {"name": "Function$ebnf$1", "symbols": ["Function$ebnf$1$subexpression$1"], "postprocess": id},

@@ -42,6 +42,7 @@ export function evalFunctionCost(asmFunc)
     ++cycle;
   }
   let lastIsVector = !isVectorOp(asmFunc.asm[0].op); // force a missmatch on the first instruction
+  let alreadyDualIssue = false;
 
   for(const asm of asmFunc.asm)
   {
@@ -49,8 +50,10 @@ export function evalFunctionCost(asmFunc)
 
     // check for dual-issue (vector/scalar right after each other)
     const isVector = isVectorOp(asm.op);
-    let isDualIssue = lastIsVector !== isVector;
-    lastIsVector = isDualIssue ? !isVector : isVector;
+    let isDualIssue = lastIsVector !== isVector && !alreadyDualIssue;
+    lastIsVector = isVector;
+    alreadyDualIssue = false;
+    if(isDualIssue)alreadyDualIssue = true;
 
     // check if all our source registers are ready, otherwise wait
     for(const regSrc of asm.depsStallSource) {

@@ -37,6 +37,7 @@ declare global
         type: string;
         varName: string;
         varType: DataType;
+        value: number[] | undefined;
     };
 
     type ASTStatementBase = { line: number; };

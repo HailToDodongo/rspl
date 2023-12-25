@@ -3,7 +3,7 @@
 * @license Apache-2.0
 */
 
-import {TYPE_ALIGNMENT, TYPE_SIZE} from "./dataTypes/dataTypes.js";
+import {TYPE_ALIGNMENT, TYPE_ASM_DEF, TYPE_SIZE} from "./dataTypes/dataTypes.js";
 import state from "./state.js";
 import {ASM_TYPE} from "./intsructions/asmWriter.js";
 import {REGS_SCALAR} from "./syntax/registers.js";
@@ -78,9 +78,24 @@ export function writeASM(ast, functionsAsm, config)
       const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
       const byteSize = TYPE_SIZE[stateVar.varType] * arraySize;
       const align = TYPE_ALIGNMENT[stateVar.varType];
+      const values = stateVar.value || [];
 
       writeLine(`    .align ${align}`);
-      writeLine(`    ${stateVar.varName}: .ds.b ${byteSize}`);
+
+      if(values.length === 0) {
+        writeLine(`    ${stateVar.varName}: .ds.b ${byteSize}`);
+      } else {
+        const asmType = TYPE_ASM_DEF[stateVar.varType];
+        const data = new Array(asmType.count * arraySize).fill(0);
+        if(values.length > data.length) {
+          state.throwError(`Too many initializers for '${stateVar.varName}' (${values.length} > ${data.length})`, ast);
+        }
+        for(let i=0; i<values.length; ++i) {
+          data[i] = values[i];
+        }
+        writeLine(`    ${stateVar.varName}: .${asmType.type} ${data.join(", ")}`);
+      }
+
       totalSaveByteSize += byteSize;
     }
 

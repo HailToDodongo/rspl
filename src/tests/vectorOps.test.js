@@ -51,6 +51,33 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
+  test('Assign (vec16 broadcast)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec16<$v01> res, a;
+      res = a.yyyyYYYY;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vor $v01, $v00, $v02.h1
+  jr $ra
+  nop`);
+  });
+
+    test('Assign (vec32 broadcast)', () => {
+    const {asm, warn} = transpileSource(`function test() {
+      vec32<$v01> res, a;
+      res = a.yyyyYYYY;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vor $v01, $v00, $v03.h1
+  vor $v02, $v00, $v04.h1
+  jr $ra
+  nop`);
+  });
+
   test('Assign (swizzle, 2^x)', () => {
     const {asm, warn} = transpileSource(`function test() {
       vec16<$v01> a;

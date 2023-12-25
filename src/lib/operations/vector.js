@@ -105,6 +105,13 @@ function opMove(varRes, varRight)
             asm("vor", [regDst[1], REG.VZERO, regsR[1]])];
   }
 
+  // broadcasting a swizzle into a complete vector
+  if(!varRes.swizzle) {
+    const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
+    return [asm("vor", [regDst[0], REG.VZERO, regsR[0] + swizzleRight]),
+            asm("vor", [regDst[1], REG.VZERO, regsR[1] + swizzleRight])];
+  }
+
   // moving a single element/lane form A to B
   const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
   return [asm("vmov", [regDst[0] + swizzleRes, regsR[0] + swizzleRight]),
