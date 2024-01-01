@@ -28,6 +28,7 @@ function normalizeConfig(config)
 function stripComments(source) {
   return source
     .replaceAll(/\/\/.*$/gm, "")
+    .replaceAll(/#.*$/gm, "")
     .replace(/\/\*[\s\S]*?\*\//g, match => {
       const newlineCount = match.split('\n').length - 1;
       return '\n'.repeat(newlineCount);

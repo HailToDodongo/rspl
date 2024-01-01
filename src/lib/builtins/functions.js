@@ -216,8 +216,7 @@ function printf(varRes, args, swizzle)
           const swizzle = SWIZZLE_MAP[val.swizzle] || "";
 
           if(refVar.type === "vec32") {
-            fmtString += "%d" + refVar.reg.substring(1) + swizzle;
-            fmtString += "%f" + nextVecReg(refVar.reg).substring(1) + swizzle;
+            fmtString += "%f" + refVar.reg.substring(1) + swizzle;
           } else {
             fmtString += "%d" + refVar.reg.substring(1) + swizzle;
           }
