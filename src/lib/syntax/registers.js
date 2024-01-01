@@ -25,6 +25,12 @@ export const REG = {
   VSHIFT8: "$v31",
 };
 
+export const REG_COP2 = {
+  VCO: "COP2_CTRL_VCO",
+  VCC: "COP2_CTRL_VCC",
+  VCE: "COP2_CTRL_VCE",
+}
+
 // MIPS scalar register in correct order ($0 - $31)
 export const REGS_SCALAR = [
   "$zero", "$at", "$v0", "$v1", "$a0", "$a1", "$a2", "$a3",

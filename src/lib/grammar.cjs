@@ -60,6 +60,7 @@ const lexer = moo.compile({
 	KWContinue: "continue",
 	KWInclude : "include",
 	KWConst   : "const",
+	KWUndef   : "undef",
 
 	ValueHex: /0x[0-9A-F']+/,
 	ValueBin: /0b[0-1']+/,
@@ -193,6 +194,7 @@ var grammar = {
         })},
     {"name": "Expression$subexpression$1", "symbols": ["ExprVarDeclAssign"]},
     {"name": "Expression$subexpression$1", "symbols": ["ExprVarDecl"]},
+    {"name": "Expression$subexpression$1", "symbols": ["ExprVarUndef"]},
     {"name": "Expression$subexpression$1", "symbols": ["ExprVarAssign"]},
     {"name": "Expression$subexpression$1", "symbols": ["ExprFuncCall"]},
     {"name": "Expression$subexpression$1", "symbols": ["ExprGoto"]},
@@ -250,6 +252,11 @@ var grammar = {
         	varNames: FORCE_ARRAY(d[4]).map(x => x.value),
         	isConst: !!d[0],
         	line: d[1].line
+        })},
+    {"name": "ExprVarUndef", "symbols": [(lexer.has("KWUndef") ? {type: "KWUndef"} : KWUndef), "_", (lexer.has("VarName") ? {type: "VarName"} : VarName)], "postprocess":  d => ({
+        	type: "varUndef",
+        	varName: d[2].value,
+        	line: d[0].line
         })},
     {"name": "ExprFuncCall$ebnf$1", "symbols": []},
     {"name": "ExprFuncCall$ebnf$1", "symbols": ["ExprFuncCall$ebnf$1", "FuncArgs"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},

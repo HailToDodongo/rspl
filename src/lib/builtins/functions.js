@@ -2,7 +2,16 @@
 * @copyright 2023 - Max Bebök
 * @license Apache-2.0
 */
-import {getVec32Regs, getVec32RegsResLR, nextReg, REG, REGS_VECTOR} from "../syntax/registers";
+import {
+  getVec32Regs,
+  getVec32RegsResLR,
+  isVecReg,
+  nextReg,
+  nextVecReg,
+  REG,
+  REG_COP2,
+  REGS_VECTOR
+} from "../syntax/registers";
 import state from "../state";
 import opsScalar from "../operations/scalar";
 import opsVector from "../operations/vector";
@@ -46,6 +55,7 @@ function store(varRes, args, swizzle)
 {
   assertArgsNoSwizzle(args, 1);
   if(varRes)state.throwError("Builtin store() cannot have a left side!\nUsage: 'store(varToSave, address, optionalOffset);'", varRes);
+  if(args[0].type !== "var")state.throwError("Builtin store() requires first argument to be a variable! (you can also use ZERO or VZERO)", args[0]);
   const varSrc = state.getRequiredVar(args[0].value, "arg0");
   varSrc.swizzle = args[0].swizzle;
 
@@ -109,6 +119,121 @@ function inlineAsm(varRes, args, swizzle) {
     state.throwError("Builtin asm() requires exactly one string argument!", args[0]);
   }
   return [asmInline(args[0].value, ["# inline-ASM"])];
+}
+
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg[]} args
+ * @param {?Swizzle} swizzle
+ */
+function abs(varRes, args, swizzle)
+{
+  if(swizzle)state.throwError("Builtin abs() cannot use swizzle!", varRes);
+  if(args.length !== 1)state.throwError("Builtin abs() requires exactly one argument!", args[0]);
+  const varArg = state.getRequiredVar(args[0].value, "arg0");
+  if(!isVecType(varArg.type))state.throwError("Builtin abs() requires a vector argument!", args[0]);
+
+  const sameTarget = varRes.reg === varArg.reg;
+  const is32Bit = varArg.type === "vec32";
+
+  if(is32Bit && !sameTarget) {
+    return [
+      asm("vabs", [varRes.reg, varArg.reg, varArg.reg]),
+      asm("vxor", [nextVecReg(varRes.reg), REG.VZERO, nextVecReg(varArg.reg)]),
+    ];
+  }
+  return [asm("vabs", [varRes.reg, varArg.reg, varArg.reg])];
+}
+
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg[]} args
+ * @param {?Swizzle} swizzle
+ */
+function clip(varRes, args, swizzle)
+{
+  //vch v___, vcspos_i, vcspos_i.w
+  //vcl v___, vcspos_f, vcspos_f.w
+  //cfc2 t0, COP2_CTRL_VCC
+
+  if(args.length !== 2)state.throwError("Builtin clip() requires exactly two arguments!", args[0]);
+  if(isVecReg(varRes.reg))state.throwError("Builtin clip() must be assigned to a scalar variable!", varRes);
+  if(swizzle)state.throwError("To use swizzle in clip(), apply it to the second argument instead!", varRes);
+
+  const varArg0 = state.getRequiredVar(args[0].value, "arg0");
+  const varArg1 = state.getRequiredVar(args[1].value, "arg1");
+
+  const swizzleR = args[1].swizzle;
+  const swizzleRight = swizzleR ? SWIZZLE_MAP[swizzleR] : "";
+
+  if(!isVecType(varArg0.type))state.throwError("Builtin clip() requires first argument to be a vector!", args[0]);
+  if(!isVecType(varArg1.type))state.throwError("Builtin clip() requires second argument to be a vector!", args[1]);
+  const is32BitA = varArg0.type === "vec32";
+  const is32BitB = varArg1.type === "vec32";
+  if(is32BitA !== is32BitB)state.throwError("Builtin clip() requires both arguments to be of the same type!", args);
+
+  if(is32BitA) {
+    return [
+      asm("vch", [REG.VTEMP0, varArg0.reg, varArg1.reg + swizzleRight]),
+      asm("vcl", [REG.VTEMP0, nextVecReg(varArg0.reg), nextVecReg(varArg1.reg) + swizzleRight]),
+      asm("cfc2", [varRes.reg, REG_COP2.VCC]),
+    ];
+  }
+  return [
+    asm("vch", [REG.VTEMP0, varArg0.reg, varArg1.reg + swizzleRight]),
+    asm("cfc2", [varRes.reg, REG_COP2.VCC]),
+  ];
+}
+
+function printf(varRes, args, swizzle)
+{
+  if(swizzle)state.throwError("Builtin printf() cannot use swizzle!", varRes);
+  if(varRes)state.throwError("Builtin printf() cannot have a left side!", varRes);
+  const res = [
+    asmInline(".set macro", ["# print"]),
+  ];
+
+  if(args.length === 0)state.throwError("Builtin printf() requires at least one argument!", args[0]);
+  if(args[0].type !== "string")state.throwError("Builtin printf() requires first argument to be a string!", args[0]);
+  const fmt = args[0].value;
+
+  const fmtParts = fmt.split(/(%[vduxf])/);
+  let argIdx = 1;
+
+  let fmtString = "";
+  for(let i = 0; i < fmtParts.length; ++i)
+  {
+    const part = fmtParts[i];
+
+    if(part[0] !== "%") {
+      fmtString += fmtParts[i];
+    } else {
+      const val = args[argIdx++];
+      if(val && val.type === "var")
+      {
+        const refVar = state.getRequiredVar(val.value, "arg"+(i+1));
+        if(isVecReg(refVar.reg)) {
+          const swizzle = SWIZZLE_MAP[val.swizzle] || "";
+
+          if(refVar.type === "vec32") {
+            fmtString += "%d" + refVar.reg.substring(1) + swizzle;
+            fmtString += "%f" + nextVecReg(refVar.reg).substring(1) + swizzle;
+          } else {
+            fmtString += "%d" + refVar.reg.substring(1) + swizzle;
+          }
+        } else {
+          fmtString += part+refVar.reg.substring(1);
+        }
+      }
+    }
+  }
+
+  res.push(
+    asmInline("emux_printf", ['"' + fmtString + '"']),
+    asmInline(".set noat", ["# print"]),
+    asmInline(".set nomacro", ["# print"]),
+  );
+  return res;
 }
 
 // Taken from libdragon
@@ -301,7 +426,7 @@ function select(varRes, args, swizzle) {
 
 export default {
   load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
-  asm: inlineAsm,
+  asm: inlineAsm, printf, abs, clip,
   dma_in, dma_out, dma_in_async, dma_out_async, dma_await,
   invert_half, invert_half_sqrt, invert, swap, select
 };

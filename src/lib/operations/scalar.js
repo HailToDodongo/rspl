@@ -118,9 +118,8 @@ function opStore(varRes, varOffsets)
     offsets.push({type: "var", value: varLoc.name});
   }
 
-  const offsetStr = offsets
-    .map(v => v.type === "num" ? v.value : `%lo(${v.value})`)
-    .join(" + ");
+  let offsetStr = offsets.map(v => v.value).join(" + ");
+  if(offsets.some(o => o.type !== "num"))offsetStr = `%lo(${offsetStr})`;
 
   const baseReg = varLoc.reg || REG.ZERO;
   const op = {

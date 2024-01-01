@@ -128,9 +128,14 @@ declare global
         label: string;
     };
 
+    type ASTVarUndef = ASTStatementBase & {
+        type: 'varUndef';
+        varName: string;
+    };
+
     type ASTStatement = ASTScopedBlock | ASTIf | ASTWhile | ASTDeclAssign | ASTDeclMulti
         | ASTDecl | ASTFuncCall | ASTComment | ASTDeclAlias | ASTAssignCalc
-        | ASTLabelDecl | ASTGoto | ASTBreak | ASTContinue;
+        | ASTLabelDecl | ASTGoto | ASTBreak | ASTContinue | ASTVarUndef;
 
     type AST = {
         includes: string[];

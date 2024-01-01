@@ -25,12 +25,22 @@ function normalizeConfig(config)
   if(config.optimize    === undefined)config.optimize = false;
 }
 
+function stripComments(source) {
+  return source
+    .replaceAll(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, match => {
+      const newlineCount = match.split('\n').length - 1;
+      return '\n'.repeat(newlineCount);
+    });
+}
+
 /**
  * @param {string} source
  * @param {RSPLConfig} config
  */
 export function transpileSource(source, config)
 {
+  source = stripComments(source);
   const parser = new nearly.Parser(grammar);
 
   //console.time("parser");

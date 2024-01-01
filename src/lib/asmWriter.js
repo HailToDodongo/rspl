@@ -67,7 +67,9 @@ export function writeASM(ast, functionsAsm, config)
   writeLines(commandList);
   writeLines(["  RSPQ_EndOverlayHeader", ""]);
 
-  let totalSaveByteSize = 0;
+  let totalSaveByteSize = 660; // libdragon default (@TODO get this from somewhere)
+  let totalTextSize = 616; // libdragon default (@TODO get this from somewhere)
+
   const hasState = !!ast.state.find(v => !v.extern);
   if(hasState) {
     writeLine("  RSPQ_BeginSavedState");
@@ -103,9 +105,6 @@ export function writeASM(ast, functionsAsm, config)
   } else {
     writeLine("  RSPQ_EmptySavedState");
   }
-
-  const saveUsagePerc = totalSaveByteSize / 4096 * 100;
-  state.logInfo(`Total state size: ${totalSaveByteSize} bytes (${saveUsagePerc.toFixed(2)}%)`);
 
   writeLines(["", ".text", ""]);
 
@@ -145,6 +144,8 @@ export function writeASM(ast, functionsAsm, config)
         case ASM_TYPE.COMMENT: writeLine(`  ##${asm.comment}`);      break;
         default: state.throwError("Unknown ASM type: " + asm.type, asm);
       }
+
+      totalTextSize += asm.type === ASM_TYPE.OP ? 4 : 0;
     }
 
     for(const asm of block.asm)
@@ -168,6 +169,11 @@ export function writeASM(ast, functionsAsm, config)
   for(const inc of ast.postIncludes) {
     writeLine(`#include <${inc.replaceAll('"', '')}>`);
   }
+
+  const saveUsagePerc = totalSaveByteSize / 4096 * 100;
+  state.logInfo(`Total state size: ${totalSaveByteSize} bytes (${saveUsagePerc.toFixed(2)}%)`);
+  const textUsagePerc = totalTextSize / 4096 * 100;
+  state.logInfo(`Total text size: ${totalTextSize} bytes (${textUsagePerc.toFixed(2)}%)`);
 
   return res;
 }

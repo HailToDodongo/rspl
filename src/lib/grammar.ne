@@ -56,6 +56,7 @@ const lexer = moo.compile({
 	KWContinue: "continue",
 	KWInclude : "include",
 	KWConst   : "const",
+	KWUndef   : "undef",
 
 	ValueHex: /0x[0-9A-F']+/,
 	ValueBin: /0b[0-1']+/,
@@ -169,7 +170,7 @@ FunctonDefArg -> %DataType RegDef:? _ %VarName {% d => ({
 	name: d[3] && d[3].value
 })%}
 
-Expression ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarAssign | ExprFuncCall | ExprGoto | ExprContinue | ExprBreak) %StmEnd {% (d) => d[1][0] %}
+Expression ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarUndef | ExprVarAssign | ExprFuncCall | ExprGoto | ExprContinue | ExprBreak) %StmEnd {% (d) => d[1][0] %}
 
 LabelDecl -> _ %VarName %Colon {% d => ({type: "labelDecl", name: d[1].value, line: d[1].line}) %}
 
@@ -209,6 +210,12 @@ ExprVarDecl -> (%KWConst __):? %DataType RegDef:? _ VarList {% d => ({
 	varNames: FORCE_ARRAY(d[4]).map(x => x.value),
 	isConst: !!d[0],
 	line: d[1].line
+})%}
+
+ExprVarUndef -> %KWUndef _ %VarName {% d => ({
+	type: "varUndef",
+	varName: d[2].value,
+	line: d[0].line
 })%}
 
 ExprFuncCall -> %VarName %ArgsStart _ FuncArgs:* %ArgsEnd  {% d => ({

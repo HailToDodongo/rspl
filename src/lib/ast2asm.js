@@ -252,6 +252,10 @@ function scopedBlockToASM(block, args = [])
         state.declareVar(st.varName, st.varType, reg, st.isConst || false);
       } break;
 
+      case "varUndef": {
+        state.undefVar(st.varName);
+      } break;
+
       case "varDeclAlias":
         state.declareVarAlias(st.aliasName, st.varName);
       break;

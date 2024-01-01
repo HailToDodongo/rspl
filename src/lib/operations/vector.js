@@ -234,7 +234,10 @@ function opStoreBytes(varRes, varLoc, isSigned) {
 function opAdd(varRes, varLeft, varRight)
 {
   if(!varRight.reg) {
-    state.throwError("Addition cannot be done with a constant!");
+    varRight = POW2_SWIZZLE_VAR[varRight.value];
+    if(!varRight) {
+      state.throwError("Addition by a constant can only be done with powers of two!");
+    }
   }
   if(varRes.swizzle || varLeft.swizzle) {
     state.throwError("Addition only allows swizzle on the right side!");
@@ -269,7 +272,10 @@ function opAdd(varRes, varLeft, varRight)
 function opSub(varRes, varLeft, varRight)
 {
   if(!varRight.reg) {
-    state.throwError("Subtraction cannot be done with a constant!");
+    varRight = POW2_SWIZZLE_VAR[varRight.value];
+    if(!varRight) {
+      state.throwError("Subtraction by a constant can only be done with powers of two!");
+    }
   }
   if(varRes.swizzle || varLeft.swizzle) {
     state.throwError("Subtraction only allows swizzle on the right side!");
@@ -285,7 +291,9 @@ function opSub(varRes, varLeft, varRight)
       asm("vsubc", [nextReg(varRes.reg), fractReg(varLeft), fractReg(varRight) + swizzleRight]),
       asm("vsub",  [        varRes.reg,        varLeft.reg,      varRight.reg  + swizzleRight]),
     ] : [
-      asm("vsubc", [        varRes.reg,        varLeft.reg,      varRight.reg  + swizzleRight]),
+      (varRes.castType && varRes.castType.startsWith("s"))
+       ? asm("vsub", [        varRes.reg,        varLeft.reg,      varRight.reg  + swizzleRight])
+       : asm("vsubc", [        varRes.reg,        varLeft.reg,      varRight.reg  + swizzleRight]),
     ];
 }
 
