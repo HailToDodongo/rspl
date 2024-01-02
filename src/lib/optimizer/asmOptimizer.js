@@ -91,6 +91,8 @@ export function asmOptimize(asmFunc)
     }
   }
 
+return; // TEST
+
   let costBest = evalFunctionCost(asmFunc);
   console.log("costOpt", costInit, costBest);
 

@@ -26,9 +26,9 @@ export const REG = {
 };
 
 export const REG_COP2 = {
-  VCO: "COP2_CTRL_VCO",
-  VCC: "COP2_CTRL_VCC",
-  VCE: "COP2_CTRL_VCE",
+  VCO: "$vc0",
+  VCC: "$vcc",
+  VCE: "$vce",
 }
 
 // MIPS scalar register in correct order ($0 - $31)

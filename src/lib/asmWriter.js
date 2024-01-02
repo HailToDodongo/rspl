@@ -53,6 +53,9 @@ export function writeASM(ast, functionsAsm, config)
 
   REGS_SCALAR.forEach(reg => writeLine("#undef " + reg.substring(1)));
   REGS_SCALAR.forEach((reg, i) => writeLine(`.equ hex.${reg}, ${i}`));
+  writeLine("#define vco 0");
+  writeLine("#define vcc 1");
+  writeLine("#define vce 2");
 
   writeLines(["", ".data", "  RSPQ_BeginOverlayHeader"]);
 
