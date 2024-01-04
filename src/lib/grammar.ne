@@ -57,6 +57,7 @@ const lexer = moo.compile({
 	KWInclude : "include",
 	KWConst   : "const",
 	KWUndef   : "undef",
+	KWExit    : "exit",
 
 	ValueHex: /0x[0-9A-F']+/,
 	ValueBin: /0b[0-1']+/,
@@ -79,7 +80,7 @@ const lexer = moo.compile({
 		"<<", ">>",
 		"+*",
 		"+", "-", "*", "/",
-		"&", "|", "^",
+		"&", "~|", "|", "^",
 	],
 	OperatorUnary: [
 		"!", "~",
@@ -170,7 +171,7 @@ FunctonDefArg -> %DataType RegDef:? _ %VarName {% d => ({
 	name: d[3] && d[3].value
 })%}
 
-Expression ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarUndef | ExprVarAssign | ExprFuncCall | ExprGoto | ExprContinue | ExprBreak) %StmEnd {% (d) => d[1][0] %}
+Expression ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarUndef | ExprVarAssign | ExprFuncCall | ExprGoto | ExprContinue | ExprBreak | ExprExit) %StmEnd {% (d) => d[1][0] %}
 
 LabelDecl -> _ %VarName %Colon {% d => ({type: "labelDecl", name: d[1].value, line: d[1].line}) %}
 
@@ -233,6 +234,7 @@ ExprGoto -> %KWGoto _ %VarName {% d => ({
 
 ExprContinue -> %KWContinue {% d => ({type: "continue", line: d[0].line})%}
 ExprBreak    -> %KWBreak    {% d => ({type: "break",    line: d[0].line})%}
+ExprExit     -> %KWExit     {% d => ({type: "exit",     line: d[0].line})%}
 
 ExprCompare -> _ FuncArg _ (%OperatorCompare | %TypeStart | %TypeEnd) _ FuncArg {% d => ({
 	type: "compare",

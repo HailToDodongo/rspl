@@ -174,7 +174,6 @@ function getPosColor(u32<$s6> idxX, u32<$s7> idxY)
 
 command<0> T3DCmd_Init()
 {
-  u32<$zero> ZERO;
   store(ZERO, VER_OFFSET); // @TODO: syntax for zero
   store(ZERO, TIME);
 

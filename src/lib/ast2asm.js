@@ -13,6 +13,7 @@ import {opBranch} from "./operations/branch.js";
 import {callUserFunction} from "./operations/userFunction.js";
 import {isVecType} from "./dataTypes/dataTypes.js";
 import {POW2_SWIZZLE_VAR} from "./syntax/swizzle.js";
+import {LABEL_CMD_LOOP} from "./builtins/libdragon.js";
 
 const VECTOR_TYPES = ["vec16", "vec32"];
 
@@ -131,6 +132,7 @@ function calcLRToAsm(calc, varRes, varLeft, varRight)
 
     case "&":  return opsHandler.opAnd(varRes, varLeft, varRight);
     case "|":  return opsHandler.opOr(varRes, varLeft, varRight);
+    case "~|": return opsHandler.opNOR(varRes, varLeft, varRight);
     case "^":  return opsHandler.opXOR(varRes, varLeft, varRight);
 
     case "<<":  return opsHandler.opShiftLeft(varRes, varLeft, varRight);
@@ -297,6 +299,10 @@ function scopedBlockToASM(block, args = [])
         res.push(asm("j", [labelEnd]), asmNOP());
       } break;
 
+      case "exit": {
+        res.push(asm("j", [LABEL_CMD_LOOP]), asmNOP());
+      } break;
+
       case "continue": {
         const labelStart = state.getScope().labelStart;
         if(!labelStart)state.throwError("'continue' cannot find a label to jump to!", st);
@@ -352,7 +358,7 @@ export function ast2asm(ast)
       ++state.line;
 
       if(block.type === "command") {
-        blockAsm.push(asm("j", ["RSPQ_Loop"]), asmNOP());
+        blockAsm.push(asm("j", [LABEL_CMD_LOOP]), asmNOP());
       } else {
         blockAsm.push(asm("jr", [REG.RA]), asmNOP());
       }

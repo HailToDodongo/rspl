@@ -123,6 +123,11 @@ declare global
         label: string;
     };
 
+    type ASTExit = ASTStatementBase & {
+        type: 'exit';
+        label: string;
+    };
+
     type ASTContinue = ASTStatementBase & {
         type: 'continue';
         label: string;
@@ -135,7 +140,7 @@ declare global
 
     type ASTStatement = ASTScopedBlock | ASTIf | ASTWhile | ASTDeclAssign | ASTDeclMulti
         | ASTDecl | ASTFuncCall | ASTComment | ASTDeclAlias | ASTAssignCalc
-        | ASTLabelDecl | ASTGoto | ASTBreak | ASTContinue | ASTVarUndef;
+        | ASTLabelDecl | ASTGoto | ASTBreak | ASTExit | ASTContinue | ASTVarUndef;
 
     type AST = {
         includes: string[];

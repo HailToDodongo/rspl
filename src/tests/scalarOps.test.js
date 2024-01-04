@@ -11,36 +11,42 @@ describe('Scalar - Ops', () =>
         u32<$t0> a, b, c;
         s32<$t3> sa, sb, sc;
         
-        // Add
+        ADD:
         c = a + b; sc = sa + sb;
         c = a + 1; sc = sa + 1;
         c = a + TEST_CONST; sc = sa + TEST_CONST;
                 
-        // Sub
+        SUB:
         c = a - b; sc = sa - sb;
         c = a - 1; sc = sa - 1;
         //c = a - TEST_CONST; sc = sa - TEST_CONST; Invalid
         
-        // Mul/Div not possible
+        MUL:
+        c = a * 4;
+        
+        DIV:
+        c = a / 8;
     }`, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBe(
 `test_scalar_ops:
-  ## Add
+  ADD:
   addu $t2, $t0, $t1
   addu $t5, $t3, $t4
   addiu $t2, $t0, 1
   addiu $t5, $t3, 1
   addiu $t2, $t0, %lo(TEST_CONST)
   addiu $t5, $t3, %lo(TEST_CONST)
-  ## Sub
+  SUB:
   subu $t2, $t0, $t1
   subu $t5, $t3, $t4
   addiu $t2, $t0, 65535
   addiu $t5, $t3, 65535
-  ##c = a - TEST_CONST; sc = sa - TEST_CONST; Invalid
-  ## Mul/Div not possible
+  MUL:
+  sll $t2, $t0, 2
+  DIV:
+  srl $t2, $t0, 3
   jr $ra
   nop`);
   });
@@ -52,30 +58,33 @@ describe('Scalar - Ops', () =>
         u32<$t0> a, b, c;
         s32<$t3> sa, sb, sc;
                 
-        // And
+        AND:
         c = a & b;
         c = a & 1;
         c = a & TEST_CONST;
         
-        // Or
+        OR:
         c = a | b;
         c = a | 2;
         c = a | TEST_CONST;
         
-        // XOR
+        XOR:
         c = a ^ b;
         c = a ^ 2;
         c = a ^ TEST_CONST;
         
-        // Not
+        NOT:
         c = ~b;
         
-        // Shift-Left
+        NOR:
+        c = a ~| b;
+        
+        SHIFT_LEFT:
         c = a << b;
         c = a << 2;
         //c = a << TEST_CONST; Invalid
         
-        // Shift-Right
+        SHIFT_RIGHT:
         c = a >> b;
         c = a >> 2;
         //c = a >> TEST_CONST; Invalid
@@ -84,28 +93,28 @@ describe('Scalar - Ops', () =>
     expect(warn).toBe("");
     expect(asm).toBe(
 `test_scalar_ops:
-  ## And
+  AND:
   and $t2, $t0, $t1
   andi $t2, $t0, 1
   andi $t2, $t0, %lo(TEST_CONST)
-  ## Or
+  OR:
   or $t2, $t0, $t1
   ori $t2, $t0, 2
   ori $t2, $t0, %lo(TEST_CONST)
-  ## XOR
+  XOR:
   xor $t2, $t0, $t1
   xori $t2, $t0, 2
   xori $t2, $t0, %lo(TEST_CONST)
-  ## Not
+  NOT:
   nor $t2, $zero, $t1
-  ## Shift-Left
+  NOR:
+  nor $t2, $t0, $t1
+  SHIFT_LEFT:
   sllv $t2, $t0, $t1
   sll $t2, $t0, 2
-  ##c = a << TEST_CONST; Invalid
-  ## Shift-Right
+  SHIFT_RIGHT:
   srlv $t2, $t0, $t1
   srl $t2, $t0, 2
-  ##c = a >> TEST_CONST; Invalid
   jr $ra
   nop`);
   });

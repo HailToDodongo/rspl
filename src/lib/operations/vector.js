@@ -346,6 +346,16 @@ function opOr(varRes, varLeft, varRight) {
  * @param {ASTFuncArg} varRight
  * @returns {ASM[]}
  */
+function opNOR(varRes, varLeft, varRight) {
+  return genericLogicOp(varRes, varLeft, varRight, "vnor");
+}
+
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opXOR(varRes, varLeft, varRight) {
   return genericLogicOp(varRes, varLeft, varRight, "vxor");
 }
@@ -560,7 +570,7 @@ function opCompare(varRes, varLeft, varRight, op, ternary) {
 
 export default {
   opMove, opLoad, opStore,
-  opAdd, opSub, opMul, opInvertHalf, opInvertSqrtHalf, opDiv, opAnd, opOr, opXOR, opBitFlip,
+  opAdd, opSub, opMul, opInvertHalf, opInvertSqrtHalf, opDiv, opAnd, opOr, opNOR, opXOR, opBitFlip,
   opShiftLeft, opShiftRight,
   opLoadBytes, opStoreBytes,
   opCompare,

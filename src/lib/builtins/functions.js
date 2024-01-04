@@ -152,10 +152,6 @@ function abs(varRes, args, swizzle)
  */
 function clip(varRes, args, swizzle)
 {
-  //vch v___, vcspos_i, vcspos_i.w
-  //vcl v___, vcspos_f, vcspos_f.w
-  //cfc2 t0, COP2_CTRL_VCC
-
   if(args.length !== 2)state.throwError("Builtin clip() requires exactly two arguments!", args[0]);
   if(isVecReg(varRes.reg))state.throwError("Builtin clip() must be assigned to a scalar variable!", varRes);
   if(swizzle)state.throwError("To use swizzle in clip(), apply it to the second argument instead!", varRes);

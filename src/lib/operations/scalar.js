@@ -257,6 +257,17 @@ function opXOR(varRes, varLeft, varRight) {
 
 /**
  * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
+function opNOR(varRes, varLeft, varRight) {
+  if(!varRight.reg)state.throwError("NOR is only supported for variables!");
+  return opRegOrImmediate("nor", "nori", u32InU16Range, varRes, varLeft, varRight);
+}
+
+/**
+ * @param {ASTFuncArg} varRes
  * @param {ASTFuncArg} varRight
  * @returns {ASM[]}
  */
@@ -300,6 +311,6 @@ function opDiv(varRes, varLeft, varRight) {
   return opShiftRight(varRes, varLeft, {type: 'u32', value: shiftVal});
 }
 export default {
-  opMove, opLoad, opStore, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opXOR, opBitFlip,
+  opMove, opLoad, opStore, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opNOR, opXOR, opBitFlip,
   loadImmediate
 };

@@ -61,6 +61,7 @@ const lexer = moo.compile({
 	KWInclude : "include",
 	KWConst   : "const",
 	KWUndef   : "undef",
+	KWExit    : "exit",
 
 	ValueHex: /0x[0-9A-F']+/,
 	ValueBin: /0b[0-1']+/,
@@ -83,7 +84,7 @@ const lexer = moo.compile({
 		"<<", ">>",
 		"+*",
 		"+", "-", "*", "/",
-		"&", "|", "^",
+		"&", "~|", "|", "^",
 	],
 	OperatorUnary: [
 		"!", "~",
@@ -200,6 +201,7 @@ var grammar = {
     {"name": "Expression$subexpression$1", "symbols": ["ExprGoto"]},
     {"name": "Expression$subexpression$1", "symbols": ["ExprContinue"]},
     {"name": "Expression$subexpression$1", "symbols": ["ExprBreak"]},
+    {"name": "Expression$subexpression$1", "symbols": ["ExprExit"]},
     {"name": "Expression", "symbols": ["_", "Expression$subexpression$1", (lexer.has("StmEnd") ? {type: "StmEnd"} : StmEnd)], "postprocess": (d) => d[1][0]},
     {"name": "LabelDecl", "symbols": ["_", (lexer.has("VarName") ? {type: "VarName"} : VarName), (lexer.has("Colon") ? {type: "Colon"} : Colon)], "postprocess": d => ({type: "labelDecl", name: d[1].value, line: d[1].line})},
     {"name": "IfStatement$subexpression$1", "symbols": ["ExprCompare"]},
@@ -273,6 +275,7 @@ var grammar = {
         })},
     {"name": "ExprContinue", "symbols": [(lexer.has("KWContinue") ? {type: "KWContinue"} : KWContinue)], "postprocess": d => ({type: "continue", line: d[0].line})},
     {"name": "ExprBreak", "symbols": [(lexer.has("KWBreak") ? {type: "KWBreak"} : KWBreak)], "postprocess": d => ({type: "break",    line: d[0].line})},
+    {"name": "ExprExit", "symbols": [(lexer.has("KWExit") ? {type: "KWExit"} : KWExit)], "postprocess": d => ({type: "exit",     line: d[0].line})},
     {"name": "ExprCompare$subexpression$1", "symbols": [(lexer.has("OperatorCompare") ? {type: "OperatorCompare"} : OperatorCompare)]},
     {"name": "ExprCompare$subexpression$1", "symbols": [(lexer.has("TypeStart") ? {type: "TypeStart"} : TypeStart)]},
     {"name": "ExprCompare$subexpression$1", "symbols": [(lexer.has("TypeEnd") ? {type: "TypeEnd"} : TypeEnd)]},

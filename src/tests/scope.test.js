@@ -18,10 +18,21 @@ describe('Scope', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_scope:
   addiu $t1, $t1, 2
-  ## 'b' is no longer defined now
   addiu $t0, $t0, 2
   jr $ra
   nop`);
+  });
+
+  test('Var Un-Declaration', () => {
+    const src = `function test_scope() 
+    {
+      u32<$t0> a;
+      a += 2;
+      undef a;
+      a = 2;
+    }`;
+   expect(() => transpileSource(src, CONF))
+    .toThrowError(/line 6: result Variable a not known!/);
   });
 
   test('Var Decl. invalid', () =>
@@ -32,7 +43,7 @@ describe('Scope', () =>
       {
          u32<$t1> b;
          b += 2;
-      } // 'b' is no longer defined now
+      }
       b += 2;
     }`;
    expect(() => transpileSource(src, CONF))

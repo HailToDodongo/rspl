@@ -310,9 +310,9 @@ describe('Vector - Ops', () =>
       vec32<$v02> res32, a32;
       vec16<$v06> a16;
       
-      res32 = a16 & a16; //
-      res32 = a32 & a16; //
-      res32 = a16 & a32; //
+      res32 = a16 & a16; A:
+      res32 = a32 & a16; B:
+      res32 = a16 & a32; C:
       res32 = a32 & a32;
     }`, CONF);
 
@@ -320,13 +320,13 @@ describe('Vector - Ops', () =>
     expect(asm).toBe(`test:
   vand $v02, $v06, $v06.v
   vand $v03, $v00, $v00.v
-  ##
+  A:
   vand $v02, $v04, $v06.v
   vand $v03, $v05, $v00.v
-  ##
+  B:
   vand $v02, $v06, $v04.v
   vand $v03, $v00, $v05.v
-  ##
+  C:
   vand $v02, $v04, $v04.v
   vand $v03, $v05, $v05.v
   jr $ra
@@ -359,9 +359,9 @@ describe('Vector - Ops', () =>
       vec32<$v02> res32, a32;
       vec16<$v06> a16;
       
-      res32 = a16 | a16; //
-      res32 = a32 | a16; //
-      res32 = a16 | a32; //
+      res32 = a16 | a16; AA:
+      res32 = a32 | a16; BB:
+      res32 = a16 | a32; CC:
       res32 = a32 | a32;
     }`, CONF);
 
@@ -369,13 +369,13 @@ describe('Vector - Ops', () =>
     expect(asm).toBe(`test:
   vor $v02, $v06, $v06.v
   vor $v03, $v00, $v00.v
-  ##
+  AA:
   vor $v02, $v04, $v06.v
   vor $v03, $v05, $v00.v
-  ##
+  BB:
   vor $v02, $v06, $v04.v
   vor $v03, $v00, $v05.v
-  ##
+  CC:
   vor $v02, $v04, $v04.v
   vor $v03, $v05, $v05.v
   jr $ra
@@ -408,9 +408,9 @@ describe('Vector - Ops', () =>
       vec32<$v02> res32, a32;
       vec16<$v06> a16;
       
-      res32 = a16 ^ a16; //
-      res32 = a32 ^ a16; //
-      res32 = a16 ^ a32; //
+      res32 = a16 ^ a16; A:
+      res32 = a32 ^ a16; B:
+      res32 = a16 ^ a32; C:
       res32 = a32 ^ a32;
     }`, CONF);
 
@@ -418,13 +418,13 @@ describe('Vector - Ops', () =>
     expect(asm).toBe(`test:
   vxor $v02, $v06, $v06.v
   vxor $v03, $v00, $v00.v
-  ##
+  A:
   vxor $v02, $v04, $v06.v
   vxor $v03, $v05, $v00.v
-  ##
+  B:
   vxor $v02, $v06, $v04.v
   vxor $v03, $v00, $v05.v
-  ##
+  C:
   vxor $v02, $v04, $v04.v
   vxor $v03, $v05, $v05.v
   jr $ra

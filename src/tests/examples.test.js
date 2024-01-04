@@ -29,6 +29,14 @@ describe('Examples', () =>
     expect(asm).toBeDefined();
   });
 
+  test('Example code - Mandelbrot', () => {
+    const code = readFileSync("./src/tests/examples/mandelbrot.rspl", "utf8");
+    const {asm, warn} = transpileSource(code, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBeDefined();
+  });
+
   test('Matrix x Vector', () => {
     const {asm, warn} = transpileSource(`include "rsp_queue.inc"
 state { 
@@ -138,6 +146,9 @@ include "rsp_rdpq.inc"
 .equ hex.$sp, 29
 .equ hex.$fp, 30
 .equ hex.$ra, 31
+#define vco 0
+#define vcc 1
+#define vce 2
 
 .data
   RSPQ_BeginOverlayHeader

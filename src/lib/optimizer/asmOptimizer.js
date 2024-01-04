@@ -98,7 +98,7 @@ return; // TEST
 
   let bestASM = [...asmFunc.asm];
 
-  for(let i=0; i<10; ++i) {
+  for(let i=0; i<50; ++i) {
 
     for(let o=0; o<4; ++o) {
       optimizeStep(asmFunc);

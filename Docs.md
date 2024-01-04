@@ -98,6 +98,14 @@ In the declaration it's possible to either specify a register directly (useful f
 The latter should be preferred whenever possible.<br>
 Automatic allocation of registers happens in a fixed order, choosing the first free register.
 
+To manually un-declare a variable, you can use the `undef` keyword.<br>
+```c++
+u32<$t0> myVar;
+undef myVar;
+myVar += 1; // <- ERROR: no longer in scope
+```
+This is no runtime overhead.
+
 ### Scope
 RSPL has a concept of scopes which, similar to C, refers to a block of code inside curly-brackets.<br>
 This only limits the visibly/lifetime of variable declarations.<br>
@@ -168,6 +176,7 @@ if(a != 10) {
 
 while(a > 20) {
   a -= 1;
+  if(a == 5)break;
 }
 ```
 
@@ -178,6 +187,14 @@ u32 a;
 LabelA:
 a += 10;
 goto LabelA;
+```
+
+For exiting commands specifically, there is the `exit` statement.<br>
+This can be used inside commands, functions and macros to stop the execution and return to libdragons code.<br>
+```c++
+function test() {
+  exit; // returns to 
+}
 ```
 
 ### Swizzle
@@ -465,6 +482,28 @@ Examples:
 u32 a, b; vec16 v0, v1;
 swap(a, b); // swap two scalars
 swap(v0, v1); // swap two vectors
+```
+
+### `abs(vec a)`
+Absolute value of a 16-bit or 32-bit vector.<br>
+Examples:
+```c++
+vec16 a;
+a = abs(a);
+```
+
+### `clip(vec a, vec b)`
+Calculates clipping codes for two 16-bit or 32-bit vectors.<br>
+The result must be stored into a scalar variable.<br>
+Each bit in the result represents an axis, '1' being outside, '0' being inside.<br>
+From the LSB to MSB the order is:<br> 
+Bit 0-8: `+x`, `+y`, `+z`, `+w`, `+X`, `+Y`, `+Z`, `+W`.<br>
+Bit 9-15: `-x`, `-y`, `-z`, `-w`, `-X`, `-Y`, `-Z`, `-W`.<br>
+
+Examples:
+```c++
+vec16 pos;
+u32 clipCode = clip(pos, pos.w);
 ```
 
 ### `select(vec a, b)`
