@@ -250,6 +250,8 @@ const state =
     // To handle special cases, the cast is preserved (mainly used for fractional vectors).
     if(castType) {
       res.castType = castType;
+      res.originalType = res.type;
+
       if(isVecType(res.type)) {
         if(!VEC_CASTS.includes(castType)) {
           state.throwError("Invalid cast type '"+castType+"' for variable "+nameNorm+", expected '"+VEC_CASTS.join(", ")+"'!", context);

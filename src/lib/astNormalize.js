@@ -35,6 +35,7 @@ function normalizeScopedBlock(block, astState, macros)
       break;
 
       case "while":
+      case "loop":
         normalizeScopedBlock(st.block, astState, macros);
         statements.push(st);
       break;

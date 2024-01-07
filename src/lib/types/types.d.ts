@@ -12,6 +12,7 @@ declare global {
         reg: string;
         type: DataType;
         castType?: CastType;
+        originalType?: DataType;
         isConst: boolean;
         modifyCount: number;
     };

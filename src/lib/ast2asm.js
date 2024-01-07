@@ -216,6 +216,41 @@ function whileToASM(st)
   ];
 }
 
+function loopToASM(st)
+{
+  const labelStart = state.generateLabel();
+  const labelEnd = state.generateLabel();
+
+  if(st.compare) {
+    if(st.compare.left.type === "num") {
+      return state.throwError("Loop-Statements with numeric left-hand-side not implemented!", st);
+    }
+    const varLeft = state.getRequiredVar(st.compare.left.value, "left", st);
+    if(isVecReg(varLeft.reg)) {
+      return state.throwError("Loop-Statements must use scalar-registers!", st);
+    }
+
+    return [
+      asmLabel(labelStart),
+      state.pushScope(labelStart, labelEnd),
+        ...scopedBlockToASM(st.block),
+        ...opBranch(st.compare, labelStart, true), // invert condition!
+      state.popScope(),
+      asmLabel(labelEnd),
+    ];
+  }
+
+  return [
+    asmLabel(labelStart),
+    state.pushScope(labelStart, labelEnd),
+      ...scopedBlockToASM(st.block),
+      asm("j", [labelStart]),
+      asmNOP(),
+    state.popScope(),
+    asmLabel(labelEnd),
+  ];
+}
+
 /**
  * @param {ASTScopedBlock} block
  * @param args
@@ -292,6 +327,7 @@ function scopedBlockToASM(block, args = [])
       case "goto" : res.push(asm("j", [st.label]), asmNOP()); break;
       case "if"   : res.push(...ifToASM(st));           break;
       case "while": res.push(...whileToASM(st));        break;
+      case "loop" : res.push(...loopToASM(st));         break;
 
       case "break": {
         const labelEnd = state.getScope().labelEnd;

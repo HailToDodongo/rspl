@@ -19,6 +19,7 @@ declare global
         value?: number | string;
         swizzle?: Swizzle;
         castType?: CastType;
+        originalType?: DataType;
     };
 
     type ASTFunc = {
@@ -58,6 +59,12 @@ declare global
         type: 'while';
         block: ASTScopedBlock;
         compare: ASTCompare;
+    };
+
+    type ASTLoop = ASTStatementBase & {
+        type: 'loop';
+        block: ASTScopedBlock;
+        compare?: ASTCompare;
     };
 
     type ASTDeclAssign = ASTStatementBase & {
@@ -138,7 +145,7 @@ declare global
         varName: string;
     };
 
-    type ASTStatement = ASTScopedBlock | ASTIf | ASTWhile | ASTDeclAssign | ASTDeclMulti
+    type ASTStatement = ASTScopedBlock | ASTIf | ASTWhile | ASTLoop | ASTDeclAssign | ASTDeclMulti
         | ASTDecl | ASTFuncCall | ASTComment | ASTDeclAlias | ASTAssignCalc
         | ASTLabelDecl | ASTGoto | ASTBreak | ASTExit | ASTContinue | ASTVarUndef;
 

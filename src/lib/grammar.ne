@@ -47,6 +47,7 @@ const lexer = moo.compile({
 
 	FunctionType: ["function", "command", "macro"],
 	KWIf      : "if",
+	KWLoop    : "loop",
 	KWElse    : "else",
 	KWBreak   : "break",
 	KWWhile   : "while",
@@ -161,7 +162,7 @@ ScopedBlock -> _ %BlockStart Statements _ %BlockEnd {%
 #        Either as a standalone function call, or by assiging something to a variable
 #        The thing that is assigned can be a constant, unary or LR-expression
 
-Statements -> (LineComment | ScopedBlock | LabelDecl | IfStatement | WhileStatement | Expression):* {% d => d[0].map(y => y[0]) %}
+Statements -> (LineComment | ScopedBlock | LabelDecl | IfStatement | LoopStatement | WhileStatement | Expression):* {% d => d[0].map(y => y[0]) %}
 FunctionDefArgs -> FunctonDefArg {% MAP_FIRST %}
 			 | (FunctionDefArgs _ %Seperator _ FunctonDefArg) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
 
@@ -187,6 +188,14 @@ WhileStatement -> _ %KWWhile _ %ArgsStart ExprCompare _ %ArgsEnd ScopedBlock {% 
 	type: "while",
 	compare: d[4],
 	block: d[7],
+	line: d[1].line
+})%}
+
+
+LoopStatement -> _ %KWLoop ScopedBlock (_ %KWWhile _ %ArgsStart ExprCompare _ %ArgsEnd):? {% d => ({
+	type: "loop",
+	compare: d[3] ? d[3][4] : undefined,
+	block: d[2],
 	line: d[1].line
 })%}
 

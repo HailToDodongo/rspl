@@ -71,9 +71,17 @@ function opMove(varRes, varRight)
       ];
     }
     // ...otherwise load the constant into a scalar register and move
-    const valueFP32 = f32ToFP32(varRight.value);
-    const valInt = ((valueFP32 >>> 16) & 0xFFFF);
-    const valFract = (valueFP32 & 0xFFFF);
+
+    const isFractCast = ["ufract", "sfract"].includes(varRes.castType);
+    const valueFP32 = f32ToFP32(varRight.value * (varRes.castType === "sfract" ? 0.5 : 1.0));
+    let valInt = ((valueFP32 >>> 16) & 0xFFFF);
+    let valFract = (valueFP32 & 0xFFFF);
+
+    if(varRes.castType === "sfract" && varRight.value >= 0) {
+      valFract = Math.min(0x7FFF, valFract);
+    }
+
+    if(isFractCast)valInt = valFract;
 
     const opLoadInt = [
       ...(valInt === 0 ? [] : opsScalar.loadImmediate(REG.AT, valInt)),
@@ -84,7 +92,10 @@ function opMove(varRes, varRight)
       asm("mtc2", [valFract === 0 ? REG.ZERO : REG.AT, regDst[1] + swizzleRes]),
     ];
 
-    return isVec32 ? [...opLoadInt, ...opLoadFract] : opLoadInt;
+    if(isVec32) {
+      return [...opLoadInt, ...opLoadFract];
+    }
+    return isFractCast ? opLoadFract : opLoadInt;
   }
 
   // Assigning a scalar value from a register to a vector
@@ -251,7 +262,12 @@ function opAdd(varRes, varLeft, varRight)
   const regsL = getVec32Regs(varLeft);
   const regsR = getVec32Regs(varRight);
 
-  let fractOp = ["sfract", "ufract"].includes(varRes.castType) ? "vadd" : "vaddc";
+  //let fractOp = ["sfract", "ufract"].includes(varRes.castType) ? "vadd" : "vaddc";
+  let fractOp = "vaddc";
+  if(varRes.castType) {
+    fractOp = ["sfract"].includes(varRes.castType) ? "vadd" : "vaddc";
+  }
+
   let intOp = varRes.castType === "sint" ? "vadd" : "vaddc";
   if(varRes.type === "vec32") {
     fractOp = "vaddc"; intOp = "vadd";
@@ -419,13 +435,39 @@ function opMul(varRes, varLeft, varRight, clearAccum)
     state.throwError("Unsupported swizzle (supported: "+SWIZZLE_MAP_KEYS_STR+")!", varRes);
   }
 
+  // special-case: multiplying a s1.15 with a 0.16 (fraction of a s16.16)
+  // @TODO: refactor
+  if(varRes.type === "vec16") {
+    if(varLeft.type === "vec16" && ["sfract", "ufract"].includes(varLeft.castType)) {
+      if(varRight.originalType === "vec32" && ["sfract", "ufract"].includes(varRight.castType)) {
+        let opMid = clearAccum ? "vmudm": "vmadm";
+        return [asm(opMid, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight])];
+      }
+    }
+  }
+
+  let varRightHigh = varRight.reg + swizzleRight;
+
+  // @TODO: refactor
+
+  // Full 32-bit multiplication
   if(right32Bit) {
     res.push(
       asm(fractOp, [REG.VTEMP0, fractReg(varLeft), fractReg(varRight) + swizzleRight]),
       asm("vmadm", [REG.VTEMP0,       varLeft.reg, fractReg(varRight) + swizzleRight]),
     );
     intOp = "vmadn"; // don't clear inbetween
-  } else if(varRes.type === "vec16") {
+  } // Partial multiplication: s16.16 * 0.16 (fractional part of original s16.16)
+  else if(varRight.originalType === "vec32" && ["sfract", "ufract"].includes(varRight.castType))
+  {
+    res.push(
+      asm(fractOp, [nextVecReg(varRes.reg), fractReg(varLeft), varRight.reg + swizzleRight]),
+      asm("vmadm", [           varRes.reg,        varLeft.reg, varRight.reg + swizzleRight]),
+    );
+    return res;
+  } // 16-Bit multiplication
+  else if(varRes.type === "vec16")
+  {
     if(varRes.castType === "ufract" || varRes.castType === "sfract")
     {
       intOp = clearAccum ? "vmul": "vmac";
@@ -436,8 +478,8 @@ function opMul(varRes, varLeft, varRight, clearAccum)
   }
 
   res.push(
-    asm(intOp,   [nextVecReg(varRes.reg), fractReg(varLeft),       varRight.reg + swizzleRight]),
-    asm("vmadh", [           varRes.reg,        varLeft.reg,       varRight.reg + swizzleRight]),
+    asm(intOp,   [nextVecReg(varRes.reg), fractReg(varLeft), varRightHigh]),
+    asm("vmadh", [           varRes.reg,        varLeft.reg, varRightHigh]),
   );
   return res;
 }

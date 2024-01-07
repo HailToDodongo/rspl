@@ -32,7 +32,7 @@ const rsplHighlightRules = function() {
           "state", "function", "command", "macro",
           "if", "else", "for", "goto", "break", "continue",
           "include", "extern", "while",
-          "const", "undef",
+          "const", "undef", "exit", "loop",
 
           "s8","u8","s16","u16","s32","u32",
           "vec16","vec32",

@@ -51,6 +51,7 @@ const lexer = moo.compile({
 
 	FunctionType: ["function", "command", "macro"],
 	KWIf      : "if",
+	KWLoop    : "loop",
 	KWElse    : "else",
 	KWBreak   : "break",
 	KWWhile   : "while",
@@ -179,6 +180,7 @@ var grammar = {
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["ScopedBlock"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["LabelDecl"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["IfStatement"]},
+    {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["LoopStatement"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["WhileStatement"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["Expression"]},
     {"name": "Statements$ebnf$1", "symbols": ["Statements$ebnf$1", "Statements$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
@@ -225,6 +227,15 @@ var grammar = {
         	type: "while",
         	compare: d[4],
         	block: d[7],
+        	line: d[1].line
+        })},
+    {"name": "LoopStatement$ebnf$1$subexpression$1", "symbols": ["_", (lexer.has("KWWhile") ? {type: "KWWhile"} : KWWhile), "_", (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "ExprCompare", "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd)]},
+    {"name": "LoopStatement$ebnf$1", "symbols": ["LoopStatement$ebnf$1$subexpression$1"], "postprocess": id},
+    {"name": "LoopStatement$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "LoopStatement", "symbols": ["_", (lexer.has("KWLoop") ? {type: "KWLoop"} : KWLoop), "ScopedBlock", "LoopStatement$ebnf$1"], "postprocess":  d => ({
+        	type: "loop",
+        	compare: d[3] ? d[3][4] : undefined,
+        	block: d[2],
         	line: d[1].line
         })},
     {"name": "LineComment", "symbols": ["_", (lexer.has("LineComment") ? {type: "LineComment"} : LineComment), /[\n]/], "postprocess": (d) => ({type: "comment", comment: d[1].value, line: d[1].line})},
