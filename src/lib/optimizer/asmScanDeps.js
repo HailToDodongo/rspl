@@ -122,7 +122,7 @@ function expandRegister(regName) {
 /**
  * @param {ASM} line
  */
-function getTargetRegs(line) {
+export function getTargetRegs(line) {
   if(READ_ONLY_OPS.includes(line.op)) {
     return [];
   }

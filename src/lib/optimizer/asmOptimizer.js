@@ -9,6 +9,7 @@ import {dedupeLabels} from "./pattern/dedupeLabels.js";
 import {dedupeJumps} from "./pattern/dedupeJumps.js";
 import {branchJump} from "./pattern/branchJump.js";
 import {evalFunctionCost} from "./eval/evalCost.js";
+import {dedupeImmediate} from "./pattern/dedupeImm.js";
 
 /**
  * Optimizes ASM before any dependency analysis.
@@ -24,6 +25,7 @@ export function asmOptimizePattern(asmFunc)
   dedupeLabels(asmFunc);
   dedupeJumps(asmFunc);
   branchJump(asmFunc);
+  dedupeImmediate(asmFunc);
 }
 
 function getRandIndex(minIncl, maxIncl) {
@@ -98,7 +100,7 @@ return; // TEST
 
   let bestASM = [...asmFunc.asm];
 
-  for(let i=0; i<50; ++i) {
+  for(let i=0; i<1000; ++i) {
 
     for(let o=0; o<4; ++o) {
       optimizeStep(asmFunc);

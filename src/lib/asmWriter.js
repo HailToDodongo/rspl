@@ -85,7 +85,9 @@ export function writeASM(ast, functionsAsm, config)
       const align = TYPE_ALIGNMENT[stateVar.varType];
       const values = stateVar.value || [];
 
-      writeLine(`    .align ${align}`);
+      if(align > 0) {
+        writeLine(`    .align ${align}`);
+      }
 
       if(values.length === 0) {
         writeLine(`    ${stateVar.varName}: .ds.b ${byteSize}`);

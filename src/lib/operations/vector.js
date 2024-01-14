@@ -392,8 +392,33 @@ function opShiftLeft(varRes, varLeft, varRight) {
  * @param {ASTFuncArg} varRight
  * @returns {ASM[]}
  */
-function opShiftRight(varRes, varLeft, varRight) {
-  return state.throwError("Shift-Right is not supported for vectors! (@TODO: implement this)");
+function opShiftRight(varRes, varLeft, varRight)
+{
+  if(typeof(varRight.value) === "string")state.throwError("Shift-Right cannot use labels!");
+  if(varRight.value < 0 || varRight.value > 31) {
+    state.throwError("Shift-Right value must be in range 0<x<32!");
+  }
+
+  const shiftVal = Math.floor(1 / Math.pow(2, varRight.value) * 0x10000);
+  const shiftReg = POW2_SWIZZLE_VAR[shiftVal];
+  if(!shiftReg)state.throwError(`Invalid shift value (${varRight.value} -> V:${shiftVal})`, varRight);
+
+  if(varRes.type !== varLeft.type) {
+    state.throwError("Shift-Right requires all arguments to be of the same type!");
+  }
+
+  if(varRes.type === "vec32") {
+    const regsRes = getVec32Regs(varRes);
+    const regsL = getVec32Regs(varLeft);
+
+    return [
+      asm("vmudl", [regsRes[1], regsL[1], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
+      asm("vmadm", [regsRes[0], regsL[0], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
+      asm("vmadn", [regsRes[1], REGS.VZERO, REGS.VZERO]),
+    ];
+  }
+
+  return state.throwError("Shift-Right is not supported for vec16! (@TODO: implement this)");
 }
 
 /**
@@ -468,10 +493,11 @@ function opMul(varRes, varLeft, varRight, clearAccum)
   } // 16-Bit multiplication
   else if(varRes.type === "vec16")
   {
-    if(varRes.castType === "ufract" || varRes.castType === "sfract")
+    const caseRef = varLeft.castType || varRight.castType || varRes.castType;
+    if(caseRef === "ufract" || caseRef === "sfract")
     {
       intOp = clearAccum ? "vmul": "vmac";
-      intOp += (varRes.castType === "ufract") ? "u" : "f";
+      intOp += (caseRef === "ufract") ? "u" : "f";
       return [asm(intOp, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight])];
     }
     return [asm(intOp, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight])];

@@ -28,14 +28,14 @@ export const TYPE_ASM_DEF = {
 
 /** @type {Record<DataType, number>} */
 export const TYPE_ALIGNMENT = {
-  s8   : 1,
-  u8   : 1,
+  s8   : 0,
+  u8   : 0,
   s16  : 1,
   u16  : 1,
   s32  : 2,
   u32  : 2,
   vec16: 3,
-  vec32: 4,
+  vec32: 3,
 };
 
 /** @type {Record<DataType, number>} */
