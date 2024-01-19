@@ -204,7 +204,7 @@ describe('Vector - Ops', () =>
   vaddc $v01, $v01, $v02.e0
   vadd $v01, $v01, $v02.e0
   vadd $v01, $v01, $v02.e0
-  vadd $v01, $v01, $v02.e0
+  vaddc $v01, $v01, $v02.e0
   jr $ra
   nop`);
   });

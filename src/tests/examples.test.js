@@ -156,7 +156,7 @@ include "rsp_rdpq.inc"
   RSPQ_EndOverlayHeader
 
   RSPQ_BeginSavedState
-    .align 4
+    .align 3
     VEC_SLOTS: .ds.b 640
   RSPQ_EndSavedState
 

@@ -44,7 +44,6 @@ describe('State', () =>
   RSPQ_EndOverlayHeader
 
   RSPQ_BeginSavedState
-    .align 1
     a: .ds.b 1
     .align 1
     b: .ds.b 2
@@ -52,7 +51,7 @@ describe('State', () =>
     c: .ds.b 4
     .align 3
     d: .ds.b 16
-    .align 4
+    .align 3
     e: .ds.b 32
   RSPQ_EndSavedState
 
@@ -84,11 +83,11 @@ describe('State', () =>
     a1: .ds.b 16
     .align 2
     a2: .ds.b 32
-    .align 4
+    .align 3
     b0: .ds.b 32
-    .align 4
+    .align 3
     b1: .ds.b 64
-    .align 4
+    .align 3
     b2: .ds.b 256
   RSPQ_EndSavedState
 
