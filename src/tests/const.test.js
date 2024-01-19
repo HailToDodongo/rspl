@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Const', () =>
 {
-  test('Const Declaration', () => {
-    const {asm, warn} = transpileSource(`function test() 
+  test('Const Declaration', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
     {
       const u32<$t0> a = 1234;
       const u32<$t1> b = a + a;
@@ -21,23 +21,23 @@ describe('Const', () =>
   nop`);
   });
 
-  test('Const invalid (scalar)', () =>
+  test('Const invalid (scalar)', async () =>
   {
     const src = `function test() {
       const u32<$t0> a = 1234;
       a += 1;
     }`;
-   expect(() => transpileSource(src, CONF))
-    .toThrowError(/line 3: Cannot assign to constant variable!/);
+   await expect(() => transpileSource(src, CONF))
+    .rejects.toThrowError(/line 3: Cannot assign to constant variable!/);
   });
 
-  test('Const invalid (vector)', () =>
+  test('Const invalid (vector)', async () =>
   {
     const src = `function test() {
       const vec16<$v01> a = 0;
       a += a;
     }`;
-   expect(() => transpileSource(src, CONF))
-    .toThrowError(/line 3: Cannot assign to constant variable!/);
+   await expect(() => transpileSource(src, CONF))
+    .rejects.toThrowError(/line 3: Cannot assign to constant variable!/);
   });
 });

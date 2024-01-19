@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false, optimize: true};
 
 describe('Optimizer E2E - Delay-Slots', () =>
 {
-  test('Fill - Basic', () => {
-    const {asm, warn} = transpileSource(`function test(u32 dummy) 
+  test('Fill - Basic', async () => {
+    const {asm, warn} = await transpileSource(`function test(u32 dummy) 
     {
       u32 a = 1;
       goto SOME_LABEL;
@@ -19,8 +19,8 @@ describe('Optimizer E2E - Delay-Slots', () =>
   nop`);
   });
 
-  test('Fill - Complex', () => {
-    const {asm, warn} = transpileSource(`function test(u32 i) 
+  test('Fill - Complex', async () => {
+    const {asm, warn} = await transpileSource(`function test(u32 i) 
     {
       u32 test = 0;
       while(i != 0) {

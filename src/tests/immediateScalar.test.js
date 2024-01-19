@@ -4,9 +4,9 @@ const CONF = {rspqWrapper: false};
 
 describe('Immediate (Scalar)', () =>
 {
-  test('Unsigned', () =>
+  test('Unsigned', async () =>
   {
-    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
     function test() 
     {
       u32<$t0> c = TEST_CONST;
@@ -51,9 +51,9 @@ describe('Immediate (Scalar)', () =>
   nop`);
   });
 
-  test('Signed', () =>
+  test('Signed', async () =>
   {
-    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
     function test() 
     {
       s32<$t0> c = TEST_CONST;

@@ -59,7 +59,7 @@ async function update(reset = false)
     saveSource(source);
 
     console.time("transpile");
-    const {asm, asmUnoptimized, warn, info, debug} = transpileSource(source, config);
+    const {asm, asmUnoptimized, warn, info, debug} = await transpileSource(source, config);
     console.timeEnd("transpile");
     currentDebug = debug;
 

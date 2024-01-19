@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Control', () =>
 {
-  test('Exit', () => {
-    const {asm, warn} = transpileSource(`function test() 
+  test('Exit', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
 {
   exit;
 }`, CONF);

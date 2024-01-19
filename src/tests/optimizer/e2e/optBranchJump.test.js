@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false, optimize: true};
 
 describe('Optimizer E2E - Branch-Jump', () =>
 {
-  test('Branch + Goto', () => {
-    const {asm, warn} = transpileSource(`function test() 
+  test('Branch + Goto', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
     {
       u32<$t0> a;
       LABEL_A:
@@ -21,8 +21,8 @@ describe('Optimizer E2E - Branch-Jump', () =>
   nop`);
   });
 
-  test('Branch + Goto (no opt)', () => {
-    const {asm, warn} = transpileSource(`function test() 
+  test('Branch + Goto (no opt)', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
     {
       u32<$t0> a;
       LABEL_A:

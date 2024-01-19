@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Labels', () =>
 {
-  test('Basic Labels', () => {
-    const {asm, warn} = transpileSource(`
+  test('Basic Labels', async () => {
+    const {asm, warn} = await transpileSource(`
       function test_label()
       {
         label_a:
@@ -21,8 +21,8 @@ describe('Labels', () =>
   nop`);
   });
 
-  test('Labels with instr.', () => {
-    const {asm, warn} = transpileSource(`
+  test('Labels with instr.', async () => {
+    const {asm, warn} = await transpileSource(`
       function test_label()
       {
         u32<$t0> a;

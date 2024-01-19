@@ -10,8 +10,8 @@ const getDataSection = asm => {
 
 describe('State', () =>
 {
-  test('Empty State', () => {
-    const {asm, warn} = transpileSource(`
+  test('Empty State', async () => {
+    const {asm, warn} = await transpileSource(`
       state {}
       `, CONF);
 
@@ -26,8 +26,8 @@ describe('State', () =>
 `);
   });
 
-  test('Types', () => {
-    const {asm, warn} = transpileSource(`
+  test('Types', async () => {
+    const {asm, warn} = await transpileSource(`
       state {
         u8 a;
         u16 b;
@@ -58,8 +58,8 @@ describe('State', () =>
 `);
   });
 
-  test('Arrays', () => {
-    const {asm, warn} = transpileSource(`
+  test('Arrays', async () => {
+    const {asm, warn} = await transpileSource(`
       state {
         u32 a0[1];
         u32 a1[4];
@@ -94,8 +94,8 @@ describe('State', () =>
 `);
   });
 
-  test('Extern', () => {
-    const {asm, warn} = transpileSource(`
+  test('Extern', async () => {
+    const {asm, warn} = await transpileSource(`
       state {
         u32 a;
         extern u32 b;

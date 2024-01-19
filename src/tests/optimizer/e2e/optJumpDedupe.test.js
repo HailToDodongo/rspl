@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false, optimize: true};
 
 describe('Optimizer E2E - Jump Dedupe', () =>
 {
-  test('Nested-If - Used Label', () => {
-    const {asm, warn} = transpileSource(`command<0> test() 
+  test('Nested-If - Used Label', async () => {
+    const {asm, warn} = await transpileSource(`command<0> test() 
     {
       u32 a = 1;
       if(a > 1) {
@@ -30,8 +30,8 @@ describe('Optimizer E2E - Jump Dedupe', () =>
   nop`);
   });
 
-  test('Nested-If - Unused Label', () => {
-    const {asm, warn} = transpileSource(`command<0> test() 
+  test('Nested-If - Unused Label', async () => {
+    const {asm, warn} = await transpileSource(`command<0> test() 
     {
       u32 a = 1;
       while(a < 2) {

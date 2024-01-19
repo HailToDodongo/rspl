@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Load', () =>
 {
-  test('Scalar - 32-Bit', () => {
-    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+  test('Scalar - 32-Bit', async () => {
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
       function test_scalar_load()
       {
         u32<$t0> src, dst;
@@ -30,8 +30,8 @@ describe('Load', () =>
   nop`);
   });
 
-  test('Scalar - Cast', () => {
-    const {asm, warn} = transpileSource(`
+  test('Scalar - Cast', async () => {
+    const {asm, warn} = await transpileSource(`
       function test_scalar_load()
       {
         u32<$t0> src, dst;
@@ -57,8 +57,8 @@ describe('Load', () =>
   nop`);
   });
 
-  test('Vector - 32-Bit', () => {
-    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+  test('Vector - 32-Bit', async () => {
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
       function test_vector_load() 
       {
         u32<$t0> src;
@@ -115,8 +115,8 @@ describe('Load', () =>
   nop`);
   });
 
-  test('Vector - 32-Bit Split', () => {
-    const {asm, warn} = transpileSource(`function test() 
+  test('Vector - 32-Bit Split', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
       {
         u32<$t0> src;
         vec32<$v01> dst;
@@ -146,8 +146,8 @@ describe('Load', () =>
   nop`);
   });
 
-  test('Vector - Cast', () => {
-    const {asm, warn} = transpileSource(`function test() 
+  test('Vector - Cast', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
       {
         u32<$t0> addr;
         vec32<$v01> dst;
@@ -174,8 +174,8 @@ describe('Load', () =>
   nop`);
   });
 
- test('Vector - Packed-Load', () => {
-    const {asm, warn} = transpileSource(`function test() 
+ test('Vector - Packed-Load', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
       {
         u32<$t0> src;
         vec16<$v01> dst;

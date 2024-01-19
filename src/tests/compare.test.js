@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Comparison', () =>
 {
-  test('Vector (vec16 vs vec16)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Vector (vec16 vs vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> res, a, b;
       res = a < b;
       res = a >= b;
@@ -23,8 +23,8 @@ describe('Comparison', () =>
   nop`);
   });
 
-  test('Vector (vec16 vs const)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Vector (vec16 vs const)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> res, a, b;
       res = a < 0;
       res = a >= 2;
@@ -42,8 +42,8 @@ describe('Comparison', () =>
   nop`);
   });
 
-  test('Vector-Select (vec16)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Vector-Select (vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> res, a, b;
       res = select(a, b);
       res = select(a, 32);
@@ -59,8 +59,8 @@ describe('Comparison', () =>
   nop`);
   });
 
-  test('Vector-Select (vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Vector-Select (vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> res, a, b;
       A:
       res = select(a, b);
@@ -87,8 +87,8 @@ describe('Comparison', () =>
   nop`);
   });
 
-  test('Vector-Select (vec32 cast)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Vector-Select (vec32 cast)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> res, a, b;
       
       res:sint = select(a, b:sfract);
@@ -106,8 +106,8 @@ describe('Comparison', () =>
   nop`);
   });
 
-  test('Vector-Ternary (vec16)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Vector-Ternary (vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> res, a, b;
       vec16<$v10> x, y;
       
@@ -129,8 +129,8 @@ describe('Comparison', () =>
   nop`);
   });
 
-  test('Vector-Ternary (vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Vector-Ternary (vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> res, a, b;
       vec16<$v10> x, y;
       
@@ -154,8 +154,8 @@ describe('Comparison', () =>
   nop`);
   });
 
-  test('Vector-Ternary (swizzle)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Vector-Ternary (swizzle)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> res, a, b;
       A:
       res = a == b ? a : b.y;

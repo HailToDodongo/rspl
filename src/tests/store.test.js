@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Store', () =>
 {
-  test('Scalar - 32-Bit', () => {
-    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+  test('Scalar - 32-Bit', async () => {
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
       function test_scalar_store()
       {
         u32<$t0> val, dst;
@@ -29,8 +29,8 @@ describe('Store', () =>
   nop`);
   });
 
-  test('Scalar - Cast', () => {
-    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+  test('Scalar - Cast', async () => {
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
       function test_scalar_store()
       {
         u32<$t0> val, dst;
@@ -56,8 +56,8 @@ describe('Store', () =>
   nop`);
   });
 
-  test('Vector - 32-Bit', () => {
-    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+  test('Vector - 32-Bit', async () => {
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
       function test_vector_store() 
       {
         u32<$t0> dst;
@@ -101,8 +101,8 @@ describe('Store', () =>
   nop`);
   });
 
-  test('Vector - Cast', () => {
-    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+  test('Vector - Cast', async () => {
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
       function test_vector_store() 
       {
         u32<$t0> dst;
@@ -129,8 +129,8 @@ describe('Store', () =>
   nop`);
   });
 
- test('Vector - Packed-Store', () => {
-    const {asm, warn} = transpileSource(`function test() 
+ test('Vector - Packed-Store', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
       {
         u32<$t0> dst;
         vec16<$v01> val;

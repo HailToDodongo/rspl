@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Vector - Ops', () =>
 {
-  test('Assign (vec32 vs vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign (vec32 vs vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> res, a;
       res = a;
     }`, CONF);
@@ -18,8 +18,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Assign (vec16 vs vec32:cast)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign (vec16 vs vec32:cast)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> res;
       vec32<$v03> a;
       res = a:uint;
@@ -38,8 +38,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Assign (vec16 vs vec16)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign (vec16 vs vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> res, a;
       res = a;
     }`, CONF);
@@ -51,8 +51,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Assign (vec16 broadcast)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign (vec16 broadcast)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> res, a;
       res = a.yyyyYYYY;
     }`, CONF);
@@ -64,8 +64,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-    test('Assign (vec32 broadcast)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+    test('Assign (vec32 broadcast)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> res, a;
       res = a.yyyyYYYY;
     }`, CONF);
@@ -78,8 +78,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Assign (swizzle, 2^x)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign (swizzle, 2^x)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> a;
       vec32<$v02> b;
       a.x = 2;
@@ -95,8 +95,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Assign (swizzle, float)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign (swizzle, float)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> a;
       vec32<$v02> b;
       a.x = 10.25;
@@ -115,8 +115,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Assign (swizzle, 0)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign (swizzle, 0)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> a;
       vec32<$v02> b;
       a.x = 0;
@@ -132,8 +132,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Assign (cast, swizzle, 0)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign (cast, swizzle, 0)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> a;
       vec32<$v02> b;
       a:sint.x = 0;
@@ -148,8 +148,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Assign (0)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign (0)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> a = 0;
       vec32<$v02> b = 0;
     }`, CONF);
@@ -163,8 +163,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Add (vec32 vs vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Add (vec32 vs vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> res, a;
       res += a.x;
     }`, CONF);
@@ -177,8 +177,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Add (vec16 vs vec16)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Add (vec16 vs vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> res, a;
       res += a.x;
     }`, CONF);
@@ -190,8 +190,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Add (vec16 cast)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Add (vec16 cast)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> res, a;
       res:uint += a.x;
       res:sint += a.x;
@@ -209,8 +209,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Sub (vec32 vs vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Sub (vec32 vs vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> res, a;
       res -= a.y;
     }`, CONF);
@@ -223,8 +223,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Sub (vec16 vs vec16)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Sub (vec16 vs vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> res, a;
       res -= a;
     }`, CONF);
@@ -236,8 +236,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-    test('Mul (vec32 vs vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+    test('Mul (vec32 vs vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> res, a;
       res *= a.x;
     }`, CONF);
@@ -252,8 +252,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Mul (vec16 vs vec16)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Mul (vec16 vs vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> res, a;
       res *= a.x;
     }`, CONF);
@@ -265,8 +265,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Mul (vec16 cast)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Mul (vec16 cast)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> res, a;
       res:uint *= a.x;
       res:sint *= a.x;
@@ -284,8 +284,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('AND (vec16)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('AND (vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v02> res16, a16;
       vec32<$v04> a32;
       
@@ -305,8 +305,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('AND (vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('AND (vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v02> res32, a32;
       vec16<$v06> a16;
       
@@ -333,8 +333,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('OR (vec16)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('OR (vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v02> res16, a16;
       vec32<$v04> a32;
       
@@ -354,8 +354,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('OR (vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('OR (vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v02> res32, a32;
       vec16<$v06> a16;
       
@@ -382,8 +382,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('XOR (vec16)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('XOR (vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v02> res16, a16;
       vec32<$v04> a32;
       
@@ -403,8 +403,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('XOR (vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('XOR (vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v02> res32, a32;
       vec16<$v06> a16;
       
@@ -431,8 +431,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('NOT (vec16)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('NOT (vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v02> res16, a16;
       vec32<$v04> a32;
       
@@ -448,8 +448,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('NOT (vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('NOT (vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v02> res32, a32;
       vec16<$v06> a16;
       
@@ -467,8 +467,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Invert-Half (vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Invert-Half (vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> res, a;
       a.x = invert_half(a).x;
     }`, CONF);
@@ -482,8 +482,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Invert-Half - all (vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Invert-Half - all (vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> res, a;
       a = invert_half(a);
     }`, CONF);
@@ -518,8 +518,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Invert-SQRT-Half (vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Invert-SQRT-Half (vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> res, a;
       a.x = invert_half_sqrt(a).x;
     }`, CONF);
@@ -533,8 +533,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Invert (vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Invert (vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> res, a;
       a = invert(a);
     }`, CONF);
@@ -571,8 +571,8 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Div (vec32 vs vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Div (vec32 vs vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> res, a;
       res /= a.x;
     }`, CONF);

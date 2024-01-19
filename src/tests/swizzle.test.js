@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Syntax - Swizzle', () =>
 {
-  test('Assign single (vec32 <- vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign single (vec32 <- vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> a, b;
       a.x = b.X;
     }`, CONF);
@@ -18,8 +18,8 @@ describe('Syntax - Swizzle', () =>
   nop`);
   });
 
-  test('Assign single (vec32 <- vec32, cast)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign single (vec32 <- vec32, cast)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> a, b;
       SINT:
       a.x = b:sint.X;        // all <- sint
@@ -48,8 +48,8 @@ describe('Syntax - Swizzle', () =>
   nop`);
   });
 
-  test('Assign single (vec16 <- vec16)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign single (vec16 <- vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> a, b;
       a.x = b.X;
     }`, CONF);
@@ -61,8 +61,8 @@ describe('Syntax - Swizzle', () =>
   nop`);
   });
 
-  test('Assign single (vec32 <- vec16)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign single (vec32 <- vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> a;
       vec16<$v03> b;
       a.x = b.X;
@@ -76,8 +76,8 @@ describe('Syntax - Swizzle', () =>
   nop`);
   });
 
-  test('Assign single (vec16 <- vec32)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign single (vec16 <- vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> a;
       vec32<$v02> b;
       a.x = b.X;
@@ -90,23 +90,23 @@ describe('Syntax - Swizzle', () =>
   nop`);
   });
 
-  test('Invalid on Scalar (calc)', () => {
+  test('Invalid on Scalar (calc)', async () => {
     const src = `function test() {
       u32<$t0> a;
       a += a.x;
     }`;
 
-   expect(() => transpileSource(src, CONF))
-    .toThrowError(/line 3: Swizzling not allowed for scalar operations!/);
+   await expect(() => transpileSource(src, CONF))
+    .rejects.toThrowError(/line 3: Swizzling not allowed for scalar operations!/);
   });
 
-  test('Invalid on Scalar (assign)', () => {
+  test('Invalid on Scalar (assign)', async () => {
     const src = `function test() {
       u32<$t0> a;
       a = a.x;
     }`;
 
-   expect(() => transpileSource(src, CONF))
-    .toThrowError(/line 3: Swizzling not allowed for scalar operations!/);
+   await expect(() => transpileSource(src, CONF))
+    .rejects.toThrowError(/line 3: Swizzling not allowed for scalar operations!/);
   });
 });

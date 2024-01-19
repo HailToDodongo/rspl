@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Scalar - Ops', () =>
 {
-  test('32-Bit Arithmetic', () => {
-    const {asm, warn} = transpileSource(`state { u32 TEST_CONST; }
+  test('32-Bit Arithmetic', async () => {
+    const {asm, warn} = await transpileSource(`state { u32 TEST_CONST; }
       function test_scalar_ops()
       {
         u32<$t0> a, b, c;
@@ -51,8 +51,8 @@ describe('Scalar - Ops', () =>
   nop`);
   });
   
-  test('32-Bit - Logic', () => {
-    const {asm, warn} = transpileSource(`state { u32 TEST_CONST; }
+  test('32-Bit - Logic', async () => {
+    const {asm, warn} = await transpileSource(`state { u32 TEST_CONST; }
       function test_scalar_ops()
       {
         u32<$t0> a, b, c;
@@ -119,13 +119,13 @@ describe('Scalar - Ops', () =>
   nop`);
   });
 
-  test('Multiplication (2^x)', () => {
+  test('Multiplication (2^x)', async () => {
     const src = `function test() {
       u32<$t0> a, b;
       a = b * 4;
     }`;
 
-    const {asm, warn} = transpileSource(src, CONF);
+    const {asm, warn} = await transpileSource(src, CONF);
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   sll $t0, $t1, 2
@@ -133,13 +133,13 @@ describe('Scalar - Ops', () =>
   nop`);
   });
 
-  test('Division (2^x)', () => {
+  test('Division (2^x)', async () => {
     const src = `function test() {
       u32<$t0> a, b;
       a = b / 8;
     }`;
 
-    const {asm, warn} = transpileSource(src, CONF);
+    const {asm, warn} = await transpileSource(src, CONF);
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   srl $t0, $t1, 3
@@ -147,8 +147,8 @@ describe('Scalar - Ops', () =>
   nop`);
   });
 
-  test('Assign - scalar', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign - scalar', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
         u32<$t0> a;
         u32<$t1> b = a;
       }`, CONF);
@@ -160,8 +160,8 @@ describe('Scalar - Ops', () =>
   nop`);
   });
 
-  test('Assign - Vector (ufract)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign - Vector (ufract)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
         vec32 v0;
         vec16 v1;
         u32 a = v0:ufract.y;
@@ -176,8 +176,8 @@ describe('Scalar - Ops', () =>
   nop`);
   });
 
-  test('Assign - Vector (sint)', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('Assign - Vector (sint)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
         vec32 v0;
         vec16 v1;
         u32 a = v0:sint.y;
@@ -192,34 +192,34 @@ describe('Scalar - Ops', () =>
   nop`);
   });
 
-  test('Invalid (multiplication)', () => {
+  test('Invalid (multiplication)', async () => {
     const src = `function test() {
       u32<$t0> a, b;
       a = a * b;
     }`;
 
-   expect(() => transpileSource(src, CONF))
-    .toThrowError(/line 3: Scalar-Multiplication only allowed with a power-of-two /);
+   await expect(() => transpileSource(src, CONF))
+    .rejects.toThrowError(/line 3: Scalar-Multiplication only allowed with a power-of-two /);
   });
 
-  test('Invalid (division)', () => {
+  test('Invalid (division)', async () => {
     const src = `function test() {
       u32<$t0> a, b;
       a = a / b;
     }`;
 
-   expect(() => transpileSource(src, CONF))
-    .toThrowError(/line 3: Scalar-Division only allowed with a power-of-two /);
+   await expect(() => transpileSource(src, CONF))
+    .rejects.toThrowError(/line 3: Scalar-Division only allowed with a power-of-two /);
   });
 
-  test('Invalid (sub with label)', () => {
+  test('Invalid (sub with label)', async () => {
     const src = `state { u32 TEST_CONST; }
     function test() {
       u32<$t0> a;
       a = a - TEST_CONST;
     }`;
 
-   expect(() => transpileSource(src, CONF))
-    .toThrowError(/line 4: Subtraction cannot use labels!/);
+   await expect(() => transpileSource(src, CONF))
+    .rejects.toThrowError(/line 4: Subtraction cannot use labels!/);
   });
 });

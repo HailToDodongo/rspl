@@ -6,39 +6,39 @@ const CONF = {rspqWrapper: true};
 
 describe('Examples', () =>
 {
-  test('Example code', () => {
-    const {asm, warn} = transpileSource(EXAMPLE_CODE, CONF);
+  test('Example code', async () => {
+    const {asm, warn} = await transpileSource(EXAMPLE_CODE, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBeDefined();
   });
 
-  test('Example code - Squares 2D', () => {
+  test('Example code - Squares 2D', async () => {
     const code = readFileSync("./src/tests/examples/squares2d.rspl", "utf8");
-    const {asm, warn} = transpileSource(code, CONF);
+    const {asm, warn} = await transpileSource(code, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBeDefined();
   });
 
-  test('Example code - 3D', () => {
+  test('Example code - 3D', async () => {
     const code = readFileSync("./src/tests/examples/3d.rspl", "utf8");
-    const {asm, warn} = transpileSource(code, CONF);
+    const {asm, warn} = await transpileSource(code, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBeDefined();
   });
 
-  test('Example code - Mandelbrot', () => {
+  test('Example code - Mandelbrot', async () => {
     const code = readFileSync("./src/tests/examples/mandelbrot.rspl", "utf8");
-    const {asm, warn} = transpileSource(code, CONF);
+    const {asm, warn} = await transpileSource(code, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBeDefined();
   });
 
-  test('Matrix x Vector', () => {
-    const {asm, warn} = transpileSource(`include "rsp_queue.inc"
+  test('Matrix x Vector', async () => {
+    const {asm, warn} = await transpileSource(`include "rsp_queue.inc"
 state { 
   vec32 VEC_SLOTS[20];
 }

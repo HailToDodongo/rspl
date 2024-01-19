@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Syntax - Numbers', () =>
 {
-  test('Scalar - Assignment', () => {
-    const {asm, warn} = transpileSource(`function test() 
+  test('Scalar - Assignment', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
 {
   u32<$t0> a;
   a = 1234;
@@ -21,8 +21,8 @@ describe('Syntax - Numbers', () =>
   nop`);
   });
 
-  test('Scalar - Calc', () => {
-    const {asm, warn} = transpileSource(`function test() 
+  test('Scalar - Calc', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
 {
   u32<$t0> a;
   a = a + 1234;

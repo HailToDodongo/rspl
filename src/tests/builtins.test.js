@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Builtins', () =>
 {
-  test('swap() - scalar', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('swap() - scalar', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
         u32 v0, v1;
         swap(v0, v1);
       }`, CONF);
@@ -19,8 +19,8 @@ describe('Builtins', () =>
   nop`);
   });
 
-  test('swap() - vec16', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('swap() - vec16', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
         vec16 v0, v1;
         swap(v0, v1);
       }`, CONF);
@@ -34,8 +34,8 @@ describe('Builtins', () =>
   nop`);
   });
 
-  test('swap() - vec32', () => {
-    const {asm, warn} = transpileSource(`function test() {
+  test('swap() - vec32', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
         vec32 v0, v1;
         swap(v0, v1);
       }`, CONF);

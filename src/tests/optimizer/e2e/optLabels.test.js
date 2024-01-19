@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false, optimize: true};
 
 describe('Optimizer E2E - Labels', () =>
 {
-  test('De-dupe Labels', () => {
-    const {asm, warn} = transpileSource(`function test(u32 dummy) 
+  test('De-dupe Labels', async () => {
+    const {asm, warn} = await transpileSource(`function test(u32 dummy) 
     {
       LABEL_A:
       LABEL_B:
@@ -22,8 +22,8 @@ describe('Optimizer E2E - Labels', () =>
   nop`);
   });
 
-  test('De-dupe Labels - keep single', () => {
-    const {asm, warn} = transpileSource(`function test(u32 dummy) 
+  test('De-dupe Labels - keep single', async () => {
+    const {asm, warn} = await transpileSource(`function test(u32 dummy) 
     {
       LABEL_A:
       dummy += 1;
