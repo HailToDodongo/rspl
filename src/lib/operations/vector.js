@@ -581,6 +581,8 @@ function opInvertSqrtHalf(varRes, varLeft) {
  * @returns {ASM[]}
  */
 function opDiv(varRes, varLeft, varRight) {
+  state.throwError("Vector division is not supported! (@TODO: implement this)");
+/*
   if(!varRight.swizzle || !isScalarSwizzle(varRight.swizzle)) {
     state.throwError("Vector division needs swizzling on the right side (must be scalar .x to .W)!", varRes);
   }
@@ -591,7 +593,7 @@ function opDiv(varRes, varLeft, varRight) {
     ...opInvertHalf(tmpVarSw, varRight),
     ...opMul(tmpVar, tmpVar, POW2_SWIZZLE_VAR["2"], true),
     ...opMul(varRes, varLeft, tmpVarSw, true)
-  ];
+  ];*/
 }
 
 /**

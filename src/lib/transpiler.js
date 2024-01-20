@@ -46,7 +46,6 @@ export async function transpileSource(source, config)
 
   console.time("Preprocessor");
   source = preprocess(source);
-  console.log(source);
   console.timeEnd("Preprocessor");
 
   //console.time("parser");
