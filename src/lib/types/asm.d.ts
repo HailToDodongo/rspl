@@ -16,6 +16,7 @@ declare global
         reorderLineMin: number;
         reorderLineMax: number;
         cycle: number;
+        stall: number;
     };
 
     type ASM = {
@@ -32,6 +33,10 @@ declare global
         depsStallSource: string[];
         depsStallTarget: string[];
 
+        opIsLoad: boolean;
+        opIsStore: boolean;
+        opIsBranch: boolean;
+
         debug: ASMDebug;
     };
 
@@ -45,6 +50,7 @@ declare global
         lineDepMap: Record<number, number[]>;
         lineOptMap: Record<number, number>;
         lineCycleMap: Record<number, number>;
+        lineStallMap: Record<number, number>;
     };
 
     type ASMOutput = {

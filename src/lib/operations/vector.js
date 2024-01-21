@@ -570,7 +570,7 @@ function opInvertSqrtHalf(varRes, varLeft) {
   return [
     asm("vrsqh", [      intReg(varRes) + swizzleRes,   intReg(varLeft) + swizzleArg]),
     asm("vrsql", [    fractReg(varRes) + swizzleRes, fractReg(varLeft) + swizzleArg]),
-    asm("vrsqh", [      intReg(varRes) + swizzleRes,        REG.VZERO + swizzleArg]),
+    asm("vrsqh", [      intReg(varRes) + swizzleRes,        REG.VZERO + SWIZZLE_MAP.x]),
   ];
 }
 

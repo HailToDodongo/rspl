@@ -30,5 +30,9 @@ export function difference(a, b)
  */
 export function hasIntersection(a, b)
 {
-  return a.some(x => b.includes(x));
+  for(const x of a) {
+    if(b.includes(x))return true;
+  }
+  return false;
+  //return a.some(x => b.includes(x));
 }

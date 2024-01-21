@@ -31,7 +31,7 @@ export function writeASM(ast, functionsAsm, config)
   /** @type {ASMOutput} */
   const res = {
     asm: "",
-    debug: {lineMap: {}, lineDepMap: {}, lineOptMap: {}, lineCycleMap: {}},
+    debug: {lineMap: {}, lineDepMap: {}, lineOptMap: {}, lineCycleMap: {}, lineStallMap: {}},
   };
 
   const writeLine = line => {
@@ -39,6 +39,7 @@ export function writeASM(ast, functionsAsm, config)
     ++state.line;
   }
   const writeLines = lines => {
+    if(lines.length === 0)return;
     res.asm += lines.join("\n") + "\n";
     state.line += lines.length;
   };
@@ -139,6 +140,7 @@ export function writeASM(ast, functionsAsm, config)
 
       if(asm.debug.cycle) {
         res.debug.lineCycleMap[asm.debug.lineASMOpt] = asm.debug.cycle;
+        res.debug.lineStallMap[asm.debug.lineASMOpt] = asm.debug.stall;
       }
 
       // ASM Text output

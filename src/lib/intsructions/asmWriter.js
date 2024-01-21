@@ -3,6 +3,7 @@
 * @license Apache-2.0
 */
 import state from "../state.js";
+import {BRANCH_OPS, LOAD_OPS, STORE_OPS} from "../optimizer/asmScanDeps.js";
 
 export const ASM_TYPE = {
   OP: 0,
@@ -26,6 +27,14 @@ function getDebugData() {
   };
 }
 
+function getOpInfo(op) {
+  return {
+    opIsLoad: LOAD_OPS.includes(op),
+    opIsStore: STORE_OPS.includes(op),
+    opIsBranch: BRANCH_OPS.includes(op),
+  };
+}
+
 /**
  * Emits an assembly instruction
  * @param {string} op
@@ -33,24 +42,30 @@ function getDebugData() {
  * @return {ASM}
  */
 export function asm(op, args) {
-  return {type: ASM_TYPE.OP, op, args, debug: getDebugData()};
+  return {type: ASM_TYPE.OP, op, args, debug: getDebugData(), ...getOpInfo(op)};
 }
 
 export function asmInline(op, args) {
-  return {type: ASM_TYPE.INLINE, op, args, debug: getDebugData()};
+  return {type: ASM_TYPE.INLINE, op, args, debug: getDebugData(), ...getOpInfo(op)};
 }
 
 /** @returns {ASM} */
 export function asmNOP() {
-  return {type: ASM_TYPE.OP, op: "nop", args: [], debug: getDebugData()};
+  return {type: ASM_TYPE.OP, op: "nop", args: [], debug: getDebugData(),
+    opIsLoad: false, opIsStore: false, opIsBranch: false
+  };
 }
 
 /** @returns {ASM} */
 export function asmLabel(label) {
-  return {type: ASM_TYPE.LABEL, label, op: "", args: [], debug: getDebugData()};
+  return {type: ASM_TYPE.LABEL, label, op: "", args: [], debug: getDebugData(),
+    opIsLoad: false, opIsStore: false, opIsBranch: false
+  };
 }
 
 /** @returns {ASM} */
 export function asmComment(comment) {
-  return {type: ASM_TYPE.COMMENT, comment, op: "", args: [], debug: getDebugData()};
+  return {type: ASM_TYPE.COMMENT, comment, op: "", args: [], debug: getDebugData(),
+    opIsLoad: false, opIsStore: false, opIsBranch: false
+  };
 }

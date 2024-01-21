@@ -104,6 +104,8 @@ const HIDDEN_REGS_WRITE = {
   "vmacq":[                "$acc"],
 };
 
+const STALL_IGNORE_REGS = ["$vcc", "$vco", "$acc", "$DIV_OUT", "$DIV_IN"];
+
 /**
  * Expands vector registers into separate lanes.
  * Does nothing for scalar registers.
@@ -140,7 +142,7 @@ function getSourceRegs(line)
   if(["beq", "bne"].includes(line.op)) {
     return [line.args[0], line.args[1]]; // 3rd arg is the label
   }
-  if(STORE_OPS.includes(line.op)) {
+  if(line.opIsStore) {
     return line.args;
   }
   if(line.op === "j") {
@@ -188,15 +190,16 @@ export function asmInitDeps(asmFunc)
     asm.depsStallSource = [...new Set(getSourceRegsFiltered(asm))];
     asm.depsStallTarget = [...new Set(getTargetRegs(asm))];
 
-    // @TODO: cut off lanes?
-    // .map(reg => reg.split(".")[0]);
-
-    // stall detection works on whole registers, for logical dependencies we want to check each lane
-    //asm.depsSource = asm.depsStallSource.flatMap(expandRegister);
-    //asm.depsTarget = asm.depsStallTarget.flatMap(expandRegister);
-
     asm.depsSource = asm.depsStallSource.flatMap(expandRegister);
     asm.depsTarget = asm.depsStallTarget.flatMap(expandRegister);
+
+    asm.depsStallSource = asm.depsStallSource
+      .map(reg => reg.split(".")[0])
+      .filter(reg => !STALL_IGNORE_REGS.includes(reg));
+
+    asm.depsStallTarget = asm.depsStallTarget
+      .map(reg => reg.split(".")[0])
+      .filter(reg => !STALL_IGNORE_REGS.includes(reg));
   }
 }
 
@@ -213,18 +216,19 @@ function checkAsmBackwardDep(asm, asmPrev) {
 
   // Don't reorder writes to RAM, this is an oversimplification.
   // For a more accurate check, the RAM location/size would need to be checked (if possible).
-  const isLoad = LOAD_OPS.includes(asm.op);
-  const isStore = !isLoad && STORE_OPS.includes(asm.op);
+  const isLoad = asm.opIsLoad;
+  const isStore = !isLoad && asm.opIsStore;
   if(isLoad || isStore) { // memory access can be ignored if it's not a load or store
-    const isLoadPrev = LOAD_OPS.includes(asmPrev.op);
-    const isStorePrev = !isLoadPrev && STORE_OPS.includes(asmPrev.op);
+    const isLoadPrev = asmPrev.opIsLoad;
+    const isStorePrev = !isLoadPrev && asmPrev.opIsStore;
 
     // load cannot be put before a previous store (previous load is ok)
     if(isLoad && isStorePrev) {
       return true;
     }
     // store cannot be put before a previous load or store
-    if(isStore && (isLoadPrev || isStorePrev)) {
+    //if(isStore && (isLoadPrev || isStorePrev)) {
+    if(isStore && isLoadPrev) {
       return true;
     }
   }
@@ -248,7 +252,7 @@ function checkAsmBackwardDep(asm, asmPrev) {
 export function asmGetReorderRange(asmList, i, returnRegs = [])
 {
   const asm = asmList[i];
-  const isInDelaySlot = BRANCH_OPS.includes(asmList[i-1]?.op);
+  const isInDelaySlot = asmList[i-1]?.opIsBranch;
 
   if(asm.type !== ASM_TYPE.OP || IMMOVABLE_OPS.includes(asm.op) || isInDelaySlot) {
     return [i, i];
@@ -266,8 +270,8 @@ export function asmGetReorderRange(asmList, i, returnRegs = [])
 
     // stop at a branch with an already filled delay-slot,
     // or once we are past the delay-slot of a branch if it is empty.
-    const isEmptyBranch = asmList[f+1]?.op !== "nop" && BRANCH_OPS.includes(asmNext.op);
-    const isPastBranch = BRANCH_OPS.includes(asmList[f-2]?.op);
+    const isEmptyBranch = asmList[f+1]?.op !== "nop" && asmNext.opIsBranch;
+    const isPastBranch = asmList[f-2]?.opIsBranch;
 
     if(isEmptyBranch || isPastBranch || checkAsmBackwardDep(asmNext, asm)) {
       pos = f;
@@ -308,7 +312,7 @@ export function asmGetReorderRange(asmList, i, returnRegs = [])
 
     // stop at the delay-slot of a branch, we cannot fill it backwards
     const asmPrevPrev = asmList[b-1];
-    const isBranch = asmPrevPrev && BRANCH_OPS.includes(asmPrevPrev.op);
+    const isBranch = asmPrevPrev && asmPrevPrev.opIsBranch;
 
     if(isBranch || checkAsmBackwardDep(asm, asmPrev)
       || hasIntersection(asmPrev.depsTarget, writeCheckRegs)

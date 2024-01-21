@@ -206,14 +206,15 @@ export function codeHighlightOptLines(elem, lines = undefined, linesOptMap = und
  * @param {HTMLElement} elem
  * @param {Record<number,number>} cycleMap
  */
-export function codeUpdateCycles(elem, cycleMap)
+export function codeUpdateCycles(elem, cycleMap, stallMap)
 {
   const ovl = elem.parentElement.querySelector(".cycleOverlay");
   const elems = [];
   for(const [line, cycle] of Object.entries(cycleMap)) {
+    const stall = stallMap[line] || 0;
     const span = document.createElement("span");
     span.style.top = getLineHeight(line) + "px";
-    span.innerText = cycle + "";
+    span.innerText = (stall ? "("+stall+") " : "") + cycle;
     elems.push(span);
   }
   ovl.replaceChildren(...elems);

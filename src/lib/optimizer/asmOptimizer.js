@@ -10,6 +10,7 @@ import {dedupeJumps} from "./pattern/dedupeJumps.js";
 import {branchJump} from "./pattern/branchJump.js";
 import {evalFunctionCost} from "./eval/evalCost.js";
 import {dedupeImmediate} from "./pattern/dedupeImm.js";
+import {mergeSequence} from "./pattern/mergeSequence.js";
 
 /**
  * Optimizes ASM before any dependency analysis.
@@ -26,10 +27,22 @@ export function asmOptimizePattern(asmFunc)
   dedupeJumps(asmFunc);
   branchJump(asmFunc);
   dedupeImmediate(asmFunc);
+  mergeSequence(asmFunc);
+}
+
+let i =0;
+function rand() {
+  i += 34.123;
+  //i *= 2.1;
+  return i - Math.floor(i);
 }
 
 function getRandIndex(minIncl, maxIncl) {
-  return Math.floor(Math.random() * (maxIncl - minIncl + 1)) + minIncl;
+  return Math.floor(rand() * (maxIncl - minIncl + 1)) + minIncl;
+}
+
+function getRandShouldReorder() {
+  return rand() < 0.4;
 }
 
 function relocateElement(arr, from, to) {
@@ -40,42 +53,8 @@ function relocateElement(arr, from, to) {
 /**
  * @param {ASMFunc} asmFunc
  */
-function optimizeStep(asmFunc)
+function fillDelaySlots(asmFunc)
 {
-  for(let i=0; i<asmFunc.asm.length; ++i)
-  {
-    const asm = asmFunc.asm[i];
-    if(asm.type !== ASM_TYPE.OP || IMMOVABLE_OPS.includes(asm.op))continue;
-
-    const sourceInDelaySlot = BRANCH_OPS.includes(asmFunc.asm[i-1]?.op);
-    if(sourceInDelaySlot)continue; // @TODO
-
-    const reorderRange = asmGetReorderRange(asmFunc.asm, i);
-    const targetIdx = getRandIndex(reorderRange[0], reorderRange[1]);
-
-    ++asm.debug.reorderCount;
-    const targetEmpty = asmFunc.asm[targetIdx].op === "nop";
-
-    if(targetEmpty) {
-      asmFunc.asm[targetIdx] = asm;
-      asmFunc.asm.splice(i, 1);
-      i = 0;
-    } else {
-      relocateElement(asmFunc.asm, i, targetIdx);
-    }
-  }
-}
-
-/**
- * Optimizes ASM after the initial dependency scan.
- * This will mostly reorder instructions to fill delay-slots,
- * interleave vector instructions, and minimize stalls.
- * @param {ASMFunc} asmFunc
- */
-export function asmOptimize(asmFunc)
-{
-  const costInit = evalFunctionCost(asmFunc);
-
   for(let i=0; i<asmFunc.asm.length; ++i)
   {
     const asm = asmFunc.asm[i];
@@ -92,26 +71,91 @@ export function asmOptimize(asmFunc)
       asmFunc.asm.splice(i, 1);
     }
   }
+}
 
-return; // TEST
+/**
+ * @param {ASMFunc} asmFunc
+ */
+function optimizeStep(asmFunc)
+{
+  for(let i=0; i<asmFunc.asm.length; ++i)
+  {
+    const asm = asmFunc.asm[i];
+    if(asm.type !== ASM_TYPE.OP || IMMOVABLE_OPS.includes(asm.op))continue;
 
-  let costBest = evalFunctionCost(asmFunc);
-  console.log("costOpt", costInit, costBest);
+    const sourceInDelaySlot = asmFunc.asm[i-1]?.opIsBranch;
+    if(sourceInDelaySlot)continue; // @TODO
 
-  let bestASM = [...asmFunc.asm];
+    const reorderRange = asmGetReorderRange(asmFunc.asm, i);
 
-  for(let i=0; i<1000; ++i) {
+    if(reorderRange[0] === reorderRange[1])continue;
+    if(getRandShouldReorder())continue;
 
-    for(let o=0; o<4; ++o) {
-      optimizeStep(asmFunc);
-    }
+    const targetIdx = getRandIndex(reorderRange[0], reorderRange[1]);
 
-    const cost = evalFunctionCost(asmFunc);
-    if(cost < costBest) {
-      console.log("COST", costInit, cost);
-      costBest = cost;
-      bestASM = [...asmFunc.asm];
-      asmFunc.asm = bestASM;
+    ++asm.debug.reorderCount;
+    const targetEmpty = asmFunc.asm[targetIdx].op === "nop";
+
+    if(targetEmpty) {
+      asmFunc.asm[targetIdx] = asm;
+      asmFunc.asm.splice(i, 1);
+      i = 0;
+    } else {
+      relocateElement(asmFunc.asm, i, targetIdx);
     }
   }
+}
+
+function reorderRound(asmFunc)
+{
+  const opCount = Math.floor(rand() * 20);
+  for(let o=0; o<opCount; ++o) {
+    optimizeStep(asmFunc);
+  }
+  return {
+    cost: evalFunctionCost(asmFunc),
+    asm: [...asmFunc.asm]
+  }
+}
+
+/**
+ * Optimizes ASM after the initial dependency scan.
+ * This will mostly reorder instructions to fill delay-slots,
+ * interleave vector instructions, and minimize stalls.
+ * @param {ASMFunc} asmFunc
+ */
+export function asmOptimize(asmFunc)
+{
+  //fillDelaySlots(asmFunc);
+  //return; // TEST
+
+  let costBest = evalFunctionCost(asmFunc);
+  const costInit = costBest;
+  console.log("costOpt", costInit);
+
+  let lastRandPick = reorderRound(asmFunc);
+
+  for(let i=0; i<asmFunc.asm.length*5; ++i)
+  //for(let i=0; i<10; ++i)
+  {
+    if(i % 50 === 0)console.log("Step: ", i, asmFunc.asm.length*5);
+    const funcCopy = structuredClone(asmFunc);
+
+    let bestAsm = [...funcCopy.asm];
+    for(let s=0; s<10; ++s)
+    {
+      const {cost, asm} = reorderRound((s < 2) ? lastRandPick : funcCopy);
+      if(cost < costBest) {
+        console.log("COST", costInit, cost);
+        costBest = cost;
+        bestAsm = asm;
+      }
+
+      if(s === 3)lastRandPick = funcCopy;
+    }
+
+    asmFunc.asm = bestAsm;
+  }
+
+  fillDelaySlots(asmFunc);
 }

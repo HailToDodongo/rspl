@@ -71,7 +71,7 @@ async function update(reset = false)
       codeHighlightElem(outputASM, asmUnoptimized);
     }
     codeHighlightElem(outputASMOpt, asm);
-    codeUpdateCycles(outputASMOpt, debug.lineCycleMap);
+    codeUpdateCycles(outputASMOpt, debug.lineCycleMap, debug.lineStallMap);
 
     await saveToDevice("asm", asm, true);
 

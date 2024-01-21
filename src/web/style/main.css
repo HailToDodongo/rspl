@@ -182,7 +182,7 @@ pre, .settings {
 
 .cycleOverlay span {
   display: inline-block;
-  width: 20px;
+  width: 50px;
   height: 15px;
   background-color: rgb(72, 72, 72);
   position: absolute;

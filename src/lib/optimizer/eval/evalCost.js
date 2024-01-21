@@ -4,9 +4,12 @@
 */
 
 import {ASM_TYPE} from "../../intsructions/asmWriter.js";
-import {LOAD_OPS_SCALAR, LOAD_OPS_VECTOR} from "../asmScanDeps.js";
+import {BRANCH_OPS, LOAD_OPS, LOAD_OPS_SCALAR, LOAD_OPS_VECTOR, STORE_OPS} from "../asmScanDeps.js";
 
 // Reference/Docs: https://n64brew.dev/wiki/Reality_Signal_Processor/CPU_Pipeline
+
+const MEM_STALL_LOAD_OPS  = [...LOAD_OPS, "mfc0", "mtc0", "mfc2", "mtc2", "cfc2", "catch"];
+const MEM_STALL_STORE_OPS = [...STORE_OPS, "mfc0", "mtc0", "mfc2", "mtc2", "cfc2", "catch"];
 
 /** @param {string} op */
 function isVectorOp(op) {
@@ -14,13 +17,17 @@ function isVectorOp(op) {
 }
 
 /** @param {string} op */
-function getBaseLatency(op) {
+function getStallLatency(op) {
   if(isVectorOp(op) || op === "mtc2")return 4;
   if(LOAD_OPS_VECTOR.includes(op))return 4;
   if(LOAD_OPS_SCALAR.includes(op))return 3;
   if(["mfc0", "mfc2", "cfc2"].includes(op))return 3;
-  return 1;
+  return 0;
 }
+
+const BRANCH_STEP_NONE = 0;
+const BRANCH_STEP_BRANCH = 1;
+const BRANCH_STEP_DELAY = 2;
 
 /**
  * Evaluates the cost of a given function.
@@ -32,44 +39,81 @@ function getBaseLatency(op) {
 export function evalFunctionCost(asmFunc)
 {
   /** @type {OptInstruction[]} instructions that are currently executing (incl. latencies) */
-  let activeInstr = []; // @TODO: use register lookup instead?
-  let cycle = 1;
+  let cycle = 0;
+  let regCycleMap = {}; // register to stall counter
+  let regLastWriteMap = {}; // register that where written to in the last cycle
+
+  let lastIsVector = false;
+  let inDualIssue = true;
+  let branchStep = 0;
+  let lastLoadPos = 0xFF; // if exactly 2, causes a stall. (counts up)
 
   // advances a single cycle, updating the active instructions in the process
   const tick = () => {
-    for(const a of activeInstr)a.latency--;
-    activeInstr = activeInstr.filter(a => a.latency > 0);
+    for(const reg in regCycleMap) {
+      regCycleMap[reg] = Math.max(regCycleMap[reg]-1, 0);
+    }
     ++cycle;
+    ++lastLoadPos;
   }
-  let lastIsVector = !isVectorOp(asmFunc.asm[0].op); // force a missmatch on the first instruction
-  let alreadyDualIssue = false;
 
   for(const asm of asmFunc.asm)
   {
     if(asm.type !== ASM_TYPE.OP)continue;
-
-    // check for dual-issue (vector/scalar right after each other)
     const isVector = isVectorOp(asm.op);
-    let isDualIssue = lastIsVector !== isVector && !alreadyDualIssue;
-    lastIsVector = isVector;
-    alreadyDualIssue = false;
-    if(isDualIssue)alreadyDualIssue = true;
+    if(MEM_STALL_LOAD_OPS.includes(asm.op))lastLoadPos = 0;
 
-    // check if all our source registers are ready, otherwise wait
-    for(const regSrc of asm.depsStallSource) {
-      while(activeInstr.some(prev => prev.asm.depsStallTarget.includes(regSrc))) {
-        //console.log(asm.op, reg, structuredClone(activeInstr));
-        tick();
-        isDualIssue = false;
+    // cause special stall if we have a load 2 instr. after a load
+    if(lastLoadPos === 2 && MEM_STALL_STORE_OPS.includes(asm.op))tick();
+
+    // check if one of our source or destination reg as written to in the last instruction
+    let hadWriteLastInstr = false;
+    for(const reg of [...asm.depsStallSource, ...asm.depsStallTarget]) {
+      if(regLastWriteMap[reg]) {
+        hadWriteLastInstr = true;
+        break;
       }
     }
 
-    if(!isDualIssue)tick();
+    //console.log("Tick: ", cycle, asm.op, [...asm.depsStallTarget], {ld: lastLoadPos, b: branchStep});
+
+    // check if we can in theory dual-issue
+    const couldDualIssue = lastIsVector !== isVector && branchStep !== 2 && !hadWriteLastInstr;
+    lastIsVector = isVector;
+
+    // check special vector access (MTC2, MFC2, loads)
+    for(const reg in regLastWriteMap)regLastWriteMap[reg] = false;
+    for(const writeReg of asm.depsStallTarget) {
+      regLastWriteMap[writeReg] = true;
+    }
+
+    // branch "state-machine", keep track where we currently are
+    const isBranch = asm.opIsBranch;
+    if(branchStep === BRANCH_STEP_DELAY)branchStep = BRANCH_STEP_NONE;
+    if(branchStep === BRANCH_STEP_BRANCH)branchStep = BRANCH_STEP_DELAY;
+    if(branchStep === BRANCH_STEP_NONE && isBranch)branchStep = BRANCH_STEP_BRANCH;
+
+    // check for actual dual-issue (vector/scalar right after each other)
+    inDualIssue = (!inDualIssue && couldDualIssue);
+    if(!inDualIssue)tick(); // only tick if we can not dual-issue
+
+    asm.debug.stall = 0;
+
+    // check if all our source registers are ready, otherwise wait
+    for(const regSrc of asm.depsStallSource) {
+      while(regCycleMap[regSrc] > 0) {
+        ++asm.debug.stall;
+        tick();
+      }
+    }
 
     asm.debug.cycle = cycle;
 
-    const latency = getBaseLatency(asm.op);
-    activeInstr.push({latency, asm});
+
+    const latency = getStallLatency(asm.op);
+    for(const regDst of asm.depsStallTarget) {
+      regCycleMap[regDst] = latency;
+    }
   }
   return cycle;
 }
