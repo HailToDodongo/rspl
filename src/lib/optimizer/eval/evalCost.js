@@ -46,25 +46,27 @@ export function evalFunctionCost(asmFunc)
   let lastIsVector = false;
   let inDualIssue = true;
   let branchStep = 0;
-  let lastLoadPos = 0xFF; // if exactly 2, causes a stall. (counts up)
+  let lastLoadPosMask = 0; // if exactly 2, causes a stall. (counts up)
 
   // advances a single cycle, updating the active instructions in the process
-  const tick = () => {
-    for(const reg in regCycleMap) {
-      regCycleMap[reg] = Math.max(regCycleMap[reg]-1, 0);
+  const tick = (advanceDeps = true) => {
+    if(advanceDeps) {
+      for(const reg in regCycleMap) {
+        regCycleMap[reg] = Math.max(regCycleMap[reg]-1, 0);
+      }
     }
     ++cycle;
-    ++lastLoadPos;
+    lastLoadPosMask <<= 1;
+    lastLoadPosMask &= 0xFF; // JS sucks at letting bits fall off the end
   }
 
   for(const asm of asmFunc.asm)
   {
     if(asm.type !== ASM_TYPE.OP)continue;
-    const isVector = isVectorOp(asm.op);
-    if(MEM_STALL_LOAD_OPS.includes(asm.op))lastLoadPos = 0;
+    asm.debug.stall = 0;
 
-    // cause special stall if we have a load 2 instr. after a load
-    if(lastLoadPos === 2 && MEM_STALL_STORE_OPS.includes(asm.op))tick();
+    const isVector = isVectorOp(asm.op);
+    if(MEM_STALL_LOAD_OPS.includes(asm.op))lastLoadPosMask |= 1;
 
     // check if one of our source or destination reg as written to in the last instruction
     let hadWriteLastInstr = false;
@@ -93,11 +95,26 @@ export function evalFunctionCost(asmFunc)
     if(branchStep === BRANCH_STEP_BRANCH)branchStep = BRANCH_STEP_DELAY;
     if(branchStep === BRANCH_STEP_NONE && isBranch)branchStep = BRANCH_STEP_BRANCH;
 
+    let hasRegDep = false;
+    for(const regSrc of asm.depsStallSource) {
+      if(regCycleMap[regSrc] > 0) {
+        hasRegDep = true;
+        break;
+      }
+    }
+
+    // cause special stall if we have a load 2 instr. after a load
+    let isLoadDelay = false;
+    if(lastLoadPosMask & 0b100 && MEM_STALL_STORE_OPS.includes(asm.op)) {
+      //console.log("LOAD STALL", asm.op, hasRegDep);
+      ++asm.debug.stall;
+      tick(hasRegDep);
+      isLoadDelay = true;
+    }
+
     // check for actual dual-issue (vector/scalar right after each other)
     inDualIssue = (!inDualIssue && couldDualIssue);
     if(!inDualIssue)tick(); // only tick if we can not dual-issue
-
-    asm.debug.stall = 0;
 
     // check if all our source registers are ready, otherwise wait
     for(const regSrc of asm.depsStallSource) {
@@ -108,7 +125,6 @@ export function evalFunctionCost(asmFunc)
     }
 
     asm.debug.cycle = cycle;
-
 
     const latency = getStallLatency(asm.op);
     for(const regDst of asm.depsStallTarget) {

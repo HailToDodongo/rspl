@@ -32,9 +32,10 @@ export function asmOptimizePattern(asmFunc)
 
 let i =0;
 function rand() {
-  i += 34.123;
-  //i *= 2.1;
+  /*i += 34.123;
   return i - Math.floor(i);
+  */
+  return Math.random();
 }
 
 function getRandIndex(minIncl, maxIncl) {
@@ -123,38 +124,48 @@ function reorderRound(asmFunc)
  * This will mostly reorder instructions to fill delay-slots,
  * interleave vector instructions, and minimize stalls.
  * @param {ASMFunc} asmFunc
+ * @param {RSPLConfig} config
  */
-export function asmOptimize(asmFunc)
+export function asmOptimize(asmFunc, config)
 {
   //fillDelaySlots(asmFunc);
   //return; // TEST
 
-  let costBest = evalFunctionCost(asmFunc);
-  const costInit = costBest;
-  console.log("costOpt", costInit);
-
-  let lastRandPick = reorderRound(asmFunc);
-
-  for(let i=0; i<asmFunc.asm.length*5; ++i)
-  //for(let i=0; i<10; ++i)
+  if(config.reorder)
   {
-    if(i % 50 === 0)console.log("Step: ", i, asmFunc.asm.length*5);
-    const funcCopy = structuredClone(asmFunc);
+    let costBest = evalFunctionCost(asmFunc);
+    const costInit = costBest;
+    console.log("costOpt", costInit);
 
-    let bestAsm = [...funcCopy.asm];
-    for(let s=0; s<10; ++s)
+    let lastRandPick = structuredClone(asmFunc);
+    let anyRandPick = structuredClone(asmFunc);
+
+    for(let i=0; i<asmFunc.asm.length*3; ++i)
+    //for(let i=0; i<2; ++i)
     {
-      const {cost, asm} = reorderRound((s < 2) ? lastRandPick : funcCopy);
-      if(cost < costBest) {
-        console.log("COST", costInit, cost);
-        costBest = cost;
-        bestAsm = asm;
+      if(i % 50 === 0)console.log("Step: ", i, asmFunc.asm.length*5);
+      const funcCopy = structuredClone(asmFunc);
+
+      let bestAsm = [...funcCopy.asm];
+      for(let s=0; s<10; ++s)
+      {
+        let refFunc = funcCopy;
+        if(s === 0)refFunc = lastRandPick;
+        if(s === 1)refFunc = anyRandPick;
+
+        const {cost, asm} = reorderRound(refFunc);
+        if(cost < costBest) {
+          console.log("COST", costInit, cost);
+          costBest = cost;
+          bestAsm = asm;
+        }
+
+        if(s === 3)lastRandPick = funcCopy;
+        if(rand() < 0.2)anyRandPick = funcCopy;
       }
 
-      if(s === 3)lastRandPick = funcCopy;
+      asmFunc.asm = bestAsm;
     }
-
-    asmFunc.asm = bestAsm;
   }
 
   fillDelaySlots(asmFunc);

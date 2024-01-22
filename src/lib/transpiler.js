@@ -86,7 +86,7 @@ export function transpile(ast, config = {})
       asmScanDeps(func); // debugging only
       //console.timeEnd("asmInitDeps");
       console.time("asmOptimize");
-      asmOptimize(func);
+      asmOptimize(func, config);
       console.timeEnd("asmOptimize");
 
       evalFunctionCost(func);

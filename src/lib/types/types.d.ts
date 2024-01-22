@@ -46,6 +46,7 @@ declare global {
 
     type RSPLConfig = {
         optimize: boolean;
+        reorder: boolean;
         rspqWrapper: boolean;
     };
 }

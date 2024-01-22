@@ -184,6 +184,18 @@ describe('Eval - Cost', () =>
     ]);
   });
 
+  test('SU memory - load (dep)', async () => {
+    const lines = textToAsmLines(`
+      lhu $s3, 24($s4)
+      lhu $s2, 24($s4)
+      srl $s2, $s2, 2
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1,2,5
+    ]);
+  });
+
   test('SU memory - load/store (dep)', async () => {
     const lines = textToAsmLines(`
       lw $t1, 0($t0)
@@ -209,8 +221,24 @@ describe('Eval - Cost', () =>
       1,2,4,5
     ]);
   });
-  
-    test('SU memory - load/store (no-dep, dual)', async () => {
+
+  test('SU memory - load/store (multiple)', async () => {
+    const lines = textToAsmLines(`
+      lhu $s3, 24($s4)
+      lhu $s2, 24($s4)
+      lhu $s1, 24($s4)
+      sh $s3, 12($s6)
+      sh $s2, 12($s5)
+      sh $s1, 12($s5)
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1,2,3,
+      6,7,8
+    ]);
+  });
+
+  test('SU memory - load/store (no-dep, dual)', async () => {
     const lines = textToAsmLines(`
       lw $t4, 0($t0)
       vxor $v11, $v11, $v11

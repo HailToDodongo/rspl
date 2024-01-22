@@ -24,6 +24,7 @@ const editor = createEditor("inputRSPL", loadSource(), lastLine);
 let config = {
   optimize: true,
   rspqWrapper: true,
+  reorder: false,
 };
 
 function getEditorLine() {
@@ -107,6 +108,11 @@ optionOptimize.onchange = async () => {
 
 optionWrapper.onchange = async () => {
   config.rspqWrapper = optionWrapper.checked;
+  await update(true);
+};
+
+optionReorder.onchange = async () => {
+  config.reorder = optionReorder.checked;
   await update(true);
 };
 
