@@ -210,12 +210,17 @@ export function codeUpdateCycles(elem, cycleMap, stallMap)
 {
   const ovl = elem.parentElement.querySelector(".cycleOverlay");
   const elems = [];
+  let lastCycle = -1;
   for(const [line, cycle] of Object.entries(cycleMap)) {
     const stall = stallMap[line] || 0;
     const span = document.createElement("span");
     span.style.top = getLineHeight(line) + "px";
-    span.innerText = (stall ? "("+stall+") " : "") + cycle;
+    span.innerText = cycle === lastCycle ? "^" : cycle+"";
+    if(stall > 0) {
+      span.classList.add("stall-" + stall);
+    }
     elems.push(span);
+    lastCycle = cycle;
   }
   ovl.replaceChildren(...elems);
 }

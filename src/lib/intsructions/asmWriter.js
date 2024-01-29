@@ -3,13 +3,29 @@
 * @license Apache-2.0
 */
 import state from "../state.js";
-import {BRANCH_OPS, LOAD_OPS, STORE_OPS} from "../optimizer/asmScanDeps.js";
+import {
+  BRANCH_OPS,
+  IMMOVABLE_OPS,
+  LOAD_OPS, LOAD_OPS_SCALAR, LOAD_OPS_VECTOR,
+  MEM_STALL_LOAD_OPS,
+  MEM_STALL_STORE_OPS,
+  STORE_OPS
+} from "../optimizer/asmScanDeps.js";
 
 export const ASM_TYPE = {
   OP: 0,
   LABEL: 1,
   COMMENT: 2,
   INLINE: 3,
+}
+
+/** @param {string} op */
+function getStallLatency(op) {
+  if(op.startsWith("v") || asm.op === "mtc2")return 4;
+  if(LOAD_OPS_VECTOR.includes(op))return 4;
+  if(LOAD_OPS_SCALAR.includes(op))return 3;
+  if(["mfc0", "mfc2", "cfc2"].includes(asm.op))return 3;
+  return 0;
 }
 
 /**
@@ -32,6 +48,12 @@ function getOpInfo(op) {
     opIsLoad: LOAD_OPS.includes(op),
     opIsStore: STORE_OPS.includes(op),
     opIsBranch: BRANCH_OPS.includes(op),
+    opIsImmovable: IMMOVABLE_OPS.includes(op),
+    opIsMemStallLoad: MEM_STALL_LOAD_OPS.includes(op),
+    opIsMemStallStore: MEM_STALL_STORE_OPS.includes(op),
+    opIsVector: op.startsWith("v"),
+    stallLatency: getStallLatency(op),
+    isNOP: op === "nop",
   };
 }
 
@@ -52,20 +74,20 @@ export function asmInline(op, args) {
 /** @returns {ASM} */
 export function asmNOP() {
   return {type: ASM_TYPE.OP, op: "nop", args: [], debug: getDebugData(),
-    opIsLoad: false, opIsStore: false, opIsBranch: false
+    ...getOpInfo("nop"),
   };
 }
 
 /** @returns {ASM} */
 export function asmLabel(label) {
   return {type: ASM_TYPE.LABEL, label, op: "", args: [], debug: getDebugData(),
-    opIsLoad: false, opIsStore: false, opIsBranch: false
+    ...getOpInfo(""),
   };
 }
 
 /** @returns {ASM} */
 export function asmComment(comment) {
   return {type: ASM_TYPE.COMMENT, comment, op: "", args: [], debug: getDebugData(),
-    opIsLoad: false, opIsStore: false, opIsBranch: false
+    ...getOpInfo(""),
   };
 }

@@ -30,12 +30,25 @@ declare global
         depsSource: string[];
         depsTarget: string[];
 
+        depsSourceMask: BigInt;
+        depsTargetMask: BigInt;
+
         depsStallSource: string[];
         depsStallTarget: string[];
+
+        depsStallSourceMask: BigInt;
+        depsStallTargetMask: BigInt;
 
         opIsLoad: boolean;
         opIsStore: boolean;
         opIsBranch: boolean;
+        opIsImmovable: boolean;
+        opIsMemStallLoad: boolean;
+        opIsMemStallStore: boolean;
+        opIsVector: boolean;
+        isNOP: boolean;
+
+        stallLatency: number;
 
         debug: ASMDebug;
     };

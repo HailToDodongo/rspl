@@ -4,26 +4,8 @@
 */
 
 import {ASM_TYPE} from "../../intsructions/asmWriter.js";
-import {BRANCH_OPS, LOAD_OPS, LOAD_OPS_SCALAR, LOAD_OPS_VECTOR, STORE_OPS} from "../asmScanDeps.js";
 
 // Reference/Docs: https://n64brew.dev/wiki/Reality_Signal_Processor/CPU_Pipeline
-
-const MEM_STALL_LOAD_OPS  = [...LOAD_OPS, "mfc0", "mtc0", "mfc2", "mtc2", "cfc2", "catch"];
-const MEM_STALL_STORE_OPS = [...STORE_OPS, "mfc0", "mtc0", "mfc2", "mtc2", "cfc2", "catch"];
-
-/** @param {string} op */
-function isVectorOp(op) {
-  return op.startsWith("v");
-}
-
-/** @param {string} op */
-function getStallLatency(op) {
-  if(isVectorOp(op) || op === "mtc2")return 4;
-  if(LOAD_OPS_VECTOR.includes(op))return 4;
-  if(LOAD_OPS_SCALAR.includes(op))return 3;
-  if(["mfc0", "mfc2", "cfc2"].includes(op))return 3;
-  return 0;
-}
 
 const BRANCH_STEP_NONE = 0;
 const BRANCH_STEP_BRANCH = 1;
@@ -41,7 +23,7 @@ export function evalFunctionCost(asmFunc)
   /** @type {OptInstruction[]} instructions that are currently executing (incl. latencies) */
   let cycle = 0;
   let regCycleMap = {}; // register to stall counter
-  let regLastWriteMap = {}; // register that where written to in the last cycle
+  let regLastWriteMask = 0n; // bitfield of registers that where written to in the last cycle
 
   let lastIsVector = false;
   let inDualIssue = true;
@@ -52,7 +34,7 @@ export function evalFunctionCost(asmFunc)
   const tick = (advanceDeps = true) => {
     if(advanceDeps) {
       for(const reg in regCycleMap) {
-        regCycleMap[reg] = Math.max(regCycleMap[reg]-1, 0);
+        --regCycleMap[reg];
       }
     }
     ++cycle;
@@ -65,35 +47,28 @@ export function evalFunctionCost(asmFunc)
     if(asm.type !== ASM_TYPE.OP)continue;
     asm.debug.stall = 0;
 
-    const isVector = isVectorOp(asm.op);
-    if(MEM_STALL_LOAD_OPS.includes(asm.op))lastLoadPosMask |= 1;
+    if(asm.opIsMemStallLoad)lastLoadPosMask |= 1;
 
     // check if one of our source or destination reg as written to in the last instruction
-    let hadWriteLastInstr = false;
-    for(const reg of [...asm.depsStallSource, ...asm.depsStallTarget]) {
-      if(regLastWriteMap[reg]) {
-        hadWriteLastInstr = true;
-        break;
-      }
-    }
+    const maskSrcTarget = asm.depsStallSourceMask | asm.depsStallTargetMask;
+    const hadWriteLastInstr = (regLastWriteMask & maskSrcTarget) !== 0n;
 
     //console.log("Tick: ", cycle, asm.op, [...asm.depsStallTarget], {ld: lastLoadPos, b: branchStep});
 
     // check if we can in theory dual-issue
-    const couldDualIssue = lastIsVector !== isVector && branchStep !== 2 && !hadWriteLastInstr;
-    lastIsVector = isVector;
+    //const couldDualIssue = lastIsVector !== asm.opIsVector && branchStep !== 2 && !hadWriteLastInstr;
+    const couldDualIssue = lastIsVector !== asm.opIsVector
+        && branchStep !== BRANCH_STEP_DELAY
+        && !hadWriteLastInstr;
 
-    // check special vector access (MTC2, MFC2, loads)
-    for(const reg in regLastWriteMap)regLastWriteMap[reg] = false;
-    for(const writeReg of asm.depsStallTarget) {
-      regLastWriteMap[writeReg] = true;
-    }
+    lastIsVector = asm.opIsVector;
+    regLastWriteMask = asm.depsStallTargetMask;
 
     // branch "state-machine", keep track where we currently are
     const isBranch = asm.opIsBranch;
     if(branchStep === BRANCH_STEP_DELAY)branchStep = BRANCH_STEP_NONE;
-    if(branchStep === BRANCH_STEP_BRANCH)branchStep = BRANCH_STEP_DELAY;
-    if(branchStep === BRANCH_STEP_NONE && isBranch)branchStep = BRANCH_STEP_BRANCH;
+    else if(branchStep === BRANCH_STEP_BRANCH)branchStep = BRANCH_STEP_DELAY;
+    else if(branchStep === BRANCH_STEP_NONE && isBranch)branchStep = BRANCH_STEP_BRANCH;
 
     let hasRegDep = false;
     for(const regSrc of asm.depsStallSource) {
@@ -105,7 +80,7 @@ export function evalFunctionCost(asmFunc)
 
     // cause special stall if we have a load 2 instr. after a load
     let isLoadDelay = false;
-    if(lastLoadPosMask & 0b100 && MEM_STALL_STORE_OPS.includes(asm.op)) {
+    if(lastLoadPosMask & 0b100 && asm.opIsMemStallStore) {
       //console.log("LOAD STALL", asm.op, hasRegDep);
       ++asm.debug.stall;
       tick(hasRegDep);
@@ -126,7 +101,7 @@ export function evalFunctionCost(asmFunc)
 
     asm.debug.cycle = cycle;
 
-    const latency = getStallLatency(asm.op);
+    const latency = asm.stallLatency;
     for(const regDst of asm.depsStallTarget) {
       regCycleMap[regDst] = latency;
     }

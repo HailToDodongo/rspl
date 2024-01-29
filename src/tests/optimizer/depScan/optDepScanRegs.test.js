@@ -1,10 +1,10 @@
-import {asm, asmLabel} from "../../../lib/intsructions/asmWriter.js";
+import {asm} from "../../../lib/intsructions/asmWriter.js";
 import {asmGetReorderRange, asmInitDeps} from "../../../lib/optimizer/asmScanDeps.js";
 
-function asmLinesToDeps(lines, returnRegs = [])
+function asmLinesToDeps(lines)
 {
   asmInitDeps({asm: lines});
-  return lines.map((line, i) => asmGetReorderRange(lines, i, returnRegs));
+  return lines.map((line, i) => asmGetReorderRange(lines, i));
 }
 
 describe('Optimizer - Dependency Scanner', () =>

@@ -14,6 +14,7 @@ import {callUserFunction} from "./operations/userFunction.js";
 import {isVecType} from "./dataTypes/dataTypes.js";
 import {POW2_SWIZZLE_VAR} from "./syntax/swizzle.js";
 import {LABEL_CMD_LOOP} from "./builtins/libdragon.js";
+import scalar from "./operations/scalar";
 
 const VECTOR_TYPES = ["vec16", "vec32"];
 
@@ -60,9 +61,24 @@ function calcToAsm(calc, varRes)
     }
 
     case "calcCompare": {
-      if(!isVecType(varRes.type))state.throwError("Compare calculations only allowed for vectors! (@TODO: add scalar support)", calc);
-
       const varLeft = state.getRequiredVar(calc.left, "left", calc);
+
+      if(!isVecType(varRes.type)) {
+        /** @type {ASTFuncArg} */
+        let varRight;
+        if(typeof (calc.right) === "number") {
+          if(calc.right === 0) {
+            varRight = {type: varLeft.type, reg: REG.ZERO};
+          } else {
+            varRight = {type: varLeft.type, reg: REG.AT};
+            scalar.loadImmediate(varRight.reg, calc.right);
+          }
+        } else {
+          varRight = state.getRequiredVar(calc.right, "right", calc);
+        }
+
+        return opsScalar.opCompare(varRes, varLeft, varRight, calc.op, calc.ternary);
+      }
       /** @type {ASTFuncArg} */
       let varRight;
 
@@ -253,10 +269,11 @@ function loopToASM(st)
 
 /**
  * @param {ASTScopedBlock} block
- * @param args
+ * @param {any[]} args
+ * @param {boolean} isCommand
  * @returns {ASM[]}
  */
-function scopedBlockToASM(block, args = [])
+function scopedBlockToASM(block, args = [], isCommand = false)
 {
   const res = [];
 
@@ -264,7 +281,7 @@ function scopedBlockToASM(block, args = [])
   for(const arg of args)
   {
     let reg = arg.reg || "$a"+argIdx;
-    if(argIdx >= 4) { // args beyond that live in RAM, fetch them and expect a target register
+    if(isCommand && argIdx >= 4) { // args beyond that live in RAM, fetch them and expect a target register
       if(!arg.reg)state.throwError("Argument "+argIdx+" '"+arg.name+"' needs a target register!", arg);
       const totalSize = args.length * 4;
       res.push(asm("lw", [arg.reg, `%lo(RSPQ_DMEM_BUFFER) - ${totalSize - argIdx*4}(${REG.GP})`]));
@@ -324,15 +341,23 @@ function scopedBlockToASM(block, args = [])
         res.push(asmLabel(st.name));
       break;
 
-      case "goto" : res.push(asm("j", [st.label]), asmNOP()); break;
+      case "goto" : {
+        // check if we jump to a label or variable
+        const refJump = state.getVarReg(st.label) || st.label;
+        res.push(asm("j", [refJump]), asmNOP());
+      } break;
       case "if"   : res.push(...ifToASM(st));           break;
       case "while": res.push(...whileToASM(st));        break;
       case "loop" : res.push(...loopToASM(st));         break;
 
       case "break": {
         const labelEnd = state.getScope().labelEnd;
-        if(!labelEnd)state.throwError("'break' cannot find a label to jump to!", st);
-        res.push(asm("j", [labelEnd]), asmNOP());
+        if(!labelEnd) {
+          //state.throwError("'break' cannot find a label to jump to!", st);
+          res.push(asm("jr", [REG.RA]), asmNOP());
+        } else {
+          res.push(asm("j", [labelEnd]), asmNOP());
+        }
       } break;
 
       case "exit": {
@@ -390,7 +415,7 @@ export function ast2asm(ast)
       if(!block.body)continue;
       state.enterFunction(block.name, block.type);
 
-      const blockAsm = scopedBlockToASM(block.body, block.args);
+      const blockAsm = scopedBlockToASM(block.body, block.args, block.type === "command");
       ++state.line;
 
       if(block.type === "command") {

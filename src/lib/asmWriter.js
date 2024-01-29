@@ -17,6 +17,20 @@ function stringifyInstr(asm) {
 }
 
 /**
+ * @param {string[]} incPaths
+ */
+function generateIncs(incPaths) {
+  const res = [];
+  for(const inc of incPaths) {
+    const pathNorm = inc.replaceAll('"', '');
+    const wrap = pathNorm.startsWith(".") ? ['"', '"'] : ["<", ">"];
+
+    res.push('#include ' + wrap[0] + pathNorm + wrap[1]);
+  }
+  return res;
+}
+
+/**
  * Writes the ASM of all functions and the AST into a string.
  * @param {AST} ast
  * @param {ASMFunc[]} functionsAsm
@@ -46,9 +60,8 @@ export function writeASM(ast, functionsAsm, config)
 
   writeLine("## Auto-generated file, transpiled with RSPL");
 
-  for(const inc of ast.includes) {
-    writeLine(`#include <${inc.replaceAll('"', '')}>`);
-  }
+  const preIncs = generateIncs(ast.includes);
+  for(const inc of preIncs)writeLine(inc);
 
   writeLines(["", ".set noreorder", ".set noat", ".set nomacro", ""]);
 
@@ -173,9 +186,8 @@ export function writeASM(ast, functionsAsm, config)
 
   writeLines(["", ".set at", ".set macro"]);
 
-  for(const inc of ast.postIncludes) {
-    writeLine(`#include <${inc.replaceAll('"', '')}>`);
-  }
+  const postIncs = generateIncs(ast.postIncludes);
+  for(const inc of postIncs)writeLine(inc);
 
   const saveUsagePerc = totalSaveByteSize / 4096 * 100;
   state.logInfo(`Total state size: ${totalSaveByteSize} bytes (${saveUsagePerc.toFixed(2)}%)`);

@@ -81,6 +81,7 @@ const state =
 
     state.declareVar("ZERO", "u32", REG.ZERO, true);
     state.declareVar("VZERO", "vec16", REG.VZERO, true);
+    state.declareVar("RA", "u32", REG.RA, true);
   },
 
   leaveFunction: () => {
@@ -270,6 +271,19 @@ const state =
     }
 
     return res;
+  },
+
+  /**
+   * Gets the main register of a variable, no exceptions are thrown.
+   * @param name variable name
+   * @return {string|undefined} register name, empty if not found
+   */
+  getVarReg: (name) => {
+    const scope = state.getScope();
+    let [nameNorm] = /** @type {[string, CastType]} */ name.split(":");
+    nameNorm = scope.varAliasMap[nameNorm] || nameNorm;
+    const res = scope.varMap[nameNorm];
+    return res?.reg || undefined;
   },
 
   /**

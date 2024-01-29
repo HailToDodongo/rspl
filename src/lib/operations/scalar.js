@@ -310,7 +310,17 @@ function opDiv(varRes, varLeft, varRight) {
   }
   return opShiftRight(varRes, varLeft, {type: 'u32', value: shiftVal});
 }
+
+function opCompare(varRes, varLeft, varRight, op, ternary) {
+  switch(op) {
+    case "<": return [asm("slt", [varRes.reg, varLeft.reg, varRight.reg])];
+    case ">": return [asm("slt", [varRes.reg, varRight.reg, varLeft.reg])];
+  }
+
+  state.throwError("Compare op '"+op+"' not implemented yet! (@TODO)");
+}
+
 export default {
   opMove, opLoad, opStore, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opNOR, opXOR, opBitFlip,
-  loadImmediate
+  loadImmediate, opCompare
 };

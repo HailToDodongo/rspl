@@ -38,8 +38,9 @@ function stripComments(source) {
 /**
  * @param {string} source
  * @param {RSPLConfig} config
+ * @param {function} updateCb
  */
-export async function transpileSource(source, config)
+export async function transpileSource(source, config, updateCb = undefined)
 {
   source = stripComments(source);
   const parser = new nearly.Parser(grammar);
@@ -55,14 +56,15 @@ export async function transpileSource(source, config)
   if(astList.results.length > 1) {
     throw Error("Warning: ambiguous syntax!");
   }
-  return transpile(astList.results[0], config);
+  return await transpile(astList.results[0], updateCb, config);
 }
 
 /**
  * @param {AST} ast
+ * @param {function} updateCb
  * @param {RSPLConfig} config
  */
-export function transpile(ast, config = {})
+export async function transpile(ast, updateCb, config = {})
 {
   state.reset();
   normalizeConfig(config);
@@ -74,6 +76,19 @@ export function transpile(ast, config = {})
     normalizeASM(func);
   }
 
+  const generateASM = () => {
+    const {asm, debug} = writeASM(ast, functionsAsm, config);
+  //console.timeEnd("writeASM");
+
+    return {
+      asm: asm.trimEnd(),
+      asmUnoptimized,
+      debug,
+      warn: state.outWarn,
+      info: state.outInfo,
+    };
+  };
+
   let asmUnoptimized = "";
   if(config.optimize)
   {
@@ -83,25 +98,18 @@ export function transpile(ast, config = {})
 
       //console.time("asmInitDeps");
       asmInitDeps(func);
-      asmScanDeps(func); // debugging only
+
       //console.timeEnd("asmInitDeps");
       console.time("asmOptimize");
-      asmOptimize(func, config);
+      await asmOptimize(func, (bestFunc) => {
+        if(updateCb)updateCb(generateASM());
+      }, config);
       console.timeEnd("asmOptimize");
 
+      asmScanDeps(func); // debugging only
       evalFunctionCost(func);
     }
   }
 
-  //console.time("writeASM");
-  const {asm, debug} = writeASM(ast, functionsAsm, config);
-  //console.timeEnd("writeASM");
-
-  return {
-    asm: asm.trimEnd(),
-    asmUnoptimized,
-    debug,
-    warn: state.outWarn,
-    info: state.outInfo,
-  };
+  return generateASM();
 }

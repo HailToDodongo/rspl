@@ -475,6 +475,24 @@ function opMul(varRes, varLeft, varRight, clearAccum)
 
   // @TODO: refactor
 
+  // 16bit * 16bit multiply
+  if(varRes.type === "vec32" && varLeft.type === "vec16" && varRight.type === "vec16")
+  {
+    // integer multiply into a 32bit vector
+    if(!["sfract", "ufract"].includes(varLeft.castType) &&
+       !["sfract", "ufract"].includes(varRight.castType))
+    {
+      const intOp = clearAccum ? "vmudh": "vmadh";
+      const resRegs = getVec32Regs(varRes);
+
+      return [
+        asm(intOp,  [resRegs[1], varLeft.reg, varRight.reg + swizzleRight]),
+        asm("vsar", [resRegs[0], "COP2_ACC_HI"]),
+        asm("vsar", [resRegs[1], "COP2_ACC_MD"]),
+      ];
+    }
+  }
+
   // Full 32-bit multiplication
   if(right32Bit) {
     res.push(
@@ -534,6 +552,16 @@ function opInvertHalf(varRes, varLeft) {
 
   const swizzleRes = SWIZZLE_MAP[varRes.swizzle || ""];
   const swizzleArg = SWIZZLE_MAP[varLeft.swizzle || ""];
+
+  if(varRes.type === "vec32" && varLeft.type === "vec16") {
+    if(varLeft.castType === "ufract" || varLeft.castType === "sfract") {
+      state.throwError("invert() is not supported for 16-bit fractional types! (@TODO impl.)");
+    }
+    return [
+      asm("vrcp",  [fractReg(varRes) + swizzleRes, varLeft.reg + swizzleArg]),
+      asm("vrcph", [  intReg(varRes) + swizzleRes, varLeft.reg + swizzleArg]),
+    ];
+  }
 
   return [
     asm("vrcph", [      intReg(varRes) + swizzleRes,   intReg(varLeft) + swizzleArg]),

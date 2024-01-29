@@ -59,26 +59,16 @@ async function update(reset = false)
     const source = editor.getValue();
     saveSource(source);
 
+    const liveUpdateCb = (data) => {
+      const {asm, asmUnoptimized, warn, info, debug} = data;
+      updateAsmUI(asm, asmUnoptimized, warn, info, debug);
+    };
+
     console.time("transpile");
-    const {asm, asmUnoptimized, warn, info, debug} = await transpileSource(source, config);
+    const {asm, asmUnoptimized, warn, info, debug} = await transpileSource(source, config, liveUpdateCb);
     console.timeEnd("transpile");
-    currentDebug = debug;
+    await updateAsmUI(asm, asmUnoptimized, warn, info, debug);
 
-    Log.set(info);
-    Log.append("Transpiled successfully!");
-
-    outputASM.parentElement.parentElement.hidden = !config.optimize;
-    if(config.optimize) {
-      codeHighlightElem(outputASM, asmUnoptimized);
-    }
-    codeHighlightElem(outputASMOpt, asm);
-    codeUpdateCycles(outputASMOpt, debug.lineCycleMap, debug.lineStallMap);
-
-    await saveToDevice("asm", asm, true);
-
-    highlightASM(getEditorLine());
-
-    Log.setErrorState(false, warn !== "");
   } catch(e) {
     Log.set(e.message);
     if(!e.message.includes("Syntax error")) {
@@ -86,6 +76,27 @@ async function update(reset = false)
     }
     Log.setErrorState(true, false);
   }
+}
+
+async function updateAsmUI(asm, asmUnoptimized, warn, info, debug)
+{
+  currentDebug = debug;
+
+  Log.set(info);
+  Log.append("Transpiled successfully!");
+
+  outputASM.parentElement.parentElement.hidden = !config.optimize;
+  if(config.optimize) {
+    codeHighlightElem(outputASM, asmUnoptimized);
+  }
+  codeHighlightElem(outputASMOpt, asm);
+  codeUpdateCycles(outputASMOpt, debug.lineCycleMap, debug.lineStallMap);
+
+  await saveToDevice("asm", asm, true);
+
+  highlightASM(getEditorLine());
+
+  Log.setErrorState(false, warn !== "");
 }
 
 buttonCopyASM.onclick = async () => {
