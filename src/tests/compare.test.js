@@ -120,10 +120,10 @@ describe('Comparison', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   A:
-  vne $v27, $v10, $v11
+  vne $v29, $v10, $v11
   vmrg $v01, $v02, $v03
   B:
-  vne $v27, $v10, $v30.e5
+  vne $v29, $v10, $v30.e5
   vmrg $v01, $v02, $v30.e2
   jr $ra
   nop`);
@@ -143,11 +143,11 @@ describe('Comparison', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   A:
-  vne $v27, $v10, $v11
+  vne $v29, $v10, $v11
   vmrg $v01, $v03, $v05
   vmrg $v02, $v04, $v06
   B:
-  vne $v27, $v10, $v30.e5
+  vne $v29, $v10, $v30.e5
   vmrg $v01, $v03, $v30.e2
   vmrg $v02, $v04, $v00.e2
   jr $ra
@@ -168,13 +168,13 @@ describe('Comparison', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   A:
-  veq $v27, $v02, $v03
+  veq $v29, $v02, $v03
   vmrg $v01, $v02, $v03.e1
   B:
-  vge $v27, $v02, $v03.e2
+  vge $v29, $v02, $v03.e2
   vmrg $v01, $v02, $v03.e1
   C:
-  veq $v27, $v02, $v03.e2
+  veq $v29, $v02, $v03.e2
   vmrg $v01, $v02, $v03
   jr $ra
   nop`);

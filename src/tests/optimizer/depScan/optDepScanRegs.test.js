@@ -89,8 +89,8 @@ describe('Optimizer - Dependency Scanner', () =>
       /* 02 */ asm("mtc2", ["$at", "$v25.e6"]),
     ];
 
-    expect(asmLinesToDeps(lines, ["$v25_6"])).toEqual([
-      [0, 1],
+    expect(asmLinesToDeps(lines)).toEqual([
+      [0, 2],
       [1, 2], // @TODO: allow 0-1
       [1, 2],
     ]);

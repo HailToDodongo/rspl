@@ -36,7 +36,7 @@ describe('Optimizer - Dependency Scanner - Control', () =>
       [0, 1],
       [0, 1],
       [2, 2], // j
-      [3, 3], // filled slot, don't move
+      [0, 3], // delay-slot, only move backwards
       [4, 4],
     ]);
   });

@@ -18,7 +18,6 @@ describe('State', () =>
     expect(warn).toBe("");
     expect(getDataSection(asm)).toBe(`.data
   RSPQ_BeginOverlayHeader
-
   RSPQ_EndOverlayHeader
 
   RSPQ_EmptySavedState
@@ -40,7 +39,6 @@ describe('State', () =>
     expect(warn).toBe("");
     expect(getDataSection(asm)).toBe(`.data
   RSPQ_BeginOverlayHeader
-
   RSPQ_EndOverlayHeader
 
   RSPQ_BeginSavedState
@@ -73,7 +71,6 @@ describe('State', () =>
     expect(warn).toBe("");
     expect(getDataSection(asm)).toBe(`.data
   RSPQ_BeginOverlayHeader
-
   RSPQ_EndOverlayHeader
 
   RSPQ_BeginSavedState
@@ -106,7 +103,6 @@ describe('State', () =>
     expect(warn).toBe("");
     expect(getDataSection(asm)).toBe(`.data
   RSPQ_BeginOverlayHeader
-
   RSPQ_EndOverlayHeader
 
   RSPQ_BeginSavedState

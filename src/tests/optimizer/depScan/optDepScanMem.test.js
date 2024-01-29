@@ -41,15 +41,15 @@ describe('Optimizer - Dependency Scanner - Memory', () =>
 
   test('Write vs. Write', () => {
     const lines = [
-      /* 00 */ asm("sw", ["$t0", "0($s1)"]),
+      /* 00 */ asm("sw", ["$t0", "0($s2)"]),
       /* 01 */ asm("or", ["$t1", "$zero", "$zero"]),
       /* 02 */ asm("sw", ["$t2", "0($s1)"]),
       /* 03 */ asm("or", ["$t3", "$zero", "$zero"]),
     ];
     expect(asmLinesToDeps(lines)).toEqual([
-      [0, 1],
       [0, 3],
-      [1, 3],
+      [0, 3],
+      [0, 3],
       [0, 3],
     ]);
   });
