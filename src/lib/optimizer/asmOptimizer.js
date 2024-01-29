@@ -180,7 +180,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
   if(config.reorder)
   {
     const VARIANT_COUNT = 50;
-    const ITERATION_COUNT = asmFunc.asm.length * 1;
+    const ITERATION_COUNT = Math.floor(asmFunc.asm.length * 1.5);
 
     let costBest = evalFunctionCost(asmFunc);
     const costInit = costBest;
@@ -194,14 +194,14 @@ export async function asmOptimize(asmFunc, updateCb, config)
     let nothingFoundCount = 0;
 
     // Main iteration loop
-    console.time("StepTime");
+    let time = performance.now();
     for(let i=0; i<mainIterCount; ++i)
     //for(let i=0; i<2; ++i)
     {
       if(i % 10 === 0) {
-        console.timeEnd("StepTime");
-        console.log("Step: ", i, mainIterCount);
-        console.time("StepTime");
+        const dur = performance.now() - time;
+        console.log("Step: ", i, mainIterCount, " Time: " + dur + "ms");
+        time = performance.now();
       }
       const funcCopy = cloneFunction(asmFunc);
       let foundNewBest = false;
@@ -229,7 +229,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
       }
 
       if(foundNewBest) {
-        mainIterCount += 8;
+        mainIterCount += 10;
         nothingFoundCount = 0;
       } else {
         ++nothingFoundCount;
@@ -247,7 +247,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
       //asmFunc.asm = bestAsm;
       //updateCb(asmFunc);
     }
-    console.timeEnd("StepTime");
+
   } else {
     fillDelaySlots(asmFunc);
   }

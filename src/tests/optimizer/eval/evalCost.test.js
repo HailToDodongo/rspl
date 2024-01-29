@@ -5,13 +5,16 @@ import {asmInitDeps, asmScanDeps} from "../../../lib/optimizer/asmScanDeps.js";
 function textToAsmLines(text)
 {
   const lines = text.trim().split("\n");
-  return lines.map(line => {
-    const [op, ...args] = line.trim().split(" ");
-    args.forEach((arg, i) => {
-      if(arg.endsWith(","))args[i] = arg.slice(0, -1);
-    });
-    return asm(op, args);
-  });
+  return lines
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .map(line => {
+        const [op, ...args] = line.trim().split(" ");
+        args.forEach((arg, i) => {
+          if(arg.endsWith(","))args[i] = arg.slice(0, -1);
+        });
+        return op === "nop" ? asmNOP() : asm(op, args);
+      });
 }
 
 /**
@@ -28,17 +31,17 @@ function linesToCycles(lines)
 describe('Eval - Cost', () =>
 {
   test('SU only - no dep', async () => {
-    const lines = [
-      asm("or", ["$t0", "$zero", "$zero"]),
-      asm("addiu", ["$t0", "$t0", "1"]),
-      asm("addiu", ["$t0", "$t0", "1"]),
-      asm("addiu", ["$t0", "$t0", "1"]),
-      asm("jr", ["$ra"]),
-      asmNOP(),
-    ];
+    const lines = textToAsmLines(`
+      or    $t0, $zero, $zero
+      addiu $t0, $t0, 1
+      addiu $t0, $t0, 1
+      addiu $t0, $t0, 1
+      jr    $ra
+      nop
+    `);
     const cycles = linesToCycles(lines);
     expect(cycles).toEqual([
-      1,2,3,4,5,6
+      1,2,3,4,5,7
     ]);
   });
 
@@ -160,7 +163,7 @@ describe('Eval - Cost', () =>
     `);
     const cycles = linesToCycles(lines);
     expect(cycles).toEqual([
-      1,2,3,4,5
+      1,2,4,5,6
     ]);
   });
 
@@ -168,10 +171,12 @@ describe('Eval - Cost', () =>
     const lines = textToAsmLines(`
       vxor $v04, $v00, $v00.e0
       vxor $v05, $v00, $v00
+      
       mtc2 $t0, $v05.e0
       srl $at, $t0, 16
       srl $at, $t0, 16
       mtc2 $at, $v04.e0
+      
       vmov $v04.e2, $v04.e0
       vmov $v05.e2, $v05.e0
       vmov $v04.e3, $v04.e1
@@ -179,7 +184,8 @@ describe('Eval - Cost', () =>
     `);
     const cycles = linesToCycles(lines);
     expect(cycles).toEqual([
-      1, 2, 3, 4, 5, 6,
+      1, 2,
+      3, 4, 5, 6,
       10, 11, 14, 15
     ]);
   });
@@ -252,6 +258,44 @@ describe('Eval - Cost', () =>
     ]);
   });
 
+  test('Branch - filled (NOP)', async () => {
+    const lines = textToAsmLines(`
+      or $s7, $zero, $zero
+      beq $s7, $zero, LABEL_0001
+      nop
+      vxor $v28, $v00, $v30.e7
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1,2,4,5
+    ]);
+  });
+
+  test('Branch - filled (scalar)', async () => {
+    const lines = textToAsmLines(`
+      or $s7, $zero, $zero
+      beq $s7, $zero, LABEL_0001
+      addiu $s6, $zero, 3
+      addiu $s6, $zero, 1
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1,2,4,5
+    ]);
+  });
+
+  test('Branch - filled (vector)', async () => {
+    const lines = textToAsmLines(`
+      or $s7, $zero, $zero
+      beq $s7, $zero, LABEL_0001
+      vxor $v28, $v00, $v30.e7
+      vxor $v28, $v00, $v30.e7
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1,2,4,5
+    ]);
+  });
 // @TODO:
   // branches
   // delay-dual issue

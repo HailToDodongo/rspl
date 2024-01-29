@@ -21,10 +21,10 @@ export const ASM_TYPE = {
 
 /** @param {string} op */
 function getStallLatency(op) {
-  if(op.startsWith("v") || asm.op === "mtc2")return 4;
+  if(op.startsWith("v") || op === "mtc2")return 4;
   if(LOAD_OPS_VECTOR.includes(op))return 4;
   if(LOAD_OPS_SCALAR.includes(op))return 3;
-  if(["mfc0", "mfc2", "cfc2"].includes(asm.op))return 3;
+  if(["mfc0", "mfc2", "cfc2"].includes(op))return 3;
   return 0;
 }
 

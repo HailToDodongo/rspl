@@ -49,26 +49,32 @@ export function evalFunctionCost(asmFunc)
 
     if(asm.opIsMemStallLoad)lastLoadPosMask |= 1;
 
+    //console.log("Tick: ", cycle, {lat: asm.stallLatency}, asm.op, asm.opIsMemStallLoad, asm.opIsMemStallStore, lastLoadPosMask);
+
     // check if one of our source or destination reg as written to in the last instruction
     const maskSrcTarget = asm.depsStallSourceMask | asm.depsStallTargetMask;
     const hadWriteLastInstr = (regLastWriteMask & maskSrcTarget) !== 0n;
 
     //console.log("Tick: ", cycle, asm.op, [...asm.depsStallTarget], {ld: lastLoadPos, b: branchStep});
 
-    // check if we can in theory dual-issue
-    //const couldDualIssue = lastIsVector !== asm.opIsVector && branchStep !== 2 && !hadWriteLastInstr;
-    const couldDualIssue = lastIsVector !== asm.opIsVector
-        && branchStep !== BRANCH_STEP_DELAY
-        && !hadWriteLastInstr;
-
-    lastIsVector = asm.opIsVector;
     regLastWriteMask = asm.depsStallTargetMask;
+
+    const oneAfterDelay = branchStep === BRANCH_STEP_DELAY;
 
     // branch "state-machine", keep track where we currently are
     const isBranch = asm.opIsBranch;
-    if(branchStep === BRANCH_STEP_DELAY)branchStep = BRANCH_STEP_NONE;
+         if(branchStep === BRANCH_STEP_DELAY)branchStep = BRANCH_STEP_NONE;
     else if(branchStep === BRANCH_STEP_BRANCH)branchStep = BRANCH_STEP_DELAY;
     else if(branchStep === BRANCH_STEP_NONE && isBranch)branchStep = BRANCH_STEP_BRANCH;
+
+        // check if we can in theory dual-issue
+    //const couldDualIssue = lastIsVector !== asm.opIsVector && branchStep !== 2 && !hadWriteLastInstr;
+    const couldDualIssue = lastIsVector !== asm.opIsVector
+        && branchStep !== BRANCH_STEP_DELAY
+        && !hadWriteLastInstr
+        && !oneAfterDelay;
+
+    lastIsVector = asm.opIsVector;
 
     let hasRegDep = false;
     for(const regSrc of asm.depsStallSource) {
@@ -79,12 +85,9 @@ export function evalFunctionCost(asmFunc)
     }
 
     // cause special stall if we have a load 2 instr. after a load
-    let isLoadDelay = false;
-    if(lastLoadPosMask & 0b100 && asm.opIsMemStallStore) {
-      //console.log("LOAD STALL", asm.op, hasRegDep);
+    while(lastLoadPosMask & 0b100 && asm.opIsMemStallStore) {
       ++asm.debug.stall;
-      tick(hasRegDep);
-      isLoadDelay = true;
+      tick();
     }
 
     // check for actual dual-issue (vector/scalar right after each other)
@@ -99,6 +102,7 @@ export function evalFunctionCost(asmFunc)
       }
     }
 
+    if(branchStep === BRANCH_STEP_DELAY)tick();
     asm.debug.cycle = cycle;
 
     const latency = asm.stallLatency;
