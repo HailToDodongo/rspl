@@ -11,6 +11,8 @@ import {branchJump} from "./pattern/branchJump.js";
 import {evalFunctionCost} from "./eval/evalCost.js";
 import {dedupeImmediate} from "./pattern/dedupeImm.js";
 import {mergeSequence} from "./pattern/mergeSequence.js";
+import {removeDeadCode} from "./pattern/removeDeadCode.js";
+import {sleep} from "../utils.js";
 
 /**
  * Optimizes ASM before any dependency analysis.
@@ -28,22 +30,45 @@ export function asmOptimizePattern(asmFunc)
   branchJump(asmFunc);
   dedupeImmediate(asmFunc);
   mergeSequence(asmFunc);
+  removeDeadCode(asmFunc);
 }
 
-let i =0;
+/**
+ * ASM Reordering:
+ *
+ * As a general overview, we want to move instructions around to minimize
+ * the predicted cycle count of each function/command.
+ * For that, we semi-randomly pick instructions and reorder them.
+ *
+ * To make this more efficient, the whole process happens in batches with variants.
+ * Grouped in: Iterations -> Variants -> (Reorder-)Steps
+ *
+ * Per iteration, we create multiple variants of the current function, and let them compete.
+ * The best one survives and is used as the base for the next iteration.
+ * A few random version are saved as a backup to introduce more randomness later on.
+ *
+ * In each variant, we perform a number of reorder steps, which are semi-randomly picked.
+ *
+ * Below are settings to fine-tune this process:
+ */
+const ITERATION_COUNT_FACTOR = 1.5;  // iterations = asm.length * factor
+const ITERATION_COUNT_MIN    = 100;  // minimum iterations
+const ITERATION_MATCH_BUMP   = 50;   // iterations to add if we find a new best
+const VARIANT_COUNT          = 80;   // variants per iteration
+const NOTHING_FOUND_MAX      = 200;  // iterations to run without finding a new best
+
+const REORDER_MIN_OPS = 5;  // minimum instructions to reorder per round
+const REORDER_MAX_OPS = 40; // maximum instructions to reorder per round
+
+
+//let i =0;
 function rand() {
-/*  i += 34.123;
-  return i - Math.floor(i);
-*/
+  //  i += 34.123; return i - Math.floor(i); // DEBUG: fixed randomness
   return Math.random();
 }
 
 function getRandIndex(minIncl, maxIncl) {
   return Math.floor(rand() * (maxIncl - minIncl + 1)) + minIncl;
-}
-
-function getRandShouldReorder() {
-  return rand() < 0.4;
 }
 
 /**
@@ -63,9 +88,9 @@ function relocateElement(arr, from, to)
   // A: Is the target a NOP?    -> can be replaced
   // B: Are we in a delay slot? -> needs to generate a NOP as a filler
 
-  // Note: 'to' points to the last safe instruction this means:
-  //    if 'to' > 'from' we have place the instruction after 'to'.
-  //    if 'to' < 'from' we have to place the instruction before 'to'.
+  // Note: 'to' points to the last safe instruction this means
+  //       that we can always place an instruction before and after the 'to' index.
+  //       Depending on 'from' we need to handle this to maximize movement.
 
   if(sourceInDelaySlot)
   {
@@ -96,6 +121,9 @@ function relocateElement(arr, from, to)
 }
 
 /**
+ * Directly fills delay slots with instructions that can be moved.
+ * NOTE: with reordering enabled, this function is not needed.
+ *       It serves as a backup when reordering is disabled.
  * @param {ASMFunc} asmFunc
  */
 function fillDelaySlots(asmFunc)
@@ -119,31 +147,35 @@ function fillDelaySlots(asmFunc)
 }
 
 /**
+ * Single attempt to move a random instruction to a random location.
  * @param {ASMFunc} asmFunc
  */
 function optimizeStep(asmFunc)
 {
-  for(let i=0; i<asmFunc.asm.length; ++i)
-  {
-    if(getRandShouldReorder())continue;
+  let i = getRandIndex(0, asmFunc.asm.length-1);
 
-    const asm = asmFunc.asm[i];
-    const reorderRange = asmGetReorderRange(asmFunc.asm, i);
-    if(reorderRange[0] === reorderRange[1])continue;
+  const asm = asmFunc.asm[i];
+  const reorderRange = asmGetReorderRange(asmFunc.asm, i);
+  if(reorderRange[0] === reorderRange[1])return;
 
-    let targetIdx = i;
-    while(targetIdx === i) {
-      targetIdx = getRandIndex(reorderRange[0], reorderRange[1]);
-    }
-
-    ++asm.debug.reorderCount;
-    relocateElement(asmFunc.asm, i, targetIdx);
+  // pick a random target index, search until we find a new place
+  let targetIdx = i;
+  while(targetIdx === i) {
+    targetIdx = getRandIndex(reorderRange[0], reorderRange[1]);
   }
+
+  ++asm.debug.reorderCount;
+  relocateElement(asmFunc.asm, i, targetIdx);
 }
 
+/**
+ * Round for a single variant, performs a number of reorder steps.
+ * @param asmFunc
+ * @return {{cost: number, asm: *[]}}
+ */
 function reorderRound(asmFunc)
 {
-  const opCount = Math.floor(rand() * 30) + 2;
+  const opCount = Math.floor(rand() * REORDER_MAX_OPS) + REORDER_MIN_OPS;
   //const opCount = 1;
   for(let o=0; o<opCount; ++o) {
     optimizeStep(asmFunc);
@@ -155,10 +187,6 @@ function reorderRound(asmFunc)
     cost: cost,
     asm:[...asmFunc.asm]
   }
-}
-
-async function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function cloneFunction(func) {
@@ -177,34 +205,37 @@ function cloneFunction(func) {
  */
 export async function asmOptimize(asmFunc, updateCb, config)
 {
+  const funcName = asmFunc.name || "(???)";
   if(config.reorder)
   {
-    const VARIANT_COUNT = 50;
-    const ITERATION_COUNT = Math.floor(asmFunc.asm.length * 1.5);
+    const ITERATION_COUNT = Math.max(
+      Math.floor(asmFunc.asm.length * ITERATION_COUNT_FACTOR),
+      ITERATION_COUNT_MIN
+    );
 
     let costBest = evalFunctionCost(asmFunc);
+    asmFunc.cyclesBefore = costBest;
+
     const costInit = costBest;
     console.log("costOpt", costInit);
 
     let lastRandPick = cloneFunction(asmFunc);
     let anyRandPick = cloneFunction(asmFunc);
     let mainIterCount = ITERATION_COUNT;
-    //let mainIterCount = 15;
 
     let nothingFoundCount = 0;
 
     // Main iteration loop
     let time = performance.now();
-    for(let i=0; i<mainIterCount; ++i)
-    //for(let i=0; i<2; ++i)
+    let i = 0;
+    for(let iter=0; iter<mainIterCount; ++iter)
     {
-      if(i % 10 === 0) {
+      if(i !== 0 && (i % 10) === 0) {
         const dur = performance.now() - time;
-        console.log("Step: ", i, mainIterCount, " Time: " + dur + "ms");
+        console.log("["+funcName+"] Step: ", i, mainIterCount - iter, " Time: " + dur + "ms");
         time = performance.now();
       }
       const funcCopy = cloneFunction(asmFunc);
-      let foundNewBest = false;
 
       // Variants per interation
       let bestAsm = [...funcCopy.asm];
@@ -216,29 +247,18 @@ export async function asmOptimize(asmFunc, updateCb, config)
 
         const {cost, asm} = reorderRound(refFunc);
         if(cost < costBest) {
-          console.log("====> New Best: ", costInit, cost);
           costBest = cost;
           bestAsm = asm;
           asmFunc.asm = asm;
-          foundNewBest = true;
+          asmFunc.cyclesAfter = cost;
+          iter = 0;
           updateCb(asmFunc);
+
+          console.log(`[${funcName}] \x1B[32m**** New Best for '${funcName}': ${costInit} -> ${cost} ****\x1B[0m`);
         }
 
         //asmFunc.asm = asm; updateCb(asmFunc); await sleep(1200); DEBUG
         await sleep(0);
-      }
-
-      if(foundNewBest) {
-        mainIterCount += 10;
-        nothingFoundCount = 0;
-      } else {
-        ++nothingFoundCount;
-      }
-
-      //console.timeEnd("StepTime");
-
-      if(nothingFoundCount > 200) {
-        break;
       }
 
       if(i % 3 === 0)lastRandPick = funcCopy;
@@ -246,6 +266,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
 
       //asmFunc.asm = bestAsm;
       //updateCb(asmFunc);
+      ++i;
     }
 
   } else {

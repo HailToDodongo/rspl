@@ -93,13 +93,11 @@ export async function transpile(ast, updateCb, config = {})
   if(config.optimize)
   {
     asmUnoptimized = writeASM(ast, functionsAsm, config).asm;
-    for(const func of functionsAsm) {
+    for(const func of functionsAsm)
+    {
       asmOptimizePattern(func);
-
-      //console.time("asmInitDeps");
       asmInitDeps(func);
 
-      //console.timeEnd("asmInitDeps");
       console.time("asmOptimize");
       await asmOptimize(func, (bestFunc) => {
         if(updateCb)updateCb(generateASM());
@@ -107,8 +105,15 @@ export async function transpile(ast, updateCb, config = {})
       console.timeEnd("asmOptimize");
 
       asmScanDeps(func); // debugging only
-      evalFunctionCost(func);
+      func.cyclesAfter = evalFunctionCost(func);
     }
+
+    console.log("==== Optimization Overview ====");
+    let longestFuncName = functionsAsm.reduce((a, b) => a.name.length > b.name.length ? a : b).name.length;
+    for(const func of functionsAsm) {
+      console.log(`- ${func.name.padEnd(longestFuncName, ' ')}: ${func.cyclesBefore.toString().padStart(4, ' ')}  -> ${func.cyclesAfter.toString().padStart(4, ' ')} cycles`);
+    }
+    console.log("===============================");
   }
 
   return generateASM();

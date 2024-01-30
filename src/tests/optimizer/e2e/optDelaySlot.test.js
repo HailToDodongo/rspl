@@ -14,9 +14,7 @@ describe('Optimizer E2E - Delay-Slots', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   j SOME_LABEL
-  addiu $t0, $zero, 1
-  jr $ra
-  nop`);
+  addiu $t0, $zero, 1`);
   });
 
   test('Fill - Complex', async () => {

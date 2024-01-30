@@ -428,6 +428,8 @@ export function ast2asm(ast)
         ...block,
         asm: blockAsm.filter(Boolean),
         argSize: getArgSize(block),
+        cyclesBefore: 0,
+        cyclesAfter: 0,
         body: undefined
       });
 

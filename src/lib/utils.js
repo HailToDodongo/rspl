@@ -22,3 +22,7 @@ export function difference(a, b)
 {
   return a.filter(x => !b.includes(x));
 }
+
+export async function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}

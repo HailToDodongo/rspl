@@ -42,6 +42,9 @@ export function evalFunctionCost(asmFunc)
     lastLoadPosMask &= 0xFF; // JS sucks at letting bits fall off the end
   }
 
+  //let log = "";
+
+  let lastCtrlRWMask = 0n;
   for(const asm of asmFunc.asm)
   {
     if(asm.type !== ASM_TYPE.OP)continue;
@@ -49,7 +52,7 @@ export function evalFunctionCost(asmFunc)
 
     if(asm.opIsMemStallLoad)lastLoadPosMask |= 1;
 
-    //console.log("Tick: ", cycle, {lat: asm.stallLatency}, asm.op, asm.opIsMemStallLoad, asm.opIsMemStallStore, lastLoadPosMask);
+    //if(global.LOG_ON)log += `Tick[${cycle}]: ${asm.op}\t| lat: ${asm.stallLatency}`;
 
     // check if one of our source or destination reg as written to in the last instruction
     const maskSrcTarget = asm.depsStallSourceMask | asm.depsStallTargetMask;
@@ -57,7 +60,11 @@ export function evalFunctionCost(asmFunc)
 
     //console.log("Tick: ", cycle, asm.op, [...asm.depsStallTarget], {ld: lastLoadPos, b: branchStep});
 
+    // special check if a previous instruction wrote to a control register
+    let isC2Blocked = (asm.op === "cfc2") && (asm.depsSourceMask & lastCtrlRWMask) !== 0n;
+
     regLastWriteMask = asm.depsStallTargetMask;
+    lastCtrlRWMask = asm.depsSourceMask | asm.depsTargetMask; // incl. control regs here as an exception
 
     const oneAfterDelay = branchStep === BRANCH_STEP_DELAY;
 
@@ -65,14 +72,16 @@ export function evalFunctionCost(asmFunc)
     const isBranch = asm.opIsBranch;
          if(branchStep === BRANCH_STEP_DELAY)branchStep = BRANCH_STEP_NONE;
     else if(branchStep === BRANCH_STEP_BRANCH)branchStep = BRANCH_STEP_DELAY;
-    else if(branchStep === BRANCH_STEP_NONE && isBranch)branchStep = BRANCH_STEP_BRANCH;
 
-        // check if we can in theory dual-issue
+    if(branchStep === BRANCH_STEP_NONE && isBranch)branchStep = BRANCH_STEP_BRANCH;
+
+    // check if we can in theory dual-issue
     //const couldDualIssue = lastIsVector !== asm.opIsVector && branchStep !== 2 && !hadWriteLastInstr;
     const couldDualIssue = lastIsVector !== asm.opIsVector
         && branchStep !== BRANCH_STEP_DELAY
         && !hadWriteLastInstr
-        && !oneAfterDelay;
+        && !oneAfterDelay
+        && !isC2Blocked;
 
     lastIsVector = asm.opIsVector;
 
@@ -104,11 +113,13 @@ export function evalFunctionCost(asmFunc)
 
     if(branchStep === BRANCH_STEP_DELAY)tick();
     asm.debug.cycle = cycle;
+    //if(global.LOG_ON)log += `\t| cycle: ${cycle}\n`;
 
     const latency = asm.stallLatency;
     for(const regDst of asm.depsStallTarget) {
       regCycleMap[regDst] = latency;
     }
   }
+  //if(log)console.log(log);
   return cycle;
 }

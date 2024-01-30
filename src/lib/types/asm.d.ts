@@ -56,6 +56,8 @@ declare global
     type ASMFunc = ASTFunc | {
         asm: ASM[];
         argSize: number;
+        cyclesBefore: number;
+        cyclesAfter: number;
     };
 
     type ASMOutputDebug = {

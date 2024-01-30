@@ -17,8 +17,6 @@ describe('Optimizer E2E - Labels', () =>
     expect(asm).toBe(`test:
   LABEL_C:
   j LABEL_C
-  nop
-  jr $ra
   nop`);
   });
 
@@ -41,8 +39,6 @@ describe('Optimizer E2E - Labels', () =>
   addiu $a0, $a0, 2
   LABEL_C:
   j LABEL_A
-  nop
-  jr $ra
   nop`);
   });
 });

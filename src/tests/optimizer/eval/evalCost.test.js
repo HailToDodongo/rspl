@@ -141,7 +141,7 @@ describe('Eval - Cost', () =>
     ]);
   });
 
-  test('SU/VU mix - same src/dst dep', async () => {
+  test('VU - same src/dst dep', async () => {
     const lines = textToAsmLines(`
       vxor $v01, $v00, $v30.e7
       vxor $v01, $v01, $v01
@@ -150,6 +150,28 @@ describe('Eval - Cost', () =>
     const cycles = linesToCycles(lines);
     expect(cycles).toEqual([
       1,5,9
+    ]);
+  });
+
+  test('VU/SU - no dual issue', async () => {
+    const lines = textToAsmLines(`
+      vand $v04, $v30, $v31
+      lqv $v04, 0, 0, $s4
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1,2
+    ]);
+  });
+
+  test('VU/SU - no dual issue', async () => {
+    const lines = textToAsmLines(`
+      vand $v04, $v30, $v31
+      mfc2 $t0, $v04.e4 
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1,5
     ]);
   });
 
@@ -258,7 +280,71 @@ describe('Eval - Cost', () =>
     ]);
   });
 
-  test('Branch - filled (NOP)', async () => {
+  test('CFC2 - stall', async () => {
+    const lines = textToAsmLines(`
+      cfc2 $sp, $vcc
+      andi $sp, $sp, 1799
+      srl $t7, $sp, 5
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1, 2+2, 5
+    ]);
+  });
+
+  test('VU + CFC2 - dual', async () => {
+    const lines = textToAsmLines(`
+      vxor $v01, $v01, $v01
+      cfc2 $sp, $vcc
+      andi $sp, $sp, 1799
+      srl $t7, $sp, 5
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1, 1, 2+2, 5
+    ]);
+  });
+
+  test('CFC2 + VU - dual', async () => {
+    const lines = textToAsmLines(`
+      cfc2 $sp, $vcc
+      vxor $v01, $v01, $v01
+      andi $sp, $sp, 1799
+      srl $t7, $sp, 5
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1, 1, 2+2, 5
+    ]);
+  });
+
+  test('VU + CFC2 - no-dual', async () => {
+    const lines = textToAsmLines(`
+      vcl $v29, $v27, $v20
+      cfc2 $sp, $vcc
+      andi $sp, $sp, 1799
+      srl $t7, $sp, 5
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1,2, 3+2, 6
+    ]);
+  });
+
+  test('CFC2 + VU - dual', async () => {
+    const lines = textToAsmLines(`
+      cfc2 $sp, $vcc
+      vcl $v29, $v27, $v20
+      andi $sp, $sp, 1799
+      srl $t7, $sp, 5
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1,1, 2+2, 5
+    ]);
+  });
+
+  test('Branch - NOP', async () => {
     const lines = textToAsmLines(`
       or $s7, $zero, $zero
       beq $s7, $zero, LABEL_0001
@@ -268,6 +354,20 @@ describe('Eval - Cost', () =>
     const cycles = linesToCycles(lines);
     expect(cycles).toEqual([
       1,2,4,5
+    ]);
+  });
+
+  test('Branch multiple - NOP', async () => {
+    const lines = textToAsmLines(`
+      beq $zero, $zero, LABEL_A
+      nop
+      beq $zero, $zero, LABEL_B
+      nop
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1, 2+1,
+      4, 5+1
     ]);
   });
 
@@ -284,6 +384,18 @@ describe('Eval - Cost', () =>
     ]);
   });
 
+  test('Branch - filled + stall (scalar)', async () => {
+    const lines = textToAsmLines(`
+      lw $a0, %lo(SCREEN_SIZE_VEC + 0)
+      beq $zero, $zero, LABEL_A
+      addiu $a0, $a0, 1
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1,2,5
+    ]);
+  });
+
   test('Branch - filled (vector)', async () => {
     const lines = textToAsmLines(`
       or $s7, $zero, $zero
@@ -296,8 +408,154 @@ describe('Eval - Cost', () =>
       1,2,4,5
     ]);
   });
-// @TODO:
-  // branches
-  // delay-dual issue
+
+  test('Example - A', async () => {
+    const lines = textToAsmLines(`
+      or $t2, $zero, $zero
+      andi $t0, $a0, 65535
+      ori $s4, $zero, %lo(TRI_BUFFER)
+      or $s0, $zero, $a1
+      addiu $s4, $s4, 1376
+      addu $s7, $s4, $t0
+      jal DMAExec
+      addiu $t0, $t0, -1
+      ori $s6, $zero, %lo(MAT_MODEL_RROJ)
+      ldv $v21, 0, 48, $s6
+      ldv $v22, 0, 56, $s6
+      ldv $v25, 0, 16, $s6
+      ldv $v21, 8, 48, $s6
+      ldv $v25, 8, 16, $s6
+      ldv $v24, 0, 40, $s6
+      ldv $v22, 8, 56, $s6
+      ldv $v26, 0, 24, $s6
+      ori $at, $zero, %lo(COLOR_AMBIENT)
+      ldv $v26, 8, 24, $s6
+      luv $v14, 0, 0, $at
+      ldv $v23, 0, 32, $s6
+      ldv $v24, 8, 40, $s6
+      ldv $v23, 8, 32, $s6
+      ori $at, $zero, %lo(NORMAL_MASK_SHIFT)
+      ldv $v27, 0, 0, $s6
+      ldv $v27, 8, 0, $s6
+      ldv $v28, 0, 8, $s6
+      ldv $v28, 8, 8, $s6
+      ori $s6, $zero, %lo(MAT_MODEL_NORM)
+      ldv $v13, 0, 0, $at
+      ldv $v20, 0, 8, $s6
+      ldv $v12, 0, 8, $at
+      ldv $v13, 8, 0, $at
+      ldv $v17, 0, 16, $s6
+      ldv $v12, 8, 8, $at
+      ldv $v19, 0, 0, $s6
+      ldv $v20, 8, 8, $s6
+      ori $at, $zero, %lo(CLIPING_PLANES)
+      ldv $v15, 0, 32, $s6
+      ldv $v18, 0, 24, $s6
+      llv $v11, 0, 0, $at
+      ldv $v18, 8, 24, $s6
+      ldv $v19, 8, 0, $s6
+      ori $at, $zero, %lo(SCREEN_SIZE_VEC)
+      ldv $v17, 8, 16, $s6
+      ldv $v16, 0, 40, $s6
+      ldv $v15, 8, 32, $s6
+      ldv $v10, 0, 0, $at
+      ldv $v09, 0, 8, $at
+      vor $v11, $v00, $v11.e1
+      ldv $v10, 8, 0, $at
+      ldv $v16, 8, 40, $s6
+      ldv $v09, 8, 8, $at
+      ori $s6, $zero, %lo(TRI_BUFFER)
+      jal DMAWaitIdle
+      addiu $s5, $s6, 38
+      `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1, 2, 3, 4, 5, 6, 7,
+      9,10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+      25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+      40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 50,
+      51, 52, 53, 54, 55, 57
+    ]);
+  });
+
+  test('Example - B', async () => {
+    const lines = textToAsmLines(`
+      vmov $v15.e7, $v23.e3
+      vmudl $v29, $v15, $v17.v
+      ori $at, $zero, 0xFFFF
+      vmadm $v29, $v14, $v17.v
+      vmadn $v13, $v15, $v16.v
+      vmadh $v12, $v14, $v16.v
+      vaddc $v13, $v13, $v13.q1
+      vadd $v12, $v12, $v12.q1
+      vaddc $v13, $v13, $v13.h2
+      vadd $v12, $v12, $v12.h2
+      sqv $v25, 0, 16, $s0
+      vsubc $v11, $v13, $v13.e4
+      vsub $v10, $v12, $v12.e4
+      vrcph $v10.e0, $v10.e0
+      vrcpl $v11.e0, $v11.e0
+      vrcph $v10.e0, $v00.e0
+      vmudl $v29, $v11, $v13.e0
+      vmadm $v29, $v10, $v13.e0
+      vmadn $v11, $v11, $v12.e0
+      vmadh $v10, $v10, $v12.e0
+      vaddc $v11, $v11, $v11.v
+      mtc2 $at, $v11.e1
+      vadd $v10, $v10, $v10.v
+      `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+    1,
+    2+3,  5,
+    6,
+    7,
+    8,
+    9+2,
+    12,
+    13+2,
+    16,
+    16,
+    17+2,
+    20,
+    21+3,
+    25,
+    26,
+    27+2,
+    30,
+    31,
+    32,
+    33+2,
+    36, 36]);
+  });
+
+  test('Example - C', async () => {
+    const lines = textToAsmLines(`
+      vaddc $v28, $v28, $v20.v
+        slv $v26, 8, 20, $s0
+      sdv $v27, 0, 8, $s0
+        vor $v20, $v00, $v27.e3
+      vch $v29, $v26, $v19
+        suv $v28, 0, 16, $s0
+
+      vcl $v29, $v27, $v20
+      cfc2 $sp, $vcc
+      andi $sp, $sp, 1799
+      srl $t7, $sp, 5
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+     1, 1,
+     2, 2,
+     3, 5,
+
+     6,
+     7,
+     8+2,
+     11
+    ]);
+  });
+
+  // @TODO:
   // hardware-bug (VRCP, VRCPL, VRCPH, VMOV, VRSQ, VRSQL, VRSQH, VNOP)
 });
