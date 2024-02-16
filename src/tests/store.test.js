@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Store', () =>
 {
-  test('Scalar - 32-Bit', () => {
-    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+  test('Scalar - 32-Bit', async () => {
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
       function test_scalar_store()
       {
         u32<$t0> val, dst;
@@ -24,13 +24,13 @@ describe('Store', () =>
   sw $t0, 16($t1)
   sw $t0, %lo(TEST_CONST)($t1)
   sw $t0, %lo(TEST_CONST)($zero)
-  sw $t0, 16 + %lo(TEST_CONST)($zero)
+  sw $t0, %lo(16 + TEST_CONST)($zero)
   jr $ra
   nop`);
   });
 
-  test('Scalar - Cast', () => {
-    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+  test('Scalar - Cast', async () => {
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
       function test_scalar_store()
       {
         u32<$t0> val, dst;
@@ -56,18 +56,18 @@ describe('Store', () =>
   nop`);
   });
 
-  test('Vector - 32-Bit', () => {
-    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+  test('Vector - 32-Bit', async () => {
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
       function test_vector_store() 
       {
         u32<$t0> dst;
         vec32<$v01> val;
         
-        // Whole Vector
+        WholeVector:
         store(val, dst);
         store(val, TEST_CONST);
         
-        // Swizzle
+        Swizzle:
         store(val.y, dst);
         store(val.z, dst, 0x10);
         store(val.zw, dst);
@@ -78,13 +78,13 @@ describe('Store', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test_vector_store:
-  ## Whole Vector
+  WholeVector:
   sqv $v01, 0, 0, $t0
   sqv $v02, 0, 16, $t0
   ori $at, $zero, %lo(TEST_CONST)
   sqv $v01, 0, 0, $at
   sqv $v02, 0, 16, $at
-  ## Swizzle
+  Swizzle:
   ssv $v01, 2, 0, $t0
   ssv $v02, 2, 2, $t0
   ssv $v01, 4, 16, $t0
@@ -101,47 +101,47 @@ describe('Store', () =>
   nop`);
   });
 
-  test('Vector - Cast', () => {
-    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+  test('Vector - Cast', async () => {
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
       function test_vector_store() 
       {
         u32<$t0> dst;
         vec32<$v01> val;
         
-        // Whole Vector
+        WholeVector:
         store(val:uint, dst);
         store(val:ufract, dst);
         
-        // Swizzle
+        Swizzle:
         store(val:uint.XYZW, dst);
         store(val:ufract.XYZW, dst);
       }`, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBe(`test_vector_store:
-  ## Whole Vector
+  WholeVector:
   sqv $v01, 0, 0, $t0
   sqv $v02, 0, 0, $t0
-  ## Swizzle
+  Swizzle:
   sdv $v01, 8, 0, $t0
   sdv $v02, 8, 0, $t0
   jr $ra
   nop`);
   });
 
- test('Vector - Packed-Store', () => {
-    const {asm, warn} = transpileSource(`function test() 
+ test('Vector - Packed-Store', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
       {
         u32<$t0> dst;
         vec16<$v01> val;
         
-        // Unsigned
+        Unsigned:
         store_vec_u8(val, dst);
         store_vec_u8(val, dst, 0x10);
         store_vec_u8(val.y, dst);
         store_vec_u8(val.z, dst, 0x10);
         
-        // Signed
+        Signed:
         store_vec_s8(val, dst);
         store_vec_s8(val, dst, 0x10);
         store_vec_s8(val.y, dst);
@@ -150,12 +150,12 @@ describe('Store', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  ## Unsigned
+  Unsigned:
   suv $v01, 0, 0, $t0
   suv $v01, 0, 16, $t0
   suv $v01, 1, 0, $t0
   suv $v01, 2, 16, $t0
-  ## Signed
+  Signed:
   spv $v01, 0, 0, $t0
   spv $v01, 0, 16, $t0
   spv $v01, 1, 0, $t0

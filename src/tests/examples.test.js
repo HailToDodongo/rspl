@@ -6,31 +6,39 @@ const CONF = {rspqWrapper: true};
 
 describe('Examples', () =>
 {
-  test('Example code', () => {
-    const {asm, warn} = transpileSource(EXAMPLE_CODE, CONF);
+  test('Example code', async () => {
+    const {asm, warn} = await transpileSource(EXAMPLE_CODE, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBeDefined();
   });
 
-  test('Example code - Squares 2D', () => {
+  test('Example code - Squares 2D', async () => {
     const code = readFileSync("./src/tests/examples/squares2d.rspl", "utf8");
-    const {asm, warn} = transpileSource(code, CONF);
+    const {asm, warn} = await transpileSource(code, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBeDefined();
   });
 
-  test('Example code - 3D', () => {
+  test('Example code - 3D', async () => {
     const code = readFileSync("./src/tests/examples/3d.rspl", "utf8");
-    const {asm, warn} = transpileSource(code, CONF);
+    const {asm, warn} = await transpileSource(code, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBeDefined();
   });
 
-  test('Matrix x Vector', () => {
-    const {asm, warn} = transpileSource(`include "rsp_queue.inc"
+  test('Example code - Mandelbrot', async () => {
+    const code = readFileSync("./src/tests/examples/mandelbrot.rspl", "utf8");
+    const {asm, warn} = await transpileSource(code, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBeDefined();
+  });
+
+  test('Matrix x Vector', async () => {
+    const {asm, warn} = await transpileSource(`include "rsp_queue.inc"
 state { 
   vec32 VEC_SLOTS[20];
 }
@@ -138,6 +146,9 @@ include "rsp_rdpq.inc"
 .equ hex.$sp, 29
 .equ hex.$fp, 30
 .equ hex.$ra, 31
+#define vco 0
+#define vcc 1
+#define vce 2
 
 .data
   RSPQ_BeginOverlayHeader
@@ -145,7 +156,7 @@ include "rsp_rdpq.inc"
   RSPQ_EndOverlayHeader
 
   RSPQ_BeginSavedState
-    .align 4
+    .align 3
     VEC_SLOTS: .ds.b 640
   RSPQ_EndSavedState
 
@@ -177,20 +188,20 @@ VecCmd_Transform:
   ldv $v08, 8, 48, $t0
   lqv $v09, 0, 0, $t1
   lqv $v10, 0, 16, $t1
-  vmudl $v27, $v02, $v10.h0
-  vmadm $v27, $v01, $v10.h0
+  vmudl $v29, $v02, $v10.h0
+  vmadm $v29, $v01, $v10.h0
   vmadn $v14, $v02, $v09.h0
   vmadh $v13, $v01, $v09.h0
-  vmadl $v27, $v04, $v10.h1
-  vmadm $v27, $v03, $v10.h1
+  vmadl $v29, $v04, $v10.h1
+  vmadm $v29, $v03, $v10.h1
   vmadn $v14, $v04, $v09.h1
   vmadh $v13, $v03, $v09.h1
-  vmadl $v27, $v06, $v10.h2
-  vmadm $v27, $v05, $v10.h2
+  vmadl $v29, $v06, $v10.h2
+  vmadm $v29, $v05, $v10.h2
   vmadn $v14, $v06, $v09.h2
   vmadh $v13, $v05, $v09.h2
-  vmadl $v27, $v08, $v10.h3
-  vmadm $v27, $v07, $v10.h3
+  vmadl $v29, $v08, $v10.h3
+  vmadm $v29, $v07, $v10.h3
   vmadn $v14, $v08, $v09.h3
   vmadh $v13, $v07, $v09.h3
   sqv $v13, 0, 0, $t2

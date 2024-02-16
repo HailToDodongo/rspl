@@ -9,14 +9,13 @@ import {
   clearHighlightCache,
   codeHighlightElem,
   codeHighlightLines,
-  codeHighlightOptLines,
-  createEditor
+  codeHighlightOptLines, codeUpdateCycles, createEditor
 } from "./editor.js";
 import {loadLastLine, loadSource, saveLastLine, saveSource, saveToDevice} from "./storage.js";
 import {Log} from "./logger.js";
 
 /** @type {ASMOutputDebug} */
-let currentDebug = {lineMap: {}, lineDepMap: {}, lineOptMap: {}};
+let currentDebug = {lineMap: {}, lineDepMap: {}, lineOptMap: {}, lineCycleMap: {}};
 let lastLine = loadLastLine();
 
 const editor = createEditor("inputRSPL", loadSource(), lastLine);
@@ -25,6 +24,7 @@ const editor = createEditor("inputRSPL", loadSource(), lastLine);
 let config = {
   optimize: true,
   rspqWrapper: true,
+  reorder: false,
 };
 
 function getEditorLine() {
@@ -59,25 +59,16 @@ async function update(reset = false)
     const source = editor.getValue();
     saveSource(source);
 
+    const liveUpdateCb = (data) => {
+      const {asm, asmUnoptimized, warn, info, debug} = data;
+      updateAsmUI(asm, asmUnoptimized, warn, info, debug);
+    };
+
     console.time("transpile");
-    const {asm, asmUnoptimized, warn, info, debug} = transpileSource(source, config);
+    const {asm, asmUnoptimized, warn, info, debug} = await transpileSource(source, config, liveUpdateCb);
     console.timeEnd("transpile");
-    currentDebug = debug;
+    await updateAsmUI(asm, asmUnoptimized, warn, info, debug);
 
-    Log.set(info);
-    Log.append("Transpiled successfully!");
-
-    outputASM.parentElement.parentElement.hidden = !config.optimize;
-    if(config.optimize) {
-      codeHighlightElem(outputASM, asmUnoptimized);
-    }
-    codeHighlightElem(outputASMOpt, asm);
-
-    await saveToDevice("asm", asm, true);
-
-    highlightASM(getEditorLine());
-
-    Log.setErrorState(false, warn !== "");
   } catch(e) {
     Log.set(e.message);
     if(!e.message.includes("Syntax error")) {
@@ -85,6 +76,27 @@ async function update(reset = false)
     }
     Log.setErrorState(true, false);
   }
+}
+
+async function updateAsmUI(asm, asmUnoptimized, warn, info, debug)
+{
+  currentDebug = debug;
+
+  Log.set(info);
+  Log.append("Transpiled successfully!");
+
+  outputASM.parentElement.parentElement.hidden = !config.optimize;
+  if(config.optimize) {
+    codeHighlightElem(outputASM, asmUnoptimized);
+  }
+  codeHighlightElem(outputASMOpt, asm);
+  codeUpdateCycles(outputASMOpt, debug.lineCycleMap, debug.lineStallMap);
+
+  await saveToDevice("asm", asm, true);
+
+  highlightASM(getEditorLine());
+
+  Log.setErrorState(false, warn !== "");
 }
 
 buttonCopyASM.onclick = async () => {
@@ -107,6 +119,11 @@ optionOptimize.onchange = async () => {
 
 optionWrapper.onchange = async () => {
   config.rspqWrapper = optionWrapper.checked;
+  await update(true);
+};
+
+optionReorder.onchange = async () => {
+  config.reorder = optionReorder.checked;
   await update(true);
 };
 

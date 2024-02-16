@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Load', () =>
 {
-  test('Scalar - 32-Bit', () => {
-    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+  test('Scalar - 32-Bit', async () => {
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
       function test_scalar_load()
       {
         u32<$t0> src, dst;
@@ -26,13 +26,12 @@ describe('Load', () =>
   lw $t1, %lo(TEST_CONST)($t0)
   lw $t1, %lo(TEST_CONST + 0)
   lw $t1, %lo(TEST_CONST + 16)
-  ## dst = load(TEST_CONST, TEST_CONST); Invalid
   jr $ra
   nop`);
   });
 
-  test('Scalar - Cast', () => {
-    const {asm, warn} = transpileSource(`
+  test('Scalar - Cast', async () => {
+    const {asm, warn} = await transpileSource(`
       function test_scalar_load()
       {
         u32<$t0> src, dst;
@@ -58,13 +57,14 @@ describe('Load', () =>
   nop`);
   });
 
-  test('Vector - 32-Bit', () => {
-    const {asm, warn} = transpileSource(` state { u32 TEST_CONST; }
+  test('Vector - 32-Bit', async () => {
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
       function test_vector_load() 
       {
         u32<$t0> src;
         vec32<$v01> dst;
-        // Whole Vector
+        
+        WholeVector:
         dst = load(src);
         dst = load(src, 0x10);
         dst.y = load(src);
@@ -73,7 +73,7 @@ describe('Load', () =>
         //dst = load(TEST_CONST); Invalid
         //dst = load(TEST_CONST, 0x10); Invalid
         
-        // Swizzle
+        Swizzle:
         dst = load(src).xyzwxyzw;
         dst = load(src, 0x10).xyzwxyzw;
         dst.y = load(src).xyzwxyzw;
@@ -85,7 +85,7 @@ describe('Load', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test_vector_load:
-  ## Whole Vector
+  WholeVector:
   lqv $v01, 0, 0, $t0
   lqv $v02, 0, 16, $t0
   lqv $v01, 0, 16, $t0
@@ -94,10 +94,7 @@ describe('Load', () =>
   lqv $v02, 2, 16, $t0
   lqv $v01, 4, 16, $t0
   lqv $v02, 4, 32, $t0
-  ##dst = load(src, TEST_CONST); Invalid
-  ##dst = load(TEST_CONST); Invalid
-  ##dst = load(TEST_CONST, 0x10); Invalid
-  ## Swizzle
+  Swizzle:
   ldv $v01, 0, 0, $t0
   ldv $v01, 8, 0, $t0
   ldv $v02, 0, 8, $t0
@@ -114,36 +111,33 @@ describe('Load', () =>
   ldv $v01, 12, 16, $t0
   ldv $v02, 4, 24, $t0
   ldv $v02, 12, 24, $t0
-  ##dst = load(src, TEST_CONST).xyzwxyzw; Invalid
-  ##dst = load(TEST_CONST).xyzwxyzw; Invalid
-  ##dst = load(TEST_CONST, 0x10).xyzwxyzw; Invalid
   jr $ra
   nop`);
   });
 
-  test('Vector - 32-Bit Split', () => {
-    const {asm, warn} = transpileSource(`function test() 
+  test('Vector - 32-Bit Split', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
       {
         u32<$t0> src;
         vec32<$v01> dst;
         
-        // Left-Side
+        LeftSide:
         dst.xyzw = load(src, 0x00).xyzw;
         dst.xyzw = load(src, 0x10).xyzw;
         
-        // Right-Side
+        RightSide:
         dst.XYZW = load(src, 0x00).XYZW;
         dst.XYZW = load(src, 0x10).XYZW;
       }`, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  ## Left-Side
+  LeftSide:
   ldv $v01, 0, 0, $t0
   ldv $v02, 0, 8, $t0
   ldv $v01, 0, 16, $t0
   ldv $v02, 0, 24, $t0
-  ## Right-Side
+  RightSide:
   ldv $v01, 8, 8, $t0
   ldv $v02, 8, 16, $t0
   ldv $v01, 8, 24, $t0
@@ -152,8 +146,8 @@ describe('Load', () =>
   nop`);
   });
 
-  test('Vector - Cast', () => {
-    const {asm, warn} = transpileSource(`function test() 
+  test('Vector - Cast', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
       {
         u32<$t0> addr;
         vec32<$v01> dst;
@@ -180,27 +174,27 @@ describe('Load', () =>
   nop`);
   });
 
- test('Vector - Packed-Load', () => {
-    const {asm, warn} = transpileSource(`function test() 
+ test('Vector - Packed-Load', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
       {
         u32<$t0> src;
         vec16<$v01> dst;
         
-        // Unsigned
+        Unsigned:
         dst = load_vec_u8(src, 0x00);
         dst.z = load_vec_u8(src, 0x10);
         
-        // Signed
+        Signed:
         dst.x = load_vec_s8(src, 0x00);
         dst.z = load_vec_s8(src, 0x10);
       }`, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  ## Unsigned
+  Unsigned:
   luv $v01, 0, 0, $t0
   luv $v01, 2, 16, $t0
-  ## Signed
+  Signed:
   lpv $v01, 0, 0, $t0
   lpv $v01, 2, 16, $t0
   jr $ra

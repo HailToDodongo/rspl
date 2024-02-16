@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Scope', () =>
 {
-  test('Var Declaration', () => {
-    const {asm, warn} = transpileSource(`function test_scope() 
+  test('Var Declaration', async () => {
+    const {asm, warn} = await transpileSource(`function test_scope() 
 {
   u32<$t0> a;
   {
@@ -18,13 +18,24 @@ describe('Scope', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_scope:
   addiu $t1, $t1, 2
-  ## 'b' is no longer defined now
   addiu $t0, $t0, 2
   jr $ra
   nop`);
   });
 
-  test('Var Decl. invalid', () =>
+  test('Var Un-Declaration', async () => {
+    const src = `function test_scope() 
+    {
+      u32<$t0> a;
+      a += 2;
+      undef a;
+      a = 2;
+    }`;
+   await expect(() => transpileSource(src, CONF))
+    .rejects.toThrowError(/line 6: result Variable a not known!/);
+  });
+
+  test('Var Decl. invalid', async () =>
   {
     const src = `function test_scope() 
     {
@@ -32,10 +43,10 @@ describe('Scope', () =>
       {
          u32<$t1> b;
          b += 2;
-      } // 'b' is no longer defined now
+      }
       b += 2;
     }`;
-   expect(() => transpileSource(src, CONF))
-    .toThrowError(/line 8: result Variable b not known!/);
+   await expect(() => transpileSource(src, CONF))
+    .rejects.toThrowError(/line 8: result Variable b not known!/);
   });
 });

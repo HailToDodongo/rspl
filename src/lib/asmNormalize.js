@@ -5,6 +5,7 @@
 
 import {REG} from "./syntax/registers.js";
 import {ASM_TYPE} from "./intsructions/asmWriter.js";
+import {READ_ONLY_OPS} from "./optimizer/asmScanDeps.js";
 
 /**
  * Normalizes ASM output of a function.
@@ -16,13 +17,12 @@ import {ASM_TYPE} from "./intsructions/asmWriter.js";
  */
 export function normalizeASM(asmFunc)
 {
-  const readOnlyOps = ["beq", "bne", "j", "jr"];
   /** @type {ASM[]} */ const asm = [];
 
   for(const line of asmFunc.asm)
   {
     if(line.type !== ASM_TYPE.OP
-      || readOnlyOps.includes(line.op)
+      || READ_ONLY_OPS.includes(line.op)
       || line.args.length === 0
     ) {
       asm.push(line);

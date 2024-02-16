@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Branch (Var vs. Var)', () =>
 {
-  test('Equal - U32', () => {
-    const {asm, warn} = transpileSource(`function test_if() {
+  test('Equal - U32', async () => {
+    const {asm, warn} = await transpileSource(`function test_if() {
       u32<$v0> a,b;
       if(a == b) { a += 1111; } else { a += 2222; }
     }`, CONF);
@@ -24,8 +24,8 @@ describe('Branch (Var vs. Var)', () =>
   nop`);
   });
 
-  test('Not-Equal - U32', () => {
-    const {asm, warn} = transpileSource(`function test_if() {
+  test('Not-Equal - U32', async () => {
+    const {asm, warn} = await transpileSource(`function test_if() {
       u32<$v0> a,b;
       if(a != b) { a += 1111; } else { a += 2222; }
     }`, CONF);
@@ -44,8 +44,8 @@ describe('Branch (Var vs. Var)', () =>
   nop`);
   });
 
-  test('Greater - U32', () => {
-    const {asm, warn} = transpileSource(`function test_if() {
+  test('Greater - U32', async () => {
+    const {asm, warn} = await transpileSource(`function test_if() {
       u32<$v0> a,b;
       if(a > b) { a += 1111; } else { a += 2222; }
     }`, CONF);
@@ -65,8 +65,8 @@ describe('Branch (Var vs. Var)', () =>
   nop`);
   });
 
-  test('Less - U32', () => {
-    const {asm, warn} = transpileSource(`function test_if() {
+  test('Less - U32', async () => {
+    const {asm, warn} = await transpileSource(`function test_if() {
       u32<$v0> a,b;
       if(a < b) { a += 1111; } else { a += 2222; }
     }`, CONF);
@@ -86,8 +86,8 @@ describe('Branch (Var vs. Var)', () =>
   nop`);
   });
 
-    test('Greater-Than - U32', () => {
-    const {asm, warn} = transpileSource(`function test_if() {
+    test('Greater-Than - U32', async () => {
+    const {asm, warn} = await transpileSource(`function test_if() {
       u32<$v0> a,b;
       if(a >= b) { a += 1111; } else { a += 2222; }
     }`, CONF);
@@ -107,8 +107,8 @@ describe('Branch (Var vs. Var)', () =>
   nop`);
   });
 
-  test('Less-Than - U32', () => {
-    const {asm, warn} = transpileSource(`function test_if() {
+  test('Less-Than - U32', async () => {
+    const {asm, warn} = await transpileSource(`function test_if() {
       u32<$v0> a,b;
       if(a <= b) { a += 1111; } else { a += 2222; }
     }`, CONF);
@@ -130,8 +130,8 @@ describe('Branch (Var vs. Var)', () =>
 
   // Signed
 
-  test('Equal - S32', () => {
-    const {asm, warn} = transpileSource(`function test_if() {
+  test('Equal - S32', async () => {
+    const {asm, warn} = await transpileSource(`function test_if() {
       s32<$v0> a,b;
       if(a == b) { a += 1111; } else { a += 2222; }
     }`, CONF);
@@ -150,8 +150,8 @@ describe('Branch (Var vs. Var)', () =>
   nop`);
   });
 
-  test('Not-Equal - S32', () => {
-    const {asm, warn} = transpileSource(`function test_if() {
+  test('Not-Equal - S32', async () => {
+    const {asm, warn} = await transpileSource(`function test_if() {
       s32<$v0> a,b;
       if(a != b) { a += 1111; } else { a += 2222; }
     }`, CONF);
@@ -170,8 +170,8 @@ describe('Branch (Var vs. Var)', () =>
   nop`);
   });
 
-  test('Greater - S32', () => {
-    const {asm, warn} = transpileSource(`function test_if() {
+  test('Greater - S32', async () => {
+    const {asm, warn} = await transpileSource(`function test_if() {
       s32<$v0> a,b;
       if(a > b) { a += 1111; } else { a += 2222; }
     }`, CONF);
@@ -191,8 +191,8 @@ describe('Branch (Var vs. Var)', () =>
   nop`);
   });
 
-  test('Less - S32', () => {
-    const {asm, warn} = transpileSource(`function test_if() {
+  test('Less - S32', async () => {
+    const {asm, warn} = await transpileSource(`function test_if() {
       s32<$v0> a,b;
       if(a < b) { a += 1111; } else { a += 2222; }
     }`, CONF);
@@ -212,8 +212,8 @@ describe('Branch (Var vs. Var)', () =>
   nop`);
   });
 
-  test('Greater-Than - S32', () => {
-    const {asm, warn} = transpileSource(`function test_if() {
+  test('Greater-Than - S32', async () => {
+    const {asm, warn} = await transpileSource(`function test_if() {
       s32<$v0> a,b;
       if(a >= b) { a += 1111; } else { a += 2222; }
     }`, CONF);
@@ -233,8 +233,8 @@ describe('Branch (Var vs. Var)', () =>
   nop`);
   });
 
-  test('Less-Than - S32', () => {
-    const {asm, warn} = transpileSource(`function test_if() {
+  test('Less-Than - S32', async () => {
+    const {asm, warn} = await transpileSource(`function test_if() {
       s32<$v0> a,b;
       if(a <= b) { a += 1111; } else { a += 2222; }
     }`, CONF);

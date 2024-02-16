@@ -54,6 +54,48 @@ describe('Optimizer - Dependency Scanner', () =>
     ]);
   });
 
+  test('MTC2 (partial write)', () => {
+    const lines = [
+      /* 00 */ asm("vxor", ["$v25", "$v00", "$v00.e0"]),
+      /* 01 */ asm("addiu", ["$at", "$zero", 3]),
+      /* 02 */ asm("mtc2", ["$at", "$v25.e6"]),
+    ];
+
+    expect(asmLinesToDeps(lines)).toEqual([
+      [0, 2],
+      [0, 1],
+      [2, 2],
+    ]);
+  });
+
+  test('MTC2 (partial write, no return regs)', () => {
+    const lines = [
+      /* 00 */ asm("vxor", ["$v25", "$v00", "$v00.e0"]),
+      /* 01 */ asm("vxor", ["$v26", "$v00", "$v00"]),
+      /* 02 */ asm("mtc2", ["$at", "$v25.e6"]),
+    ];
+
+    expect(asmLinesToDeps(lines)).toEqual([
+      [0, 2],
+      [1, 2], // @TODO: allow 0-1
+      [1, 2],
+    ]);
+  });
+
+    test('MTC2 (partial write, return regs)', () => {
+    const lines = [
+      /* 00 */ asm("vxor", ["$v25", "$v00", "$v00.e0"]),
+      /* 01 */ asm("vxor", ["$v26", "$v00", "$v00"]),
+      /* 02 */ asm("mtc2", ["$at", "$v25.e6"]),
+    ];
+
+    expect(asmLinesToDeps(lines)).toEqual([
+      [0, 2],
+      [1, 2], // @TODO: allow 0-1
+      [1, 2],
+    ]);
+  });
+
   test('Ignore Write when no read (simple)', () => {
     const lines = [
       /* 00 */ asm("or", ["$t0", "$zero", "$zero"]),
@@ -145,7 +187,7 @@ describe('Optimizer - Dependency Scanner', () =>
       [1,1],
       [2,2],
       [3,3],
-      [4,5],
+      [4,4],
       [5,5],
     ]);
   });

@@ -13,6 +13,8 @@ import {opBranch} from "./operations/branch.js";
 import {callUserFunction} from "./operations/userFunction.js";
 import {isVecType} from "./dataTypes/dataTypes.js";
 import {POW2_SWIZZLE_VAR} from "./syntax/swizzle.js";
+import {LABEL_CMD_LOOP} from "./builtins/libdragon.js";
+import scalar from "./operations/scalar";
 
 const VECTOR_TYPES = ["vec16", "vec32"];
 
@@ -59,9 +61,24 @@ function calcToAsm(calc, varRes)
     }
 
     case "calcCompare": {
-      if(!isVecType(varRes.type))state.throwError("Compare calculations only allowed for vectors! (@TODO: add scalar support)", calc);
-
       const varLeft = state.getRequiredVar(calc.left, "left", calc);
+
+      if(!isVecType(varRes.type)) {
+        /** @type {ASTFuncArg} */
+        let varRight;
+        if(typeof (calc.right) === "number") {
+          if(calc.right === 0) {
+            varRight = {type: varLeft.type, reg: REG.ZERO};
+          } else {
+            varRight = {type: varLeft.type, reg: REG.AT};
+            scalar.loadImmediate(varRight.reg, calc.right);
+          }
+        } else {
+          varRight = state.getRequiredVar(calc.right, "right", calc);
+        }
+
+        return opsScalar.opCompare(varRes, varLeft, varRight, calc.op, calc.ternary);
+      }
       /** @type {ASTFuncArg} */
       let varRight;
 
@@ -131,6 +148,7 @@ function calcLRToAsm(calc, varRes, varLeft, varRight)
 
     case "&":  return opsHandler.opAnd(varRes, varLeft, varRight);
     case "|":  return opsHandler.opOr(varRes, varLeft, varRight);
+    case "~|": return opsHandler.opNOR(varRes, varLeft, varRight);
     case "^":  return opsHandler.opXOR(varRes, varLeft, varRight);
 
     case "<<":  return opsHandler.opShiftLeft(varRes, varLeft, varRight);
@@ -214,12 +232,48 @@ function whileToASM(st)
   ];
 }
 
+function loopToASM(st)
+{
+  const labelStart = state.generateLabel();
+  const labelEnd = state.generateLabel();
+
+  if(st.compare) {
+    if(st.compare.left.type === "num") {
+      return state.throwError("Loop-Statements with numeric left-hand-side not implemented!", st);
+    }
+    const varLeft = state.getRequiredVar(st.compare.left.value, "left", st);
+    if(isVecReg(varLeft.reg)) {
+      return state.throwError("Loop-Statements must use scalar-registers!", st);
+    }
+
+    return [
+      asmLabel(labelStart),
+      state.pushScope(labelStart, labelEnd),
+        ...scopedBlockToASM(st.block),
+        ...opBranch(st.compare, labelStart, true), // invert condition!
+      state.popScope(),
+      asmLabel(labelEnd),
+    ];
+  }
+
+  return [
+    asmLabel(labelStart),
+    state.pushScope(labelStart, labelEnd),
+      ...scopedBlockToASM(st.block),
+      asm("j", [labelStart]),
+      asmNOP(),
+    state.popScope(),
+    asmLabel(labelEnd),
+  ];
+}
+
 /**
  * @param {ASTScopedBlock} block
- * @param args
+ * @param {any[]} args
+ * @param {boolean} isCommand
  * @returns {ASM[]}
  */
-function scopedBlockToASM(block, args = [])
+function scopedBlockToASM(block, args = [], isCommand = false)
 {
   const res = [];
 
@@ -227,7 +281,7 @@ function scopedBlockToASM(block, args = [])
   for(const arg of args)
   {
     let reg = arg.reg || "$a"+argIdx;
-    if(argIdx >= 4) { // args beyond that live in RAM, fetch them and expect a target register
+    if(isCommand && argIdx >= 4) { // args beyond that live in RAM, fetch them and expect a target register
       if(!arg.reg)state.throwError("Argument "+argIdx+" '"+arg.name+"' needs a target register!", arg);
       const totalSize = args.length * 4;
       res.push(asm("lw", [arg.reg, `%lo(RSPQ_DMEM_BUFFER) - ${totalSize - argIdx*4}(${REG.GP})`]));
@@ -250,6 +304,10 @@ function scopedBlockToASM(block, args = [])
       case "varDecl": {
         const reg = st.reg || state.allocRegister(st.varType);
         state.declareVar(st.varName, st.varType, reg, st.isConst || false);
+      } break;
+
+      case "varUndef": {
+        state.undefVar(st.varName);
       } break;
 
       case "varDeclAlias":
@@ -283,14 +341,27 @@ function scopedBlockToASM(block, args = [])
         res.push(asmLabel(st.name));
       break;
 
-      case "goto" : res.push(asm("j", [st.label]), asmNOP()); break;
+      case "goto" : {
+        // check if we jump to a label or variable
+        const refJump = state.getVarReg(st.label) || st.label;
+        res.push(asm("j", [refJump]), asmNOP());
+      } break;
       case "if"   : res.push(...ifToASM(st));           break;
       case "while": res.push(...whileToASM(st));        break;
+      case "loop" : res.push(...loopToASM(st));         break;
 
       case "break": {
         const labelEnd = state.getScope().labelEnd;
-        if(!labelEnd)state.throwError("'break' cannot find a label to jump to!", st);
-        res.push(asm("j", [labelEnd]), asmNOP());
+        if(!labelEnd) {
+          //state.throwError("'break' cannot find a label to jump to!", st);
+          res.push(asm("jr", [REG.RA]), asmNOP());
+        } else {
+          res.push(asm("j", [labelEnd]), asmNOP());
+        }
+      } break;
+
+      case "exit": {
+        res.push(asm("j", [LABEL_CMD_LOOP]), asmNOP());
       } break;
 
       case "continue": {
@@ -344,11 +415,11 @@ export function ast2asm(ast)
       if(!block.body)continue;
       state.enterFunction(block.name, block.type);
 
-      const blockAsm = scopedBlockToASM(block.body, block.args);
+      const blockAsm = scopedBlockToASM(block.body, block.args, block.type === "command");
       ++state.line;
 
       if(block.type === "command") {
-        blockAsm.push(asm("j", ["RSPQ_Loop"]), asmNOP());
+        blockAsm.push(asm("j", [LABEL_CMD_LOOP]), asmNOP());
       } else {
         blockAsm.push(asm("jr", [REG.RA]), asmNOP());
       }
@@ -357,6 +428,8 @@ export function ast2asm(ast)
         ...block,
         asm: blockAsm.filter(Boolean),
         argSize: getArgSize(block),
+        cyclesBefore: 0,
+        cyclesAfter: 0,
         body: undefined
       });
 

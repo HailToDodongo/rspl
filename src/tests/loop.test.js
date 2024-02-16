@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Loops', () =>
 {
-  test('Basic While-Loop', () => {
-    const {asm, warn} = transpileSource(`function test()
+  test('Basic While-Loop', async () => {
+    const {asm, warn} = await transpileSource(`function test()
     {
       u32<$t0> i=0;
       while(i<10) {
@@ -28,8 +28,8 @@ describe('Loops', () =>
   nop`);
   });
 
-  test('Nested While-Loop', () => {
-    const {asm, warn} = transpileSource(`function test()
+  test('Nested While-Loop', async () => {
+    const {asm, warn} = await transpileSource(`function test()
     {
       u32<$t0> i=0;
       u32<$t1> j=0;
@@ -66,8 +66,8 @@ describe('Loops', () =>
   nop`);
   });
 
-  test('While Loop - Break', () => {
-    const {asm, warn} = transpileSource(`function test()
+  test('While Loop - Break', async () => {
+    const {asm, warn} = await transpileSource(`function test()
     {
       u32<$t0> i=0;
       while(i<10) {
@@ -93,8 +93,8 @@ describe('Loops', () =>
   nop`);
   });
 
-  test('While Loop - scoped Break', () => {
-    const {asm, warn} = transpileSource(`function test()
+  test('While Loop - scoped Break', async () => {
+    const {asm, warn} = await transpileSource(`function test()
     {
       u32<$t0> i=0;
       while(i<10) {
@@ -123,8 +123,8 @@ describe('Loops', () =>
   nop`);
   });
 
-  test('While Loop - Continue', () => {
-    const {asm, warn} = transpileSource(`function test()
+  test('While Loop - Continue', async () => {
+    const {asm, warn} = await transpileSource(`function test()
     {
       u32<$t0> i=0;
       while(i<10) {

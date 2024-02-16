@@ -28,9 +28,9 @@ export function branchJump(asmFunc)
     if(asm.op === "beq" || asm.op === "bne")
     {
       const labelTemp = asm.args[asm.args.length-1];
-      if(lines[i+1]?.op === "nop" &&
+      if(lines[i+1]?.isNOP &&
          lines[i+2]?.op === "j"   &&
-         lines[i+3]?.op === "nop" &&
+         lines[i+3]?.isNOP &&
          lines[i+4]?.label === labelTemp)
       {
         const labelTarget = lines[i+2].args[lines[i+2].args.length-1];

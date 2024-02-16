@@ -10,15 +10,14 @@ const getDataSection = asm => {
 
 describe('State', () =>
 {
-  test('Empty State', () => {
-    const {asm, warn} = transpileSource(`
+  test('Empty State', async () => {
+    const {asm, warn} = await transpileSource(`
       state {}
       `, CONF);
 
     expect(warn).toBe("");
     expect(getDataSection(asm)).toBe(`.data
   RSPQ_BeginOverlayHeader
-
   RSPQ_EndOverlayHeader
 
   RSPQ_EmptySavedState
@@ -26,8 +25,8 @@ describe('State', () =>
 `);
   });
 
-  test('Types', () => {
-    const {asm, warn} = transpileSource(`
+  test('Types', async () => {
+    const {asm, warn} = await transpileSource(`
       state {
         u8 a;
         u16 b;
@@ -40,11 +39,9 @@ describe('State', () =>
     expect(warn).toBe("");
     expect(getDataSection(asm)).toBe(`.data
   RSPQ_BeginOverlayHeader
-
   RSPQ_EndOverlayHeader
 
   RSPQ_BeginSavedState
-    .align 1
     a: .ds.b 1
     .align 1
     b: .ds.b 2
@@ -52,15 +49,15 @@ describe('State', () =>
     c: .ds.b 4
     .align 3
     d: .ds.b 16
-    .align 4
+    .align 3
     e: .ds.b 32
   RSPQ_EndSavedState
 
 `);
   });
 
-  test('Arrays', () => {
-    const {asm, warn} = transpileSource(`
+  test('Arrays', async () => {
+    const {asm, warn} = await transpileSource(`
       state {
         u32 a0[1];
         u32 a1[4];
@@ -74,7 +71,6 @@ describe('State', () =>
     expect(warn).toBe("");
     expect(getDataSection(asm)).toBe(`.data
   RSPQ_BeginOverlayHeader
-
   RSPQ_EndOverlayHeader
 
   RSPQ_BeginSavedState
@@ -84,19 +80,19 @@ describe('State', () =>
     a1: .ds.b 16
     .align 2
     a2: .ds.b 32
-    .align 4
+    .align 3
     b0: .ds.b 32
-    .align 4
+    .align 3
     b1: .ds.b 64
-    .align 4
+    .align 3
     b2: .ds.b 256
   RSPQ_EndSavedState
 
 `);
   });
 
-  test('Extern', () => {
-    const {asm, warn} = transpileSource(`
+  test('Extern', async () => {
+    const {asm, warn} = await transpileSource(`
       state {
         u32 a;
         extern u32 b;
@@ -107,7 +103,6 @@ describe('State', () =>
     expect(warn).toBe("");
     expect(getDataSection(asm)).toBe(`.data
   RSPQ_BeginOverlayHeader
-
   RSPQ_EndOverlayHeader
 
   RSPQ_BeginSavedState

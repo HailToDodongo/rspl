@@ -15,6 +15,8 @@ declare global
         reorderCount: number;
         reorderLineMin: number;
         reorderLineMax: number;
+        cycle: number;
+        stall: number;
     };
 
     type ASM = {
@@ -27,18 +29,43 @@ declare global
 
         depsSource: string[];
         depsTarget: string[];
+
+        depsSourceMask: BigInt;
+        depsTargetMask: BigInt;
+
+        depsStallSource: string[];
+        depsStallTarget: string[];
+
+        depsStallSourceMask: BigInt;
+        depsStallTargetMask: BigInt;
+
+        opIsLoad: boolean;
+        opIsStore: boolean;
+        opIsBranch: boolean;
+        opIsImmovable: boolean;
+        opIsMemStallLoad: boolean;
+        opIsMemStallStore: boolean;
+        opIsVector: boolean;
+        isNOP: boolean;
+
+        stallLatency: number;
+
         debug: ASMDebug;
     };
 
     type ASMFunc = ASTFunc | {
         asm: ASM[];
         argSize: number;
+        cyclesBefore: number;
+        cyclesAfter: number;
     };
 
     type ASMOutputDebug = {
         lineMap: Record<number, number[]>;
         lineDepMap: Record<number, number[]>;
         lineOptMap: Record<number, number>;
+        lineCycleMap: Record<number, number>;
+        lineStallMap: Record<number, number>;
     };
 
     type ASMOutput = {

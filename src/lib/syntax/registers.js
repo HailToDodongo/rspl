@@ -18,12 +18,18 @@ export const REG = {
   V24: "$v24", V25: "$v25", V26: "$v26", V27: "$v27", V28: "$v28", V29: "$v29", V30: "$v30", V31: "$v31",
 
   VZERO: "$v00",
-  VTEMP0: "$v27",
-  VTEMP1: "$v28",
-  VTEMP2: "$v29",
+  //VTEMP0: "$v27",
+  //VTEMP1: "$v28",
+  VTEMP0: "$v29",
   VSHIFT: "$v30",
   VSHIFT8: "$v31",
 };
+
+export const REG_COP2 = {
+  VCO: "$vc0",
+  VCC: "$vcc",
+  VCE: "$vce",
+}
 
 // MIPS scalar register in correct order ($0 - $31)
 export const REGS_SCALAR = [
@@ -54,12 +60,13 @@ export const REGS_ALLOC_VECTOR = [
           "$v01", "$v02", "$v03", "$v04", "$v05", "$v06", "$v07",
   "$v08", "$v09", "$v10", "$v11", "$v12", "$v13", "$v14", "$v15",
   "$v16", "$v17", "$v18", "$v19", "$v20", "$v21", "$v22", "$v23",
-  "$v24", "$v25", "$v26"
+  "$v24", "$v25", "$v26", "$v27", "$v28"
 ];
 
 export const REGS_FORBIDDEN = [
   REG.AT, REG.GP,
-  REG.VTEMP0, REG.VTEMP1, REG.VTEMP2
+  REG.VTEMP0,
+  // REG.VTEMP1, REG.VTEMP2
 ];
 
 /**

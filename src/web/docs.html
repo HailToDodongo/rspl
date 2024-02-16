@@ -79,6 +79,12 @@ vec32 aVectorVar;
 <p>In the declaration it's possible to either specify a register directly (useful for function-calls with arguments), or let the transpiler choose one.<br>
 The latter should be preferred whenever possible.<br>
 Automatic allocation of registers happens in a fixed order, choosing the first free register.</p>
+<p>To manually un-declare a variable, you can use the <code>undef</code> keyword.<br></p>
+<pre><code class="c++ language-c++">u32&lt;$t0&gt; myVar;
+undef myVar;
+myVar += 1; // &lt;- ERROR: no longer in scope
+</code></pre>
+<p>This is no runtime overhead.</p>
 <h3 id="scope">Scope</h3>
 <p>RSPL has a concept of scopes which, similar to C, refers to a block of code inside curly-brackets.<br>
 This only limits the visibly/lifetime of variable declarations.<br>
@@ -139,6 +145,7 @@ if(a != 10) {
 
 while(a &gt; 20) {
   a -= 1;
+  if(a == 5)break;
 }
 </code></pre>
 <p>Labels in combination with <code>goto</code> are supported too:<br></p>
@@ -147,6 +154,12 @@ while(a &gt; 20) {
 LabelA:
 a += 10;
 goto LabelA;
+</code></pre>
+<p>For exiting commands specifically, there is the <code>exit</code> statement.<br>
+This can be used inside commands, functions and macros to stop the execution and return to libdragons code.<br></p>
+<pre><code class="c++ language-c++">function test() {
+  exit; // returns to 
+}
 </code></pre>
 <h3 id="swizzle">Swizzle</h3>
 <p>For vector types, there is a syntax-feature called "swizzle" which you may know from GLSL.<br>
@@ -391,6 +404,23 @@ Examples:</p>
 <pre><code class="c++ language-c++">u32 a, b; vec16 v0, v1;
 swap(a, b); // swap two scalars
 swap(v0, v1); // swap two vectors
+</code></pre>
+<h3 id="absveca"><code>abs(vec a)</code></h3>
+<p>Absolute value of a 16-bit or 32-bit vector.<br>
+Examples:</p>
+<pre><code class="c++ language-c++">vec16 a;
+a = abs(a);
+</code></pre>
+<h3 id="clipvecavecb"><code>clip(vec a, vec b)</code></h3>
+<p>Calculates clipping codes for two 16-bit or 32-bit vectors.<br>
+The result must be stored into a scalar variable.<br>
+Each bit in the result represents an axis, '1' being outside, '0' being inside.<br>
+From the LSB to MSB the order is:<br> 
+Bit 0-8: <code>+x</code>, <code>+y</code>, <code>+z</code>, <code>+w</code>, <code>+X</code>, <code>+Y</code>, <code>+Z</code>, <code>+W</code>.<br>
+Bit 9-15: <code>-x</code>, <code>-y</code>, <code>-z</code>, <code>-w</code>, <code>-X</code>, <code>-Y</code>, <code>-Z</code>, <code>-W</code>.<br></p>
+<p>Examples:</p>
+<pre><code class="c++ language-c++">vec16 pos;
+u32 clipCode = clip(pos, pos.w);
 </code></pre>
 <h3 id="selectvecab"><code>select(vec a, b)</code></h3>
 <p>Selects between two vectors, based on the result of the last comparison.<br>

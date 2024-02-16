@@ -129,7 +129,7 @@ pre, .settings {
   margin: 0;
 }
 
-.asmOverlay {
+.asmOverlay, .cycleOverlay {
   display: block;
   position: relative;
   left: 0;
@@ -178,6 +178,36 @@ pre, .settings {
 .asmOverlay span.opt {
   text-align: left;
   padding-left: 4px;
+}
+
+.cycleOverlay span {
+  display: inline-block;
+  width: 50px;
+  height: 15px;
+  background-color: rgb(72, 72, 72);
+  position: absolute;
+  top: 0;
+  right: 4px;
+  pointer-events: none;
+  user-select: none;
+  color: #a9a9a9;
+  text-align: right;
+  padding-right: 2px;
+}
+
+.cycleOverlay span.stall-1 {
+  background: linear-gradient(90deg, #484848 0%, #484848 49%, rgb(248, 209, 129) 50%);
+  color: black;
+}
+
+.cycleOverlay span.stall-2 {
+  background: linear-gradient(90deg, #484848 0%, #484848 19%, rgb(245, 144, 76) 20%);
+  color: black;
+}
+
+.cycleOverlay span.stall-3 {
+  background-color: rgb(231, 95, 95);
+  color: black;
 }
 
 .stickyOverlay {

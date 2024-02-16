@@ -4,39 +4,39 @@ const CONF = {rspqWrapper: false};
 
 describe('Syntax - Vars', () =>
 {
-  test('Declare - Invalid (type scalar)', () => {
+  test('Declare - Invalid (type scalar)', async () => {
     const src = `function test() {
       u32<$v03> a;
     }`;
 
-    expect(() => transpileSource(src, CONF))
-      .toThrowError(/line 2: Cannot use vector register for scalar variable!/);
+    await expect(async () => transpileSource(src, CONF))
+      .rejects.toThrowError(/line 2: Cannot use vector register for scalar variable!/);
   });
 
-  test('Declare - Invalid (vector scalar)', () => {
+  test('Declare - Invalid (vector scalar)', async () => {
     const src = `function test() {
       vec16<$t0> a;
     }`;
 
-    expect(() => transpileSource(src, CONF))
-      .toThrowError(/line 2: Cannot use scalar register for vector variable!/);
+    await expect(() => transpileSource(src, CONF))
+      .rejects.toThrowError(/line 2: Cannot use scalar register for vector variable!/);
   });
 
-  test('Declare - Invalid (swizzle)', () => {
+  test('Declare - Invalid (swizzle)', async () => {
     const src = `function test() {
       vec16<$v03> a.x;
     }`;
 
-    expect(() => transpileSource(src, CONF))
-      .toThrowError(/Syntax error at line 2/);
+    await expect(() => transpileSource(src, CONF))
+      .rejects.toThrowError(/Syntax error at line 2/);
   });
 
-  test('Declare - Invalid (cast)', () => {
+  test('Declare - Invalid (cast)', async () => {
     const src = `function test() {
       vec16<$v03> a:sint;
     }`;
 
-    expect(() => transpileSource(src, CONF))
-      .toThrowError(/line 2: Variable name cannot contain a cast \(':'\)!/);
+    await expect(() => transpileSource(src, CONF))
+      .rejects.toThrowError(/line 2: Variable name cannot contain a cast \(':'\)!/);
   });
 });

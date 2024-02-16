@@ -71,9 +71,17 @@ function opMove(varRes, varRight)
       ];
     }
     // ...otherwise load the constant into a scalar register and move
-    const valueFP32 = f32ToFP32(varRight.value);
-    const valInt = ((valueFP32 >>> 16) & 0xFFFF);
-    const valFract = (valueFP32 & 0xFFFF);
+
+    const isFractCast = ["ufract", "sfract"].includes(varRes.castType);
+    const valueFP32 = f32ToFP32(varRight.value * (varRes.castType === "sfract" ? 0.5 : 1.0));
+    let valInt = ((valueFP32 >>> 16) & 0xFFFF);
+    let valFract = (valueFP32 & 0xFFFF);
+
+    if(varRes.castType === "sfract" && varRight.value >= 0) {
+      valFract = Math.min(0x7FFF, valFract);
+    }
+
+    if(isFractCast)valInt = valFract;
 
     const opLoadInt = [
       ...(valInt === 0 ? [] : opsScalar.loadImmediate(REG.AT, valInt)),
@@ -84,7 +92,10 @@ function opMove(varRes, varRight)
       asm("mtc2", [valFract === 0 ? REG.ZERO : REG.AT, regDst[1] + swizzleRes]),
     ];
 
-    return isVec32 ? [...opLoadInt, ...opLoadFract] : opLoadInt;
+    if(isVec32) {
+      return [...opLoadInt, ...opLoadFract];
+    }
+    return isFractCast ? opLoadFract : opLoadInt;
   }
 
   // Assigning a scalar value from a register to a vector
@@ -103,6 +114,13 @@ function opMove(varRes, varRight)
   if(!varRight.swizzle) {
     return [asm("vor", [regDst[0], REG.VZERO, regsR[0]]),
             asm("vor", [regDst[1], REG.VZERO, regsR[1]])];
+  }
+
+  // broadcasting a swizzle into a complete vector
+  if(!varRes.swizzle) {
+    const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
+    return [asm("vor", [regDst[0], REG.VZERO, regsR[0] + swizzleRight]),
+            asm("vor", [regDst[1], REG.VZERO, regsR[1] + swizzleRight])];
   }
 
   // moving a single element/lane form A to B
@@ -227,7 +245,10 @@ function opStoreBytes(varRes, varLoc, isSigned) {
 function opAdd(varRes, varLeft, varRight)
 {
   if(!varRight.reg) {
-    state.throwError("Addition cannot be done with a constant!");
+    varRight = POW2_SWIZZLE_VAR[varRight.value];
+    if(!varRight) {
+      state.throwError("Addition by a constant can only be done with powers of two!");
+    }
   }
   if(varRes.swizzle || varLeft.swizzle) {
     state.throwError("Addition only allows swizzle on the right side!");
@@ -241,7 +262,12 @@ function opAdd(varRes, varLeft, varRight)
   const regsL = getVec32Regs(varLeft);
   const regsR = getVec32Regs(varRight);
 
-  let fractOp = ["sfract", "ufract"].includes(varRes.castType) ? "vadd" : "vaddc";
+  //let fractOp = ["sfract", "ufract"].includes(varRes.castType) ? "vadd" : "vaddc";
+  let fractOp = "vaddc";
+  if(varRes.castType) {
+    fractOp = ["sfract"].includes(varRes.castType) ? "vadd" : "vaddc";
+  }
+
   let intOp = varRes.castType === "sint" ? "vadd" : "vaddc";
   if(varRes.type === "vec32") {
     fractOp = "vaddc"; intOp = "vadd";
@@ -262,7 +288,10 @@ function opAdd(varRes, varLeft, varRight)
 function opSub(varRes, varLeft, varRight)
 {
   if(!varRight.reg) {
-    state.throwError("Subtraction cannot be done with a constant!");
+    varRight = POW2_SWIZZLE_VAR[varRight.value];
+    if(!varRight) {
+      state.throwError("Subtraction by a constant can only be done with powers of two!");
+    }
   }
   if(varRes.swizzle || varLeft.swizzle) {
     state.throwError("Subtraction only allows swizzle on the right side!");
@@ -278,7 +307,9 @@ function opSub(varRes, varLeft, varRight)
       asm("vsubc", [nextReg(varRes.reg), fractReg(varLeft), fractReg(varRight) + swizzleRight]),
       asm("vsub",  [        varRes.reg,        varLeft.reg,      varRight.reg  + swizzleRight]),
     ] : [
-      asm("vsubc", [        varRes.reg,        varLeft.reg,      varRight.reg  + swizzleRight]),
+      (varRes.castType && varRes.castType.startsWith("s"))
+       ? asm("vsub", [        varRes.reg,        varLeft.reg,      varRight.reg  + swizzleRight])
+       : asm("vsubc", [        varRes.reg,        varLeft.reg,      varRight.reg  + swizzleRight]),
     ];
 }
 
@@ -331,6 +362,16 @@ function opOr(varRes, varLeft, varRight) {
  * @param {ASTFuncArg} varRight
  * @returns {ASM[]}
  */
+function opNOR(varRes, varLeft, varRight) {
+  return genericLogicOp(varRes, varLeft, varRight, "vnor");
+}
+
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ * @returns {ASM[]}
+ */
 function opXOR(varRes, varLeft, varRight) {
   return genericLogicOp(varRes, varLeft, varRight, "vxor");
 }
@@ -351,8 +392,33 @@ function opShiftLeft(varRes, varLeft, varRight) {
  * @param {ASTFuncArg} varRight
  * @returns {ASM[]}
  */
-function opShiftRight(varRes, varLeft, varRight) {
-  return state.throwError("Shift-Right is not supported for vectors! (@TODO: implement this)");
+function opShiftRight(varRes, varLeft, varRight)
+{
+  if(typeof(varRight.value) === "string")state.throwError("Shift-Right cannot use labels!");
+  if(varRight.value < 0 || varRight.value > 31) {
+    state.throwError("Shift-Right value must be in range 0<x<32!");
+  }
+
+  const shiftVal = Math.floor(1 / Math.pow(2, varRight.value) * 0x10000);
+  const shiftReg = POW2_SWIZZLE_VAR[shiftVal];
+  if(!shiftReg)state.throwError(`Invalid shift value (${varRight.value} -> V:${shiftVal})`, varRight);
+
+  if(varRes.type !== varLeft.type) {
+    state.throwError("Shift-Right requires all arguments to be of the same type!");
+  }
+
+  if(varRes.type === "vec32") {
+    const regsRes = getVec32Regs(varRes);
+    const regsL = getVec32Regs(varLeft);
+
+    return [
+      asm("vmudl", [regsRes[1], regsL[1], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
+      asm("vmadm", [regsRes[0], regsL[0], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
+      asm("vmadn", [regsRes[1], REGS.VZERO, REGS.VZERO]),
+    ];
+  }
+
+  return state.throwError("Shift-Right is not supported for vec16! (@TODO: implement this)");
 }
 
 /**
@@ -394,25 +460,70 @@ function opMul(varRes, varLeft, varRight, clearAccum)
     state.throwError("Unsupported swizzle (supported: "+SWIZZLE_MAP_KEYS_STR+")!", varRes);
   }
 
+  // special-case: multiplying a s1.15 with a 0.16 (fraction of a s16.16)
+  // @TODO: refactor
+  if(varRes.type === "vec16") {
+    if(varLeft.type === "vec16" && ["sfract", "ufract"].includes(varLeft.castType)) {
+      if(varRight.originalType === "vec32" && ["sfract", "ufract"].includes(varRight.castType)) {
+        let opMid = clearAccum ? "vmudm": "vmadm";
+        return [asm(opMid, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight])];
+      }
+    }
+  }
+
+  let varRightHigh = varRight.reg + swizzleRight;
+
+  // @TODO: refactor
+
+  // 16bit * 16bit multiply
+  if(varRes.type === "vec32" && varLeft.type === "vec16" && varRight.type === "vec16")
+  {
+    // integer multiply into a 32bit vector
+    if(!["sfract", "ufract"].includes(varLeft.castType) &&
+       !["sfract", "ufract"].includes(varRight.castType))
+    {
+      const intOp = clearAccum ? "vmudh": "vmadh";
+      const resRegs = getVec32Regs(varRes);
+
+      return [
+        asm(intOp,  [resRegs[1], varLeft.reg, varRight.reg + swizzleRight]),
+        asm("vsar", [resRegs[0], "COP2_ACC_HI"]),
+        asm("vsar", [resRegs[1], "COP2_ACC_MD"]),
+      ];
+    }
+  }
+
+  // Full 32-bit multiplication
   if(right32Bit) {
     res.push(
       asm(fractOp, [REG.VTEMP0, fractReg(varLeft), fractReg(varRight) + swizzleRight]),
       asm("vmadm", [REG.VTEMP0,       varLeft.reg, fractReg(varRight) + swizzleRight]),
     );
     intOp = "vmadn"; // don't clear inbetween
-  } else if(varRes.type === "vec16") {
-    if(varRes.castType === "ufract" || varRes.castType === "sfract")
+  } // Partial multiplication: s16.16 * 0.16 (fractional part of original s16.16)
+  else if(varRight.originalType === "vec32" && ["sfract", "ufract"].includes(varRight.castType))
+  {
+    res.push(
+      asm(fractOp, [nextVecReg(varRes.reg), fractReg(varLeft), varRight.reg + swizzleRight]),
+      asm("vmadm", [           varRes.reg,        varLeft.reg, varRight.reg + swizzleRight]),
+    );
+    return res;
+  } // 16-Bit multiplication
+  else if(varRes.type === "vec16")
+  {
+    const caseRef = varLeft.castType || varRight.castType || varRes.castType;
+    if(caseRef === "ufract" || caseRef === "sfract")
     {
       intOp = clearAccum ? "vmul": "vmac";
-      intOp += (varRes.castType === "ufract") ? "u" : "f";
+      intOp += (caseRef === "ufract") ? "u" : "f";
       return [asm(intOp, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight])];
     }
     return [asm(intOp, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight])];
   }
 
   res.push(
-    asm(intOp,   [nextVecReg(varRes.reg), fractReg(varLeft),       varRight.reg + swizzleRight]),
-    asm("vmadh", [           varRes.reg,        varLeft.reg,       varRight.reg + swizzleRight]),
+    asm(intOp,   [nextVecReg(varRes.reg), fractReg(varLeft), varRightHigh]),
+    asm("vmadh", [           varRes.reg,        varLeft.reg, varRightHigh]),
   );
   return res;
 }
@@ -441,6 +552,16 @@ function opInvertHalf(varRes, varLeft) {
 
   const swizzleRes = SWIZZLE_MAP[varRes.swizzle || ""];
   const swizzleArg = SWIZZLE_MAP[varLeft.swizzle || ""];
+
+  if(varRes.type === "vec32" && varLeft.type === "vec16") {
+    if(varLeft.castType === "ufract" || varLeft.castType === "sfract") {
+      state.throwError("invert() is not supported for 16-bit fractional types! (@TODO impl.)");
+    }
+    return [
+      asm("vrcp",  [fractReg(varRes) + swizzleRes, varLeft.reg + swizzleArg]),
+      asm("vrcph", [  intReg(varRes) + swizzleRes, varLeft.reg + swizzleArg]),
+    ];
+  }
 
   return [
     asm("vrcph", [      intReg(varRes) + swizzleRes,   intReg(varLeft) + swizzleArg]),
@@ -477,7 +598,7 @@ function opInvertSqrtHalf(varRes, varLeft) {
   return [
     asm("vrsqh", [      intReg(varRes) + swizzleRes,   intReg(varLeft) + swizzleArg]),
     asm("vrsql", [    fractReg(varRes) + swizzleRes, fractReg(varLeft) + swizzleArg]),
-    asm("vrsqh", [      intReg(varRes) + swizzleRes,        REG.VZERO + swizzleArg]),
+    asm("vrsqh", [      intReg(varRes) + swizzleRes,        REG.VZERO + SWIZZLE_MAP.x]),
   ];
 }
 
@@ -488,6 +609,8 @@ function opInvertSqrtHalf(varRes, varLeft) {
  * @returns {ASM[]}
  */
 function opDiv(varRes, varLeft, varRight) {
+  state.throwError("Vector division is not supported! (@TODO: implement this)");
+/*
   if(!varRight.swizzle || !isScalarSwizzle(varRight.swizzle)) {
     state.throwError("Vector division needs swizzling on the right side (must be scalar .x to .W)!", varRes);
   }
@@ -498,7 +621,7 @@ function opDiv(varRes, varLeft, varRight) {
     ...opInvertHalf(tmpVarSw, varRight),
     ...opMul(tmpVar, tmpVar, POW2_SWIZZLE_VAR["2"], true),
     ...opMul(varRes, varLeft, tmpVarSw, true)
-  ];
+  ];*/
 }
 
 /**
@@ -545,7 +668,7 @@ function opCompare(varRes, varLeft, varRight, op, ternary) {
 
 export default {
   opMove, opLoad, opStore,
-  opAdd, opSub, opMul, opInvertHalf, opInvertSqrtHalf, opDiv, opAnd, opOr, opXOR, opBitFlip,
+  opAdd, opSub, opMul, opInvertHalf, opInvertSqrtHalf, opDiv, opAnd, opOr, opNOR, opXOR, opBitFlip,
   opShiftLeft, opShiftRight,
   opLoadBytes, opStoreBytes,
   opCompare,

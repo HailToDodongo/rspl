@@ -12,6 +12,7 @@ declare global {
         reg: string;
         type: DataType;
         castType?: CastType;
+        originalType?: DataType;
         isConst: boolean;
         modifyCount: number;
     };
@@ -45,6 +46,7 @@ declare global {
 
     type RSPLConfig = {
         optimize: boolean;
+        reorder: boolean;
         rspqWrapper: boolean;
     };
 }

@@ -12,7 +12,7 @@ state
   vec32 CIRLCE_POS;
   vec32 CIRLCE_DIR;
 
-  u32 RA;
+  u32 RET_ADDR;
   u32 TIME;
 }
 
@@ -48,8 +48,7 @@ macro storeVert(u32 ptrDest, vec16 pos, u32 rgba)
 
 function storeTri(vec16<$v20> pos, u32<$t3> rgba)
 {
-  u32<$ra> retAddr;
-  store(retAddr, RA);
+  store(RA, RET_ADDR);
 
   u32<$t9> vertOffset = load(VER_OFFSET);
   u32<$a1> vert0 = vertOffset + TRI2D_DATA;
@@ -106,7 +105,7 @@ function storeTri(vec16<$v20> pos, u32<$t3> rgba)
     store(vertOffset, VER_OFFSET);
   }
 
-  retAddr = load(RA);
+  RA = load(RET_ADDR);
 }
 
 function getPosColor(u32<$s6> idxX, u32<$s7> idxY)
@@ -174,7 +173,6 @@ function getPosColor(u32<$s6> idxX, u32<$s7> idxY)
 
 command<0> T3DCmd_Init()
 {
-  u32<$zero> ZERO;
   store(ZERO, VER_OFFSET); // @TODO: syntax for zero
   store(ZERO, TIME);
 

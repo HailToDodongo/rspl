@@ -4,6 +4,10 @@ import {asm, asmNOP} from "../intsructions/asmWriter.js";
 import {isSigned, u32InS16Range} from "../dataTypes/dataTypes.js";
 import opsScalar from "./scalar.js";
 
+function invertOp(op) {
+  return op === "bne" ? "beq" : "bne";
+}
+
 /**
  * Creates a branch instruction with a comparison against a register or immediate.
  * Immediate values are loaded into a register first if necessary.
@@ -13,7 +17,7 @@ import opsScalar from "./scalar.js";
  * @param labelElse label to jump to if the comparison fails (aka "else")
  * @returns {ASM[]} list of ASM instructions
  */
-export function opBranch(compare, labelElse)
+export function opBranch(compare, labelElse, invert = false)
 {
   compare = structuredClone(compare); // gets modified
 
@@ -32,7 +36,9 @@ export function opBranch(compare, labelElse)
   // Easy case, just compare
   if(compare.op === "==" || compare.op === "!=")
   {
-    const opBranch = compare.op === "==" ? "bne" : "beq";
+    let opBranch = compare.op === "==" ? "bne" : "beq";
+    if(invert)opBranch = invertOp(opBranch);
+
     return [
       ...(isImmediate ? opsScalar.loadImmediate(REG.AT, compare.right.value) : []),
       asm(opBranch, [regLeft, regTestRes, labelElse]),
@@ -69,7 +75,9 @@ export function opBranch(compare, labelElse)
 
   if(compare.op === "<" || compare.op === ">=")
   {
-    const opBranch = compare.op === "<" ? "beq" : "bne";
+    let opBranch = compare.op === "<" ? "beq" : "bne";
+    if(invert)opBranch = invertOp(opBranch);
+
     return [
       ...opsLoad,
       asm(opLessThan, [REG.AT, regLeft, regOrValRight]),

@@ -4,8 +4,8 @@ const CONF = {rspqWrapper: false};
 
 describe('Macros', () =>
 {
-  test('Basic replacement', () => {
-    const {asm, warn} = transpileSource(`
+  test('Basic replacement', async () => {
+    const {asm, warn} = await transpileSource(`
       macro test(u32 add) {
         add += 42;
       }
@@ -32,8 +32,8 @@ describe('Macros', () =>
   nop`);
   });
 
-  test('Nested macro', () => {
-    const {asm, warn} = transpileSource(`
+  test('Nested macro', async () => {
+    const {asm, warn} = await transpileSource(`
       macro test_b(u32 argB) {
         argB += 42;
       }
@@ -54,8 +54,8 @@ describe('Macros', () =>
   nop`);
   });
 
-  test('Scope local', () => {
-    const {asm, warn} = transpileSource(`
+  test('Scope local', async () => {
+    const {asm, warn} = await transpileSource(`
       macro test_b(u32 argB) {
         argB += 42;
       }

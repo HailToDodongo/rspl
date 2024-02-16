@@ -3,7 +3,7 @@
 * @license Apache-2.0
 */
 import {
-  nextReg, nextVecReg,
+  nextReg, nextVecReg, REG,
   REGS_ALLOC_SCALAR,
   REGS_ALLOC_VECTOR,
   REGS_FORBIDDEN,
@@ -78,6 +78,10 @@ const state =
     state.line = 0;
     state.scopeStack = [];
     state.pushScope();
+
+    state.declareVar("ZERO", "u32", REG.ZERO, true);
+    state.declareVar("VZERO", "vec16", REG.VZERO, true);
+    state.declareVar("RA", "u32", REG.RA, true);
   },
 
   leaveFunction: () => {
@@ -193,6 +197,31 @@ const state =
   },
 
   /**
+   * Undefines a variable and all its aliases.
+   * @param varName
+   */
+  undefVar(varName) {
+    const scope = state.getScope();
+
+    delete scope.varAliasMap[varName];
+    for(let i of Object.keys(scope.varAliasMap)) {
+      if(scope.varAliasMap[i] === varName) {
+        delete scope.varAliasMap[i];
+      }
+    }
+
+    varName = scope.varAliasMap[varName] || varName;
+    const varDef = scope.varMap[varName];
+    if(!varDef)state.throwError("Variable "+varName+" not known!");
+
+    const allocRegs = isTwoRegType(varDef.type) ? [varDef.reg, nextReg(varDef.reg)] : [varDef.reg];
+    for(const allocReg of allocRegs) {
+      delete scope.regVarMap[allocReg];
+    }
+    delete scope.varMap[varName];
+  },
+
+  /**
    *
    * @param {string} name
    * @param {string} type
@@ -222,6 +251,8 @@ const state =
     // To handle special cases, the cast is preserved (mainly used for fractional vectors).
     if(castType) {
       res.castType = castType;
+      res.originalType = res.type;
+
       if(isVecType(res.type)) {
         if(!VEC_CASTS.includes(castType)) {
           state.throwError("Invalid cast type '"+castType+"' for variable "+nameNorm+", expected '"+VEC_CASTS.join(", ")+"'!", context);
@@ -240,6 +271,19 @@ const state =
     }
 
     return res;
+  },
+
+  /**
+   * Gets the main register of a variable, no exceptions are thrown.
+   * @param name variable name
+   * @return {string|undefined} register name, empty if not found
+   */
+  getVarReg: (name) => {
+    const scope = state.getScope();
+    let [nameNorm] = /** @type {[string, CastType]} */ name.split(":");
+    nameNorm = scope.varAliasMap[nameNorm] || nameNorm;
+    const res = scope.varMap[nameNorm];
+    return res?.reg || undefined;
   },
 
   /**
