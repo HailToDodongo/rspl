@@ -23,7 +23,6 @@ const FORCE_SCOPED_BLOCK = d => {
 
 const moo = require("moo")
 const lexer = moo.compile({
-	LineComment: /\/\/.*?$/,
 	String: /".*"/,
 
 	DataType: ["u8", "s8", "u16", "s16", "u32", "s32", "vec32", "vec16"],
@@ -63,6 +62,7 @@ const lexer = moo.compile({
 	KWConst   : "const",
 	KWUndef   : "undef",
 	KWExit    : "exit",
+	KWAlign   : "alignas",
 
 	ValueHex: /0x[0-9A-F']+/,
 	ValueBin: /0b[0-1']+/,
@@ -139,19 +139,23 @@ var grammar = {
     {"name": "StateVarDef$ebnf$1$subexpression$1", "symbols": [(lexer.has("KWExtern") ? {type: "KWExtern"} : KWExtern), "_"]},
     {"name": "StateVarDef$ebnf$1", "symbols": ["StateVarDef$ebnf$1$subexpression$1"], "postprocess": id},
     {"name": "StateVarDef$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "StateVarDef$ebnf$2", "symbols": []},
-    {"name": "StateVarDef$ebnf$2", "symbols": ["StateVarDef$ebnf$2", "IndexDef"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "StateVarDef$ebnf$3", "symbols": ["StateValueDef"], "postprocess": id},
-    {"name": "StateVarDef$ebnf$3", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "StateVarDef", "symbols": ["StateVarDef$ebnf$1", (lexer.has("DataType") ? {type: "DataType"} : DataType), "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "StateVarDef$ebnf$2", "StateVarDef$ebnf$3", "_", (lexer.has("StmEnd") ? {type: "StmEnd"} : StmEnd), "_"], "postprocess":  d => ({
+    {"name": "StateVarDef$ebnf$2", "symbols": ["StateAlign"], "postprocess": id},
+    {"name": "StateVarDef$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "StateVarDef$ebnf$3", "symbols": []},
+    {"name": "StateVarDef$ebnf$3", "symbols": ["StateVarDef$ebnf$3", "IndexDef"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "StateVarDef$ebnf$4", "symbols": ["StateValueDef"], "postprocess": id},
+    {"name": "StateVarDef$ebnf$4", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "StateVarDef", "symbols": ["StateVarDef$ebnf$1", "StateVarDef$ebnf$2", (lexer.has("DataType") ? {type: "DataType"} : DataType), "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "StateVarDef$ebnf$3", "StateVarDef$ebnf$4", "_", (lexer.has("StmEnd") ? {type: "StmEnd"} : StmEnd), "_"], "postprocess":  d => ({
         	type: "varState",
         	extern: !!d[0],
-        	varType: d[1].value,
-        	varName: d[3].value,
-        	arraySize: d[4] || 1,
-        	value: d[5],
+        	varType: d[2].value,
+        	varName: d[4].value,
+        	arraySize: d[5] || 1,
+        	align: d[1] || 0,
+        	value: d[6],
         })},
     {"name": "StateValueDef", "symbols": ["_", (lexer.has("Assignment") ? {type: "Assignment"} : Assignment), "_", (lexer.has("BlockStart") ? {type: "BlockStart"} : BlockStart), "_", "NumList", "_", (lexer.has("BlockEnd") ? {type: "BlockEnd"} : BlockEnd)], "postprocess": d => d[5]},
+    {"name": "StateAlign", "symbols": [(lexer.has("KWAlign") ? {type: "KWAlign"} : KWAlign), (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "ValueNumeric", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd), "_"], "postprocess": d => d[2][0]},
     {"name": "NumList", "symbols": ["ValueNumeric"], "postprocess": MAP_FIRST},
     {"name": "NumList$subexpression$1", "symbols": ["NumList", "_", (lexer.has("Seperator") ? {type: "Seperator"} : Seperator), "_", "ValueNumeric"]},
     {"name": "NumList", "symbols": ["NumList$subexpression$1"], "postprocess": d => MAP_FLATTEN_TREE(d[0], 0, 4)},
@@ -176,7 +180,6 @@ var grammar = {
         d => ({type: "scopedBlock", statements: d[2], line: d[1].line})
         },
     {"name": "Statements$ebnf$1", "symbols": []},
-    {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["LineComment"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["ScopedBlock"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["LabelDecl"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["IfStatement"]},
@@ -238,7 +241,6 @@ var grammar = {
         	block: d[2],
         	line: d[1].line
         })},
-    {"name": "LineComment", "symbols": ["_", (lexer.has("LineComment") ? {type: "LineComment"} : LineComment), /[\n]/], "postprocess": (d) => ({type: "comment", comment: d[1].value, line: d[1].line})},
     {"name": "ExprVarDeclAssign$ebnf$1$subexpression$1", "symbols": [(lexer.has("KWConst") ? {type: "KWConst"} : KWConst), "__"]},
     {"name": "ExprVarDeclAssign$ebnf$1", "symbols": ["ExprVarDeclAssign$ebnf$1$subexpression$1"], "postprocess": id},
     {"name": "ExprVarDeclAssign$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},

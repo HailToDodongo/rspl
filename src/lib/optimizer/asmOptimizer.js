@@ -51,13 +51,11 @@ export function asmOptimizePattern(asmFunc)
  *
  * Below are settings to fine-tune this process:
  */
-const ITERATION_COUNT_FACTOR = 1.5;  // iterations = asm.length * factor
+const ITERATION_COUNT_FACTOR = 1.9;  // iterations = asm.length * factor
 const ITERATION_COUNT_MIN    = 100;  // minimum iterations
-const ITERATION_MATCH_BUMP   = 50;   // iterations to add if we find a new best
 const VARIANT_COUNT          = 80;   // variants per iteration
-const NOTHING_FOUND_MAX      = 200;  // iterations to run without finding a new best
 
-const REORDER_MIN_OPS = 5;  // minimum instructions to reorder per round
+const REORDER_MIN_OPS = 4;  // minimum instructions to reorder per round
 const REORDER_MAX_OPS = 40; // maximum instructions to reorder per round
 
 
@@ -208,10 +206,13 @@ export async function asmOptimize(asmFunc, updateCb, config)
   const funcName = asmFunc.name || "(???)";
   if(config.reorder)
   {
-    const ITERATION_COUNT = Math.max(
+    let ITERATION_COUNT = Math.max(
       Math.floor(asmFunc.asm.length * ITERATION_COUNT_FACTOR),
       ITERATION_COUNT_MIN
     );
+    if(asmFunc.asm.length > 200) {
+      ITERATION_COUNT *= 1.2;
+    }
 
     let costBest = evalFunctionCost(asmFunc);
     asmFunc.cyclesBefore = costBest;
@@ -222,8 +223,6 @@ export async function asmOptimize(asmFunc, updateCb, config)
     let lastRandPick = cloneFunction(asmFunc);
     let anyRandPick = cloneFunction(asmFunc);
     let mainIterCount = ITERATION_COUNT;
-
-    let nothingFoundCount = 0;
 
     // Main iteration loop
     let time = performance.now();
@@ -242,8 +241,10 @@ export async function asmOptimize(asmFunc, updateCb, config)
       for(let s=0; s<VARIANT_COUNT; ++s)
       {
         let refFunc = funcCopy;
-        if(s < 2)refFunc = lastRandPick;
-        else if(s < 4)refFunc = anyRandPick;
+        //if(s < 2)refFunc = lastRandPick;
+        //else if(s < 4)refFunc = anyRandPick;
+        if(rand() < 0.1)refFunc = lastRandPick;
+        if(rand() < 0.1)refFunc = anyRandPick;
 
         const {cost, asm} = reorderRound(refFunc);
         if(cost < costBest) {

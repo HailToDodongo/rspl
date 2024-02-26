@@ -38,6 +38,7 @@ declare global
         type: string;
         varName: string;
         varType: DataType;
+        align: number;
         value: number[] | undefined;
     };
 

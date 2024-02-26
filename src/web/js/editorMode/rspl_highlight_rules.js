@@ -66,7 +66,9 @@ const rsplHighlightRules = function() {
       "load", "store", "asm", "printf",
       "dma_in", "dma_out", "dma_size", "dma_in_async", "dma_out_async", "dma_await",
       "invert_half", "invert_half_sqrt", "sint", "uint", "ufract", "sfract", "swap", "invert",
-      "load_vec_u8", "load_vec_s8", "store_vec_u8", "store_vec_s8", "select", "abs", "clip"
+      "load_vec_u8", "load_vec_s8", "store_vec_u8", "store_vec_s8", "select", "abs", "clip",
+
+      "alignas",
     ].join("|");
 
     var keywordMapper = this.createKeywordMapper({

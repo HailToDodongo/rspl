@@ -13,6 +13,18 @@ import state from "./state.js";
  */
 function normalizeScopedBlock(block, astState, macros)
 {
+  // convert labels we find into memory variables, this has the same effect as
+  // globally setting them as "extern" in the RSPL state.
+  for(const st of block.statements) {
+    if(st.type === "labelDecl") {
+      astState.push({
+        arraySize: [1], extern: true, varType: 'u16',
+        varName: st.name, align: 0, value: undefined
+      });
+      state.declareMemVar(st.name, 'u16', 1);
+    }
+  }
+
   /** @type {ASTStatement[]} */
   const statements = [];
   for(const st of block.statements)

@@ -114,4 +114,30 @@ describe('State', () =>
 
 `);
   });
+
+    test('Align', async () => {
+    const {asm, warn} = await transpileSource(`
+      state {
+        u16 a;
+        alignas(8) u16 b;
+        alignas(4) u8 c;
+      }
+      `, CONF);
+
+    expect(warn).toBe("");
+    expect(getDataSection(asm)).toBe(`.data
+  RSPQ_BeginOverlayHeader
+  RSPQ_EndOverlayHeader
+
+  RSPQ_BeginSavedState
+    .align 1
+    a: .ds.b 2
+    .align 3
+    b: .ds.b 2
+    .align 2
+    c: .ds.b 1
+  RSPQ_EndSavedState
+
+`);
+  });
 });

@@ -19,7 +19,6 @@ const FORCE_SCOPED_BLOCK = d => {
 
 const moo = require("moo")
 const lexer = moo.compile({
-	LineComment: /\/\/.*?$/,
 	String: /".*"/,
 
 	DataType: ["u8", "s8", "u16", "s16", "u32", "s32", "vec32", "vec16"],
@@ -59,6 +58,7 @@ const lexer = moo.compile({
 	KWConst   : "const",
 	KWUndef   : "undef",
 	KWExit    : "exit",
+	KWAlign   : "alignas",
 
 	ValueHex: /0x[0-9A-F']+/,
 	ValueBin: /0b[0-1']+/,
@@ -124,16 +124,19 @@ SectionIncl -> %KWInclude _ %String {% d => d[2].value %}
 
 ######### State-Section #########
 SectionState -> %KWState _ %BlockStart _ StateVarDef:* %BlockEnd {% d => d[4] %}
-StateVarDef -> (%KWExtern _):? %DataType _ %VarName IndexDef:* StateValueDef:? _ %StmEnd _ {% d => ({
+StateVarDef -> (%KWExtern _):? StateAlign:? %DataType _ %VarName IndexDef:* StateValueDef:? _ %StmEnd _ {% d => ({
 	type: "varState",
 	extern: !!d[0],
-	varType: d[1].value,
-	varName: d[3].value,
-	arraySize: d[4] || 1,
-	value: d[5],
+	varType: d[2].value,
+	varName: d[4].value,
+	arraySize: d[5] || 1,
+	align: d[1] || 0,
+	value: d[6],
 })%}
 
 StateValueDef -> _ %Assignment _ %BlockStart _ NumList _ %BlockEnd {% d => d[5] %}
+
+StateAlign -> %KWAlign %ArgsStart ValueNumeric %ArgsEnd _ {% d => d[2][0] %}
 
 NumList -> ValueNumeric {% MAP_FIRST %}
 		  | (NumList _ %Seperator _ ValueNumeric) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
@@ -162,7 +165,7 @@ ScopedBlock -> _ %BlockStart Statements _ %BlockEnd {%
 #        Either as a standalone function call, or by assiging something to a variable
 #        The thing that is assigned can be a constant, unary or LR-expression
 
-Statements -> (LineComment | ScopedBlock | LabelDecl | IfStatement | LoopStatement | WhileStatement | Expression):* {% d => d[0].map(y => y[0]) %}
+Statements -> (ScopedBlock | LabelDecl | IfStatement | LoopStatement | WhileStatement | Expression):* {% d => d[0].map(y => y[0]) %}
 FunctionDefArgs -> FunctonDefArg {% MAP_FIRST %}
 			 | (FunctionDefArgs _ %Seperator _ FunctonDefArg) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
 
@@ -200,8 +203,6 @@ LoopStatement -> _ %KWLoop ScopedBlock (_ %KWWhile _ %ArgsStart ExprCompare _ %A
 })%}
 
 ######## Expressions ########
-LineComment -> _ %LineComment [\n] {% (d) => ({type: "comment", comment: d[1].value, line: d[1].line}) %}
-
 ExprVarDeclAssign -> (%KWConst __):? %DataType RegDef:? _ %VarName _ ExprPartAssign {% d => ({
 	type: "varDeclAssign",
 	varType: d[1].value,

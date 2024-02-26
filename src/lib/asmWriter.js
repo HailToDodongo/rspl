@@ -96,7 +96,15 @@ export function writeASM(ast, functionsAsm, config)
 
       const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
       const byteSize = TYPE_SIZE[stateVar.varType] * arraySize;
-      const align = TYPE_ALIGNMENT[stateVar.varType];
+      let align = TYPE_ALIGNMENT[stateVar.varType];
+      if(stateVar.align !== 0) {
+        // align is stored in bytes, we need to convert it to 2^x
+        align = Math.log2(stateVar.align);
+        if(!Number.isInteger(align)) {
+          state.throwError(`Invalid align value '${stateVar.align}', must be a power of 2`, ast);
+        }
+      }
+
       const values = stateVar.value || [];
 
       if(align > 0) {
