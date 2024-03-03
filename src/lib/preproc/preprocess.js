@@ -7,12 +7,12 @@
  * Runs a C-like preprocess on the source code.
  * This handles constants as well as ifdefs.
  * @param src input source code
+ * @param defines this function will append all defines to this object
  * @return {string} processed source code
  */
-export function preprocess(src)
+export function preprocess(src, defines = {})
 {
   const lines = src.split("\n");
-  const defines = {};
 
   let srcRes = "";
   let insideIfdef = false;

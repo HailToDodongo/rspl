@@ -28,7 +28,6 @@ function normalizeConfig(config)
 function stripComments(source) {
   return source
     .replaceAll(/\/\/.*$/gm, "")
-    .replaceAll(/#define\s*[\n()\[\]]/gm, "")
     .replace(/\/\*[\s\S]*?\*\//g, match => {
       const newlineCount = match.split('\n').length - 1;
       return '\n'.repeat(newlineCount);
@@ -46,7 +45,8 @@ export async function transpileSource(source, config, updateCb = undefined)
   const parser = new nearly.Parser(grammar);
 
   console.time("Preprocessor");
-  source = preprocess(source);
+  const defines = {};
+  source = preprocess(source, defines);
   console.timeEnd("Preprocessor");
 
   //console.time("parser");
@@ -56,7 +56,9 @@ export async function transpileSource(source, config, updateCb = undefined)
   if(astList.results.length > 1) {
     throw Error("Warning: ambiguous syntax!");
   }
-  return await transpile(astList.results[0], updateCb, config);
+  const ast = astList.results[0];
+  ast.defines = defines;
+  return await transpile(ast, updateCb, config);
 }
 
 /**

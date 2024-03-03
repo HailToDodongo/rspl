@@ -19,6 +19,7 @@ import {asm, asmInline, asmNOP} from "../intsructions/asmWriter.js";
 import {isTwoRegType, isVecType, TYPE_SIZE} from "../dataTypes/dataTypes.js";
 import {POW2_SWIZZLE_VAR, SWIZZLE_MAP, SWIZZLE_MAP_KEYS_STR} from "../syntax/swizzle.js";
 import {DMA_FLAGS} from "./libdragon.js";
+import scalar from "../operations/scalar";
 
 function assertArgsNoSwizzle(args, offset = 0) {
   args = args.slice(offset);
@@ -179,6 +180,91 @@ function clip(varRes, args, swizzle)
     asm("vch", [REG.VTEMP0, varArg0.reg, varArg1.reg + swizzleRight]),
     asm("cfc2", [varRes.reg, REG_COP2.VCC]),
   ];
+}
+
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg[]} args
+ * @param {?Swizzle} swizzle
+ */
+function get_vcc(varRes, args, swizzle)
+{
+  if(swizzle)state.throwError("Builtin get_vcc() cannot use swizzle!", varRes);
+  if(!varRes)state.throwError("Builtin get_vcc() must have a left side!", varRes);
+  if(args.length > 0)state.throwError("Builtin get_vcc() requires no arguments!", args[0]);
+  if(isVecReg(varRes.reg))state.throwError("Builtin get_vcc() must be assigned to a scalar variable!", varRes);
+
+  return [asm("cfc2", [varRes.reg, REG_COP2.VCC])];
+}
+
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg[]} args
+ * @param {?Swizzle} swizzle
+ */
+function get_cmd_address(varRes, args, swizzle) {
+  if(swizzle)state.throwError("Builtin get_cmd_address() cannot use swizzle!", varRes);
+  if(!varRes)state.throwError("Builtin get_cmd_address() must have a left side!", varRes);
+  if(args.length > 1)state.throwError("Builtin get_cmd_address() requires zero or one argument!", args[0]);
+  if(args.length === 1 && args[0].type !== "num")state.throwError("Builtin get_cmd_address() requires the argument to be a number!", args[0]);
+  if(isVecReg(varRes.reg))state.throwError("Builtin get_cmd_address() must be assigned to a scalar variable!", varRes);
+
+  let offset = args.length === 1 ? args[0].value : 0;
+  if(offset < 0 || offset > 256)state.throwError("Builtin get_cmd_address() requires the argument to be a number between 0 and 256!", args[0]);
+  offset -= state.argSize;
+
+  return [
+    asm("addiu", [varRes.reg, REG.GP, `%lo(RSPQ_DMEM_BUFFER) ${offset < 0 ? '' : '+'} ${offset}`])
+  ];
+}
+
+/**
+ * Loads a scalar value from the DMEM region the current command is, letting it load arguments again.
+ * Same as get_cmd_address() but actually performs the load.
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg[]} args
+ * @param {?Swizzle} swizzle
+ */
+function load_arg(varRes, args, swizzle) {
+  if(swizzle)state.throwError("Builtin load_arg() cannot use swizzle!", varRes);
+  if(!varRes)state.throwError("Builtin load_arg() must have a left side!", varRes);
+  if(args.length > 1)state.throwError("Builtin load_arg() requires zero or one argument!", args[0]);
+  if(args.length === 1 && args[0].type !== "num")state.throwError("Builtin load_arg() requires the argument to be a number!", args[0]);
+  if(isVecReg(varRes.reg))state.throwError("Builtin load_arg() must be assigned to a scalar variable!", varRes);
+
+  let offset = args.length === 1 ? args[0].value : 0;
+  if(offset < 0 || offset > 256)state.throwError("Builtin load_arg() requires the argument to be a number between 0 and 256!", args[0]);
+  offset -= state.argSize;
+
+  return opsScalar.opLoad(
+    varRes,
+    {reg: REG.GP},
+    {type: 'str', name: `RSPQ_DMEM_BUFFER ${offset < 0 ? '' : '+'} ${offset}`}
+  );
+}
+
+function max(varRes, args, swizzle) {
+  if(swizzle)state.throwError("Builtin max() cannot use swizzle!", varRes);
+  if(args.length !== 2)state.throwError("Builtin max() requires exactly two arguments!", args[0]);
+  const varArg0 = state.getRequiredVar(args[0].value, "arg0");
+  const varArg1 = state.getRequiredVar(args[1].value, "arg1");
+
+  if(varArg0.type !== varArg1.type)state.throwError("Builtin max() requires both arguments to be of the same type!", args);
+  if(varArg0.type !== "vec16")state.throwError("Builtin max() requires both arguments to be of type vec16! (@TODO: add scalar)", args);
+
+  return opsVector.opCompare(varRes, varArg0, varArg1, ">=", undefined);
+}
+
+function min(varRes, args, swizzle) {
+  if(swizzle)state.throwError("Builtin min() cannot use swizzle!", varRes);
+  if(args.length !== 2)state.throwError("Builtin min() requires exactly two arguments!", args[0]);
+  const varArg0 = state.getRequiredVar(args[0].value, "arg0");
+  const varArg1 = state.getRequiredVar(args[1].value, "arg1");
+
+  if(varArg0.type !== varArg1.type)state.throwError("Builtin min() requires both arguments to be of the same type!", args);
+  if(varArg0.type !== "vec16")state.throwError("Builtin min() requires both arguments to be of type vec16! (@TODO: add scalar)", args);
+
+  return opsVector.opCompare(varRes, varArg0, varArg1, "<", undefined);
 }
 
 function printf(varRes, args, swizzle)
@@ -423,5 +509,6 @@ export default {
   load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
   asm: inlineAsm, printf, abs, clip,
   dma_in, dma_out, dma_in_async, dma_out_async, dma_await,
-  invert_half, invert_half_sqrt, invert, swap, select
+  invert_half, invert_half_sqrt, invert, swap, select,
+  get_cmd_address, get_vcc, max, min, load_arg
 };

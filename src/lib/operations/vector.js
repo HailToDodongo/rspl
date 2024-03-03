@@ -3,7 +3,17 @@
 * @license Apache-2.0
 */
 
-import {fractReg, getVec32Regs, intReg, isVecReg, nextReg, nextVecReg, REG as REGS, REG} from "../syntax/registers";
+import {
+  fractReg,
+  getVec32Regs,
+  intReg,
+  isVecReg,
+  LABELS,
+  nextReg,
+  nextVecReg,
+  REG as REGS,
+  REG
+} from "../syntax/registers";
 import state from "../state";
 import {
   isScalarSwizzle,
@@ -45,9 +55,13 @@ function opMove(varRes, varRight)
   const isConst = !varRight.reg;
   const isScalar = isConst || !varRight.type.startsWith("vec");
 
+  let isHalfMove = false;
   if(varRes.swizzle) {
-    if(!isScalarSwizzle(varRes.swizzle) || (!isScalar && !isScalarSwizzle(varRight.swizzle))) {
-      return state.throwError("Vector swizzle must be single-lane! (.x to .W)");
+    const isNonScalar = !isScalarSwizzle(varRes.swizzle) || (!isScalar && !isScalarSwizzle(varRight.swizzle));
+    isHalfMove = varRes.swizzle.length === 4 && (varRight.swizzle || "").length === 4;
+
+    if(isNonScalar && !isHalfMove) {
+      return state.throwError("Vector swizzle must be single-lane, or half-lane! (.x to .W, or .xyzw / .XYZW)");
     }
   }
 
@@ -62,6 +76,8 @@ function opMove(varRes, varRight)
 
   // Assigning an integer or float constant to a vector
   if(isConst) {
+    if(isHalfMove)state.throwError("Half-moves are not supported for constants!");
+
     // if the constant is a power of two, use the special vector reg to avoid a load...
     const regPow2 = POW2_SWIZZLE_VAR[varRight.value];
     const regZero = POW2_SWIZZLE_VAR[0]; // assigning an int to a vec32 needs to clear th fraction to zero
@@ -100,6 +116,8 @@ function opMove(varRes, varRight)
 
   // Assigning a scalar value from a register to a vector
   if(isScalar) {
+    if(isHalfMove)state.throwError("Half-moves are not supported for scalar values!");
+
     if(varRes.type === "vec16") {
       return [asm("mtc2", [varRight.reg, regDst[0] + swizzleRes])];
     }
@@ -114,6 +132,14 @@ function opMove(varRes, varRight)
   if(!varRight.swizzle) {
     return [asm("vor", [regDst[0], REG.VZERO, regsR[0]]),
             asm("vor", [regDst[1], REG.VZERO, regsR[1]])];
+  }
+
+  // broadcasting 4 lanes to the other 4 lanes (aka half-vector move)
+  if(isHalfMove) {
+    return [
+      ...opStore(varRight, [{type: "num", value: LABELS.SCRATCH_MEM}], false, false),
+      ...opLoad(varRes, {reg: REG.AT}, {type: "num", value: 0}, "xyzw", false, false),
+    ];
   }
 
   // broadcasting a swizzle into a complete vector
@@ -628,7 +654,7 @@ function opDiv(varRes, varLeft, varRight) {
  * @param {ASTFuncArg} varRes
  * @param {ASTFuncArg} varLeft
  * @param {ASTFuncArg} varRight
- * @param {CalcOp} op
+ * @param {CompareOp} op
  * @param {?ASTTernary} ternary
  * @returns {ASM[]}
  */

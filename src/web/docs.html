@@ -398,6 +398,14 @@ Using <code>dma_out</code> will wait for the transfer, while <code>dma_out_async
 <h3 id="dma_await"><code>dma_await()</code></h3>
 <p>Waits for all DMA transfers to be finished.<br>
 This uses libdragon's <code>DMAWaitIdle</code> function.</p>
+<h3 id="get_cmd_addressoffset"><code>get_cmd_address([offset])</code></h3>
+<p>Stores the DMEM address for the current command into a scalar variable.<br>
+The optional offset can be used as a relative offset to that, without any extra cost.<br>
+This is the equivalent of <code>CMD_ADDR</code> in libdragon, except that it returns the address itself.<br></p>
+<h3 id="load_argoffset"><code>load_arg([offset])</code></h3>
+<p>Loads an argument from the current command from DMEM, <code>offset</code> is in bytes.<br>
+If you only need the address use <code>get_cmd_address()</code> instead.<br>
+For loads prefer this function as it uses only 1 instruction.<br> </p>
 <h3 id="swapab"><code>swap(a, b)</code></h3>
 <p>Swaps two scalar or vector values in place.
 Examples:</p>
@@ -406,6 +414,21 @@ swap(a, b); // swap two scalars
 swap(v0, v1); // swap two vectors
 </code></pre>
 <h3 id="absveca"><code>abs(vec a)</code></h3>
+<p>Absolute value of a 16-bit or 32-bit vector.<br>
+Examples:</p>
+<pre><code class="c++ language-c++">vec16 a;
+a = abs(a);
+</code></pre>
+<h3 id="minvecavecbmaxvecavecb"><code>min(vec a, vec b)</code> &amp; <code>max(vec a, vec b)</code></h3>
+<p>Min/Max value of a 16-bit vector.<br>
+This functions is an alias for <code>a &lt; b</code> or <code>a &gt;= b</code>.<br>
+Just like a compare, the comparison result can be used for further operations.<br>
+To fetch it use <code>get_vcc()</code> or use <code>select()</code> for further selections.<br></p>
+<p>Examples:</p>
+<pre><code class="c++ language-c++">vec16 a, b;
+a = min(a, b);
+</code></pre>
+<h3 id="absveca-1"><code>abs(vec a)</code></h3>
 <p>Absolute value of a 16-bit or 32-bit vector.<br>
 Examples:</p>
 <pre><code class="c++ language-c++">vec16 a;
@@ -434,6 +457,10 @@ dummy = a &lt; b; // compare, result doesn't matter here
 res = select(a, b); // 'a' if last comparison was true, otherwise 'b'
 res = select(a, 32); // constants are allowed too
 </code></pre>
+<h3 id="get_vcc"><code>get_vcc()</code></h3>
+<p>Stores the result of a vector comparison into a scalar variable.<br>
+This should be used after a comparison or <code>min()</code>/<code>max()</code> call.<br>
+The value will be <code>0</code> or <code>1</code>.</p>
 <h3 id="invert_halfvecainvertveca"><code>invert_half(vec a)</code> &amp; <code>invert(vec a)</code></h3>
 <p>Inverts a (single component of a) vector (<code>1 / x</code>).<br>
 The <code>invert_half</code> version maps directly to the hardware instruction, returning <code>0.5 / x</code>.<br>

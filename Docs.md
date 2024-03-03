@@ -475,6 +475,16 @@ Using `dma_out` will wait for the transfer, while `dma_out_async` will return im
 Waits for all DMA transfers to be finished.<br>
 This uses libdragon's `DMAWaitIdle` function.
 
+### `get_cmd_address([offset])`
+Stores the DMEM address for the current command into a scalar variable.<br>
+The optional offset can be used as a relative offset to that, without any extra cost.<br>
+This is the equivalent of `CMD_ADDR` in libdragon, except that it returns the address itself.<br>
+
+### `load_arg([offset])`
+Loads an argument from the current command from DMEM, `offset` is in bytes.<br>
+If you only need the address use `get_cmd_address()` instead.<br>
+For loads prefer this function as it uses only 1 instruction.<br> 
+
 ### `swap(a, b)`
 Swaps two scalar or vector values in place.
 Examples:
@@ -482,6 +492,26 @@ Examples:
 u32 a, b; vec16 v0, v1;
 swap(a, b); // swap two scalars
 swap(v0, v1); // swap two vectors
+```
+
+### `abs(vec a)`
+Absolute value of a 16-bit or 32-bit vector.<br>
+Examples:
+```c++
+vec16 a;
+a = abs(a);
+```
+
+### `min(vec a, vec b)` & `max(vec a, vec b)`
+Min/Max value of a 16-bit vector.<br>
+This functions is an alias for `a < b` or `a >= b`.<br>
+Just like a compare, the comparison result can be used for further operations.<br>
+To fetch it use `get_vcc()` or use `select()` for further selections.<br>
+
+Examples:
+```c++
+vec16 a, b;
+a = min(a, b);
 ```
 
 ### `abs(vec a)`
@@ -520,6 +550,11 @@ dummy = a < b; // compare, result doesn't matter here
 res = select(a, b); // 'a' if last comparison was true, otherwise 'b'
 res = select(a, 32); // constants are allowed too
 ```
+
+### `get_vcc()`
+Stores the result of a vector comparison into a scalar variable.<br>
+This should be used after a comparison or `min()`/`max()` call.<br>
+The value will be `0` or `1`.
 
 ### `invert_half(vec a)` & `invert(vec a)`
 Inverts a (single component of a) vector (`1 / x`).<br>

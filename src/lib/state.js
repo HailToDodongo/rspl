@@ -3,6 +3,7 @@
 * @license Apache-2.0
 */
 import {
+  LABELS,
   nextReg, nextVecReg, REG,
   REGS_ALLOC_SCALAR,
   REGS_ALLOC_VECTOR,
@@ -17,6 +18,7 @@ const state =
   nextLabelId: 0,
   func: "",
   funcType: "",
+  argSize: 0,
   line: 0,
   outWarn: "",
 
@@ -33,12 +35,17 @@ const state =
     state.nextLabelId = 0;
     state.func = "";
     state.funcType = "";
+    state.argSize = 0;
     state.line = 0;
     state.scopeStack = [];
     state.memVarMap = {};
     state.outWarn = "";
     state.outInfo = "";
     state.funcMap = {};
+
+    for(let globalLabel of Object.values(LABELS)) {
+      this.declareMemVar(globalLabel, "u16", 1);
+    }
   },
 
   /**
@@ -72,9 +79,15 @@ const state =
     state.funcMap[name] = {name, args};
   },
 
-  enterFunction: (name, funcType) => {
+  /**
+   * @param {string} name
+   * @param {string} funcType
+   * @param {number} argSize
+   */
+  enterFunction: (name, funcType, argSize) => {
     state.func = name;
     state.funcType = funcType;
+    state.argSize = argSize || 0;
     state.line = 0;
     state.scopeStack = [];
     state.pushScope();

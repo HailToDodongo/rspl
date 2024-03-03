@@ -413,7 +413,7 @@ export function ast2asm(ast)
       state.declareFunction(block.name, block.args);
 
       if(!block.body)continue;
-      state.enterFunction(block.name, block.type);
+      state.enterFunction(block.name, block.type, getArgSize(block));
 
       const blockAsm = scopedBlockToASM(block.body, block.args, block.type === "command");
       ++state.line;

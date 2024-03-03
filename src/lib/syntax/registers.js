@@ -69,6 +69,10 @@ export const REGS_FORBIDDEN = [
   // REG.VTEMP1, REG.VTEMP2
 ];
 
+export const LABELS = {
+  SCRATCH_MEM: "SCRATCH_MEM",
+};
+
 /**
  * @param {string} regName
  * @returns {boolean}

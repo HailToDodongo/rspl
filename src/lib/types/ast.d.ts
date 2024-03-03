@@ -155,5 +155,6 @@ declare global
         state: ASTState[];
         functions: ASTFunc[];
         postIncludes: string[];
+        defines: Record<string, string>;
     };
 }
