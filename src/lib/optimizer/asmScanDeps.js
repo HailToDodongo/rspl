@@ -5,6 +5,7 @@
 import {isVecReg} from "../syntax/registers.js";
 import {SWIZZLE_LANE_MAP} from "../syntax/swizzle.js";
 import {ASM_TYPE} from "../intsructions/asmWriter.js";
+import state from "../state.js";
 
 // ops that save data to RAM, and only read from regs
 export const STORE_OPS = [
@@ -229,7 +230,7 @@ function getSourceRegsFiltered(line)
     .filter(reg => typeof reg === "string")
     .map(reg => {
       // extract register from brackets (e.g. writes with offset)
-      const brIdx = reg.indexOf("(");
+      const brIdx = reg.lastIndexOf("(");
       if(brIdx >= 0)return reg.substring(brIdx+1, reg.length-1);
       return reg;
     })
@@ -250,6 +251,7 @@ export function amInitDep(asm)
     asm.depsTargetMask = 0n;
     asm.depsStallSourceMask = 0n;
     asm.depsStallTargetMask = 0n;
+    asm.barrierMask = 0;
     return;
   }
 
@@ -275,6 +277,14 @@ export function amInitDep(asm)
 
   asm.depsStallSourceMask = getRegisterMask(asm.depsStallSource);
   asm.depsStallTargetMask = getRegisterMask(asm.depsStallTarget);
+
+  asm.barrierMask = 0;
+  for(const anno of asm.annotations) {
+    if(anno.name === "Barrier") {
+      asm.barrierMask |= state.getBarrierMask(anno.value);
+    }
+  }
+
 }
 
 /**
@@ -299,9 +309,13 @@ function checkAsmBackwardDep(asm, asmPrev) {
     return true;
   }
 
+  if(asm.barrierMask & asmPrev.barrierMask) {
+    return true;
+  }
+
   // Don't reorder writes to RAM, this is an oversimplification.
   // For a more accurate check, the RAM location/size would need to be checked (if possible).
-  const isStore = !asm.opIsLoad && asm.opIsStore;
+  /*const isStore = !asm.opIsLoad && asm.opIsStore;
   if(asm.opIsLoad || isStore) { // memory access can be ignored if it's not a load or store
     const isLoadPrev = asmPrev.opIsLoad;
     const isStorePrev = !isLoadPrev && asmPrev.opIsStore;
@@ -313,9 +327,9 @@ function checkAsmBackwardDep(asm, asmPrev) {
     // store cannot be put before a previous load or store
     //if(isStore && (isLoadPrev || isStorePrev)) {
     if(isStore && isLoadPrev) {
-      return true;
+     return true;
     }
-  }
+  }*/
 
   // check if any of our source registers is a destination of a previous instruction, and the reserve.
   // (otherwise our read would see a different value if reordered)

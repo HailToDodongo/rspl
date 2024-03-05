@@ -29,6 +29,7 @@ declare global
 
         depsSource: string[];
         depsTarget: string[];
+        barrierMask: number;
 
         depsSourceMask: BigInt;
         depsTargetMask: BigInt;
@@ -51,6 +52,7 @@ declare global
         stallLatency: number;
 
         debug: ASMDebug;
+        annotations: Annotation[];
     };
 
     type ASMFunc = ASTFunc | {

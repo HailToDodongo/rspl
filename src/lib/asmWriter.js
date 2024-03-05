@@ -170,10 +170,14 @@ export function writeASM(ast, functionsAsm, config)
         res.debug.lineStallMap[asm.debug.lineASMOpt] = asm.debug.stall;
       }
 
+      let debugInfo = asm.barrierMask
+        ? " ## Barrier: 0x" + asm.barrierMask.toString(16).toUpperCase()
+        : "";
+
       // ASM Text output
       switch (asm.type) {
         case ASM_TYPE.INLINE:
-        case ASM_TYPE.OP     : writeLine(`  ${stringifyInstr(asm)}`);break;
+        case ASM_TYPE.OP     : writeLine(`  ${stringifyInstr(asm)}${debugInfo}`);break;
         case ASM_TYPE.LABEL  : writeLine(`  ${asm.label}:`);         break;
         case ASM_TYPE.COMMENT: writeLine(`  ##${asm.comment}`);      break;
         default: state.throwError("Unknown ASM type: " + asm.type, asm);

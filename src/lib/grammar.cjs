@@ -102,6 +102,7 @@ const lexer = moo.compile({
 	Seperator : ",",
 	IdxStart  : "[",
 	IdxEnd    : "]",
+	AnnoStart : "@",
 
 	Assignment: "=",
 
@@ -186,6 +187,7 @@ var grammar = {
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["LoopStatement"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["WhileStatement"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["Expression"]},
+    {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["Annotation"]},
     {"name": "Statements$ebnf$1", "symbols": ["Statements$ebnf$1", "Statements$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "Statements", "symbols": ["Statements$ebnf$1"], "postprocess": d => d[0].map(y => y[0])},
     {"name": "FunctionDefArgs", "symbols": ["FunctonDefArg"], "postprocess": MAP_FIRST},
@@ -208,6 +210,18 @@ var grammar = {
     {"name": "Expression$subexpression$1", "symbols": ["ExprBreak"]},
     {"name": "Expression$subexpression$1", "symbols": ["ExprExit"]},
     {"name": "Expression", "symbols": ["_", "Expression$subexpression$1", (lexer.has("StmEnd") ? {type: "StmEnd"} : StmEnd)], "postprocess": (d) => d[1][0]},
+    {"name": "Annotation$ebnf$1$subexpression$1", "symbols": [(lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "AnnotationArg", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd)]},
+    {"name": "Annotation$ebnf$1", "symbols": ["Annotation$ebnf$1$subexpression$1"], "postprocess": id},
+    {"name": "Annotation$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "Annotation", "symbols": ["_", (lexer.has("AnnoStart") ? {type: "AnnoStart"} : AnnoStart), (lexer.has("VarName") ? {type: "VarName"} : VarName), "Annotation$ebnf$1"], "postprocess":  d => ({
+        	type: "annotation",
+        	name: d[2].value,
+        	value: d[3] ? d[3][1] : null,
+        	line: d[1].line
+        
+        })},
+    {"name": "AnnotationArg", "symbols": ["ValueNumeric"], "postprocess": d => d[0][0]},
+    {"name": "AnnotationArg", "symbols": [(lexer.has("String") ? {type: "String"} : String)], "postprocess": d => REM_QUOTES(d[0].value)},
     {"name": "LabelDecl", "symbols": ["_", (lexer.has("VarName") ? {type: "VarName"} : VarName), (lexer.has("Colon") ? {type: "Colon"} : Colon)], "postprocess": d => ({type: "labelDecl", name: d[1].value, line: d[1].line})},
     {"name": "IfStatement$subexpression$1", "symbols": ["ExprCompare"]},
     {"name": "IfStatement$subexpression$1", "symbols": ["ExprCompareBool"]},

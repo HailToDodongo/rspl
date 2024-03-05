@@ -98,6 +98,7 @@ const lexer = moo.compile({
 	Seperator : ",",
 	IdxStart  : "[",
 	IdxEnd    : "]",
+	AnnoStart : "@",
 
 	Assignment: "=",
 
@@ -165,7 +166,7 @@ ScopedBlock -> _ %BlockStart Statements _ %BlockEnd {%
 #        Either as a standalone function call, or by assiging something to a variable
 #        The thing that is assigned can be a constant, unary or LR-expression
 
-Statements -> (ScopedBlock | LabelDecl | IfStatement | LoopStatement | WhileStatement | Expression):* {% d => d[0].map(y => y[0]) %}
+Statements -> (ScopedBlock | LabelDecl | IfStatement | LoopStatement | WhileStatement | Expression  | Annotation):* {% d => d[0].map(y => y[0]) %}
 FunctionDefArgs -> FunctonDefArg {% MAP_FIRST %}
 			 | (FunctionDefArgs _ %Seperator _ FunctonDefArg) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
 
@@ -176,6 +177,17 @@ FunctonDefArg -> %DataType RegDef:? _ %VarName {% d => ({
 })%}
 
 Expression ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarUndef | ExprVarAssign | ExprFuncCall | ExprGoto | ExprContinue | ExprBreak | ExprExit) %StmEnd {% (d) => d[1][0] %}
+
+Annotation -> _ %AnnoStart %VarName (%ArgsStart AnnotationArg %ArgsEnd):? {% d => ({
+	type: "annotation",
+	name: d[2].value,
+	value: d[3] ? d[3][1] : null,
+	line: d[1].line
+
+})%}
+
+AnnotationArg -> ValueNumeric {% d => d[0][0] %}
+	 | %String {% d => REM_QUOTES(d[0].value) %}
 
 LabelDecl -> _ %VarName %Colon {% d => ({type: "labelDecl", name: d[1].value, line: d[1].line}) %}
 

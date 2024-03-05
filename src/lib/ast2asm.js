@@ -297,10 +297,6 @@ function scopedBlockToASM(block, args = [], isCommand = false)
 
     switch(st.type) 
     {
-      case "comment":
-        res.push(asmComment(st.comment.substring(2).trimEnd() || ""));
-      break;
-
       case "varDecl": {
         const reg = st.reg || state.allocRegister(st.varType);
         state.declareVar(st.varName, st.varType, reg, st.isConst || false);
@@ -335,6 +331,10 @@ function scopedBlockToASM(block, args = [], isCommand = false)
           res.push(...callUserFunction(st.func, st.args));
         }
 
+      } break;
+
+      case "annotation": {
+        state.addAnnotation(st.name, st.value);
       } break;
 
       case "labelDecl":
@@ -378,6 +378,10 @@ function scopedBlockToASM(block, args = [], isCommand = false)
 
       default:
         state.throwError("Unknown statement type: " + st.type, st);
+    }
+
+    if(st.type !== "annotation") {
+      state.clearAnnotations();
     }
   }
   return res;

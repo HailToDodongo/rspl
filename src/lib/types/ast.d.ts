@@ -146,9 +146,15 @@ declare global
         varName: string;
     };
 
+    type ASTAnnotation = ASTStatementBase & {
+        type: 'annotation';
+        name: string;
+        value: string | number;
+    };
+
     type ASTStatement = ASTScopedBlock | ASTIf | ASTWhile | ASTLoop | ASTDeclAssign | ASTDeclMulti
         | ASTDecl | ASTFuncCall | ASTComment | ASTDeclAlias | ASTAssignCalc
-        | ASTLabelDecl | ASTGoto | ASTBreak | ASTExit | ASTContinue | ASTVarUndef;
+        | ASTLabelDecl | ASTGoto | ASTBreak | ASTExit | ASTContinue | ASTVarUndef | ASTAnnotation;
 
     type AST = {
         includes: string[];

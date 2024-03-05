@@ -12,6 +12,7 @@ import {
   REGS_VECTOR
 } from "./syntax/registers.js";
 import {isVecType, isTwoRegType, TYPE_SIZE, SCALAR_TYPES, VEC_CASTS} from "./dataTypes/dataTypes.js";
+import {KNOWN_ANNOTATIONS, validateAnnotation} from "./syntax/annotations.js";
 
 const state =
 {
@@ -42,6 +43,7 @@ const state =
     state.outWarn = "";
     state.outInfo = "";
     state.funcMap = {};
+    state.barrierMaskMap = {};
 
     for(let globalLabel of Object.values(LABELS)) {
       this.declareMemVar(globalLabel, "u16", 1);
@@ -124,6 +126,7 @@ const state =
       varMap   : currScope ? {...currScope.varMap} : {},
       regVarMap: currScope ? {...currScope.regVarMap} : {},
       varAliasMap: currScope ? {...currScope.varAliasMap} : {},
+      annotations: currScope ? [...currScope.annotations] : [],
       labelStart,
       labelEnd,
     });
@@ -138,6 +141,54 @@ const state =
   generateLabel: () => {
     ++state.nextLabelId;
     return `LABEL_${state.nextLabelId.toString(16).toUpperCase().padStart(4, '0')}`;
+  },
+
+  /**
+   * Puts an annotation in the current scope.
+   * @param {string} name
+   * @param {string|number} value
+   */
+  addAnnotation: (name, value) => {
+    const anno = {name, value};
+    validateAnnotation(anno);
+    const scope = state.getScope();
+    scope.annotations.push(anno);
+  },
+
+  /**
+   * @return {[{name: string, value: string|number}]}
+   */
+  getAnnotations: (name = undefined) => {
+    const scope = state.getScope();
+    if(!scope)return [];
+
+    if(name) {
+      return scope.annotations.filter(a => a.name === name);
+    }
+    return [...scope.annotations];
+  },
+
+  clearAnnotations: () => {
+    const scope = state.getScope();
+    scope.annotations = [];
+  },
+
+  /**
+   * @param {string} name
+   * @return {number} bitmask for the given barrier
+   */
+  getBarrierMask: (name) =>
+  {
+    // we want to convert a barrier name into a unique bitflag.
+    // unknown barriers are implicitly given a new bitflag.
+    if(!state.barrierMaskMap[name]) {
+      const len = Object.keys(state.barrierMaskMap).length;
+      if(len >= 32) {
+        state.throwError("Too many different barriers, only up to 32 are supported!");
+      }
+      state.barrierMaskMap[name] = (1 << len) >>> 0;
+    }
+    return state.barrierMaskMap[name];
   },
 
   /**

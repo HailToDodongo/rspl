@@ -7,6 +7,12 @@ declare global {
     type DataType = 'u8' | 's8' | 'u16' | 's16' | 'u32' | 's32' | 'vec16' | 'vec32';
     type CastType = DataType | 'uint' | 'sint' | 'ufract' | 'sfract';
     type Swizzle = string;
+    type AnnotationNames = 'Barrier';
+
+    type Annotation = {
+        name: AnnotationNames;
+        value: string | number;
+    };
 
     type VarRegDef = {
         reg: string;
@@ -21,6 +27,7 @@ declare global {
         varMap: Record<string, VarRegDef>;
         regVarMap: Record<string, string>;
         varAliasMap: Record<string, string>;
+        annotations: Annotation[];
         labelStart?: string;
         labelEnd?: string;
     };

@@ -54,6 +54,7 @@ function getOpInfo(op) {
     opIsVector: op.startsWith("v"),
     stallLatency: getStallLatency(op),
     isNOP: op === "nop",
+    annotations: state.getAnnotations(),
   };
 }
 
