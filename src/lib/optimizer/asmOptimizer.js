@@ -231,7 +231,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
     {
       if(i !== 0 && (i % 10) === 0) {
         const dur = performance.now() - time;
-        console.log("["+funcName+"] Step: ", i, mainIterCount - iter, " Time: " + dur + "ms");
+        console.log(`[${funcName}] Step: ${i}, Left: ${mainIterCount - iter} | Time: ${dur.toFixed(4)} ms`);
         time = performance.now();
       }
       const funcCopy = cloneFunction(asmFunc);
@@ -247,15 +247,21 @@ export async function asmOptimize(asmFunc, updateCb, config)
         if(rand() < 0.1)refFunc = anyRandPick;
 
         const {cost, asm} = reorderRound(refFunc);
-        if(cost < costBest) {
+        const isBetter = cost < costBest;
+        const isSame = cost === costBest;
+        const canUseTheSame = s < (VARIANT_COUNT / 2);
+
+        if(isBetter || (canUseTheSame && isSame)) {
           costBest = cost;
           bestAsm = asm;
           asmFunc.asm = asm;
           asmFunc.cyclesAfter = cost;
-          iter = 0;
-          updateCb(asmFunc);
 
-          console.log(`[${funcName}] \x1B[32m**** New Best for '${funcName}': ${costInit} -> ${cost} ****\x1B[0m`);
+          if(isBetter) {
+            iter = 0;
+            updateCb(asmFunc);
+            console.log(`[${funcName}] \x1B[32m**** New Best for '${funcName}': ${costInit} -> ${cost} ****\x1B[0m`);
+          }
         }
 
         //asmFunc.asm = asm; updateCb(asmFunc); await sleep(1200); DEBUG
