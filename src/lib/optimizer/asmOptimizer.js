@@ -51,12 +51,13 @@ export function asmOptimizePattern(asmFunc)
  *
  * Below are settings to fine-tune this process:
  */
-const ITERATION_COUNT_FACTOR = 1.9;  // iterations = asm.length * factor
+const ITERATION_COUNT_FACTOR = 10.0;  // iterations = asm.length * factor
 const ITERATION_COUNT_MIN    = 100;  // minimum iterations
-const VARIANT_COUNT          = 80;   // variants per iteration
+const VARIANT_COUNT          = 5;   // variants per iteration
+const PREFER_STALLS_RATE     = 0.5;  // chance to directly fill a stall instead of a random pick
 
 const REORDER_MIN_OPS = 4;  // minimum instructions to reorder per round
-const REORDER_MAX_OPS = 40; // maximum instructions to reorder per round
+const REORDER_MAX_OPS = 10; // maximum instructions to reorder per round
 
 
 //let i =0;
@@ -150,19 +151,35 @@ function fillDelaySlots(asmFunc)
  */
 function optimizeStep(asmFunc)
 {
-  let i = getRandIndex(0, asmFunc.asm.length-1);
+  let i = 0;
+  let reorderRange = [0,0];
 
-  const asm = asmFunc.asm[i];
-  const reorderRange = asmGetReorderRange(asmFunc.asm, i);
+  for(let r=0; r<50 && (reorderRange[0] === reorderRange[1]); ++r) {
+    i = getRandIndex(0, asmFunc.asm.length-1);
+    reorderRange = asmGetReorderRange(asmFunc.asm, i);
+  }
   if(reorderRange[0] === reorderRange[1])return;
 
-  // pick a random target index, search until we find a new place
+  // pick a random target index first, search until we find a new place
   let targetIdx = i;
   while(targetIdx === i) {
     targetIdx = getRandIndex(reorderRange[0], reorderRange[1]);
   }
 
-  ++asm.debug.reorderCount;
+  // now sometimes we prefer to fill stalls directly, since this prevents any reordering that takes a few moves
+  // we cannot do this all the time
+  if(rand() < PREFER_STALLS_RATE) {
+    let maxStalls = 0;
+    for(let j=reorderRange[0]; j<=reorderRange[1]; ++j) {
+      let stalls = asmFunc.asm[j].debug.stall || 0;
+      if(stalls > maxStalls) {
+        maxStalls = stalls;
+        targetIdx = j;
+      }
+    }
+  }
+
+  ++asmFunc.asm[i].debug.reorderCount;
   relocateElement(asmFunc.asm, i, targetIdx);
 }
 
@@ -229,7 +246,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
     let i = 0;
     for(let iter=0; iter<mainIterCount; ++iter)
     {
-      if(i !== 0 && (i % 10) === 0) {
+      if(i !== 0 && (i % 100) === 0) {
         const dur = performance.now() - time;
         console.log(`[${funcName}] Step: ${i}, Left: ${mainIterCount - iter} | Time: ${dur.toFixed(4)} ms`);
         time = performance.now();
@@ -243,8 +260,8 @@ export async function asmOptimize(asmFunc, updateCb, config)
         let refFunc = funcCopy;
         //if(s < 2)refFunc = lastRandPick;
         //else if(s < 4)refFunc = anyRandPick;
-        if(rand() < 0.1)refFunc = lastRandPick;
-        if(rand() < 0.1)refFunc = anyRandPick;
+        if(rand() < 0.2)refFunc = lastRandPick;
+        if(rand() < 0.2)refFunc = anyRandPick;
 
         const {cost, asm} = reorderRound(refFunc);
         const isBetter = cost < costBest;
@@ -269,7 +286,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
       }
 
       if(i % 3 === 0)lastRandPick = funcCopy;
-      if(rand() < 0.2)anyRandPick = funcCopy;
+      if(rand() < 0.3)anyRandPick = funcCopy;
 
       //asmFunc.asm = bestAsm;
       //updateCb(asmFunc);

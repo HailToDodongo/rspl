@@ -136,6 +136,7 @@ function opMove(varRes, varRight)
 
   // broadcasting 4 lanes to the other 4 lanes (aka half-vector move)
   if(isHalfMove) {
+    state.addAnnotation("Barrier", "__SCRATCH_MEM__");
     return [
       ...opStore(varRight, [{type: "num", value: LABELS.SCRATCH_MEM}], false, false),
       ...opLoad(varRes, {reg: REG.AT}, {type: "num", value: 0}, "xyzw", false, false),
