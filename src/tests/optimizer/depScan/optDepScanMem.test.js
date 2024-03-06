@@ -1,5 +1,6 @@
 import {asm, asmLabel} from "../../../lib/intsructions/asmWriter.js";
 import {asmGetReorderRange, asmInitDeps} from "../../../lib/optimizer/asmScanDeps.js";
+import state from "../../../lib/state.js";
 
 function asmLinesToDeps(lines)
 {
@@ -31,6 +32,28 @@ describe('Optimizer - Dependency Scanner - Memory', () =>
       /* 02 */ asm("sw", ["$t2", "0($s1)"]),
       /* 03 */ asm("or", ["$t3", "$zero", "$zero"]),
     ];
+    expect(asmLinesToDeps(lines)).toEqual([
+      [0, 3],
+      [0, 3],
+      [0, 3],
+      [0, 3],
+    ]);
+  });
+
+  test('Read vs. Write (Barrier)', () => {
+    const lines = [
+      /* 00 */ asm("lw", ["$t0", "0($s1)"]),
+      /* 01 */ asm("or", ["$t1", "$zero", "$zero"]),
+      /* 02 */ asm("sw", ["$t2", "0($s1)"]),
+      /* 03 */ asm("or", ["$t3", "$zero", "$zero"]),
+    ];
+    lines[0].annotations = [{name: "Barrier", value: "some barrier"}];
+    lines[2].annotations = [{name: "Barrier", value: "some barrier"}];
+
+    state.reset();
+    state.enterFunction("test", "command", 0);
+    state.pushScope();
+
     expect(asmLinesToDeps(lines)).toEqual([
       [0, 1],
       [0, 3],
