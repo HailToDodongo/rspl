@@ -1,6 +1,6 @@
 import {REG} from "../syntax/registers.js";
 import state from "../state.js";
-import {asm, asmNOP} from "../intsructions/asmWriter.js";
+import {asm, asmBranch, asmNOP} from "../intsructions/asmWriter.js";
 import {isSigned, u32InS16Range} from "../dataTypes/dataTypes.js";
 import opsScalar from "./scalar.js";
 
@@ -41,7 +41,7 @@ export function opBranch(compare, labelElse, invert = false)
 
     return [
       ...(isImmediate ? opsScalar.loadImmediate(REG.AT, compare.right.value) : []),
-      asm(opBranch, [regLeft, regTestRes, labelElse]),
+      asmBranch(opBranch, [regLeft, regTestRes, labelElse], labelElse),
       asmNOP(),
     ];
   }
@@ -81,7 +81,7 @@ export function opBranch(compare, labelElse, invert = false)
     return [
       ...opsLoad,
       asm(opLessThan, [REG.AT, regLeft, regOrValRight]),
-      asm(opBranch, [REG.AT, REG.ZERO, labelElse]), // jump if "<" fails (aka ">=")
+      asmBranch(opBranch, [REG.AT, REG.ZERO, labelElse], labelElse), // jump if "<" fails (aka ">=")
       asmNOP(),
     ];
   }

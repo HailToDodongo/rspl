@@ -4,7 +4,7 @@
 */
 
 import {ASM_TYPE, asmNOP} from "../intsructions/asmWriter.js";
-import {amInitDep, asmGetReorderRange} from "./asmScanDeps.js";
+import {asmInitDep, asmGetReorderRange} from "./asmScanDeps.js";
 import {dedupeLabels} from "./pattern/dedupeLabels.js";
 import {dedupeJumps} from "./pattern/dedupeJumps.js";
 import {branchJump} from "./pattern/branchJump.js";
@@ -101,7 +101,7 @@ function relocateElement(arr, from, to)
       // now we need to move to the target, and insert a NOP into our position
       const instr = arr[from];
       arr[from] = asmNOP();
-      amInitDep(arr[from]);
+      asmInitDep(arr[from]);
       arr.splice(to, 0, instr); // @TODO: test
     }
   } else {

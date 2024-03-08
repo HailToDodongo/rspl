@@ -34,6 +34,9 @@ declare global
         depsSourceMask: BigInt;
         depsTargetMask: BigInt;
 
+        depsBlockSourceMask: BigInt;
+        depsBlockTargetMask: BigInt;
+
         depsStallSource: string[];
         depsStallTarget: string[];
 
@@ -48,6 +51,8 @@ declare global
         opIsMemStallStore: boolean;
         opIsVector: boolean;
         isNOP: boolean;
+
+        labelEnd: string; // sets the end for a block
 
         stallLatency: number;
 

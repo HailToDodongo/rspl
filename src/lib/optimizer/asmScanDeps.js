@@ -152,9 +152,11 @@ const REG_INDEX_MAP = {
 };
 
 const REG_MASK_MAP = {SIZE: REG_INDEX_MAP.SIZE};
+let REG_MASK_ALL = 0n;
 
 for(let reg of Object.keys(REG_INDEX_MAP)) {
   REG_MASK_MAP[reg] = BigInt(1) << BigInt(REG_INDEX_MAP[reg]);
+  REG_MASK_ALL |= REG_MASK_MAP[reg];
 }
 
 /**
@@ -240,7 +242,7 @@ function getSourceRegsFiltered(line)
 /**
  * @param {ASM} asm
  */
-export function amInitDep(asm)
+export function asmInitDep(asm)
 {
   if(asm.type !== ASM_TYPE.OP || asm.isNOP) {
     asm.depsSource = [];
@@ -249,6 +251,8 @@ export function amInitDep(asm)
     asm.depsStallTarget = [];
     asm.depsSourceMask = 0n;
     asm.depsTargetMask = 0n;
+    asm.depsBlockSourceMask = REG_MASK_ALL;
+    asm.depsBlockTargetMask = REG_MASK_ALL;
     asm.depsStallSourceMask = 0n;
     asm.depsStallTargetMask = 0n;
     asm.barrierMask = 0;
@@ -284,7 +288,43 @@ export function amInitDep(asm)
       asm.barrierMask |= state.getBarrierMask(anno.value);
     }
   }
+}
 
+/**
+ * Scans blocks (e.g. if-condition), and collects data for all instructions in the block.
+ * @param {ASM[]} asmList
+ * @param {number} i current index
+ */
+export function asmInitBlockDep(asmList, i)
+{
+  const asm = asmList[i];
+  // check if we are the start of a block (e.g. if-condition)
+  if(!asm.opIsBranch || !asm.labelEnd) {
+    return;
+  }
+
+  // Now scan the entire block and collect all r/r registers access.
+  // also look out for jump/calls, since we cannot be sure about registers then.
+  asm.depsBlockSourceMask = 0n;
+  asm.depsBlockTargetMask = 0n;
+  console.log(i, asmList.length);
+  for(let j=i+1; j < asmList.length; ++j)
+  {
+    const asmNext = asmList[j];
+    console.log(asmNext.op, asmNext.label, asm.labelEnd);
+    if(asmNext.label === asm.labelEnd) {
+      break;
+    }
+    if(asmNext.opIsBranch) {
+      asm.depsBlockSourceMask = REG_MASK_ALL;
+      asm.depsBlockTargetMask = REG_MASK_ALL;
+      break;
+    }
+
+    asm.depsBlockSourceMask |= asmNext.depsSourceMask;
+    asm.depsBlockTargetMask |= asmNext.depsTargetMask;
+  }
+  console.log("Block: ", i, asm.depsBlockSourceMask.toString(2), asm.depsBlockTargetMask.toString(2));
 }
 
 /**
@@ -294,7 +334,10 @@ export function amInitDep(asm)
  */
 export function asmInitDeps(asmFunc) {
   for(const asm of asmFunc.asm) {
-    amInitDep(asm);
+    asmInitDep(asm);
+  }
+  for(const i in asmFunc.asm) {
+    asmInitBlockDep(asmFunc.asm, parseInt(i));
   }
 }
 
@@ -306,6 +349,11 @@ export function asmInitDeps(asmFunc) {
 function checkAsmBackwardDep(asm, asmPrev) {
   // stop at any label
   if(asm.type !== ASM_TYPE.OP || asmPrev.type !== ASM_TYPE.OP) {
+    // Check for block-skips, See note in 'asmGetReorderRange' for more info.
+    if(asmPrev.labelEnd) {
+       // @TODO: scan backwards to find the start label
+    }
+
     return true;
   }
 
@@ -363,11 +411,36 @@ export function asmGetReorderRange(asmList, i)
   let f = i + 1;
   for(; f < asmList.length; ++f) {
     const asmNext = asmList[f];
+    const amsPrevPrev = asmList[f-2];
 
     // stop at a branch with an already filled delay-slot,
     // or once we are past the delay-slot of a branch if it is empty.
     const isFilledBranch = asmNext.opIsBranch && !asmList[f+1]?.isNOP;
-    const isPastBranch = asmList[f-2]?.opIsBranch;
+    const isPastBranch = amsPrevPrev?.opIsBranch;
+
+    // if the branch we hit is part of a block (e.g. if condition), we usually cannot move past it.
+    // However, it is possible under these conditions:
+    // - all instructions in the block don't read/write to any of our target registers
+    // - all instructions in the block don't write to any of our source registers
+    // - the block contains no jumps/calls (since we cannot be sure about the registers)
+    if(isPastBranch && amsPrevPrev.labelEnd)
+    {
+      // Note: jumps/calls are implicitly handled, they set all bits in the block-mask.
+      const blockMaskRW = amsPrevPrev.depsBlockSourceMask | amsPrevPrev.depsBlockTargetMask;
+
+      if((asm.depsTargetMask & blockMaskRW) === 0n
+      && (asm.depsSourceMask & amsPrevPrev.depsBlockTargetMask) === 0n)
+      {
+        // it's safe to move past the block, try to find the end label and continue scanning there
+        const endIndex = asmList.findIndex(asm => asm.label === amsPrevPrev.labelEnd);
+        if(endIndex) {
+          //console.log(asm.op, amsPrevPrev.labelEnd, endIndex);
+          // @TODO: handle gaps
+          f = endIndex;
+          continue;
+        }
+      }
+    }
 
     if(isFilledBranch || isPastBranch || checkAsmBackwardDep(asmNext, asm)) {
       pos = f;
