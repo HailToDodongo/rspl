@@ -64,7 +64,7 @@ const lexer = moo.compile({
 	KWExit    : "exit",
 	KWAlign   : "alignas",
 
-	ValueHex: /0x[0-9A-F']+/,
+	ValueHex: /0x[0-9A-Fa-f']+/,
 	ValueBin: /0b[0-1']+/,
 	ValueFloat: /[-]?[0-9]+[.][0-9]+/,
 	ValueDec: /[-]?[0-9][0-9']*/,
