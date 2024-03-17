@@ -115,6 +115,47 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
+  test('Assign (swizzle, int-variable)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      u32 s;
+      vec16<$v01> a;
+      vec32<$v02> b;
+      a.y = s;
+      b.z = s;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  mtc2 $t0, $v01.e1
+  mtc2 $t0, $v03.e2
+  srl $at, $t0, 16
+  mtc2 $at, $v02.e2
+  jr $ra
+  nop`);
+  });
+
+  test('Assign (no-swizzle, int-variable)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      u32 s;
+      vec16<$v01> a;
+      vec32<$v02> b;
+      a = s;
+      b = s;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  mtc2 $t0, $v01.e0
+  vor $v01, $v00, $v01.e0
+  mtc2 $t0, $v03.e0
+  srl $at, $t0, 16
+  mtc2 $at, $v02.e0
+  vor $v02, $v00, $v02.e0
+  vor $v03, $v00, $v03.e0
+  jr $ra
+  nop`);
+  });
+
   test('Assign (swizzle, 0)', async () => {
     const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> a;

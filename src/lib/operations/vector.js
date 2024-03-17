@@ -65,7 +65,7 @@ function opMove(varRes, varRight)
     }
   }
 
-  const swizzleRes = SWIZZLE_MAP[varRes.swizzle || ""];
+  let swizzleRes = SWIZZLE_MAP[varRes.swizzle || ""];
 
   let regDst = getVec32Regs(varRes);
   let regsR = getVec32Regs(varRight);
@@ -118,13 +118,23 @@ function opMove(varRes, varRight)
   if(isScalar) {
     if(isHalfMove)state.throwError("Half-moves are not supported for scalar values!");
 
+    // if we want to set a scalar to an entire vector, we need to expand it
+    // this assigns it first to a single lane, then expands into the entire vector
+    const needsExpand = !varRes.swizzle;
+    if(needsExpand)swizzleRes = SWIZZLE_MAP.x;
+
     if(varRes.type === "vec16") {
-      return [asm("mtc2", [varRight.reg, regDst[0] + swizzleRes])];
+      return [
+        asm("mtc2", [varRight.reg, regDst[0] + swizzleRes]),
+        needsExpand ? asm("vor", [regDst[0], REGS.VZERO, regDst[0] + swizzleRes]) : null,
+      ];
     }
     return [
       asm("mtc2", [varRight.reg, regDst[1] + swizzleRes]),
       asm("srl", [REG.AT, varRight.reg, 16]),
-      asm("mtc2", [REG.AT, regDst[0] + swizzleRes])
+      asm("mtc2", [REG.AT, regDst[0] + swizzleRes]),
+      needsExpand ? asm("vor", [regDst[0], REGS.VZERO, regDst[0] + swizzleRes]) : null,
+      needsExpand ? asm("vor", [regDst[1], REGS.VZERO, regDst[1] + swizzleRes]) : null,
     ];
   }
 
