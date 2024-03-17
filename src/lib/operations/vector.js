@@ -148,7 +148,7 @@ function opMove(varRes, varRight)
   if(isHalfMove) {
     state.addAnnotation("Barrier", "__SCRATCH_MEM__");
     return [
-      ...opStore(varRight, [{type: "num", value: LABELS.SCRATCH_MEM}], false, false),
+      ...opStore(varRight, [{type: "num", value: LABELS.RSPQ_SCRATCH_MEM}], false, false),
       ...opLoad(varRes, {reg: REG.AT}, {type: "num", value: 0}, "xyzw", false, false),
     ];
   }

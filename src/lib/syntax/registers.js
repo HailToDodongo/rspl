@@ -70,7 +70,7 @@ export const REGS_FORBIDDEN = [
 ];
 
 export const LABELS = {
-  SCRATCH_MEM: "SCRATCH_MEM",
+  RSPQ_SCRATCH_MEM: "RSPQ_SCRATCH_MEM",
 };
 
 /**
