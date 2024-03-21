@@ -216,6 +216,10 @@ function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSign
 
   srcOffset += varOffset.value;
 
+  if(loadInstr === "lqv" && srcOffset % 16 !== 0) {
+    state.throwError("Invalid full vector-load offset, must be a multiple of 16, " + srcOffset + " given", varRes);
+  }
+
   res.push(            asm(loadInstr, [varRes.reg, destOffset,   srcOffset, varLoc.reg]));
   if(dupeLoad)res.push(asm(loadInstr, [varRes.reg, destOffset+8, srcOffset, varLoc.reg]));
 
