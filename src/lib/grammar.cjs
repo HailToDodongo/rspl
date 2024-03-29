@@ -21,6 +21,15 @@ const FORCE_SCOPED_BLOCK = d => {
 	return d;
 };
 
+const SWIZZLE_ALIAS_MAP = {
+	"0": "x", "1": "y", "2": "z", "3": "w",
+	"4": "X", "5": "Y", "6": "Z", "7": "W",
+};
+
+const NORM_SWIZZLE = s => s.split("")
+	.map(l => SWIZZLE_ALIAS_MAP[l] || l)
+	.join("");
+
 const moo = require("moo")
 const lexer = moo.compile({
 	String: /".*"/,
@@ -46,7 +55,15 @@ const lexer = moo.compile({
 	  ".xyzwxyzw", ".xyzw", ".XYZW",
 	  ".xy", ".zw", ".XY", ".ZW",
 	  ".x", ".y", ".z", ".w", ".X", ".Y", ".Z", ".W",
-	], value: s => s.substring(1)},
+
+	  ".00224466", ".11335577",
+	  ".00004444", ".11115555", ".22226666", ".33337777",
+	  ".00000000", ".11111111", ".22222222", ".33333333",
+	  ".44444444", ".55555555", ".66666666", ".77777777",
+	  ".01230123", ".0123", ".4567",
+	  ".01", ".23", ".45", ".67",
+	  ".0", ".1", ".2", ".3", ".4", ".5", ".6", ".7",
+	], value: s => NORM_SWIZZLE(s.substring(1))},
 
 	FunctionType: ["function", "command", "macro"],
 	KWIf      : "if",
@@ -64,7 +81,7 @@ const lexer = moo.compile({
 	KWExit    : "exit",
 	KWAlign   : "alignas",
 
-	ValueHex: /0x[0-9A-F']+/,
+	ValueHex: /0x[0-9A-Fa-f']+/,
 	ValueBin: /0b[0-1']+/,
 	ValueFloat: /[-]?[0-9]+[.][0-9]+/,
 	ValueDec: /[-]?[0-9][0-9']*/,

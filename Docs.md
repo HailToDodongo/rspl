@@ -228,6 +228,17 @@ u32 address;
 store(a.xy, address); // stores the first two lanes to memory
 ```
 
+Alternatively, elements can be accessed by their index, starting from 0.<br>
+The syntax is the same, mapping each number to the corresponding letter.<br>
+For example, these statements are equivalent:
+```c++
+a.x = b.y;
+a.0 = b.1;
+
+a += b.yywwYYWW;
+a += b.11335577;
+```
+
 ### Cast
 RSPL comes with a unified cast and partial-access syntax, specified by a colon (`:`) and type.<br>
 This works for both scalar and vector types.<br>

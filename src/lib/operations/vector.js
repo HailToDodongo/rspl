@@ -65,7 +65,7 @@ function opMove(varRes, varRight)
     }
   }
 
-  const swizzleRes = SWIZZLE_MAP[varRes.swizzle || ""];
+  let swizzleRes = SWIZZLE_MAP[varRes.swizzle || ""];
 
   let regDst = getVec32Regs(varRes);
   let regsR = getVec32Regs(varRight);
@@ -118,13 +118,23 @@ function opMove(varRes, varRight)
   if(isScalar) {
     if(isHalfMove)state.throwError("Half-moves are not supported for scalar values!");
 
+    // if we want to set a scalar to an entire vector, we need to expand it
+    // this assigns it first to a single lane, then expands into the entire vector
+    const needsExpand = !varRes.swizzle;
+    if(needsExpand)swizzleRes = SWIZZLE_MAP.x;
+
     if(varRes.type === "vec16") {
-      return [asm("mtc2", [varRight.reg, regDst[0] + swizzleRes])];
+      return [
+        asm("mtc2", [varRight.reg, regDst[0] + swizzleRes]),
+        needsExpand ? asm("vor", [regDst[0], REGS.VZERO, regDst[0] + swizzleRes]) : null,
+      ];
     }
     return [
       asm("mtc2", [varRight.reg, regDst[1] + swizzleRes]),
       asm("srl", [REG.AT, varRight.reg, 16]),
-      asm("mtc2", [REG.AT, regDst[0] + swizzleRes])
+      asm("mtc2", [REG.AT, regDst[0] + swizzleRes]),
+      needsExpand ? asm("vor", [regDst[0], REGS.VZERO, regDst[0] + swizzleRes]) : null,
+      needsExpand ? asm("vor", [regDst[1], REGS.VZERO, regDst[1] + swizzleRes]) : null,
     ];
   }
 
@@ -138,7 +148,7 @@ function opMove(varRes, varRight)
   if(isHalfMove) {
     state.addAnnotation("Barrier", "__SCRATCH_MEM__");
     return [
-      ...opStore(varRight, [{type: "num", value: LABELS.SCRATCH_MEM}], false, false),
+      ...opStore(varRight, [{type: "num", value: LABELS.RSPQ_SCRATCH_MEM}], false, false),
       ...opLoad(varRes, {reg: REG.AT}, {type: "num", value: 0}, "xyzw", false, false),
     ];
   }
@@ -205,6 +215,10 @@ function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSign
   }
 
   srcOffset += varOffset.value;
+
+  if(loadInstr === "lqv" && srcOffset % 16 !== 0) {
+    state.throwError("Invalid full vector-load offset, must be a multiple of 16, " + srcOffset + " given", varRes);
+  }
 
   res.push(            asm(loadInstr, [varRes.reg, destOffset,   srcOffset, varLoc.reg]));
   if(dupeLoad)res.push(asm(loadInstr, [varRes.reg, destOffset+8, srcOffset, varLoc.reg]));

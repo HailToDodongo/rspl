@@ -109,4 +109,29 @@ describe('Syntax - Swizzle', () =>
    await expect(() => transpileSource(src, CONF))
     .rejects.toThrowError(/line 3: Swizzling not allowed for scalar operations!/);
   });
+
+  test('Alias (integer index)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec16<$v01> a;
+      a.x = a.0;
+      a.1 = a.z;
+      
+      a += a.xxzzXXZZ;
+      a += a.00224466;
+      
+      a += a.wwwwWWWW;
+      a += a.33337777;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmov $v01.e0, $v01.e0
+  vmov $v01.e1, $v01.e2
+  vaddc $v01, $v01, $v01.q0
+  vaddc $v01, $v01, $v01.q0
+  vaddc $v01, $v01, $v01.h3
+  vaddc $v01, $v01, $v01.h3
+  jr $ra
+  nop`);
+  });
 });
