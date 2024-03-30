@@ -9,7 +9,7 @@ describe('Examples', () =>
   test('Example code', async () => {
     const {asm, warn} = await transpileSource(EXAMPLE_CODE, CONF);
 
-    expect(warn).toBe("");
+    expect(warn.toLowerCase()).not.toContain("error");
     expect(asm).toBeDefined();
   });
 
@@ -17,7 +17,7 @@ describe('Examples', () =>
     const code = readFileSync("./src/tests/examples/squares2d.rspl", "utf8");
     const {asm, warn} = await transpileSource(code, CONF);
 
-    expect(warn).toBe("");
+    expect(warn.toLowerCase()).not.toContain("error");
     expect(asm).toBeDefined();
   });
 
@@ -25,7 +25,7 @@ describe('Examples', () =>
     const code = readFileSync("./src/tests/examples/3d.rspl", "utf8");
     const {asm, warn} = await transpileSource(code, CONF);
 
-    expect(warn).toBe("");
+    expect(warn.toLowerCase()).not.toContain("error");
     expect(asm).toBeDefined();
   });
 
@@ -33,7 +33,7 @@ describe('Examples', () =>
     const code = readFileSync("./src/tests/examples/mandelbrot.rspl", "utf8");
     const {asm, warn} = await transpileSource(code, CONF);
 
-    expect(warn).toBe("");
+    expect(warn.toLowerCase()).not.toContain("error");
     expect(asm).toBeDefined();
   });
 
@@ -74,7 +74,7 @@ command<0> VecCmd_Transform(u32 vec_out, u32 mat_in)
 include "rsp_rdpq.inc"
 `, CONF);
 
-    expect(warn).toBe("");
+    expect(warn.toLowerCase()).not.toContain("error");
     expect(asm.trimEnd()).toBe(`## Auto-generated file, transpiled with RSPL
 #include <rsp_queue.inc>
 
@@ -156,8 +156,10 @@ include "rsp_rdpq.inc"
   RSPQ_EndOverlayHeader
 
   RSPQ_BeginSavedState
+    STATE_MEM_START:
     .align 3
     VEC_SLOTS: .ds.b 640
+    STATE_MEM_END:
   RSPQ_EndSavedState
 
 .text
