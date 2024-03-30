@@ -461,7 +461,8 @@ export function asmGetReorderRange(asmList, i)
 
   // even though we (may have) found a dependency, we still need to know if something tries to
   // read from one of our sources. Not doing so would prevent us from reordering the last write of a chain.
-  for(let fRead = (isPastBranch ? f-2 : f); fRead < asmList.length; ++fRead) {
+  let fRead = (isPastBranch ? f-2 : f)
+  for(; fRead < asmList.length; ++fRead) {
     lastReadMask |= asmList[fRead].depsSourceMask;
 
     // branches/jumps needs special care, their target can make use of registers set before in code.
@@ -470,6 +471,8 @@ export function asmGetReorderRange(asmList, i)
       lastReadMask |= asmList[fRead].depsArgMask;
     }
   }
+  f = Math.max(fRead, f);
+
 
   // check if there was an instruction in between which wrote to one of our target registers.
   // if true, fall-back to that position (otherwise register would contain wrong value)
