@@ -174,6 +174,10 @@ export function writeASM(ast, functionsAsm, config)
         ? " ## Barrier: 0x" + asm.barrierMask.toString(16).toUpperCase()
         : "";
 
+      if(asm.funcArgs && asm.funcArgs.length) {
+        debugInfo += " ## Args: " + asm.funcArgs.join(", ");
+      }
+
       // ASM Text output
       switch (asm.type) {
         case ASM_TYPE.INLINE:

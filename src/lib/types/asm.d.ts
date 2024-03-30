@@ -26,11 +26,13 @@ declare global
 
         label?: string;
         comment?: string;
+        funcArgs: string[];
 
         depsSource: string[];
         depsTarget: string[];
         barrierMask: number;
 
+        depsArgMask: BigInt;
         depsSourceMask: BigInt;
         depsTargetMask: BigInt;
 

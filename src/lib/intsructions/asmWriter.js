@@ -55,6 +55,8 @@ function getOpInfo(op) {
     stallLatency: getStallLatency(op),
     isNOP: op === "nop",
     annotations: state.getAnnotations(),
+    funcArgs: [],
+    depsArgMask: 0n,
   };
 }
 
@@ -66,6 +68,21 @@ function getOpInfo(op) {
  */
 export function asm(op, args) {
   return {type: ASM_TYPE.OP, op, args, debug: getDebugData(), ...getOpInfo(op)};
+}
+
+/**
+ * Emits a function call
+ * @param target
+ * @param argRegs
+ * @return {ASM}
+ */
+export function asmFunction(target, argRegs) {
+  const op = "jal";
+  return {
+    type: ASM_TYPE.OP, op, args: [target],
+    debug: getDebugData(), ...getOpInfo(op),
+    funcArgs: argRegs
+  };
 }
 
 export function asmBranch(op, args, labelEnd) {

@@ -3,7 +3,7 @@
 * @license Apache-2.0
 */
 import state from "../state.js";
-import {asm, asmNOP} from "../intsructions/asmWriter.js";
+import {asm, asmFunction, asmNOP} from "../intsructions/asmWriter.js";
 import opsScalar from "./scalar.js";
 
 /**
@@ -36,6 +36,7 @@ export function callUserFunction(name, args)
     }
   }
 
-  res.push(asm("jal", [userFunc.name]), asmNOP());
+  const regsArg = userFunc.args.map(arg => arg.reg);
+  res.push(asmFunction(userFunc.name, regsArg), asmNOP());
   return res;
 }
