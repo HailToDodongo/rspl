@@ -96,6 +96,7 @@ export function writeASM(ast, functionsAsm, config)
   const hasState = !!ast.state.find(v => !v.extern);
   if(hasState) {
     writeLine("  RSPQ_BeginSavedState");
+    writeLine("    STATE_MEM_START:");
 
     for(const stateVar of ast.state) {
       if(stateVar.extern)continue;
@@ -134,6 +135,7 @@ export function writeASM(ast, functionsAsm, config)
       totalSaveByteSize += byteSize;
     }
 
+    writeLine("    STATE_MEM_END:");
     writeLine("  RSPQ_EndSavedState");
   } else {
     writeLine("  RSPQ_EmptySavedState");
