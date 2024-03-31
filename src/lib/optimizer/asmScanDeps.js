@@ -2,7 +2,7 @@
 * @copyright 2023 - Max Bebök
 * @license Apache-2.0
 */
-import {isVecReg} from "../syntax/registers.js";
+import {isVecReg, REG} from "../syntax/registers.js";
 import {SWIZZLE_LANE_MAP} from "../syntax/swizzle.js";
 import {ASM_TYPE} from "../intsructions/asmWriter.js";
 import state from "../state.js";
@@ -152,9 +152,11 @@ const REG_INDEX_MAP = {
 };
 
 const REG_MASK_MAP = {SIZE: REG_INDEX_MAP.SIZE};
+let REG_MASK_ALL = 0n;
 
 for(let reg of Object.keys(REG_INDEX_MAP)) {
   REG_MASK_MAP[reg] = BigInt(1) << BigInt(REG_INDEX_MAP[reg]);
+  REG_MASK_ALL |= REG_MASK_MAP[reg];
 }
 
 /**
@@ -240,7 +242,7 @@ function getSourceRegsFiltered(line)
 /**
  * @param {ASM} asm
  */
-export function amInitDep(asm)
+export function asmInitDep(asm)
 {
   if(asm.type !== ASM_TYPE.OP || asm.isNOP) {
     asm.depsSource = [];
@@ -249,9 +251,12 @@ export function amInitDep(asm)
     asm.depsStallTarget = [];
     asm.depsSourceMask = 0n;
     asm.depsTargetMask = 0n;
+    asm.depsBlockSourceMask = REG_MASK_ALL;
+    asm.depsBlockTargetMask = REG_MASK_ALL;
     asm.depsStallSourceMask = 0n;
     asm.depsStallTargetMask = 0n;
     asm.barrierMask = 0;
+    asm.depsArgMask = 0n;
     return;
   }
 
@@ -262,6 +267,10 @@ export function amInitDep(asm)
   asm.depsTarget = asm.depsStallTarget.flatMap(expandRegister);
 
   asm.depsSourceMask = getRegisterMask(asm.depsSource);
+  if(asm.funcArgs && asm.funcArgs.length) {
+    asm.depsArgMask = getRegisterMask(asm.funcArgs);
+  }
+
   asm.depsTargetMask = getRegisterMask(asm.depsTarget);
 
   //console.log("Mask Src: ", asm.depsSourceMask.toString(2));
@@ -284,7 +293,41 @@ export function amInitDep(asm)
       asm.barrierMask |= state.getBarrierMask(anno.value);
     }
   }
+}
 
+/**
+ * Scans blocks (e.g. if-condition), and collects data for all instructions in the block.
+ * @param {ASM[]} asmList
+ * @param {number} i current index
+ */
+export function asmInitBlockDep(asmList, i)
+{
+  const asm = asmList[i];
+  // check if we are the start of a block (e.g. if-condition)
+  if(!asm.opIsBranch || !asm.labelEnd) {
+    return;
+  }
+
+  // Now scan the entire block and collect all r/r registers access.
+  // also look out for jump/calls, since we cannot be sure about registers then.
+  asm.depsBlockSourceMask = 0n;
+  asm.depsBlockTargetMask = 0n;
+  for(let j=i+1; j < asmList.length; ++j)
+  {
+    const asmNext = asmList[j];
+    if(asmNext.label === asm.labelEnd) {
+      break;
+    }
+    if(asmNext.opIsBranch) {
+      asm.depsBlockSourceMask = REG_MASK_ALL;
+      asm.depsBlockTargetMask = REG_MASK_ALL;
+      break;
+    }
+
+    asm.depsBlockSourceMask |= asmNext.depsSourceMask;
+    asm.depsBlockTargetMask |= asmNext.depsTargetMask;
+  }
+  //console.log("Block: ", i, asm.depsBlockSourceMask.toString(2), asm.depsBlockTargetMask.toString(2));
 }
 
 /**
@@ -294,7 +337,10 @@ export function amInitDep(asm)
  */
 export function asmInitDeps(asmFunc) {
   for(const asm of asmFunc.asm) {
-    amInitDep(asm);
+    asmInitDep(asm);
+  }
+  for(const i in asmFunc.asm) {
+    asmInitBlockDep(asmFunc.asm, parseInt(i));
   }
 }
 
@@ -306,6 +352,11 @@ export function asmInitDeps(asmFunc) {
 function checkAsmBackwardDep(asm, asmPrev) {
   // stop at any label
   if(asm.type !== ASM_TYPE.OP || asmPrev.type !== ASM_TYPE.OP) {
+    // Check for block-skips, See note in 'asmGetReorderRange' for more info.
+    if(asmPrev.labelEnd) {
+       // @TODO: scan backwards to find the start label
+    }
+
     return true;
   }
 
@@ -361,13 +412,40 @@ export function asmGetReorderRange(asmList, i)
   let pos = asmList.length;
 
   let f = i + 1;
+  let isPastBranch = false;
   for(; f < asmList.length; ++f) {
     const asmNext = asmList[f];
+    const amsPrevPrev = asmList[f-2];
 
     // stop at a branch with an already filled delay-slot,
     // or once we are past the delay-slot of a branch if it is empty.
     const isFilledBranch = asmNext.opIsBranch && !asmList[f+1]?.isNOP;
-    const isPastBranch = asmList[f-2]?.opIsBranch;
+    isPastBranch = amsPrevPrev?.opIsBranch;
+
+    // @TODO: wip, implement forward and backward scan for this:
+    // if the branch we hit is part of a block (e.g. if condition), we usually cannot move past it.
+    // However, it is possible under these conditions:
+    // - all instructions in the block don't read/write to any of our target registers
+    // - all instructions in the block don't write to any of our source registers
+    // - the block contains no jumps/calls (since we cannot be sure about the registers)
+    /*if(isPastBranch && amsPrevPrev.labelEnd)
+    {
+      // Note: jumps/calls are implicitly handled, they set all bits in the block-mask.
+      const blockMaskRW = amsPrevPrev.depsBlockSourceMask | amsPrevPrev.depsBlockTargetMask;
+
+      if((asm.depsTargetMask & blockMaskRW) === 0n
+      && (asm.depsSourceMask & amsPrevPrev.depsBlockTargetMask) === 0n)
+      {
+        // it's safe to move past the block, try to find the end label and continue scanning there
+        const endIndex = asmList.findIndex(asm => asm.label === amsPrevPrev.labelEnd);
+        if(endIndex) {
+          //console.log(asm.op, amsPrevPrev.labelEnd, endIndex);
+          // @TODO: handle gaps
+          f = endIndex;
+          continue;
+        }
+      }
+    }*/
 
     if(isFilledBranch || isPastBranch || checkAsmBackwardDep(asmNext, asm)) {
       pos = f;
@@ -383,9 +461,18 @@ export function asmGetReorderRange(asmList, i)
 
   // even though we (may have) found a dependency, we still need to know if something tries to
   // read from one of our sources. Not doing so would prevent us from reordering the last write of a chain.
-  for(; f < asmList.length; ++f) {
-    lastReadMask |= asmList[f].depsSourceMask;
+  let fRead = (isPastBranch ? f-2 : f)
+  for(; fRead < asmList.length; ++fRead) {
+    lastReadMask |= asmList[fRead].depsSourceMask;
+
+    // branches/jumps needs special care, their target can make use of registers set before in code.
+    // The function arguments (if known) are stored in a separate mask
+    if(asmList[fRead].opIsBranch) {
+      lastReadMask |= asmList[fRead].depsArgMask;
+    }
   }
+  f = Math.max(fRead, f);
+
 
   // check if there was an instruction in between which wrote to one of our target registers.
   // if true, fall-back to that position (otherwise register would contain wrong value)
@@ -399,7 +486,6 @@ export function asmGetReorderRange(asmList, i)
       }
     }
   }
-
 
   const minMax = [0, pos-1];
 

@@ -78,10 +78,13 @@ export async function transpile(ast, updateCb, config = {})
     normalizeASM(func);
   }
 
+  let debugUnopt = {};
+
   const generateASM = () => {
     const {asm, debug} = writeASM(ast, functionsAsm, config);
   //console.timeEnd("writeASM");
 
+    debug.lineDepMap = debugUnopt.lineDepMap;
     return {
       asm: asm.trimEnd(),
       asmUnoptimized,
@@ -94,7 +97,18 @@ export async function transpile(ast, updateCb, config = {})
   let asmUnoptimized = "";
   if(config.optimize)
   {
-    asmUnoptimized = writeASM(ast, functionsAsm, config).asm;
+    // pre-generate the first version of the ASM to get line numbers
+    for(const func of functionsAsm)
+    {
+      writeASM(ast, functionsAsm, config);
+      asmInitDeps(func);
+      asmScanDeps(func); // debugging only
+    }
+
+    const resUnopt = writeASM(ast, functionsAsm, config);
+    asmUnoptimized = resUnopt.asm;
+    debugUnopt = resUnopt.debug;
+
     for(const func of functionsAsm)
     {
       asmOptimizePattern(func);

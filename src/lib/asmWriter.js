@@ -96,6 +96,7 @@ export function writeASM(ast, functionsAsm, config)
   const hasState = !!ast.state.find(v => !v.extern);
   if(hasState) {
     writeLine("  RSPQ_BeginSavedState");
+    writeLine("    STATE_MEM_START:");
 
     for(const stateVar of ast.state) {
       if(stateVar.extern)continue;
@@ -134,6 +135,7 @@ export function writeASM(ast, functionsAsm, config)
       totalSaveByteSize += byteSize;
     }
 
+    writeLine("    STATE_MEM_END:");
     writeLine("  RSPQ_EndSavedState");
   } else {
     writeLine("  RSPQ_EmptySavedState");
@@ -173,6 +175,10 @@ export function writeASM(ast, functionsAsm, config)
       let debugInfo = asm.barrierMask
         ? " ## Barrier: 0x" + asm.barrierMask.toString(16).toUpperCase()
         : "";
+
+      if(asm.funcArgs && asm.funcArgs.length) {
+        debugInfo += " ## Args: " + asm.funcArgs.join(", ");
+      }
 
       // ASM Text output
       switch (asm.type) {

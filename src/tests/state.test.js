@@ -42,6 +42,7 @@ describe('State', () =>
   RSPQ_EndOverlayHeader
 
   RSPQ_BeginSavedState
+    STATE_MEM_START:
     a: .ds.b 1
     .align 1
     b: .ds.b 2
@@ -51,6 +52,7 @@ describe('State', () =>
     d: .ds.b 16
     .align 3
     e: .ds.b 32
+    STATE_MEM_END:
   RSPQ_EndSavedState
 
 `);
@@ -74,6 +76,7 @@ describe('State', () =>
   RSPQ_EndOverlayHeader
 
   RSPQ_BeginSavedState
+    STATE_MEM_START:
     .align 2
     a0: .ds.b 4
     .align 2
@@ -86,6 +89,7 @@ describe('State', () =>
     b1: .ds.b 64
     .align 3
     b2: .ds.b 256
+    STATE_MEM_END:
   RSPQ_EndSavedState
 
 `);
@@ -106,10 +110,12 @@ describe('State', () =>
   RSPQ_EndOverlayHeader
 
   RSPQ_BeginSavedState
+    STATE_MEM_START:
     .align 2
     a: .ds.b 4
     .align 2
     c: .ds.b 4
+    STATE_MEM_END:
   RSPQ_EndSavedState
 
 `);
@@ -130,12 +136,14 @@ describe('State', () =>
   RSPQ_EndOverlayHeader
 
   RSPQ_BeginSavedState
+    STATE_MEM_START:
     .align 1
     a: .ds.b 2
     .align 3
     b: .ds.b 2
     .align 2
     c: .ds.b 1
+    STATE_MEM_END:
   RSPQ_EndSavedState
 
 `);

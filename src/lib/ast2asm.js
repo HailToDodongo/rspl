@@ -8,7 +8,7 @@ import opsVector from "./operations/vector";
 import state from "./state";
 import builtins from "./builtins/functions";
 import {isVecReg, REG} from "./syntax/registers.js";
-import {asm, asmComment, asmLabel, asmNOP} from "./intsructions/asmWriter.js";
+import {asm, asmBranch, asmLabel, asmNOP} from "./intsructions/asmWriter.js";
 import {opBranch} from "./operations/branch.js";
 import {callUserFunction} from "./operations/userFunction.js";
 import {isVecType} from "./dataTypes/dataTypes.js";

@@ -15,7 +15,7 @@ import {
 import state from "../state";
 import opsScalar from "../operations/scalar";
 import opsVector from "../operations/vector";
-import {asm, asmInline, asmNOP} from "../intsructions/asmWriter.js";
+import {asm, asmFunction, asmInline, asmNOP} from "../intsructions/asmWriter.js";
 import {isTwoRegType, isVecType, TYPE_SIZE} from "../dataTypes/dataTypes.js";
 import {POW2_SWIZZLE_VAR, SWIZZLE_MAP, SWIZZLE_MAP_KEYS_STR} from "../syntax/swizzle.js";
 import {DMA_FLAGS} from "./libdragon.js";
@@ -363,11 +363,15 @@ function genericDMA(varRes, args, swizzle, builtinName, dmaName) {
     ];
   }
 
+  if(varRDRAM.reg !== REG.S0) {
+    state.logWarning("Builtin "+builtinName+"() expects second argument (RDRAM) to be in $s0, adding copy", args[1]);
+  }
+
   return [
     varRDRAM.reg === REG.S0 ? null : asm("or", [REG.S0, REG.ZERO, varRDRAM.reg]),
     ...sizeLoadOps,
     ...opsScalar.loadImmediate(REG.T2, DMA_FLAGS[dmaName]),
-    asm("jal", ["DMAExec"]),
+    asmFunction("DMAExec", [REG.T0, REG.T1, REG.S0, REG.S4, REG.T2]),
     asmNOP(),
   ];
 }
@@ -393,7 +397,7 @@ function dma_await(varRes, args, swizzle) {
   if(args.length > 0)state.throwError("Builtin dma_await() requires no arguments!", args);
   if(swizzle)state.throwError("Builtin dma_await() cannot use swizzle!", varRes);
 
-  return [asm("jal", ["DMAWaitIdle"]), asmNOP()];
+  return [asmFunction("DMAWaitIdle", []), asmNOP()];
 }
 
 function invert_half(varRes, args, swizzle) {
