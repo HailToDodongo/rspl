@@ -40,5 +40,23 @@ export function mergeSequence(asmFunc)
       continue;
     }
 
+    // indirect multiply by zero / 32-bit multiply with 0 fractional
+    if(
+      asm.op === "vxor" && asm.args[1] === REG.VZERO && asm.args[2]?.startsWith(REG.VZERO) && // a vector gets an explicit zero assigned...
+      lines[i+1]?.op === "vmudl" // ...and is then used in a multiply
+    ) {
+      // check if the registers match...
+      const targetReg = asm.args[0];
+      if(lines[i+1].args[0] === targetReg && lines[i+1].args[1] === targetReg)
+      {
+        // ...then remove the zero assignment, and just use zero as the multiply operand
+        lines[i+1].args[1] = REG.VZERO;
+        lines.splice(i, 1);
+        i-=1;
+        continue;
+      }
+    }
+
+
   }
 }

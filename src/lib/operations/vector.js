@@ -534,6 +534,8 @@ function opMul(varRes, varLeft, varRight, clearAccum)
     }
   }
 
+  const rightSideIsFraction = ["sfract", "ufract"].includes(varRight.castType);
+
   // Full 32-bit multiplication
   if(right32Bit) {
     res.push(
@@ -542,11 +544,12 @@ function opMul(varRes, varLeft, varRight, clearAccum)
     );
     intOp = "vmadn"; // don't clear inbetween
   } // Partial multiplication: s16.16 * 0.16 (fractional part of original s16.16)
-  else if(varRight.originalType === "vec32" && ["sfract", "ufract"].includes(varRight.castType))
+  else if(rightSideIsFraction && (varRight.originalType === "vec32" || varRes.type === "vec32"))
   {
     res.push(
       asm(fractOp, [nextVecReg(varRes.reg), fractReg(varLeft), varRight.reg + swizzleRight]),
       asm("vmadm", [           varRes.reg,        varLeft.reg, varRight.reg + swizzleRight]),
+      asm("vmadn", [nextVecReg(varRes.reg), REGS.VZERO,        REGS.VZERO]),
     );
     return res;
   } // 16-Bit multiplication

@@ -85,8 +85,14 @@ export function writeASM(ast, functionsAsm, config)
       commandList[block.resultType] = "    RSPQ_DefineCommand " + block.name + ", " + block.argSize;
     }
   }
+  for(let i=0; i<commandList.length; ++i) {
+    if(commandList[i] === undefined) {
+      commandList[i] = "    RSPQ_DefineCommand RSPQ_Loop, 4";
+    }
+  }
 
   if(commandList.includes(undefined))state.throwError("Command list has gaps!", ast);
+
   writeLines(commandList);
   writeLines(["  RSPQ_EndOverlayHeader", ""]);
 
@@ -150,6 +156,7 @@ export function writeASM(ast, functionsAsm, config)
 
   for(const block of functionsAsm) {
     if(!["function", "command"].includes(block.type))continue;
+    if(block.asm.length === 0)continue;
 
     writeLine(block.name + ":");
 

@@ -37,7 +37,9 @@ export function dedupeLabels(asmFunc)
     if(labelsDelete.includes(asm.label))continue;
     if(BRANCH_OPS.includes(asm.op)) {
       const label = asm.args[asm.args.length-1];
-      if(labelsReplace[label])asm.args[asm.args.length-1] = labelsReplace[label][0];
+      if(labelsReplace[label]) {
+        asm.args[asm.args.length-1] = labelsReplace[label][0];
+      }
     }
     asmNew.push(asm);
   }

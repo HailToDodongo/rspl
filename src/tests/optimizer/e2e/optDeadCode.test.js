@@ -50,7 +50,7 @@ describe('Optimizer E2E - Dead Code', () =>
   addiu $t0, $zero, 2`);
   });
 
-  test('Jump in branch - unsafe', async () => {
+  test('Jump in branch - safe jal', async () => {
     const {asm, warn} = await transpileSource(`
     function test2();
     function test() 
@@ -64,10 +64,8 @@ describe('Optimizer E2E - Dead Code', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   addiu $t0, $zero, 1
-  beq $t0, $zero, LABEL_0001
-  nop
-  jal test2
-  nop
+  bne $t0, $zero, test2
+  ori $ra, $zero, LABEL_0001
   LABEL_0001:
   jr $ra
   nop`);

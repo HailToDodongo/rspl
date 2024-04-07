@@ -112,16 +112,20 @@ export async function transpile(ast, updateCb, config = {})
     for(const func of functionsAsm)
     {
       asmOptimizePattern(func);
-      asmInitDeps(func);
+      if(func.asm.length > 0) {
+        asmInitDeps(func);
 
-      console.time("asmOptimize");
-      await asmOptimize(func, (bestFunc) => {
-        if(updateCb)updateCb(generateASM());
-      }, config);
-      console.timeEnd("asmOptimize");
+        console.time("asmOptimize");
+        await asmOptimize(func, (bestFunc) => {
+          if(updateCb)updateCb(generateASM());
+        }, config);
+        console.timeEnd("asmOptimize");
 
-      asmScanDeps(func); // debugging only
-      func.cyclesAfter = evalFunctionCost(func);
+        asmScanDeps(func); // debugging only
+        func.cyclesAfter = evalFunctionCost(func);
+      } else {
+        func.cyclesAfter = 0;
+      }
     }
 
     console.log("==== Optimization Overview ====");

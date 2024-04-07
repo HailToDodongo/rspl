@@ -8,11 +8,13 @@ import {asmInitDep, asmGetReorderRange} from "./asmScanDeps.js";
 import {dedupeLabels} from "./pattern/dedupeLabels.js";
 import {dedupeJumps} from "./pattern/dedupeJumps.js";
 import {branchJump} from "./pattern/branchJump.js";
+import {tailCall} from "./pattern/tailCall.js";
 import {evalFunctionCost} from "./eval/evalCost.js";
 import {dedupeImmediate} from "./pattern/dedupeImm.js";
 import {mergeSequence} from "./pattern/mergeSequence.js";
 import {removeDeadCode} from "./pattern/removeDeadCode.js";
 import {sleep} from "../utils.js";
+import {commandAlias} from "./pattern/commandAlias.js";
 
 /**
  * Optimizes ASM before any dependency analysis.
@@ -28,9 +30,11 @@ export function asmOptimizePattern(asmFunc)
   dedupeLabels(asmFunc);
   dedupeJumps(asmFunc);
   branchJump(asmFunc);
+  tailCall(asmFunc);
   dedupeImmediate(asmFunc);
   mergeSequence(asmFunc);
   removeDeadCode(asmFunc);
+  commandAlias(asmFunc);
 }
 
 /**
