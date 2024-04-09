@@ -565,7 +565,7 @@ res = select(a, 32); // constants are allowed too
 ### `get_vcc()`
 Stores the result of a vector comparison into a scalar variable.<br>
 This should be used after a comparison or `min()`/`max()` call.<br>
-The value will be `0` or `1`.
+The value will be a bitmask of `0` or `1`s for each vector component.
 
 ### `invert_half(vec a)` & `invert(vec a)`
 Inverts a (single component of a) vector (`1 / x`).<br>

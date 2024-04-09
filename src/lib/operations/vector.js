@@ -189,6 +189,11 @@ function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSign
     } else {
       state.throwError("Load base-address must be a variable!");
     }
+  } else if(varOffset.name) {
+    // now we want to do a load based on a variable with and label-offset
+    res.push(...opsScalar.opAdd({reg: REG.AT}, {reg: varLoc.reg}, {value: varOffset.name}));
+    varOffset = {type: "num", value: 0};
+    varLoc = {type: "num", reg: REG.AT};
   }
   if(isVecReg(varLoc.reg))state.throwError("Load base-address must be a scalar register!", varRes);
   if(varOffset.type !== "num")state.throwError("Load offset must be a numerical-constant!");

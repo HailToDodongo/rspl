@@ -469,7 +469,7 @@ res = select(a, 32); // constants are allowed too
 <h3 id="get_vcc"><code>get_vcc()</code></h3>
 <p>Stores the result of a vector comparison into a scalar variable.<br>
 This should be used after a comparison or <code>min()</code>/<code>max()</code> call.<br>
-The value will be <code>0</code> or <code>1</code>.</p>
+The value will be a bitmask of <code>0</code> or <code>1</code>s for each vector component.</p>
 <h3 id="invert_halfvecainvertveca"><code>invert_half(vec a)</code> &amp; <code>invert(vec a)</code></h3>
 <p>Inverts a (single component of a) vector (<code>1 / x</code>).<br>
 The <code>invert_half</code> version maps directly to the hardware instruction, returning <code>0.5 / x</code>.<br>
