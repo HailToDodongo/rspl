@@ -395,14 +395,14 @@ if(a > 10) {
 
 ## Vector operations
 The following operations are available for vector types:
-- Arithmetic: `+`, `-`, `*`, `+*`, `/`
+- Arithmetic: `+`, `-`, `*`, `+*`
 - Bitwise: `&`, `|`, `^`, `~`
 - Assignment: `=`
 - Compare: `<`, `>=`, `==`, `!=`
 - Ternary: `?:`
 
-Note: Division is very expensive, since it will be converted to a multiplication with the inverse.<br>
-If you need the inverse, look at the `invert_half()` builtin.<br>
+Note: Division is not supported in hardware, it is usually implemented using multiplication with the inverse.<br>
+For the inverse (`1/x`), take a look at the `invert_half()` builtin.<br>
 
 Due to the hardware using an accumulator for multiplication, there is a special operator `+*`.<br>
 This keeps the accumulator intact, allowing for multiple mul.+add. in a row.<br>

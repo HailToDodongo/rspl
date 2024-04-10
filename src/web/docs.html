@@ -330,14 +330,14 @@ if(a &gt; 10) {
 <h2 id="vectoroperations">Vector operations</h2>
 <p>The following operations are available for vector types:</p>
 <ul>
-<li>Arithmetic: <code>+</code>, <code>-</code>, <code>*</code>, <code>+*</code>, <code>/</code></li>
+<li>Arithmetic: <code>+</code>, <code>-</code>, <code>*</code>, <code>+*</code></li>
 <li>Bitwise: <code>&amp;</code>, <code>|</code>, <code>^</code>, <code>~</code></li>
 <li>Assignment: <code>=</code></li>
 <li>Compare: <code>&lt;</code>, <code>&gt;=</code>, <code>==</code>, <code>!=</code></li>
 <li>Ternary: <code>?:</code></li>
 </ul>
-<p>Note: Division is very expensive, since it will be converted to a multiplication with the inverse.<br>
-If you need the inverse, look at the <code>invert_half()</code> builtin.<br></p>
+<p>Note: Division is not supported in hardware, it is usually implemented using multiplication with the inverse.<br>
+For the inverse (<code>1/x</code>), take a look at the <code>invert_half()</code> builtin.<br></p>
 <p>Due to the hardware using an accumulator for multiplication, there is a special operator <code>+*</code>.<br>
 This keeps the accumulator intact, allowing for multiple mul.+add. in a row.<br>
 As an example, you can use this to perform a matrix-vector multiplication:<br></p>

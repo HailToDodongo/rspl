@@ -429,7 +429,35 @@ function opXOR(varRes, varLeft, varRight) {
  * @returns {ASM[]}
  */
 function opShiftLeft(varRes, varLeft, varRight) {
-  return state.throwError("Shift-Left is not supported for vectors! (@TODO: implement this)");
+  if(typeof(varRight.value) === "string")state.throwError("Shift-Left cannot use labels!");
+  if(varRight.reg)state.throwError("Vector-Shift amount must be a constant,\nfor variable shifts use multiplications instead");
+
+  if(varRight.value < 0 || varRight.value > 31) {
+    state.throwError("Shift-Left value must be in range 0<x<32!");
+  }
+
+  const shiftVal = Math.floor(Math.pow(2, varRight.value));
+  const shiftReg = POW2_SWIZZLE_VAR[shiftVal];
+  if(!shiftReg)state.throwError(`Invalid shift value (${varRight.value} -> V:${shiftVal})`, varRight);
+
+  if(varRes.type !== varLeft.type) {
+    state.throwError("Shift-Left requires all arguments to be of the same type!");
+  }
+
+  if(varRes.type === "vec32") {
+    const regsRes = getVec32Regs(varRes);
+    const regsL = getVec32Regs(varLeft);
+
+    return [
+      asm("vmudl", [regsRes[1], regsL[1], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
+      asm("vmadm", [regsRes[0], regsL[0], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
+      asm("vmadn", [regsRes[1], REGS.VZERO, REGS.VZERO]),
+    ];
+  }
+
+  return [
+    asm("vmudn", [varRes.reg, varLeft.reg, shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]])
+  ];
 }
 
 /**
@@ -441,6 +469,8 @@ function opShiftLeft(varRes, varLeft, varRight) {
 function opShiftRight(varRes, varLeft, varRight)
 {
   if(typeof(varRight.value) === "string")state.throwError("Shift-Right cannot use labels!");
+  if(varRight.reg)state.throwError("Vector-Shift amount must be a constant,\nfor variable shifts use multiplications instead");
+
   if(varRight.value < 0 || varRight.value > 31) {
     state.throwError("Shift-Right value must be in range 0<x<32!");
   }
@@ -464,7 +494,9 @@ function opShiftRight(varRes, varLeft, varRight)
     ];
   }
 
-  return state.throwError("Shift-Right is not supported for vec16! (@TODO: implement this)");
+  return [
+    asm("vmudl", [varRes.reg, varLeft.reg, shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]])
+  ];
 }
 
 /**
@@ -658,19 +690,7 @@ function opInvertSqrtHalf(varRes, varLeft) {
  * @returns {ASM[]}
  */
 function opDiv(varRes, varLeft, varRight) {
-  state.throwError("Vector division is not supported! (@TODO: implement this)");
-/*
-  if(!varRight.swizzle || !isScalarSwizzle(varRight.swizzle)) {
-    state.throwError("Vector division needs swizzling on the right side (must be scalar .x to .W)!", varRes);
-  }
-  const tmpVar = {type: varRight.type, reg: REG.VTEMP1};
-  const tmpVarSw = {...tmpVar, swizzle: varRight.swizzle};
-
-  return [
-    ...opInvertHalf(tmpVarSw, varRight),
-    ...opMul(tmpVar, tmpVar, POW2_SWIZZLE_VAR["2"], true),
-    ...opMul(varRes, varLeft, tmpVarSw, true)
-  ];*/
+  state.throwError("Vector division is not supported! Use invert_half() or shift-right instead.");
 }
 
 /**

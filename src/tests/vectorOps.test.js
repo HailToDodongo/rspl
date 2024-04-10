@@ -612,25 +612,84 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  /*test('Div (vec32 vs vec32)', async () => {
+  test('Shift Left (vec16)', async () => {
     const {asm, warn} = await transpileSource(`function test() {
-      vec32<$v01> res, a;
-      res /= a.x;
+      vec16<$v02> a, b;
+      b = a << 1;
+      b = a << 4;
+      b = a << 15;
     }`, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vrcph $v28.e0, $v03.e0
-  vrcpl $v29.e0, $v04.e0
-  vrcph $v28.e0, $v00.e0
-  vmudn $v29, $v29, $v30.e6
-  vmadh $v28, $v28, $v30.e6
-  vmudl $v29, $v02, $v29.e0
-  vmadm $v29, $v01, $v29.e0
-  vmadn $v02, $v02, $v28.e0
-  vmadh $v01, $v01, $v28.e0
+  vmudn $v03, $v02, $v30.e6
+  vmudn $v03, $v02, $v30.e3
+  vmudn $v03, $v02, $v31.e0
   jr $ra
   nop`);
-  });*/
+  });
+
+  test('Shift Right (vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec16<$v02> a, b;
+      b = a >> 1;
+      b = a >> 4;
+      b = a >> 15;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudl $v03, $v02, $v31.e0
+  vmudl $v03, $v02, $v31.e3
+  vmudl $v03, $v02, $v30.e6
+  jr $ra
+  nop`);
+  });
+
+  test('Shift Left (vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec32<$v02> a, b;
+      b = a << 1;
+      b = a << 4;
+      b = a << 15;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudl $v05, $v03, $v30.e6
+  vmadm $v04, $v02, $v30.e6
+  vmadn $v05, $v00, $v00
+  vmudl $v05, $v03, $v30.e3
+  vmadm $v04, $v02, $v30.e3
+  vmadn $v05, $v00, $v00
+  vmudl $v05, $v03, $v31.e0
+  vmadm $v04, $v02, $v31.e0
+  vmadn $v05, $v00, $v00
+  jr $ra
+  nop`);
+  });
+
+  test('Shift right (vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec32<$v02> a, b;
+      b = a >> 1;
+      b = a >> 4;
+      b = a >> 15;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudl $v05, $v03, $v31.e0
+  vmadm $v04, $v02, $v31.e0
+  vmadn $v05, $v00, $v00
+  vmudl $v05, $v03, $v31.e3
+  vmadm $v04, $v02, $v31.e3
+  vmadn $v05, $v00, $v00
+  vmudl $v05, $v03, $v30.e6
+  vmadm $v04, $v02, $v30.e6
+  vmadn $v05, $v00, $v00
+  jr $ra
+  nop`);
+  });
 
 });
