@@ -28,6 +28,16 @@ import opsScalar from "./scalar";
 import builtins from "../builtins/functions.js";
 
 /**
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ */
+function assertVectorVars(varLeft, varRight) {
+  if(!varLeft.type.startsWith("vec") || (varRight.reg && !varRight.type.startsWith("vec"))) {
+    state.throwError("Vector-Operation requires all variables to be vectors!");
+  }
+}
+
+/**
  * Function to handle all possible forms of direct assignment.
  * Scalar to vector, vector to vector, immediate-values, single lane-access, casting, ...
  * @param {ASTFuncArg} varRes target
@@ -293,12 +303,17 @@ function opAdd(varRes, varLeft, varRight)
   if(!varRight.reg) {
     varRight = POW2_SWIZZLE_VAR[varRight.value];
     if(!varRight) {
-      state.throwError("Addition by a constant can only be done with powers of two!");
+      state.throwError(
+        "Addition by a constant can only be done with powers of two!\n" +
+        "Assign any other values to a vector-variable first.\n" +
+        "E.g. 'vec16 add; add.x = 42;'"
+      );
     }
   }
   if(varRes.swizzle || varLeft.swizzle) {
     state.throwError("Addition only allows swizzle on the right side!");
   }
+  assertVectorVars(varLeft, varRight);
 
   const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
   if(swizzleRight === undefined) {
@@ -342,6 +357,7 @@ function opSub(varRes, varLeft, varRight)
   if(varRes.swizzle || varLeft.swizzle) {
     state.throwError("Subtraction only allows swizzle on the right side!");
   }
+  assertVectorVars(varLeft, varRight);
 
   const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
   if(swizzleRight === undefined) {
@@ -370,6 +386,7 @@ function genericLogicOp(varRes, varLeft, varRight, op) {
   const funcName = op.toUpperCase().substring(1);
   if(!varRight.reg)state.throwError(funcName + " cannot be done with a constant!");
   if(varRes.swizzle || varLeft.swizzle)state.throwError(funcName + " only allows swizzle on the right side!");
+  assertVectorVars(varLeft, varRight);
 
   const swizzleRight = SWIZZLE_MAP[varRight.swizzle || ""];
   if(swizzleRight === undefined) {
@@ -506,7 +523,7 @@ function opShiftRight(varRes, varLeft, varRight)
  */
 function opBitFlip(varRes, varRight) {
   if(varRight.swizzle)state.throwError("NOT operator is only supported for variables!");
-  return genericLogicOp(varRes, varRight, {type: 'u32', reg: REG.VZERO}, "vnor");
+  return genericLogicOp(varRes, varRight, {type: 'vec16', reg: REG.VZERO}, "vnor");
 }
 
 /**
@@ -527,6 +544,7 @@ function opMul(varRes, varLeft, varRight, clearAccum)
   if(varRes.swizzle || varLeft.swizzle) {
     state.throwError("Multiplication only allows swizzle on the right side!");
   }
+  assertVectorVars(varLeft, varRight);
 
   const res = [];
   const right32Bit = varRight.type === "vec32";
