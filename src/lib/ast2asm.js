@@ -152,7 +152,8 @@ function calcLRToAsm(calc, varRes, varLeft, varRight)
     case "^":  return opsHandler.opXOR(varRes, varLeft, varRight);
 
     case "<<":  return opsHandler.opShiftLeft(varRes, varLeft, varRight);
-    case ">>":  return opsHandler.opShiftRight(varRes, varLeft, varRight);
+    case ">>":  return opsHandler.opShiftRight(varRes, varLeft, varRight, false);
+    case ">>>": return opsHandler.opShiftRight(varRes, varLeft, varRight, true);
 
     default: state.throwError("Unknown operator: " + op);
   }

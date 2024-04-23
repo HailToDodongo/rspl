@@ -370,13 +370,17 @@ macro loadCurrentMat(vec32 mat0, vec32 mat1, vec32 mat2, vec32 mat3)
 
 ## Scalar operations
 The following operations are available for scalar types:
-- Arithmetic: `+`, `-`, `*`, `/`
-- Bitwise: `&`, `|`, `^`, `~`. `<<`, `>>`
+- Arithmetic: `+`, `-`, `*`, `/`, `<<`, `>>`
+- Bitwise: `&`, `|`, `^`, `~`, `>>>`
 - Assignment: `=`
 
 Note: `*` and `/` is only supported with `2^x` contants (which use a shift instead).<br>
 This is a hardware limitation.<br>
 The shorthand operators for all (e.g. `+=`) are also available.
+
+The right-shift instruction `>>` will by default decide between an arithmetic or logical shift based on the data-type.<br>
+If you want to force a logical shift, you can use the `>>>` operator.<br>
+Note that the automatic detection of the type is not available for vector operations.
 
 Inside `if`-statements, you have to use one of the following comparison-operators:
 - `==`, `!=`, `>`, `<`, `>=`, `<=`
@@ -395,14 +399,17 @@ if(a > 10) {
 
 ## Vector operations
 The following operations are available for vector types:
-- Arithmetic: `+`, `-`, `*`, `+*`
-- Bitwise: `&`, `|`, `^`, `~`
+- Arithmetic: `+`, `-`, `*`, `+*`, `<<`, `>>`
+- Bitwise: `&`, `|`, `^`, `~`, `>>>`
 - Assignment: `=`
 - Compare: `<`, `>=`, `==`, `!=`
 - Ternary: `?:`
 
 Note: Division is not supported in hardware, it is usually implemented using multiplication with the inverse.<br>
 For the inverse (`1/x`), take a look at the `invert_half()` builtin.<br>
+
+Right shifts are available in two versions, `>>` and `>>>`.<br>
+By default, all shifts are arithmetic, but you can force a logical shift by using `>>>`.<br>
 
 Due to the hardware using an accumulator for multiplication, there is a special operator `+*`.<br>
 This keeps the accumulator intact, allowing for multiple mul.+add. in a row.<br>

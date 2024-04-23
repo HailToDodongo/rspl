@@ -481,9 +481,10 @@ function opShiftLeft(varRes, varLeft, varRight) {
  * @param {ASTFuncArg} varRes
  * @param {ASTFuncArg} varLeft
  * @param {ASTFuncArg} varRight
+ * @param {boolean} logical
  * @returns {ASM[]}
  */
-function opShiftRight(varRes, varLeft, varRight)
+function opShiftRight(varRes, varLeft, varRight, logical)
 {
   if(typeof(varRight.value) === "string")state.throwError("Shift-Right cannot use labels!");
   if(varRight.reg)state.throwError("Vector-Shift amount must be a constant,\nfor variable shifts use multiplications instead");
@@ -504,15 +505,17 @@ function opShiftRight(varRes, varLeft, varRight)
     const regsRes = getVec32Regs(varRes);
     const regsL = getVec32Regs(varLeft);
 
+    const instMid = logical ? "vmadn" : "vmadm";
     return [
       asm("vmudl", [regsRes[1], regsL[1], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
-      asm("vmadm", [regsRes[0], regsL[0], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
+      asm(instMid, [regsRes[0], regsL[0], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
       asm("vmadn", [regsRes[1], REGS.VZERO, REGS.VZERO]),
     ];
   }
 
-  return [
-    asm("vmudl", [varRes.reg, varLeft.reg, shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]])
+  return [logical
+    ? asm("vmudl", [varRes.reg, varLeft.reg, shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]])
+    : asm("vmudm", [varRes.reg, varLeft.reg, shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]])
   ];
 }
 

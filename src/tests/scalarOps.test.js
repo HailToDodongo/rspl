@@ -87,6 +87,10 @@ describe('Scalar - Ops', () =>
         SHIFT_RIGHT:
         c = a >> b;
         c = a >> 2;
+        sc = sa >> sb;
+        sc = sa >> 2;
+        sc = sa >>> 2;
+        
         //c = a >> TEST_CONST; Invalid
       }`, CONF);
 
@@ -115,6 +119,9 @@ describe('Scalar - Ops', () =>
   SHIFT_RIGHT:
   srlv $t2, $t0, $t1
   srl $t2, $t0, 2
+  srav $t5, $t3, $t4
+  sra $t5, $t3, 2
+  srl $t5, $t3, 2
   jr $ra
   nop`);
   });

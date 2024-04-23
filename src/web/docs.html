@@ -306,13 +306,16 @@ A macro could look like this:</p>
 <h2 id="scalaroperations">Scalar operations</h2>
 <p>The following operations are available for scalar types:</p>
 <ul>
-<li>Arithmetic: <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code></li>
-<li>Bitwise: <code>&amp;</code>, <code>|</code>, <code>^</code>, <code>~</code>. <code>&lt;&lt;</code>, <code>&gt;&gt;</code></li>
+<li>Arithmetic: <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>&lt;&lt;</code>, <code>&gt;&gt;</code></li>
+<li>Bitwise: <code>&amp;</code>, <code>|</code>, <code>^</code>, <code>~</code>, <code>&gt;&gt;&gt;</code></li>
 <li>Assignment: <code>=</code></li>
 </ul>
 <p>Note: <code>*</code> and <code>/</code> is only supported with <code>2^x</code> contants (which use a shift instead).<br>
 This is a hardware limitation.<br>
 The shorthand operators for all (e.g. <code>+=</code>) are also available.</p>
+<p>The right-shift instruction <code>&gt;&gt;</code> will by default decide between an arithmetic or logical shift based on the data-type.<br>
+If you want to force a logical shift, you can use the <code>&gt;&gt;&gt;</code> operator.<br>
+Note that the automatic detection of the type is not available for vector operations.</p>
 <p>Inside <code>if</code>-statements, you have to use one of the following comparison-operators:</p>
 <ul>
 <li><code>==</code>, <code>!=</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code></li>
@@ -330,14 +333,16 @@ if(a &gt; 10) {
 <h2 id="vectoroperations">Vector operations</h2>
 <p>The following operations are available for vector types:</p>
 <ul>
-<li>Arithmetic: <code>+</code>, <code>-</code>, <code>*</code>, <code>+*</code></li>
-<li>Bitwise: <code>&amp;</code>, <code>|</code>, <code>^</code>, <code>~</code></li>
+<li>Arithmetic: <code>+</code>, <code>-</code>, <code>*</code>, <code>+*</code>, <code>&lt;&lt;</code>, <code>&gt;&gt;</code></li>
+<li>Bitwise: <code>&amp;</code>, <code>|</code>, <code>^</code>, <code>~</code>, <code>&gt;&gt;&gt;</code></li>
 <li>Assignment: <code>=</code></li>
 <li>Compare: <code>&lt;</code>, <code>&gt;=</code>, <code>==</code>, <code>!=</code></li>
 <li>Ternary: <code>?:</code></li>
 </ul>
 <p>Note: Division is not supported in hardware, it is usually implemented using multiplication with the inverse.<br>
 For the inverse (<code>1/x</code>), take a look at the <code>invert_half()</code> builtin.<br></p>
+<p>Right shifts are available in two versions, <code>&gt;&gt;</code> and <code>&gt;&gt;&gt;</code>.<br>
+By default, all shifts are arithmetic, but you can force a logical shift by using <code>&gt;&gt;&gt;</code>.<br></p>
 <p>Due to the hardware using an accumulator for multiplication, there is a special operator <code>+*</code>.<br>
 This keeps the accumulator intact, allowing for multiple mul.+add. in a row.<br>
 As an example, you can use this to perform a matrix-vector multiplication:<br></p>

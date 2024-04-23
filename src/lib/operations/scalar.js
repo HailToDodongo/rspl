@@ -209,16 +209,17 @@ function opShiftLeft(varRes, varLeft, varRight)
  * @param {ASTFuncArg} varRes
  * @param {ASTFuncArg} varLeft
  * @param {ASTFuncArg} varRight
+ * @param {boolean} logical if true, logical shift. If false, arithmetic shift.
  * @returns {ASM[]}
  */
-function opShiftRight(varRes, varLeft, varRight)
+function opShiftRight(varRes, varLeft, varRight, logical)
 {
   if(typeof(varRight.value) === "string")state.throwError("Shift-Right cannot use labels!");
   if(varRight.value < 0 || varRight.value > 31) {
     state.throwError("Shift-Right value must be in range 0<x<32!");
   }
 
-  let instr = isSigned(varRes.type) ? "sra" : "srl";
+  let instr = (logical || !isSigned(varRes.type)) ? "srl" : "sra";
   if(varRight.reg)instr += "v";
 
   const valRight = varRight.reg ? varRight.reg : varRight.value;
@@ -308,7 +309,7 @@ function opDiv(varRes, varLeft, varRight) {
   if(varRight.value === 1) {
     state.throwError("Scalar-Division by 1 is a NOP!", [varRes, varLeft, varRight]);
   }
-  return opShiftRight(varRes, varLeft, {type: 'u32', value: shiftVal});
+  return opShiftRight(varRes, varLeft, {type: 'u32', value: shiftVal}, varLeft.type.startsWith("u"));
 }
 
 function opCompare(varRes, varLeft, varRight, op, ternary) {

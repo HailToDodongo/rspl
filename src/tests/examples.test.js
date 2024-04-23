@@ -23,10 +23,11 @@ describe('Examples', () =>
 
   test('Example code - 3D', async () => {
     const code = readFileSync("./src/tests/examples/3d.rspl", "utf8");
-    const {asm, warn} = await transpileSource(code, CONF);
+    const expectedASM = readFileSync("./src/tests/examples/3d.S", "utf8");
 
+    const {asm, warn} = await transpileSource(code, {rspqWrapper: true, optimize: true});
     expect(warn.toLowerCase()).not.toContain("error");
-    expect(asm).toBeDefined();
+    expect(asm).toEqual(expectedASM);
   });
 
   test('Example code - Mandelbrot', async () => {

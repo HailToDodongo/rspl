@@ -629,12 +629,29 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Shift Right (vec16)', async () => {
+  test('Shift Right Arithmetic (vec16)', async () => {
     const {asm, warn} = await transpileSource(`function test() {
       vec16<$v02> a, b;
       b = a >> 1;
       b = a >> 4;
       b = a >> 15;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudm $v03, $v02, $v31.e0
+  vmudm $v03, $v02, $v31.e3
+  vmudm $v03, $v02, $v30.e6
+  jr $ra
+  nop`);
+  });
+
+  test('Shift Right Logical (vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec16<$v02> a, b;
+      b = a >>> 1;
+      b = a >>> 4;
+      b = a >>> 15;
     }`, CONF);
 
     expect(warn).toBe("");
@@ -669,7 +686,7 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Shift right (vec32)', async () => {
+  test('Shift right Arithmetic (vec32)', async () => {
     const {asm, warn} = await transpileSource(`function test() {
       vec32<$v02> a, b;
       b = a >> 1;
@@ -687,6 +704,29 @@ describe('Vector - Ops', () =>
   vmadn $v05, $v00, $v00
   vmudl $v05, $v03, $v30.e6
   vmadm $v04, $v02, $v30.e6
+  vmadn $v05, $v00, $v00
+  jr $ra
+  nop`);
+  });
+
+  test('Shift right Logical (vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec32<$v02> a, b;
+      b = a >>> 1;
+      b = a >>> 4;
+      b = a >>> 15;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudl $v05, $v03, $v31.e0
+  vmadn $v04, $v02, $v31.e0
+  vmadn $v05, $v00, $v00
+  vmudl $v05, $v03, $v31.e3
+  vmadn $v04, $v02, $v31.e3
+  vmadn $v05, $v00, $v00
+  vmudl $v05, $v03, $v30.e6
+  vmadn $v04, $v02, $v30.e6
   vmadn $v05, $v00, $v00
   jr $ra
   nop`);
