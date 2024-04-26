@@ -123,24 +123,24 @@
 
   RSPQ_BeginSavedState
     STATE_MEM_START:
-    .align 3
+    .align 4
     MATRIX_PROJ: .ds.b 64
-    .align 3
+    .align 4
     MATRIX_MVP: .ds.b 64
-    .align 3
+    .align 4
     MATRIX_NORMAL: .ds.b 32
     TRI_BUFFER: .ds.b 2520
     .align 4
     CLIP_BUFFER_TMP: .ds.b 252
     .align 4
     CLIP_BUFFER_RESULT: .ds.b 288
-    .align 3
+    .align 4
     SCREEN_SCALE_OFFSET: .half 0, 0, 0, 0, 0, 0, 16383, 255
-    .align 3
+    .align 4
     NORMAL_MASK_SHIFT: .half 63488, 2016, 31, 0, 1, 32, 2048, 0
     .align 4
     CLIPPING_PLANES: .byte 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, -1, 0, 1, 0, -1
-    .align 3
+    .align 4
     NORM_SCALE_W: .half 65535, 65535, 65535, 0, 0, 0, 0, 65535
     .align 2
     COLOR_AMBIENT: .ds.b 8

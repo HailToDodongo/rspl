@@ -48,9 +48,9 @@ describe('State', () =>
     b: .ds.b 2
     .align 2
     c: .ds.b 4
-    .align 3
+    .align 4
     d: .ds.b 16
-    .align 3
+    .align 4
     e: .ds.b 32
     STATE_MEM_END:
   RSPQ_EndSavedState
@@ -83,11 +83,11 @@ describe('State', () =>
     a1: .ds.b 16
     .align 2
     a2: .ds.b 32
-    .align 3
+    .align 4
     b0: .ds.b 32
-    .align 3
+    .align 4
     b1: .ds.b 64
-    .align 3
+    .align 4
     b2: .ds.b 256
     STATE_MEM_END:
   RSPQ_EndSavedState
@@ -121,7 +121,7 @@ describe('State', () =>
 `);
   });
 
-    test('Align', async () => {
+  test('Align', async () => {
     const {asm, warn} = await transpileSource(`
       state {
         u16 a;
@@ -143,6 +143,31 @@ describe('State', () =>
     b: .ds.b 2
     .align 2
     c: .ds.b 1
+    STATE_MEM_END:
+  RSPQ_EndSavedState
+
+`);
+  });
+
+  test('Align lower', async () => {
+    const {asm, warn} = await transpileSource(`
+      state {
+        vec16 VEC_A;
+        alignas(8) vec16 VEC_A;
+      }
+      `, CONF);
+
+    expect(warn).toBe("");
+    expect(getDataSection(asm)).toBe(`.data
+  RSPQ_BeginOverlayHeader
+  RSPQ_EndOverlayHeader
+
+  RSPQ_BeginSavedState
+    STATE_MEM_START:
+    .align 4
+    VEC_A: .ds.b 16
+    .align 3
+    VEC_A: .ds.b 16
     STATE_MEM_END:
   RSPQ_EndSavedState
 

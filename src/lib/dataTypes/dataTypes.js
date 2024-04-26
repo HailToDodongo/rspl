@@ -34,8 +34,8 @@ export const TYPE_ALIGNMENT = {
   u16  : 1,
   s32  : 2,
   u32  : 2,
-  vec16: 3,
-  vec32: 3,
+  vec16: 4,
+  vec32: 4,
 };
 
 /** @type {Record<DataType, number>} */

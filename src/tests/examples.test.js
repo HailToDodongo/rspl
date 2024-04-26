@@ -158,7 +158,7 @@ include "rsp_rdpq.inc"
 
   RSPQ_BeginSavedState
     STATE_MEM_START:
-    .align 3
+    .align 4
     VEC_SLOTS: .ds.b 640
     STATE_MEM_END:
   RSPQ_EndSavedState
