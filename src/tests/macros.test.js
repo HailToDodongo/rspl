@@ -72,4 +72,22 @@ describe('Macros', () =>
   jr $ra
   nop`);
   });
+
+    test('Return Value', async () => {
+    const {asm, warn} = await transpileSource(`
+      macro test_a(u32 res, u32 argA, u32 argB) {
+        res = argA + argB;
+      }
+      
+      function test_macro() {
+        u32<$a0> argA, argB;
+        u32<$s0> a = test_a(argA, argB);
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test_macro:
+  addu $s0, $a0, $a1
+  jr $ra
+  nop`);
+  });
 });

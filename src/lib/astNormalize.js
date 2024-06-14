@@ -6,6 +6,7 @@ import {TYPE_REG_COUNT} from "./dataTypes/dataTypes.js";
 import {nextReg} from "./syntax/registers";
 import state from "./state.js";
 import {validateAnnotation} from "./syntax/annotations.js";
+import builtins from "./builtins/functions.js";
 
 /**
  * @param {ASTScopedBlock} block
@@ -27,7 +28,7 @@ function normalizeScopedBlock(block, astState, macros)
   }
 
   /** @type {ASTStatement[]} */
-  const statements = [];
+  let statements = [];
   for(const st of block.statements)
   {
     state.line = st.line || 0;
@@ -76,6 +77,35 @@ function normalizeScopedBlock(block, astState, macros)
         }
       break;
 
+      default: statements.push(st); break;
+    }
+  }
+
+  // expand assigned function calls (if user defined)
+  statements = statements.map(st =>
+  {
+    state.line = st.line || 0;
+    if(st.type === "varAssignCalc" && st.calc.type === "calcFunc" && !builtins[st.calc.funcName])
+    {
+      if(st.swizzle || st.calc.swizzleRight) {
+        state.throwError("Swizzle not allowed for user-defined functions!", st);
+      }
+      return {
+        type: "funcCall",
+        func: st.calc.funcName,
+        args: [{type: "var", value: st.varName}, ...st.calc.args],
+        line: st.line,
+      };
+    }
+    return st;
+  });
+
+  statements = statements.map(st =>
+  {
+    state.line = st.line || 0;
+
+    switch (st.type)
+    {
       case "funcCall":
         if(macros[st.func]) {
           const macro = structuredClone(macros[st.func]);
@@ -96,17 +126,15 @@ function normalizeScopedBlock(block, astState, macros)
             });
           }
           macro.body.statements = [...varDecl, ...macro.body.statements];
-          statements.push(macro.body);
+          return macro.body;
 
         } else {
-          statements.push(st);
+          return st;
         }
       break;
-
-      default: statements.push(st); break;
-
+      default: return st;
     }
-  }
+  });
 
   for(const st of statements)
   {
