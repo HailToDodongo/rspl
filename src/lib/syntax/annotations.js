@@ -4,9 +4,13 @@
 */
 import state from "../state.js";
 
-export const KNOWN_ANNOTATIONS = [
-  "Barrier"
-];
+export const ANNOTATIONS = {
+  Barrier: "Barrier",
+  Relative: "Relative",
+  Align: "Align",
+};
+
+export const KNOWN_ANNOTATIONS = Object.keys(ANNOTATIONS);
 
 /**
  * Checks if an annotation is known and valid.
@@ -24,4 +28,9 @@ export function validateAnnotation(anno) {
       state.throwError("Annotation '"+anno.name+"' expects a string value!");
     }
   }
+}
+
+export function getAnnotationVal(annotations, name) {
+  const anno = annotations.find(anno => anno.name === name);
+  return anno ? (anno.value || true) : undefined;
 }

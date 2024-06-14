@@ -13,7 +13,7 @@ import {normalizeASM} from "./asmNormalize.js";
 import {asmOptimize, asmOptimizePattern} from "./optimizer/asmOptimizer.js";
 import {asmInitDeps, asmScanDeps} from "./optimizer/asmScanDeps.js";
 import {evalFunctionCost} from "./optimizer/eval/evalCost.js";
-import {preprocess} from "./preproc/preprocess.js";
+import {preprocess, stripComments} from "./preproc/preprocess.js";
 
 const grammar = nearly.Grammar.fromCompiled(grammarDef);
 /**
@@ -23,15 +23,6 @@ function normalizeConfig(config)
 {
   if(config.rspqWrapper === undefined)config.rspqWrapper = true;
   if(config.optimize    === undefined)config.optimize = false;
-}
-
-function stripComments(source) {
-  return source
-    .replaceAll(/\/\/.*$/gm, "")
-    .replace(/\/\*[\s\S]*?\*\//g, match => {
-      const newlineCount = match.split('\n').length - 1;
-      return '\n'.repeat(newlineCount);
-    });
 }
 
 /**
@@ -46,7 +37,16 @@ export async function transpileSource(source, config, updateCb = undefined)
 
   console.time("Preprocessor");
   const defines = {};
-  source = preprocess(source, defines);
+  if(config.defines) {
+    for(const [key, value] of Object.entries(config.defines)) {
+      defines[key] = {
+        regex: new RegExp(`\\b${key}\\b`, "g"),
+        value: value
+      };
+    }
+  }
+
+  source = preprocess(source, defines, config.fileLoader);
   console.timeEnd("Preprocessor");
 
   //console.time("parser");

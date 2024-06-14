@@ -131,6 +131,40 @@ describe('Preproc - Base', () =>
     `.trim());
   });
 
+  test('Ifdef - define (true)', () => {
+    const src = `
+      #define TEST 42
+     
+      #ifdef TEST
+        #define VAL 1
+      #else
+        #define VAL 2
+      #endif
+      VAL
+    `;
+    const res = preprocess(src, CONF);
+    expect(res.trim()).toBe(`
+      1
+    `.trim());
+  });
+
+  test('Ifdef - define (false)', () => {
+    const src = `
+      #define TEST 42
+     
+      #ifdef TEST_OTHER
+        #define VAL 1
+      #else
+        #define VAL 2
+      #endif
+      VAL
+    `;
+    const res = preprocess(src, CONF);
+    expect(res.trim()).toBe(`
+      2
+    `.trim());
+  });
+
   test('Ifdef - nested', () => {
     const src = `
       #ifdef TEST

@@ -49,11 +49,14 @@ declare global {
     type FuncDef = {
         name: string;
         args: FuncArg[];
+        isRelative: boolean;
     };
 
     type RSPLConfig = {
         optimize: boolean;
         reorder: boolean;
         rspqWrapper: boolean;
+        fileLoader: (path: string) => string;
+        defines: Record<string, string>;
     };
 }

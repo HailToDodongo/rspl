@@ -29,7 +29,7 @@ var oop = {
 const rsplHighlightRules = function() {
   const keywords =
         [
-          "state", "function", "command", "macro",
+          "state", "temp_state", "function", "command", "macro",
           "if", "else", "for", "goto", "break", "continue",
           "include", "extern", "while",
           "const", "undef", "exit", "loop",
@@ -48,7 +48,7 @@ const rsplHighlightRules = function() {
         ].join("|");
 
     const buildinConstants = [
-      "ZERO", "VZERO"
+      "ZERO", "VZERO", "Relative", "Barrier", "Align"
     ].join("|")
 
     const variables = [

@@ -23,6 +23,7 @@ declare global
     };
 
     type ASTFunc = {
+      annotations: Annotation[];
       type: ASTFuncType;
       resultType?: number;
       name: string;
@@ -159,6 +160,7 @@ declare global
     type AST = {
         includes: string[];
         state: ASTState[];
+        tempState: ASTState[];
         functions: ASTFunc[];
         postIncludes: string[];
         defines: Record<string, string>;

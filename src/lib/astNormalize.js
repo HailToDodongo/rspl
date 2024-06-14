@@ -5,6 +5,7 @@
 import {TYPE_REG_COUNT} from "./dataTypes/dataTypes.js";
 import {nextReg} from "./syntax/registers";
 import state from "./state.js";
+import {validateAnnotation} from "./syntax/annotations.js";
 
 /**
  * @param {ASTScopedBlock} block
@@ -162,6 +163,10 @@ export function astNormalizeFunctions(ast)
   for(const block of astFunctions) {
     if(!["function", "command", "macro"].includes(block.type) || !block.body)continue;
 
+    for(const anno of block.annotations) {
+      validateAnnotation(anno);
+    }
+
     if(block.type === "command" && block.resultType === null) {
       state.throwError("Commands must specify an index (e.g. 'command<4>')!", block)
     }
@@ -177,7 +182,7 @@ export function astNormalizeFunctions(ast)
   for(const block of astFunctions) {
     if(block.type !== "macro" && block.body) {
       state.func = block.name || "";
-      normalizeScopedBlock(block.body, ast.state, macros);
+      normalizeScopedBlock(block.body, [...ast.state, ...ast.tempState], macros);
     }
   }
 

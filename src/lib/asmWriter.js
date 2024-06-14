@@ -7,6 +7,7 @@ import {TYPE_ALIGNMENT, TYPE_ASM_DEF, TYPE_SIZE} from "./dataTypes/dataTypes.js"
 import state from "./state.js";
 import {ASM_TYPE} from "./intsructions/asmWriter.js";
 import {REGS_SCALAR} from "./syntax/registers.js";
+import {ANNOTATIONS, getAnnotationVal} from "./syntax/annotations.js";
 
 /**
  * @param {ASM} asm
@@ -20,6 +21,7 @@ function stringifyInstr(asm) {
  * @param {string[]} incPaths
  */
 function generateIncs(incPaths) {
+  if(!incPaths)return [];
   const res = [];
   for(const inc of incPaths) {
     const pathNorm = inc.replaceAll('"', '');
@@ -28,6 +30,46 @@ function generateIncs(incPaths) {
     res.push('#include ' + wrap[0] + pathNorm + wrap[1]);
   }
   return res;
+}
+
+function alignToExp(align) {
+  const alignPow = Math.log2(align);
+  if(!Number.isInteger(alignPow)) {
+    state.throwError(`Invalid align value '${align}', must be a power of 2`);
+  }
+  return alignPow;
+}
+
+function writeStateVar(stateVar, writeLine) {
+  const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
+  const byteSize = TYPE_SIZE[stateVar.varType] * arraySize;
+  let align = TYPE_ALIGNMENT[stateVar.varType];
+  if(stateVar.align !== 0) {
+    // align is stored in bytes, we need to convert it to 2^x
+    align = alignToExp(stateVar.align);
+
+  }
+
+  const values = stateVar.value || [];
+
+  if(align > 0) {
+    writeLine(`    .align ${align}`);
+  }
+
+  if(values.length === 0) {
+    writeLine(`    ${stateVar.varName}: .ds.b ${byteSize}`);
+  } else {
+    const asmType = TYPE_ASM_DEF[stateVar.varType];
+    const data = new Array(asmType.count * arraySize).fill(0);
+    if(values.length > data.length) {
+      state.throwError(`Too many initializers for '${stateVar.varName}' (${values.length} > ${data.length})`, stateVar);
+    }
+    for(let i=0; i<values.length; ++i) {
+      data[i] = values[i];
+    }
+    writeLine(`    ${stateVar.varName}: .${asmType.type} ${data.join(", ")}`);
+  }
+  return byteSize;
 }
 
 /**
@@ -96,8 +138,8 @@ export function writeASM(ast, functionsAsm, config)
   writeLines(commandList);
   writeLines(["  RSPQ_EndOverlayHeader", ""]);
 
-  let totalSaveByteSize = 660; // libdragon default (@TODO get this from somewhere)
-  let totalTextSize = 616; // libdragon default (@TODO get this from somewhere)
+  let totalSaveByteSize = 0;
+  let totalTextSize = 0;
 
   const hasState = !!ast.state.find(v => !v.extern);
   if(hasState) {
@@ -106,45 +148,23 @@ export function writeASM(ast, functionsAsm, config)
 
     for(const stateVar of ast.state) {
       if(stateVar.extern)continue;
-
-      const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
-      const byteSize = TYPE_SIZE[stateVar.varType] * arraySize;
-      let align = TYPE_ALIGNMENT[stateVar.varType];
-      if(stateVar.align !== 0) {
-        // align is stored in bytes, we need to convert it to 2^x
-        align = Math.log2(stateVar.align);
-        if(!Number.isInteger(align)) {
-          state.throwError(`Invalid align value '${stateVar.align}', must be a power of 2`, ast);
-        }
-      }
-
-      const values = stateVar.value || [];
-
-      if(align > 0) {
-        writeLine(`    .align ${align}`);
-      }
-
-      if(values.length === 0) {
-        writeLine(`    ${stateVar.varName}: .ds.b ${byteSize}`);
-      } else {
-        const asmType = TYPE_ASM_DEF[stateVar.varType];
-        const data = new Array(asmType.count * arraySize).fill(0);
-        if(values.length > data.length) {
-          state.throwError(`Too many initializers for '${stateVar.varName}' (${values.length} > ${data.length})`, ast);
-        }
-        for(let i=0; i<values.length; ++i) {
-          data[i] = values[i];
-        }
-        writeLine(`    ${stateVar.varName}: .${asmType.type} ${data.join(", ")}`);
-      }
-
-      totalSaveByteSize += byteSize;
+      totalSaveByteSize += writeStateVar(stateVar, writeLine);
     }
 
     writeLine("    STATE_MEM_END:");
     writeLine("  RSPQ_EndSavedState");
   } else {
     writeLine("  RSPQ_EmptySavedState");
+  }
+
+  if(ast.tempState.length > 0) {
+    writeLine("");
+    writeLine("  TEMP_STATE_MEM_START:");
+    for(const tmpVar of ast.tempState) {
+      if(tmpVar.extern)continue;
+      totalSaveByteSize += writeStateVar(tmpVar, writeLine);
+    }
+    writeLine("  TEMP_STATE_MEM_END:");
   }
 
   writeLines(["", ".text", ""]);
@@ -157,6 +177,9 @@ export function writeASM(ast, functionsAsm, config)
   for(const block of functionsAsm) {
     if(!["function", "command"].includes(block.type))continue;
     if(block.asm.length === 0)continue;
+
+    const align = getAnnotationVal(block.annotations, ANNOTATIONS.Align, 0) || 0;
+    if(align)writeLine(`.align ${alignToExp(align)}`);
 
     writeLine(block.name + ":");
 

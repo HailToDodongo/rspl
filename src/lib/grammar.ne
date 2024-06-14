@@ -67,6 +67,7 @@ const lexer = moo.compile({
 	KWElse    : "else",
 	KWBreak   : "break",
 	KWWhile   : "while",
+	KWTmpState: "temp_state",
 	KWState   : "state",
 	KWGoto    : "goto",
 	KWExtern  : "extern",
@@ -131,11 +132,12 @@ const lexer = moo.compile({
 # Pass your lexer with @lexer:
 @lexer lexer
 
-main -> (_ SectionIncl):* (_ SectionState):? (_ Function):* (_ SectionIncl):* _ {% d => ({
+main -> (_ SectionIncl):* (_ SectionState):? (_ SectionTmpState):? (Function):* (_ SectionIncl):* _ {% d => ({
 	includes: MAP_TAKE(d[0], 1),
-	postIncludes: MAP_TAKE(d[3], 1),
 	state: (d[1] && d[1][1]) || [],
-	functions: MAP_TAKE(d[2], 1),
+	tempState: (d[2] && d[2][1]) || [],
+	functions: MAP_TAKE(d[3], 0),
+	postIncludes: MAP_TAKE(d[4], 1),
 }) %}
 
 ######### Include-Section #########
@@ -143,6 +145,8 @@ SectionIncl -> %KWInclude _ %String {% d => d[2].value %}
 
 ######### State-Section #########
 SectionState -> %KWState _ %BlockStart _ StateVarDef:* %BlockEnd {% d => d[4] %}
+SectionTmpState -> %KWTmpState _ %BlockStart _ StateVarDef:* %BlockEnd {% d => d[4] %}
+
 StateVarDef -> (%KWExtern _):? StateAlign:? %DataType _ %VarName IndexDef:* StateValueDef:? _ %StmEnd _ {% d => ({
 	type: "varState",
 	extern: !!d[0],
@@ -164,13 +168,14 @@ NumList -> ValueNumeric {% MAP_FIRST %}
 ######### Function-Section #########
 
 # Function that translates into a function/global-label in ASM...
-Function -> %FunctionType (RegDef | RegNumDef):? _ %VarName %ArgsStart _ FunctionDefArgs:* _ %ArgsEnd (ScopedBlock | %StmEnd)  {%
+Function -> Annotation:* _ %FunctionType (RegDef | RegNumDef):? _ %VarName %ArgsStart _ FunctionDefArgs:* _ %ArgsEnd (ScopedBlock | %StmEnd)  {%
 	d => ({
-		type: d[0].value,
-		resultType: d[1] && d[1][0],
-		name: d[3].value,
-		args: FORCE_ARRAY(d[6][0]),
-		body: d[9][0].type === "StmEnd" ? null : d[9][0],
+		annotations: d[0],
+		type: d[2].value,
+		resultType: d[3] && d[3][0],
+		name: d[5].value,
+		args: FORCE_ARRAY(d[8][0]),
+		body: d[11][0].type === "StmEnd" ? null : d[11][0],
 	})
 %}
 

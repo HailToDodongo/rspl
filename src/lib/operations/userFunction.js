@@ -35,8 +35,12 @@ export function callUserFunction(name, args)
       }
     }
   }
+  let isRelative = state.getAnnotations("Relative").length > 0;
+  if(userFunc.isRelative) {
+    isRelative = true;
+  }
 
   const regsArg = userFunc.args.map(arg => arg.reg);
-  res.push(asmFunction(userFunc.name, regsArg), asmNOP());
+  res.push(asmFunction(userFunc.name, regsArg, isRelative), asmNOP());
   return res;
 }

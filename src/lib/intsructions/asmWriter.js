@@ -11,6 +11,7 @@ import {
   MEM_STALL_STORE_OPS,
   STORE_OPS
 } from "../optimizer/asmScanDeps.js";
+import {REG} from "../syntax/registers.js";
 
 export const ASM_TYPE = {
   OP: 0,
@@ -74,13 +75,17 @@ export function asm(op, args) {
  * Emits a function call
  * @param target
  * @param argRegs
+ * @param {boolean} relative
  * @return {ASM}
  */
-export function asmFunction(target, argRegs) {
-  const op = "jal";
-  return {
-    type: ASM_TYPE.OP, op, args: [target],
-    debug: getDebugData(), ...getOpInfo(op),
+export function asmFunction(target, argRegs, relative = false) {
+  return relative ? {
+    type: ASM_TYPE.OP, op: "bgezal", args: [REG.ZERO, target],
+    debug: getDebugData(), ...getOpInfo("bgezal"),
+    funcArgs: argRegs
+  } : {
+    type: ASM_TYPE.OP, op: "jal", args: [target],
+    debug: getDebugData(), ...getOpInfo("jal"),
     funcArgs: argRegs
   };
 }

@@ -3,14 +3,26 @@
 * @license Apache-2.0
 */
 
+import state from "../state.js";
+
+export function stripComments(source) {
+  return source
+    .replaceAll(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, match => {
+      const newlineCount = match.split('\n').length - 1;
+      return '\n'.repeat(newlineCount);
+    });
+}
+
 /**
  * Runs a C-like preprocess on the source code.
  * This handles constants as well as ifdefs.
  * @param src input source code
  * @param defines this function will append all defines to this object
+ * @param {(string) => string} fileLoader function to load included files
  * @return {string} processed source code
  */
-export function preprocess(src, defines = {})
+export function preprocess(src, defines = {}, fileLoader = undefined)
 {
   const lines = src.split("\n");
 
@@ -23,8 +35,10 @@ export function preprocess(src, defines = {})
     let line = lines[i];
     const lineTrimmed = line.trim();
     let newLine = "";
+    state.func = "preprocessor";
+    state.line = i + 1;
 
-    if (lineTrimmed.startsWith("#define"))
+    if (!ignoreLine && lineTrimmed.startsWith("#define"))
     {
       const parts = lineTrimmed.match(/#define\s+([a-zA-Z0-9_]+)\s+(.*)/);
       if(!parts)throw new Error(`Line ${i+1}: Invalid #define statement!`);
@@ -35,7 +49,7 @@ export function preprocess(src, defines = {})
         value
       };
     }
-    else if (lineTrimmed.startsWith("#undef"))
+    else if (!ignoreLine && lineTrimmed.startsWith("#undef"))
     {
       const parts = lineTrimmed.match(/#undef\s+([a-zA-Z0-9_]+)/);
       if(!parts)throw new Error(`Line ${i+1}: Invalid #undef statement!`);
@@ -43,15 +57,16 @@ export function preprocess(src, defines = {})
 
       delete defines[name];
     }
-    else if (lineTrimmed.startsWith("#ifdef"))
+    else if (lineTrimmed.startsWith("#ifdef") || lineTrimmed.startsWith("#ifndef"))
     {
       if(insideIfdef)throw new Error(`Line ${i+1}: Nested #ifdef statements are not allowed!`);
       insideIfdef = true;
-      const parts = lineTrimmed.match(/#ifdef\s+([a-zA-Z0-9_]+)/);
+      const parts = lineTrimmed.match(/#ifn?def\s+([a-zA-Z0-9_]+)/);
       if(!parts)throw new Error(`Line ${i+1}: Invalid #ifdef statement!`);
       const [_, name] = parts;
 
-      ignoreLine = !defines[name];
+      const negate = lineTrimmed.startsWith("#ifdef");
+      ignoreLine = negate ? !defines[name] : defines[name];
     }
     else if (lineTrimmed.startsWith("#else")) {
       ignoreLine = insideIfdef && !ignoreLine;
@@ -60,9 +75,15 @@ export function preprocess(src, defines = {})
       insideIfdef = false;
       ignoreLine = false;
     }
-    else if (lineTrimmed.startsWith("#include"))
+    else if (!ignoreLine && lineTrimmed.startsWith("#include"))
     {
-      // Ignore for now
+      if(!fileLoader) {
+        state.throwError(`Line ${i+1}: #include statement requires a fileLoader function!`);
+      }
+      const filePath = lineTrimmed.match(/#include\s+"(.*)"/)[1];
+      const fileContent = fileLoader(filePath);
+      srcRes += preprocess(stripComments(fileContent), defines, fileLoader);
+
     } else if(!ignoreLine) {
       // replace all defines
       newLine = line;

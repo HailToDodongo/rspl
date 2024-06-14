@@ -15,6 +15,7 @@ import {isVecType} from "./dataTypes/dataTypes.js";
 import {POW2_SWIZZLE_VAR} from "./syntax/swizzle.js";
 import {LABEL_CMD_LOOP} from "./builtins/libdragon.js";
 import scalar from "./operations/scalar";
+import {ANNOTATIONS, getAnnotationVal} from "./syntax/annotations.js";
 
 const VECTOR_TYPES = ["vec16", "vec32"];
 
@@ -404,7 +405,7 @@ export function ast2asm(ast)
   /** @type {ASMFunc[]} */
   const res = [];
 
-  for(const stateVar of ast.state) {
+  for(const stateVar of [...ast.state, ...ast.tempState]) {
     const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
     state.declareMemVar(stateVar.varName, stateVar.varType, arraySize);
   }
@@ -415,7 +416,10 @@ export function ast2asm(ast)
     state.line = block.line || 0;
 
     if(["function", "command"].includes(block.type)) {
-      state.declareFunction(block.name, block.args);
+
+      state.declareFunction(block.name, block.args,
+        !!getAnnotationVal(block.annotations || [], ANNOTATIONS.Relative)
+      );
 
       if(!block.body)continue;
       state.enterFunction(block.name, block.type, getArgSize(block));

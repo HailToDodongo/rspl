@@ -12,7 +12,7 @@ import {
   REGS_VECTOR
 } from "./syntax/registers.js";
 import {isVecType, isTwoRegType, TYPE_SIZE, SCALAR_TYPES, VEC_CASTS} from "./dataTypes/dataTypes.js";
-import {KNOWN_ANNOTATIONS, validateAnnotation} from "./syntax/annotations.js";
+import {validateAnnotation} from "./syntax/annotations.js";
 
 const state =
 {
@@ -76,9 +76,10 @@ const state =
    * Declare function in the global scope.
    * @param {string} name
    * @param {FuncArg[]} args
+   * @param {boolean} isRelative
    */
-  declareFunction: (name, args) => {
-    state.funcMap[name] = {name, args};
+  declareFunction: (name, args, isRelative = false) => {
+    state.funcMap[name] = {name, args, isRelative};
   },
 
   /**
