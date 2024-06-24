@@ -13,7 +13,18 @@ import opsScalar from "./scalar.js";
  */
 export function callUserFunction(name, args)
 {
-  const userFunc = state.getRequiredFunction(name);
+  let userFunc = state.getFunction(name);
+  if(!userFunc) {
+    if(!state.varExists(name)) {
+      state.throwError("Function "+name+" not known!");
+    }
+    userFunc = {
+      name: state.getVarReg(name),
+      args: [],
+      isRelative: false
+    };
+  }
+
   const res = [];
 
   if(userFunc.args.length !== args.length) {

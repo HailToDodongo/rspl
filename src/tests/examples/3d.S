@@ -164,6 +164,7 @@
   RSPQ_EndSavedState
 
 .text
+OVERLAY_CODE_START:
 
 T3DCmd_VertLoad:
   srl $s4, $a2, 16
@@ -728,6 +729,8 @@ T3DCmd_MatProjectionSet:
   addiu $t2, $zero, 12
   j DMAExec ## Args: $t0, $t1, $s0, $s4, $t2
   and $s0, $a0, $at
+
+OVERLAY_CODE_END:
 
 #define zero $0
 #define v0 $2

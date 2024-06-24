@@ -14,6 +14,7 @@ import {asmOptimize, asmOptimizePattern} from "./optimizer/asmOptimizer.js";
 import {asmInitDeps, asmScanDeps} from "./optimizer/asmScanDeps.js";
 import {evalFunctionCost} from "./optimizer/eval/evalCost.js";
 import {preprocess, stripComments} from "./preproc/preprocess.js";
+import {validateMemory} from "./memory/memoryValidator.js";
 
 const grammar = nearly.Grammar.fromCompiled(grammarDef);
 /**
@@ -71,6 +72,7 @@ export async function transpile(ast, updateCb, config = {})
   state.reset();
   normalizeConfig(config);
 
+  validateMemory(ast.state, ast.tempState);
   ast.functions = astNormalizeFunctions(ast);
   const functionsAsm = ast2asm(ast);
 
@@ -81,8 +83,13 @@ export async function transpile(ast, updateCb, config = {})
   let debugUnopt = {};
 
   const generateASM = () => {
-    const {asm, debug} = writeASM(ast, functionsAsm, config);
+    const {asm, debug, sizeDMEM, sizeIMEM} = writeASM(ast, functionsAsm, config);
   //console.timeEnd("writeASM");
+
+    const usageImemPercent = sizeDMEM / 4096 * 100;
+    state.logInfo(`Total state size: ${sizeDMEM} bytes (${usageImemPercent.toFixed(2)}%)`);
+    const useageDmemPercent = sizeIMEM / 4096 * 100;
+    state.logInfo(`Total text size: ${sizeIMEM} bytes (${useageDmemPercent.toFixed(2)}%)`);
 
     debug.lineDepMap = debugUnopt.lineDepMap;
     return {
@@ -91,6 +98,7 @@ export async function transpile(ast, updateCb, config = {})
       debug,
       warn: state.outWarn,
       info: state.outInfo,
+      sizeDMEM, sizeIMEM,
     };
   };
 

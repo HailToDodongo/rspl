@@ -117,10 +117,23 @@ function inlineAsm(varRes, args, swizzle) {
   assertArgsNoSwizzle(args);
   if(swizzle)state.throwError("Builtin asm() cannot use swizzle!", varRes);
   if(varRes)state.throwError("Builtin asm() cannot have a left side!", varRes);
-  if(args.length !== 1 || args[0].type !== "string") {
-    state.throwError("Builtin asm() requires exactly one string argument!", args[0]);
+  if(args[0].type !== "string") {
+    state.throwError("Builtin asm() requires the first argument to be a string!", args[0]);
   }
-  return [asmInline(args[0].value, ["# inline-ASM"])];
+
+  let str = args[0].value;
+  for(let i = 1; i < args.length; ++i) {
+    const arg = args[i];
+    console.log(arg);
+    if(arg.type === "num") {
+      str = str.replace("%"+(i-1), arg.value);
+    } else {
+      const varArg = state.getRequiredVar(arg.value, "arg"+i);
+      str = str.replace("%"+(i-1), varArg.reg);
+    }
+  }
+
+  return [asmInline(str, ["# inline-ASM"])];
 }
 
 /**

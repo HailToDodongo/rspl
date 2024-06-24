@@ -166,9 +166,6 @@ function optimizeStep(asmFunc)
 
   // pick a random target index first, search until we find a new place
   let targetIdx = i;
-  while(targetIdx === i) {
-    targetIdx = getRandIndex(reorderRange[0], reorderRange[1]);
-  }
 
   // now sometimes we prefer to fill stalls directly, since this prevents any reordering that takes a few moves
   // we cannot do this all the time
@@ -180,6 +177,10 @@ function optimizeStep(asmFunc)
         maxStalls = stalls;
         targetIdx = j;
       }
+    }
+  } else {
+    while(targetIdx === i) {
+      targetIdx = getRandIndex(reorderRange[0], reorderRange[1]);
     }
   }
 

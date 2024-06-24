@@ -80,5 +80,7 @@ declare global
     type ASMOutput = {
       asm: string;
       debug: ASMOutputDebug;
+      sizeIMEM: number;
+      sizeDMEM: number;
     };
 }

@@ -98,6 +98,7 @@ const state =
     state.declareVar("ZERO", "u32", REG.ZERO, true);
     state.declareVar("VZERO", "vec16", REG.VZERO, true);
     state.declareVar("RA", "u32", REG.RA, true);
+    state.declareVar("VTEMP", "vec16", REG.VTEMP0, false, true);
   },
 
   leaveFunction: () => {
@@ -211,7 +212,7 @@ const state =
       if(twoRegs && (!regList.includes(regNext) || scope.regVarMap[regNext]))continue;
       return reg;
     }
-    state.throwError("Out of free registers!");
+    state.throwError("Out of free registers!", regList);
   },
 
   /**
@@ -221,13 +222,13 @@ const state =
    * @param {string} reg
    * @param {boolean} isConst
    */
-  declareVar: (name, type, reg, isConst = false) => {
+  declareVar: (name, type, reg, isConst = false, ignoreReserved = false) => {
     if(name.includes(":")) {
       state.throwError("Variable name cannot contain a cast (':')!", {name});
     }
     const scope = state.getScope();
     if(!reg)state.throwError("Cannot declare variable without register!", {name});
-    if(REGS_FORBIDDEN.includes(reg)) {
+    if(!ignoreReserved && REGS_FORBIDDEN.includes(reg)) {
       state.throwError(`Cannot use reserved register '${reg}' for a variable!`, {name});
     }
 
@@ -352,6 +353,18 @@ const state =
   },
 
   /**
+   * Checks if a variable exists in the current scope.
+   * @param name variable name
+   * @return {boolean}
+   */
+  varExists: (name) => {
+    const scope = state.getScope();
+    let [nameNorm] = /** @type {[string, CastType]} */ name.split(":");
+    nameNorm = scope.varAliasMap[nameNorm] || nameNorm;
+    return !!scope.varMap[nameNorm];
+  },
+
+  /**
    * Marks that a variable has been modified.
    * @param {string} name
    */
@@ -398,12 +411,11 @@ const state =
    * Fetch function from global scope, throw if undeclared.
    * @param {string} name
    * @param {any} context (only for logging)
-   * @returns {FuncDef}
+   * @returns {?FuncDef}
    */
-  getRequiredFunction: (name, context = {}) => {
-    const res = structuredClone(state.funcMap[name]);
-    if(!res)state.throwError("Function "+name+" not known!", context);
-    return res;
+  getFunction: (name, context = {}) => {
+    return state.funcMap[name] ? structuredClone(state.funcMap[name]) : undefined;
+    //if(!res)state.throwError("Function "+name+" not known!", context);
   }
 };
 

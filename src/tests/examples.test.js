@@ -164,6 +164,7 @@ include "rsp_rdpq.inc"
   RSPQ_EndSavedState
 
 .text
+OVERLAY_CODE_START:
 
 VecCmd_Transform:
   srl $t0, $a1, 16
@@ -211,6 +212,8 @@ VecCmd_Transform:
   sqv $v14, 0, 16, $t2
   j RSPQ_Loop
   nop
+
+OVERLAY_CODE_END:
 
 #define zero $0
 #define v0 $2

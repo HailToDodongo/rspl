@@ -214,8 +214,8 @@ function getSourceRegs(line)
   if(line.opIsStore) {
     return line.args;
   }
-  if(line.op === "j") {
-    return [];
+  if(["j", "jal"].includes(line.op)) {
+    return [line.args[0]];
   }
   const res = line.args.slice(1);
   res.push(...(HIDDEN_REGS_READ[line.op] || []));

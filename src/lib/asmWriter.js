@@ -88,6 +88,8 @@ export function writeASM(ast, functionsAsm, config)
   const res = {
     asm: "",
     debug: {lineMap: {}, lineDepMap: {}, lineOptMap: {}, lineCycleMap: {}, lineStallMap: {}},
+    sizeDMEM: 0,
+    sizeIMEM: 0,
   };
 
   const writeLine = line => {
@@ -167,7 +169,7 @@ export function writeASM(ast, functionsAsm, config)
     writeLine("  TEMP_STATE_MEM_END:");
   }
 
-  writeLines(["", ".text", ""]);
+  writeLines(["", ".text", "OVERLAY_CODE_START:", ""]);
 
   if(!config.rspqWrapper) {
     state.line = 1;
@@ -234,6 +236,9 @@ export function writeASM(ast, functionsAsm, config)
 
   if(!config.rspqWrapper)return res;
 
+  writeLine("OVERLAY_CODE_END:");
+  writeLine("");
+
   REGS_SCALAR.map((reg, i) => "#define " + reg.substring(1) + " $" + i)
     .filter((_, i) => i !== 1)
     .forEach(line => writeLine(line));
@@ -243,10 +248,7 @@ export function writeASM(ast, functionsAsm, config)
   const postIncs = generateIncs(ast.postIncludes);
   for(const inc of postIncs)writeLine(inc);
 
-  const saveUsagePerc = totalSaveByteSize / 4096 * 100;
-  state.logInfo(`Total state size: ${totalSaveByteSize} bytes (${saveUsagePerc.toFixed(2)}%)`);
-  const textUsagePerc = totalTextSize / 4096 * 100;
-  state.logInfo(`Total text size: ${totalTextSize} bytes (${textUsagePerc.toFixed(2)}%)`);
-
+  res.sizeDMEM = totalSaveByteSize;
+  res.sizeIMEM = totalTextSize;
   return res;
 }
