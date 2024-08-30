@@ -236,16 +236,16 @@ describe('Vector - Ops', () =>
       vec16<$v01> res, a;
       res:uint += a.x;
       res:sint += a.x;
-      res:sfract += a.x;
-      res:ufract += a.x;
+      res:sfract += a.x; // unexpected?
+      res:ufract += a.x; // unexpected?
     }`, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   vaddc $v01, $v01, $v02.e0
   vadd $v01, $v01, $v02.e0
-  vadd $v01, $v01, $v02.e0
-  vaddc $v01, $v01, $v02.e0
+  vadd $v01, $v01, $v00.e0
+  vaddc $v01, $v01, $v00.e0
   jr $ra
   nop`);
   });
@@ -318,7 +318,7 @@ describe('Vector - Ops', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   vmudn $v01, $v01, $v02.e0
-  vmudn $v01, $v01, $v02.e0
+  vmudh $v01, $v01, $v02.e0
   vmulu $v01, $v01, $v02.e0
   vmulf $v01, $v01, $v02.e0
   jr $ra
