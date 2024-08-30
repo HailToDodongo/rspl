@@ -48,7 +48,7 @@ const rsplHighlightRules = function() {
         ].join("|");
 
     const buildinConstants = [
-      "ZERO", "VZERO", "Relative", "Barrier", "Align"
+      "ZERO", "VZERO", "Relative", "Barrier", "Align", "NoReturn"
     ].join("|")
 
     const variables = [

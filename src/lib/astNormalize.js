@@ -162,7 +162,7 @@ function normalizeScopedBlock(block, astState, macros)
 
       // normalize cast-syntax, if the destination has a cast but the rest doesn't,
       // assume the L and R variable use the same by default
-      if(['calcVarNum', 'calcVarVar'].includes(st.calc.type) && st.varName.includes(":"))
+      /*if(['calcVarNum', 'calcVarVar'].includes(st.calc.type) && st.varName.includes(":"))
       {
         if(!st.calc.left.includes(":")) {
           st.calc.left += ":" + st.varName.split(":")[1];
@@ -170,7 +170,7 @@ function normalizeScopedBlock(block, astState, macros)
         if(st.calc.type === 'calcVarVar' && !st.calc.right.includes(":")) {
           st.calc.right += ":" + st.varName.split(":")[1];
         }
-      }
+      }*/
     }
   }
 

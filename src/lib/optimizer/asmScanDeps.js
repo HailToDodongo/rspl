@@ -2,7 +2,7 @@
 * @copyright 2023 - Max Bebök
 * @license Apache-2.0
 */
-import {isVecReg, REG} from "../syntax/registers.js";
+import {isVecReg, REG, REG_COP0} from "../syntax/registers.js";
 import {SWIZZLE_LANE_MAP} from "../syntax/swizzle.js";
 import {ASM_TYPE} from "../intsructions/asmWriter.js";
 import state from "../state.js";
@@ -23,12 +23,12 @@ export const LOAD_OPS = [...LOAD_OPS_SCALAR, ...LOAD_OPS_VECTOR];
 export const BRANCH_OPS = ["beq", "bne", "bgezal", "j", "jr", "jal"];
 
 // ops that don't write to any register
-export const READ_ONLY_OPS = [...BRANCH_OPS, ...STORE_OPS];
+export const READ_ONLY_OPS = [...BRANCH_OPS, ...STORE_OPS, "mtc0"];
 // ops not allowed to be moved, other instructions can still be moved around them
 export const IMMOVABLE_OPS = [...BRANCH_OPS, "nop"];
 
-export const MEM_STALL_LOAD_OPS  = [...LOAD_OPS, "mfc0", "mtc0", "mfc2", "mtc2", "cfc2", "catch"];
-export const MEM_STALL_STORE_OPS = [...STORE_OPS, "mfc0", "mtc0", "mfc2", "mtc2", "cfc2", "catch"];
+export const MEM_STALL_LOAD_OPS  = [...LOAD_OPS, "mfc0", "mtc0", "mfc2", "mtc2", "cfc2", "ctc2", "catch"];
+export const MEM_STALL_STORE_OPS = [...STORE_OPS, "mfc0", "mtc0", "mfc2", "mtc2", "cfc2", "ctc2", "catch"];
 
 // regs used by instructions, but not listed as arguments
 const HIDDEN_REGS_READ = {
@@ -205,7 +205,7 @@ export function getTargetRegs(line) {
 /** @param {ASM} line */
 function getSourceRegs(line)
 {
-  if(["jr", "mtc2"].includes(line.op)) {
+  if(["jr", "mtc2", "mtc0", "ctc2"].includes(line.op)) {
     return [line.args[0]];
   }
   if(["beq", "bne"].includes(line.op)) {

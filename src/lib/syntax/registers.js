@@ -25,11 +25,26 @@ export const REG = {
   VSHIFT8: "$v31",
 };
 
+export const REG_COP0= {
+  DMA_BUSY: "COP0_DMA_BUSY",
+  DP_START: "COP0_DP_START",
+  DP_END: "COP0_DP_END",
+  DP_CURRENT: "COP0_DP_CURRENT",
+  DMA_SPADDR: "COP0_DMA_SPADDR",
+  DMA_RAMADDR: "COP0_DMA_RAMADDR",
+  DMA_READ: "COP0_DMA_READ",
+  DMA_WRITE: "COP0_DMA_WRITE",
+  SP_STATUS: "COP0_SP_STATUS",
+  DMA_FULL: "COP0_DMA_FULL",
+};
+
 export const REG_COP2 = {
   VCO: "$vc0",
   VCC: "$vcc",
   VCE: "$vce",
-}
+  ACC_MD: "COP2_ACC_MD",
+  ACC_HI: "COP2_ACC_HI",
+};
 
 // MIPS scalar register in correct order ($0 - $31)
 export const REGS_SCALAR = [

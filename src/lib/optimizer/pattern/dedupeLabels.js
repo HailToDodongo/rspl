@@ -13,13 +13,15 @@ import {BRANCH_OPS} from "../asmScanDeps.js";
 export function dedupeLabels(asmFunc)
 {
   // de-duplicate labels, first detect consecutive labels...
-  const labelsDelete = [];
+  let labelsDelete = [];
   const labelsReplace = {};
   let labels = [];
   for(const asm of asmFunc.asm)
   {
     if(asm.type === ASM_TYPE.LABEL) {
-      labels.push(asm.label);
+      if(!asm.label.startsWith("__")) {
+        labels.push(asm.label);
+      }
     } else {
       if(labels.length > 1) {
         const newLabel = labels.pop();

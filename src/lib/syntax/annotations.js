@@ -8,6 +8,7 @@ export const ANNOTATIONS = {
   Barrier: "Barrier",
   Relative: "Relative",
   Align: "Align",
+  NoReturn: "NoReturn",
 };
 
 export const KNOWN_ANNOTATIONS = Object.keys(ANNOTATIONS);

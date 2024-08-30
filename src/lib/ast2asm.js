@@ -427,10 +427,14 @@ export function ast2asm(ast)
       const blockAsm = scopedBlockToASM(block.body, block.args, block.type === "command");
       ++state.line;
 
-      if(block.type === "command") {
-        blockAsm.push(asm("j", [LABEL_CMD_LOOP]), asmNOP());
-      } else {
-        blockAsm.push(asm("jr", [REG.RA]), asmNOP());
+      const needsReturn = !getAnnotationVal(block.annotations || [], ANNOTATIONS.NoReturn);
+
+      if(needsReturn) {
+        if(block.type === "command") {
+          blockAsm.push(asm("j", [LABEL_CMD_LOOP]), asmNOP());
+        } else {
+          blockAsm.push(asm("jr", [REG.RA]), asmNOP());
+        }
       }
 
       res.push({

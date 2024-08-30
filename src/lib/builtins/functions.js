@@ -3,12 +3,13 @@
 * @license Apache-2.0
 */
 import {
+  fractReg,
   getVec32Regs,
-  getVec32RegsResLR,
+  getVec32RegsResLR, intReg,
   isVecReg,
   nextReg,
   nextVecReg,
-  REG,
+  REG, REG_COP0,
   REG_COP2,
   REGS_VECTOR
 } from "../syntax/registers";
@@ -111,6 +112,21 @@ function store_vec_u8(varRes, args, swizzle, isSigned = false) {
 
 function store_vec_s8(varRes, args, swizzle) {
   return store_vec_u8(varRes, args, swizzle, true);
+}
+
+function asm_op(varRes, args, swizzle) {
+
+  if(swizzle)state.throwError("Builtin asm_op() cannot use swizzle!", varRes);
+  if(varRes)state.throwError("Builtin asm_op() cannot have a left side!", varRes);
+  if(args[0].type !== "string") {
+    state.throwError("Builtin asm_op() requires the first argument to be a opcode!", args[0]);
+  }
+
+  return [asm(args[0].value, args.slice(1).map(arg => {
+    const v = state.getRequiredVar(arg.value, "arg");
+    const swizzle = SWIZZLE_MAP[arg.swizzle] || "";
+    return v.reg + swizzle;
+  }))];
 }
 
 function inlineAsm(varRes, args, swizzle) {
@@ -216,6 +232,129 @@ function get_vcc(varRes, args, swizzle)
  * @param {ASTFuncArg[]} args
  * @param {?Swizzle} swizzle
  */
+function set_vcc(varRes, args, swizzle)
+{
+  if(swizzle)state.throwError("Builtin set_vcc() cannot use swizzle!", varRes);
+  if(varRes)state.throwError("Builtin set_vcc() must not have a left side!", varRes);
+  if(args.length !== 1)state.throwError("Builtin set_vcc() requires 1 scalar arguments!", args[0]);
+
+  // if value, load in temp
+  let reg = REG.AT;
+  let res = [];
+
+  if(args[0].type === "num") {
+    res.push(...opsScalar.loadImmediate(reg, args[0].value));
+  } else {
+    const varArg = state.getRequiredVar(args[0].value, "arg0");
+    if(isVecType(varArg.type))state.throwError("Builtin set_vcc() requires a scalar argument!", args[0]);
+    reg = varArg.reg;
+  }
+
+  res.push(asm("ctc2", [reg, REG_COP2.VCC]));
+  return res;
+}
+
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg[]} args
+ * @param {?Swizzle} swizzle
+ */
+function generic_mfc0_read(varRes, args, swizzle, name, rdpReg)
+{
+  if(swizzle)state.throwError("Builtin "+name+"() cannot use swizzle!", varRes);
+  if(!varRes)state.throwError("Builtin "+name+"() must have a left side!", varRes);
+  if(args.length > 0)state.throwError("Builtin "+name+"() requires no arguments!", args[0]);
+  if(isVecReg(varRes.reg))state.throwError("Builtin "+name+"() must be assigned to a scalar variable!", varRes);
+
+  return [asm("mfc0", [varRes.reg, rdpReg])];
+}
+
+function generic_mfc0_write(varRes, args, swizzle, name, rdpReg)
+{
+  if(swizzle)state.throwError("Builtin "+name+"() cannot use swizzle!", varRes);
+  if(varRes)state.throwError("Builtin "+name+"() must not have a left side!", varRes);
+  if(args.length !== 1)state.throwError("Builtin "+name+"() requires 1 scalar arguments!", args[0]);
+
+  // if value, load in temp
+  let reg = REG.AT;
+  let res = [];
+
+  if(args[0].type === "num") {
+    res.push(...opsScalar.loadImmediate(reg, args[0].value));
+  } else {
+    const varArg = state.getRequiredVar(args[0].value, "arg0");
+    if(isVecType(varArg.type))state.throwError("Builtin "+name+"() requires a scalar argument!", args[0]);
+    reg = varArg.reg;
+  }
+
+  res.push(asm("mtc0", [reg, rdpReg]));
+  return res;
+}
+
+function get_dma_busy(varRes, args, swizzle) {
+  return generic_mfc0_read(varRes, args, swizzle, "get_dma_busy", REG_COP0.DMA_BUSY);
+}
+function get_rdp_start(varRes, args, swizzle) {
+  return generic_mfc0_read(varRes, args, swizzle, "get_rdp_dpc_start", REG_COP0.DP_START);
+}
+function get_rdp_end(varRes, args, swizzle) {
+  return generic_mfc0_read(varRes, args, swizzle, "get_rdp_dpc_end", REG_COP0.DP_END);
+}
+function get_rdp_current(varRes, args, swizzle) {
+  return generic_mfc0_read(varRes, args, swizzle, "get_rdp_dpc_current", REG_COP0.DP_CURRENT);
+}
+
+function set_rdp_start(varRes, args, swizzle) {
+  return generic_mfc0_write(varRes, args, swizzle, "set_rdp_dpc_start", REG_COP0.DP_START);
+}
+function set_rdp_end(varRes, args, swizzle) {
+  return generic_mfc0_write(varRes, args, swizzle, "set_rdp_dpc_end", REG_COP0.DP_END);
+}
+function set_rdp_current(varRes, args, swizzle) {
+  return generic_mfc0_write(varRes, args, swizzle, "set_rdp_dpc_current", REG_COP0.DP_CURRENT);
+}
+function set_dma_addr_rsp(varRes, args, swizzle) {
+  return generic_mfc0_write(varRes, args, swizzle, "set_dma_addr_rsp", REG_COP0.DMA_SPADDR);
+}
+function set_dma_addr_rdram(varRes, args, swizzle) {
+  return generic_mfc0_write(varRes, args, swizzle, "set_dma_addr_rdram", REG_COP0.DMA_RAMADDR);
+}
+function set_dma_write(varRes, args, swizzle) {
+  return generic_mfc0_write(varRes, args, swizzle, "set_dma_write", REG_COP0.DMA_WRITE);
+}
+function set_dma_read(varRes, args, swizzle) {
+  return generic_mfc0_write(varRes, args, swizzle, "set_dma_read", REG_COP0.DMA_READ);
+}
+
+
+function clear_vcc(varRes, args, swizzle)
+{
+  if(swizzle)state.throwError("Builtin clear_vcc() cannot use swizzle!", varRes);
+  if(varRes)state.throwError("Builtin clear_vcc() must not have a left side!", varRes);
+  if(args.length > 0)state.throwError("Builtin clear_vcc() requires no arguments!", args[0]);
+
+  return [asm("vsubc", [REG.VTEMP0, REG.VZERO, REG.VZERO])];
+}
+
+function get_acc(varRes, args, swizzle)
+{
+  if(swizzle)state.throwError("Builtin get_acc() cannot use swizzle!", varRes);
+  if(!varRes)state.throwError("Builtin get_acc() must have a left side!", varRes);
+  if(args.length > 0)state.throwError("Builtin get_acc() requires no arguments!", args[0]);
+  if(!isVecReg(varRes.reg))state.throwError("Builtin get_acc() must be assigned to a vector variable!", varRes);
+  if(varRes.type !== "vec32")state.throwError("Builtin get_acc() must be assigned to a vec32 variable!", varRes);
+
+  return [
+    asm("vsar", [intReg(varRes), REG_COP2.ACC_HI]),
+    asm("vsar", [fractReg(varRes), REG_COP2.ACC_MD]),
+  ];
+}
+
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg[]} args
+ * @param {?Swizzle} swizzle
+ */
 function get_cmd_address(varRes, args, swizzle) {
   if(swizzle)state.throwError("Builtin get_cmd_address() cannot use swizzle!", varRes);
   if(!varRes)state.throwError("Builtin get_cmd_address() must have a left side!", varRes);
@@ -279,6 +418,36 @@ function min(varRes, args, swizzle) {
   if(varArg0.type !== "vec16")state.throwError("Builtin min() requires both arguments to be of type vec16! (@TODO: add scalar)", args);
 
   return opsVector.opCompare(varRes, varArg0, varArg1, "<", undefined);
+}
+
+function print(varRes, args, swizzle)
+{
+  if(swizzle)state.throwError("Builtin print() cannot use swizzle!", varRes);
+  if(varRes)state.throwError("Builtin print() cannot have a left side!", varRes);
+  if(args.length === 0)state.throwError("Builtin printf() requires at least one argument!", args[0]);
+  // only registers, no constants
+  for(const arg of args) {
+    if(arg.type === "num")state.throwError("Builtin print() requires all arguments to be variables!", arg);
+  }
+
+  args = args.map(arg => {
+    const regDef = state.getRequiredVar(arg.value, "arg")
+    state.logInfo("Info: print() variable '"+arg.value+"' is "+regDef.reg);
+    return regDef;
+  });
+
+  let isVector = isVecType(args[0].type);
+  for(let i = 1; i < args.length; ++i) {
+    if(isVecType(args[i].type) !== isVector)state.throwError("Builtin print() doesn't allow mixed scalar/vector arguments!", args[i]);
+  }
+
+  const op = isVector ? "emux_dump_vpr" : "emux_dump_gpr";
+  return [
+    asmInline(".set macro", ["# print"]),
+    asmInline(op, args.map(arg => arg.reg)),
+    asmInline(".set noat", ["# print"]),
+    asmInline(".set nomacro", ["# print"])
+  ]
 }
 
 function printf(varRes, args, swizzle)
@@ -525,7 +694,10 @@ function select(varRes, args, swizzle) {
 
 export default {
   load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
-  asm: inlineAsm, printf, abs, clip,
+  asm: inlineAsm, asm_op, print, printf, abs, clip, clear_vcc, get_acc, set_vcc, get_dma_busy,
+  get_rdp_start, get_rdp_end, get_rdp_current,
+  set_rdp_start, set_rdp_end, set_rdp_current,
+  set_dma_addr_rsp, set_dma_addr_rdram, set_dma_write, set_dma_read,
   dma_in, dma_out, dma_in_async, dma_out_async, dma_await,
   invert_half, invert_half_sqrt, invert, swap, select,
   get_cmd_address, get_vcc, max, min, load_arg

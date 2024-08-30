@@ -12,7 +12,7 @@ import {
   nextReg,
   nextVecReg,
   REG as REGS,
-  REG
+  REG, REG_COP2
 } from "../syntax/registers";
 import state from "../state";
 import {
@@ -23,7 +23,7 @@ import {
   SWIZZLE_SCALAR_IDX
 } from "../syntax/swizzle";
 import {f32ToFP32, isTwoRegType} from "../dataTypes/dataTypes.js";
-import {asm} from "../intsructions/asmWriter.js";
+import {asm, asmNOP} from "../intsructions/asmWriter.js";
 import opsScalar from "./scalar";
 import builtins from "../builtins/functions.js";
 
@@ -570,6 +570,16 @@ function opMul(varRes, varLeft, varRight, clearAccum)
     }
   }
 
+   if(varRes.originalType === "vec32" && varRes.castType === "sfract"
+    && varLeft.type === "vec32" && varRight.type === "vec32"
+   ) {
+      return [
+        asm("vmudl", [REG.VTEMP0, fractReg(varLeft), fractReg(varRight) + swizzleRight]),
+        asm("vmadm", [REG.VTEMP0,   intReg(varLeft), fractReg(varRight) + swizzleRight]),
+        asm("vmadn", [varRes.reg, fractReg(varLeft),   intReg(varRight) + swizzleRight]),
+      ];
+  }
+
   let varRightHigh = varRight.reg + swizzleRight;
 
   // @TODO: refactor
@@ -586,8 +596,8 @@ function opMul(varRes, varLeft, varRight, clearAccum)
 
       return [
         asm(intOp,  [resRegs[1], varLeft.reg, varRight.reg + swizzleRight]),
-        asm("vsar", [resRegs[0], "COP2_ACC_HI"]),
-        asm("vsar", [resRegs[1], "COP2_ACC_MD"]),
+        asm("vsar", [resRegs[0], REG_COP2.ACC_HI]),
+        asm("vsar", [resRegs[1], REG_COP2.ACC_MD]),
       ];
     }
   }
@@ -620,6 +630,11 @@ function opMul(varRes, varLeft, varRight, clearAccum)
       intOp += (caseRef === "ufract") ? "u" : "f";
       return [asm(intOp, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight])];
     }
+
+    if(varLeft.castType === "sint" || varRight.castType === "sint") {
+      intOp = clearAccum ? 'vmudh' : 'vmadh';
+    }
+
     return [asm(intOp, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight])];
   }
 
@@ -662,6 +677,13 @@ function opInvertHalf(varRes, varLeft) {
     return [
       asm("vrcp",  [fractReg(varRes) + swizzleRes, varLeft.reg + swizzleArg]),
       asm("vrcph", [  intReg(varRes) + swizzleRes, varLeft.reg + swizzleArg]),
+    ];
+  }
+
+  if(varRes.type === 'vec16' && (varRes.castType === 'sfract' || varRes.castType === 'ufract')) {
+    return [
+      asm("vrcph", [ REG.VTEMP0 + swizzleRes,   intReg(varLeft) + swizzleArg]),
+      asm("vrcpl", [ varRes.reg + swizzleRes, fractReg(varLeft) + swizzleArg]),
     ];
   }
 

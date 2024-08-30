@@ -24,6 +24,11 @@ for(let i=3; i<process.argv.length; ++i) {
   if(process.argv[i] === "--optimize") {
     config.optimize = true;
   }
+
+  if(process.argv[i] === "--no-rspq-wrapper") {
+    config.rspqWrapper = false;
+  }
+
   if(process.argv[i] === "-D") {
     if(!process.argv[i+1])throw new Error("Missing define name/value in arguments!");
     const [key, value] = process.argv[++i].split("=");

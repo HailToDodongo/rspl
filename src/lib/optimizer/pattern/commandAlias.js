@@ -22,10 +22,14 @@ import {BRANCH_OPS} from "../asmScanDeps.js";
 export function commandAlias(asmFunc)
 {
   const lines = asmFunc.asm;
-  if(lines.length !== 2 || asmFunc.type !== "command")return;
+  if(lines.length < 2 || asmFunc.type !== "command")return;
 
-  if(lines[0].opIsBranch && lines[1].isNOP) {
-    asmFunc.name = lines[0].args[0];
-    asmFunc.asm = [];
+  const safeBranch = ["beq", "bne", "j", "jr"];
+  if(safeBranch.includes(lines[0].op) && lines[1].isNOP) {
+    asmFunc.nameOverride = lines[0].args[0];
+
+    if(lines.length == 2) {
+      asmFunc.asm = []; // if nothing comes after, we can clear the function
+    }
   }
 }

@@ -27,6 +27,7 @@ declare global
       type: ASTFuncType;
       resultType?: number;
       name: string;
+      nameOverride?: string;
       body: ASTScopedBlock;
       args: ASTFuncArg[];
     };

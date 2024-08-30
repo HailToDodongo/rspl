@@ -61,7 +61,7 @@ export function evalFunctionCost(asmFunc)
     //console.log("Tick: ", cycle, asm.op, [...asm.depsStallTarget], {ld: lastLoadPos, b: branchStep});
 
     // special check if a previous instruction wrote to a control register
-    let isC2Blocked = (asm.op === "cfc2") && (asm.depsSourceMask & lastCtrlRWMask) !== 0n;
+    let isC2Blocked = (asm.op === "cfc2" || asm.op === "ctc2") && (asm.depsSourceMask & lastCtrlRWMask) !== 0n;
 
     regLastWriteMask = asm.depsStallTargetMask;
     lastCtrlRWMask = asm.depsSourceMask | asm.depsTargetMask; // incl. control regs here as an exception

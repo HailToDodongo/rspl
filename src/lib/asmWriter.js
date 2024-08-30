@@ -126,7 +126,8 @@ export function writeASM(ast, functionsAsm, config)
   let commandList = [];
   for(const block of functionsAsm) {
     if(block.type === "command") {
-      commandList[block.resultType] = "    RSPQ_DefineCommand " + block.name + ", " + block.argSize;
+      const name = block.nameOverride || block.name;
+      commandList[block.resultType] = "    RSPQ_DefineCommand " + name + ", " + block.argSize;
     }
   }
   for(let i=0; i<commandList.length; ++i) {

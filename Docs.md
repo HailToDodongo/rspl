@@ -475,6 +475,70 @@ a &= mask.xxxxXXXX;
 a = b + b.x; // adds the first lane of 'b' to all lanes of 'b', storing the result in 'a'
 ```
 
+## Annotations
+Statements and functions can be marked with an annotation, which is a string starting with `@`, optionally with arguments.<br>
+Currently the following annotations are supported:<br>
+
+### `@Barrier(string)`
+Prevents any reordering of instructions across each other if they share the same barrier name.<br>
+Usually this is not needed, since RSPL will automatically handle logic needed for safe re-ordering.<br>
+The only exception is memory access that has no visible dependency via registers.<br>
+E.g. this code would be safe by default:
+```c++
+vec16 val;
+val = load(SOME_ADDRESS);
+vec16 res = val + 2;
+store(res, SOME_ADDRESS);
+```
+Since it can trace that the write depends on the read.<br>
+<br>
+This code would be unsafe and needs a barrier as shown here:
+```c++
+vec16 val;
+@Barrier("some-name") val = load(SOME_ADDRESS);
+vec16 res = 2;
+@Barrier("some-name") store(res, SOME_ADDRESS);
+```
+Since RSPL won't, and can't, safely know if the memory is the same or not.<br>
+In that case adding a barrier will prevent the store from being moved before the load.<br> 
+
+### `@Relative`
+Marks a function as relative, meaning any caller will use a branch instead of a jump.<br>
+This can be useful when wanting to implement position-independent code.<br>
+Example:
+```c++
+@Relative 
+function test() {
+  ...
+}
+```
+
+### `@Align(int)`
+Adds explicit alignment to a function.<br>
+This can be useful if it is expected to e.g. DMA code into a spot of a function.<br>
+Example:
+```c++
+@Align(16)
+function test() {
+  ...
+}
+```
+
+### `@NoReturn`
+Omits any return instruction at the end of a function.<br>
+Can be used in situations where the function should flow into the next one.<br>
+Example:
+```c++
+@NoReturn
+function test() {
+  ...
+}
+
+function test2() {
+  // test() will continue execution here
+}
+```
+
 ## Builtins
 RSPL provides a set of builtin macros, usually mapping directly to instructions.<br>
 Here is a list of all builtins:
@@ -569,10 +633,34 @@ res = select(a, b); // 'a' if last comparison was true, otherwise 'b'
 res = select(a, 32); // constants are allowed too
 ```
 
+### `get_acc()`
+Returns accumulator value (MD/HI) as a 32-bit scalar.<br>
+
 ### `get_vcc()`
 Stores the result of a vector comparison into a scalar variable.<br>
 This should be used after a comparison or `min()`/`max()` call.<br>
 The value will be a bitmask of `0` or `1`s for each vector component.
+
+### `clear_vcc()`
+Clears the VCC by doing a NOP vector operation.<br>
+
+### `set_vcc(int value)`
+Sets the VCC to a specific value.<br>
+The argument must be a scalar variable or constant.
+
+### MFC functions
+Similar to the ones above, there are function to read/write to the MFC0 registers.<br>
+- `get_dma_busy()`
+- `get_rdp_start()` 
+- `get_rdp_end()`
+- `get_rdp_current()`
+- `set_rdp_start(int value)`
+- `set_rdp_end(int value)`
+- `set_rdp_current(int value)`
+- `set_dma_addr_rsp(int value)`
+- `set_dma_addr_rdram(int value)`
+- `set_dma_write(int value)`
+- `set_dma_read(int value)`
 
 ### `invert_half(vec a)` & `invert(vec a)`
 Inverts a (single component of a) vector (`1 / x`).<br>
@@ -657,10 +745,16 @@ store_vec_u8(color, ptrColor, 0x08);
 
 ### `asm(x)`
 Injects raw asm/text into the output, no checks are performed<br>
+Note that this acts as a barrier for optimizations / reordering.<br>
 Example:
 ```c++
 asm("sll $a1, $s5, 5"); 
 ```
+
+### `asm_op(opcode, args...)`
+Single raw asm instruction, with the opcode and arguments separated.<br>
+In contrast to `asm()`, this will allow for reordering.<br>
+However using an instruction or argument that is unknown to RSPL my result in an error.<br>
 
 ## References
 - <a href="https://emudev.org/2020/03/28/RSP.html" target="_blank">RSP Instruction Set</a>
