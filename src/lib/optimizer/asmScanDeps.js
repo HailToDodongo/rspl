@@ -72,7 +72,7 @@ const HIDDEN_REGS_WRITE = {
   "vmov": [                "$acc"],
   "vrcp": [                "$acc", "$DIV_OUT"],
   "vrcph":[                "$acc", "$DIV_IN" ],
-  "vrsq": [                        "$DIV_OUT"],
+  "vrsq": [                "$acc", "$DIV_OUT"],
   "vrsqh":[                "$acc", "$DIV_IN" ],
   "vrcpl":[                "$acc", "$DIV_OUT", "$DIV_IN"],
   "vrsql":[                "$acc", "$DIV_OUT", "$DIV_IN"],
