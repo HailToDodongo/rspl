@@ -14,8 +14,22 @@ let config = {
   optimize: true,
   reorder: false,
   rspqWrapper: true,
-  defines: {}
+  defines: {},
+  patchFunction: undefined,
 };
+
+function getFunctionStartEnd(source, funcName) {
+ const funcIdx = source.search(funcName + ":\n");
+  if(funcIdx === -1) {
+    throw new Error("Function not found in output file!");
+  }
+  // search for end, each following line starts with 2 spaces and the function ends when a line has none
+  const endIdx = source.substring(funcIdx).search(/\n[A-Za-z0-9]/);
+  if(endIdx === -1) {
+    throw new Error("Function end not found in output file!");
+  }
+  return [funcIdx, funcIdx+endIdx];
+}
 
 for(let i=3; i<process.argv.length; ++i) {
   if(process.argv[i] === "--reorder") {
@@ -27,6 +41,11 @@ for(let i=3; i<process.argv.length; ++i) {
 
   if(process.argv[i] === "--no-rspq-wrapper") {
     config.rspqWrapper = false;
+  }
+
+  if(process.argv[i] === "--patch") {
+    if(!process.argv[i+1])throw new Error("Missing patch function name in arguments!");
+    config.patchFunction = process.argv[++i];
   }
 
   if(process.argv[i] === "-D") {
@@ -49,7 +68,20 @@ async function main() {
   if(asmRes.info) {
     console.info(asmRes.info);
   }
-  writeFileSync(pathOut, asmRes.asm);
+
+  if(config.patchFunction) {
+    console.log("Patching function", config.patchFunction);
+    const oldSource = readFileSync(pathOut, "utf8");
+    const posOld = getFunctionStartEnd(oldSource, config.patchFunction);
+    const posNew = getFunctionStartEnd(asmRes.asm, config.patchFunction);
+    const newSource = oldSource.substring(0, posOld[0])
+      + asmRes.asm.substring(posNew[0], posNew[1])
+      + oldSource.substring(posOld[1]);
+
+    writeFileSync(pathOut, newSource);
+  } else {
+    writeFileSync(pathOut, asmRes.asm);
+  }
 }
 
 main().catch(e => {

@@ -58,5 +58,6 @@ declare global {
         rspqWrapper: boolean;
         fileLoader: (path: string) => string;
         defines: Record<string, string>;
+        patchFunction: string | undefined;
     };
 }
