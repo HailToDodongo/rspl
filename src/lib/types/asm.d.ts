@@ -53,6 +53,7 @@ declare global
         opIsMemStallStore: boolean;
         opIsVector: boolean;
         isNOP: boolean;
+        isLikely: boolean;
 
         labelEnd: string; // sets the end for a block
 

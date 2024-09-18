@@ -6,12 +6,16 @@
 import { transpileSource } from "./lib/transpiler";
 import { readFileSync, writeFileSync } from "fs";
 import * as path from "path";
+import {initWorker, registerTask, WorkerThreads} from "./lib/workerThreads.js";
 
-const source = readFileSync(process.argv[2], "utf8");
-const pathOut = process.argv[2].replace(".rspl", "") + ".S";
+import { fileURLToPath } from 'url';
+import {reorderRound, reorderTask} from "./lib/optimizer/asmOptimizer.js";
+const __filename = fileURLToPath(import.meta.url);
 
 let config = {
   optimize: true,
+  optimizeTime: 1000 * 30,
+  optimizeWorker: 4,
   reorder: false,
   rspqWrapper: true,
   defines: {},
@@ -39,6 +43,13 @@ for(let i=3; i<process.argv.length; ++i) {
     config.optimize = true;
   }
 
+  if(process.argv[i].startsWith("--opt-time=")) {
+    config.optimizeTime = parseInt(process.argv[i].split("=")[1]) * 1000;
+  }
+  if(process.argv[i].startsWith("--opt-worker=")) {
+    config.optimizeWorker = parseInt(process.argv[i].split("=")[1]);
+  }
+
   if(process.argv[i] === "--no-rspq-wrapper") {
     config.rspqWrapper = false;
   }
@@ -56,6 +67,15 @@ for(let i=3; i<process.argv.length; ++i) {
 }
 
 async function main() {
+  registerTask("reorder", reorderTask);
+  if(initWorker())return;
+
+  const source = readFileSync(process.argv[2], "utf8");
+  const pathOut = process.argv[2].replace(".rspl", "") + ".S";
+
+  const selfPath = process.argv.find(arg => arg.includes(".mjs"));
+  const worker = new WorkerThreads(config.optimizeWorker, selfPath);
+
   const sourceBaseDir = path.dirname(process.argv[2]);
   config.fileLoader =  filePath => readFileSync(path.join(sourceBaseDir, filePath), "utf8");
 
@@ -82,6 +102,7 @@ async function main() {
   } else {
     writeFileSync(pathOut, asmRes.asm);
   }
+  worker.stop();
 }
 
 main().catch(e => {

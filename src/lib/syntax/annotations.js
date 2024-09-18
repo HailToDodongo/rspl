@@ -9,6 +9,7 @@ export const ANNOTATIONS = {
   Relative: "Relative",
   Align: "Align",
   NoReturn: "NoReturn",
+  Unlikely: "Unlikely"
 };
 
 export const KNOWN_ANNOTATIONS = Object.keys(ANNOTATIONS);

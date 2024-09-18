@@ -15,6 +15,7 @@ import {mergeSequence} from "./pattern/mergeSequence.js";
 import {removeDeadCode} from "./pattern/removeDeadCode.js";
 import {sleep} from "../utils.js";
 import {commandAlias} from "./pattern/commandAlias.js";
+import {registerTask, WorkerThreads} from "../workerThreads.js";
 
 /**
  * Optimizes ASM before any dependency analysis.
@@ -55,13 +56,11 @@ export function asmOptimizePattern(asmFunc)
  *
  * Below are settings to fine-tune this process:
  */
-const ITERATION_COUNT_FACTOR = 10.0;  // iterations = asm.length * factor
-const ITERATION_COUNT_MIN    = 100;  // minimum iterations
-const VARIANT_COUNT          = 5;   // variants per iteration
-const PREFER_STALLS_RATE     = 0.5;  // chance to directly fill a stall instead of a random pick
+const SUB_ITERATION_COUNT    = 15;   // sub-iterations per variant
+const PREFER_STALLS_RATE     = 0.33;  // chance to directly fill a stall instead of a random pick
 
 const REORDER_MIN_OPS = 4;  // minimum instructions to reorder per round
-const REORDER_MAX_OPS = 10; // maximum instructions to reorder per round
+const REORDER_MAX_OPS = 15; // maximum instructions to reorder per round
 
 
 //let i =0;
@@ -188,12 +187,31 @@ function optimizeStep(asmFunc)
   relocateElement(asmFunc.asm, i, targetIdx);
 }
 
+export function reorderTask(asmFunc) {
+  let bestCost = evalFunctionCost(asmFunc);
+  let bestFunc = {...asmFunc, asm: [...asmFunc.asm]};
+  let refFunc = {...asmFunc, asm: [...asmFunc.asm]};
+  for(let run=0; run<asmFunc._iterCount; ++run)
+  {
+    const result = reorderRound(refFunc);
+    if(rand() < 0.2) {
+      refFunc.asm = result.asm;
+    }
+
+    if(result.cost < bestCost) {
+      bestFunc.asm = [...result.asm];
+      bestCost = result.cost;
+    }
+  }
+  return {cost: bestCost, asm: bestFunc.asm};
+}
+
 /**
  * Round for a single variant, performs a number of reorder steps.
  * @param asmFunc
  * @return {{cost: number, asm: *[]}}
  */
-function reorderRound(asmFunc)
+export function reorderRound(asmFunc)
 {
   const opCount = Math.floor(rand() * REORDER_MAX_OPS) + REORDER_MIN_OPS;
   //const opCount = 1;
@@ -228,50 +246,64 @@ export async function asmOptimize(asmFunc, updateCb, config)
   const funcName = asmFunc.name || "(???)";
   if(config.reorder)
   {
-    let ITERATION_COUNT = Math.max(
-      Math.floor(asmFunc.asm.length * ITERATION_COUNT_FACTOR),
-      ITERATION_COUNT_MIN
-    );
-    if(asmFunc.asm.length > 200) {
-      ITERATION_COUNT *= 1.2;
-    }
-
     let costBest = evalFunctionCost(asmFunc);
     asmFunc.cyclesBefore = costBest;
+    const worker = WorkerThreads.getInstance();
 
     const costInit = costBest;
     console.log("costOpt", costInit);
 
+    let totalTime = 0;
+    let maxTime = config.optimizeTime || 30_000;
+    console.log(`Starting optimization with max. time: ${new Date(maxTime).toISOString().substr(11, 8)}, worker pool size: ${worker.poolSize}`);
+
     let lastRandPick = cloneFunction(asmFunc);
     let anyRandPick = cloneFunction(asmFunc);
-    let mainIterCount = ITERATION_COUNT;
+    let historyBest = [];
 
     // Main iteration loop
     let time = performance.now();
     let i = 0;
-    for(let iter=0; iter<mainIterCount; ++iter)
+    while(totalTime < maxTime)
     {
       if(i !== 0 && (i % 100) === 0) {
         const dur = performance.now() - time;
-        console.log(`[${funcName}] Step: ${i}, Left: ${mainIterCount - iter} | Time: ${dur.toFixed(4)} ms`);
+        totalTime += dur;
+        if (totalTime > maxTime) {
+          console.log(`[${funcName}] Timeout after ${i} iterations.`);
+          break;
+        }
+        console.log(`[${funcName}] Step: ${i}, Left: ${maxTime - totalTime}ms | Time: ${dur.toFixed(4)}`);
         time = performance.now();
       }
       const funcCopy = cloneFunction(asmFunc);
 
       // Variants per interation
       let bestAsm = [...funcCopy.asm];
-      for(let s=0; s<VARIANT_COUNT; ++s)
+      let results = [];
+      //console.time("reorderRound");
+      for(let s=0; s<worker.poolSize; ++s)
       {
         let refFunc = funcCopy;
-        //if(s < 2)refFunc = lastRandPick;
-        //else if(s < 4)refFunc = anyRandPick;
-        if(rand() < 0.2)refFunc = lastRandPick;
-        if(rand() < 0.2)refFunc = anyRandPick;
+        if(rand() < 0.1)refFunc = lastRandPick;
+        if(rand() < 0.2) {
+          const randPick = Math.floor(rand() * historyBest.length);
+          if(historyBest[randPick])refFunc = {...refFunc, asm: [...historyBest[randPick]]};
+        }
 
-        const {cost, asm} = reorderRound(refFunc);
+        refFunc._iterCount = Math.floor(i / 600) + SUB_ITERATION_COUNT;
+        //results.push(worker.runTask("reorder", refFunc));
+        results.push(reorderRound(refFunc));
+      }
+
+      results = await Promise.all(results);
+
+      for(let s=0; s<results.length; ++s)
+      {
+        const {cost, asm} = results[s];
         const isBetter = cost < costBest;
         const isSame = cost === costBest;
-        const canUseTheSame = s < (VARIANT_COUNT / 2);
+        const canUseTheSame = s < (results.length / 2);
 
         if(isBetter || (canUseTheSame && isSame)) {
           costBest = cost;
@@ -280,21 +312,15 @@ export async function asmOptimize(asmFunc, updateCb, config)
           asmFunc.cyclesAfter = cost;
 
           if(isBetter) {
-            iter = 0;
+            historyBest.push(asm);
             updateCb(asmFunc);
             console.log(`[${funcName}] \x1B[32m**** New Best for '${funcName}': ${costInit} -> ${cost} ****\x1B[0m`);
           }
         }
-
-        //asmFunc.asm = asm; updateCb(asmFunc); await sleep(1200); DEBUG
-        await sleep(0);
       }
 
       if(i % 3 === 0)lastRandPick = funcCopy;
-      if(rand() < 0.3)anyRandPick = funcCopy;
-
-      //asmFunc.asm = bestAsm;
-      //updateCb(asmFunc);
+      if(rand() < 0.5)anyRandPick = funcCopy;
       ++i;
     }
 

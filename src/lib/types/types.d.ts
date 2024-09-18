@@ -54,6 +54,8 @@ declare global {
 
     type RSPLConfig = {
         optimize: boolean;
+        optimizeTime: number;
+        optimizeWorker: number;
         reorder: boolean;
         rspqWrapper: boolean;
         fileLoader: (path: string) => string;

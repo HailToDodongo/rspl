@@ -29,6 +29,7 @@ export function evalFunctionCost(asmFunc)
   let inDualIssue = true;
   let branchStep = 0;
   let lastLoadPosMask = 0; // if exactly 2, causes a stall. (counts up)
+  let didJump = true;
 
   // advances a single cycle, updating the active instructions in the process
   const tick = (advanceDeps = true) => {
@@ -75,6 +76,10 @@ export function evalFunctionCost(asmFunc)
 
     if(branchStep === BRANCH_STEP_NONE && isBranch)branchStep = BRANCH_STEP_BRANCH;
 
+    if(isBranch) {
+      didJump = asm.isLikely;
+    }
+
     // check if we can in theory dual-issue
     //const couldDualIssue = lastIsVector !== asm.opIsVector && branchStep !== 2 && !hadWriteLastInstr;
     const couldDualIssue = lastIsVector !== asm.opIsVector
@@ -111,7 +116,11 @@ export function evalFunctionCost(asmFunc)
       }
     }
 
-    if(branchStep === BRANCH_STEP_DELAY)tick();
+    //  branch bubble (only if taken)
+    if(branchStep === BRANCH_STEP_DELAY) {
+      if(didJump)tick();
+      didJump = false;
+    }
     asm.debug.cycle = cycle;
     //if(global.LOG_ON)log += `\t| cycle: ${cycle}\n`;
 

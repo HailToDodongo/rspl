@@ -12,6 +12,7 @@ import {
   STORE_OPS
 } from "../optimizer/asmScanDeps.js";
 import {REG} from "../syntax/registers.js";
+import {getAnnotationVal} from "../syntax/annotations.js";
 
 export const ASM_TYPE = {
   OP: 0,
@@ -45,6 +46,7 @@ function getDebugData() {
 }
 
 function getOpInfo(op) {
+  const annotations = state.getAnnotations();
   return {
     opIsLoad: LOAD_OPS.includes(op),
     opIsStore: STORE_OPS.includes(op),
@@ -55,7 +57,8 @@ function getOpInfo(op) {
     opIsVector: op.startsWith("v"),
     stallLatency: getStallLatency(op),
     isNOP: op === "nop",
-    annotations: state.getAnnotations(),
+    isLikely: !getAnnotationVal(annotations, "Unlikely"),
+    annotations,
     funcArgs: [],
     depsArgMask: 0n,
   };

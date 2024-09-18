@@ -213,6 +213,10 @@ export function writeASM(ast, functionsAsm, config)
         debugInfo += " ## Args: " + asm.funcArgs.join(", ");
       }
 
+      if(asm.debug.lineRSPL) {
+        //debugInfo += " ## L:" + asm.debug.lineRSPL;
+      }
+
       // ASM Text output
       switch (asm.type) {
         case ASM_TYPE.INLINE:

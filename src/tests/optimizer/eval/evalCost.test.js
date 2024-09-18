@@ -212,6 +212,25 @@ describe('Eval - Cost', () =>
     ]);
   });
 
+  test('SU/VU in dual - MFC2', async () => {
+    const lines = textToAsmLines(`      
+      vmadn $v06, $v06, $v05.h3
+      vmadh $v05, $v05, $v05.h3
+      nop   
+      mfc2 $fp, $v02.e2   
+      vmudl $v29, $v06, $v14.v 
+      vor $v00, $v00, $v00
+      nop   
+      sra $fp, $fp, 7   
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1,2,2,3,3+2,6,6,8
+    ]);
+  });
+
+  // @TODO: test VU+SU, SU would be fine but VU stalls, then SU is in a stall because of 2 cycle load/store bs
+
   test('SU memory - load (dep)', async () => {
     const lines = textToAsmLines(`
       lhu $s3, 24($s4)
