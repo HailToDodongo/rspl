@@ -36,7 +36,7 @@ export async function transpileSource(source, config, updateCb = undefined)
   source = stripComments(source);
   const parser = new nearly.Parser(grammar);
 
-  console.time("Preprocessor");
+  //console.time("Preprocessor");
   const defines = {};
   if(config.defines) {
     for(const [key, value] of Object.entries(config.defines)) {
@@ -48,7 +48,7 @@ export async function transpileSource(source, config, updateCb = undefined)
   }
 
   source = preprocess(source, defines, config.fileLoader);
-  console.timeEnd("Preprocessor");
+  //console.timeEnd("Preprocessor");
 
   //console.time("parser");
   const astList = parser.feed(source);
@@ -148,11 +148,11 @@ export async function transpile(ast, updateCb, config = {})
       if(func.asm.length > 0) {
         asmInitDeps(func);
 
-        console.time("asmOptimize");
+        if(config.reorder)console.time("asmOptimize");
         await asmOptimize(func, (bestFunc) => {
           if(updateCb)updateCb(generateASM());
         }, config);
-        console.timeEnd("asmOptimize");
+        if(config.reorder)console.timeEnd("asmOptimize");
 
         asmScanDeps(func); // debugging only
         func.cyclesAfter = evalFunctionCost(func);
@@ -161,13 +161,15 @@ export async function transpile(ast, updateCb, config = {})
       }
     }
 
-    console.log("==== Optimization Overview ====");
-    let longestFuncName = functionsAsm.reduce((a, b) => a.name.length > b.name.length ? a : b).name.length;
-    for(const func of functionsAsm) {
-      if(config.patchFunction && func.name !== config.patchFunction)continue;
-      console.log(`- ${func.name.padEnd(longestFuncName, ' ')}: ${func.cyclesBefore.toString().padStart(4, ' ')}  -> ${func.cyclesAfter.toString().padStart(4, ' ')} cycles`);
+    if(config.reorder) {
+      console.log("==== Optimization Overview ====");
+      let longestFuncName = functionsAsm.reduce((a, b) => a.name.length > b.name.length ? a : b).name.length;
+      for(const func of functionsAsm) {
+        if(config.patchFunction && func.name !== config.patchFunction)continue;
+        console.log(`- ${func.name.padEnd(longestFuncName, ' ')}: ${func.cyclesBefore.toString().padStart(4, ' ')}  -> ${func.cyclesAfter.toString().padStart(4, ' ')} cycles`);
+      }
+      console.log("===============================");
     }
-    console.log("===============================");
   }
 
   return generateASM();

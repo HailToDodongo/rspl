@@ -3,13 +3,133 @@
 * @license Apache-2.0
 */
 
-import {ASM_TYPE} from "../../intsructions/asmWriter.js";
+import {ASM_TYPE, asmNOP} from "../../intsructions/asmWriter.js";
 
 // Reference/Docs: https://n64brew.dev/wiki/Reality_Signal_Processor/CPU_Pipeline
 
 const BRANCH_STEP_NONE = 0;
 const BRANCH_STEP_BRANCH = 1;
 const BRANCH_STEP_DELAY = 2;
+
+export function evalFunctionCostNew(asmFunc)
+{
+  /** @type {Array<ASM>} */
+  let execOps = [];
+
+  let branchStep = 0;
+  let hadWriteLastInstr = false; // @TODO
+  let lastLoadPosMask = 0;
+  let regCycleMap = {}; // register to stall counter
+
+  let didJump = false;
+  let cycle = 0;
+  let pc = 0;
+  /** @type {ASM[]} */
+  let ops = asmFunc.asm.filter(asm => asm.type === ASM_TYPE.OP);
+
+  const tick = (advanceDeps = true) => {
+    if(advanceDeps) {
+      for(const reg in regCycleMap) {
+        --regCycleMap[reg];
+      }
+    }
+    ++cycle;
+    lastLoadPosMask <<= 1;
+    lastLoadPosMask &= 0xFF; // JS sucks at letting bits fall off the end
+  };
+
+  while(pc === 0 || execOps.length)
+  {
+    // wait out any stalls
+    for(;;)
+    {
+      let hadStall = false;
+      for(let execOp of execOps) {
+        // check if one of our source or destination reg as written to in the last instruction
+        for(const regSrc of execOp.depsStallSource) {
+          while(regCycleMap[regSrc] > 0) {
+            ++execOp.debug.stall;
+            hadStall = true;
+            tick();
+          }
+        }
+        // if a store happens exactly two cycles after a load, stall it
+        if(lastLoadPosMask & 0b100 && execOp.opIsMemStallStore) {
+          ++execOp.debug.stall;
+          hadStall = true;
+          tick();
+        }
+      }
+      if(!hadStall)break;
+    }
+
+    let lastWasDelay = false;
+    // now execute
+    for(let execOp of execOps) {
+      const latency = execOp.stallLatency;
+
+      if(execOp.opIsMemStallLoad)lastLoadPosMask |= 1;
+
+      const isBranch = execOps[0].opIsBranch || execOps[1]?.opIsBranch;
+      if(isBranch && (execOps[0]?.isLikely || execOps[1]?.isLikely)) {
+        didJump = true;
+      }
+
+      // update where in a branch we are (branch, delay, none)
+      if(branchStep === BRANCH_STEP_DELAY)branchStep = BRANCH_STEP_NONE;
+        else if(branchStep === BRANCH_STEP_BRANCH)branchStep = BRANCH_STEP_DELAY;
+      if(branchStep === BRANCH_STEP_NONE && isBranch)branchStep = BRANCH_STEP_BRANCH;
+
+      if(didJump && branchStep === BRANCH_STEP_DELAY) {
+        tick(); didJump = false;
+        lastWasDelay = true;
+      }
+
+      execOp.debug.cycle = cycle;
+      for(const regDst of execOp.depsStallTarget) {
+        regCycleMap[regDst] = latency;
+      }
+    }
+
+    // fetch next instructions to execute
+    if(pc >= ops.length)break;
+    const opPrev = ops[pc-1];
+    const op = ops[pc];
+    const nextOp = ops[pc+1];
+
+    let canDualIssue = nextOp
+      && op.opIsVector !== nextOp.opIsVector
+      && !(opPrev ? opPrev.opIsBranch : false) // cannot dual issue if in delay slot
+      && !hadWriteLastInstr;
+
+    // cannot dual issue with the delay slot
+    if(op.opIsBranch)canDualIssue = false;
+
+    // if a vector reg is written to, and the next instr. reads from it, do not dual issue
+    if(nextOp) {
+      if((op.depsStallTargetMask & nextOp.depsStallSourceMask) !== 0n ||
+         (op.depsStallTargetMask & nextOp.depsStallTargetMask) !== 0n) {
+        canDualIssue = false;
+      }
+
+      let ctrlRWMask = op.depsSourceMask | op.depsTargetMask; // incl. control regs here as an exception
+      /*if((op.op === "cfc2" || op.op === "ctc2") && (nextOp.depsTargetMask & ctrlRWMask) !== 0n) {
+        canDualIssue = false;
+      }*/
+      ctrlRWMask = nextOp.depsSourceMask | nextOp.depsTargetMask; // incl. control regs here as an exception
+      if((nextOp.op === "cfc2" || nextOp.op === "ctc2") && (op.depsTargetMask & ctrlRWMask) !== 0n) {
+        canDualIssue = false;
+      }
+    }
+
+    execOps = [op];
+    if(canDualIssue)execOps.push(nextOp);
+    pc += canDualIssue ? 2 : 1;
+    tick();
+  }
+
+  return 0;
+}
 
 /**
  * Evaluates the cost of a given function.
@@ -20,6 +140,7 @@ const BRANCH_STEP_DELAY = 2;
  */
 export function evalFunctionCost(asmFunc)
 {
+  return evalFunctionCostNew(asmFunc);
   /** @type {OptInstruction[]} instructions that are currently executing (incl. latencies) */
   let cycle = 0;
   let regCycleMap = {}; // register to stall counter
@@ -43,7 +164,7 @@ export function evalFunctionCost(asmFunc)
     lastLoadPosMask &= 0xFF; // JS sucks at letting bits fall off the end
   }
 
-  //let log = "";
+  let log = "";
 
   let lastCtrlRWMask = 0n;
   for(const asm of asmFunc.asm)
@@ -52,8 +173,6 @@ export function evalFunctionCost(asmFunc)
     asm.debug.stall = 0;
 
     if(asm.opIsMemStallLoad)lastLoadPosMask |= 1;
-
-    //if(global.LOG_ON)log += `Tick[${cycle}]: ${asm.op}\t| lat: ${asm.stallLatency}`;
 
     // check if one of our source or destination reg as written to in the last instruction
     const maskSrcTarget = asm.depsStallSourceMask | asm.depsStallTargetMask;
@@ -122,13 +241,11 @@ export function evalFunctionCost(asmFunc)
       didJump = false;
     }
     asm.debug.cycle = cycle;
-    //if(global.LOG_ON)log += `\t| cycle: ${cycle}\n`;
 
     const latency = asm.stallLatency;
     for(const regDst of asm.depsStallTarget) {
       regCycleMap[regDst] = latency;
     }
   }
-  //if(log)console.log(log);
   return cycle;
 }

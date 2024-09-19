@@ -36,6 +36,8 @@ function textToAsmCycle(text) {
     const stars = (cycles[i].match(/\*/g) || []).length;
     if(!cycles[i].startsWith("^")) {
       lastCycle = parseInt(cycles[i]);
+    } else {
+      if(cycles[i-1])cycles[i-1] += stars;
     }
     lastCycle += stars;
     cycles[i] = lastCycle + 1;

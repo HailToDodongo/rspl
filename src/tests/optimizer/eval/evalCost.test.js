@@ -153,7 +153,7 @@ describe('Eval - Cost', () =>
     ]);
   });
 
-  test('VU/SU - no dual issue', async () => {
+  test('VU/SU - no dual issue (lqv)', async () => {
     const lines = textToAsmLines(`
       vand $v04, $v30, $v31
       lqv $v04, 0, 0, $s4
@@ -164,7 +164,7 @@ describe('Eval - Cost', () =>
     ]);
   });
 
-  test('VU/SU - no dual issue', async () => {
+  test('VU/SU - no dual issue (mfc2)', async () => {
     const lines = textToAsmLines(`
       vand $v04, $v30, $v31
       mfc2 $t0, $v04.e4 
@@ -225,7 +225,7 @@ describe('Eval - Cost', () =>
     `);
     const cycles = linesToCycles(lines);
     expect(cycles).toEqual([
-      1,2,2,3,3+2,6,6,8
+      1,2,2,5,5,6,6,8
     ]);
   });
 
@@ -373,6 +373,19 @@ describe('Eval - Cost', () =>
     const cycles = linesToCycles(lines);
     expect(cycles).toEqual([
       1,2,4,5
+    ]);
+  });
+
+  test('Branch - dual-issue', async () => {
+    const lines = textToAsmLines(`
+      vxor $v00, $v00, $v00
+      bne $s7, $zero, LABEL_0001
+      nop
+      vxor $v28, $v00, $v30.e7
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1,1,2,3
     ]);
   });
 
@@ -566,7 +579,7 @@ describe('Eval - Cost', () =>
     expect(cycles).toEqual([
      1, 1,
      2, 2,
-     3, 5,
+     5, 5,
 
      6,
      7,

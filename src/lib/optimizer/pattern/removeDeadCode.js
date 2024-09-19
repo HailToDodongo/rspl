@@ -48,6 +48,5 @@ export function removeDeadCode(asmFunc)
   }
 
   if(lastSafeIndex < 0)return;
-  console.log("lastJumpIdx", lastSafeIndex);
   lines.splice(lastSafeIndex+2);
 }
