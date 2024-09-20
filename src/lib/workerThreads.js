@@ -11,7 +11,7 @@ export class WorkerThreads {
     this.workerPromises = [];
 
     if(isMainThread) {
-      this.initWorkers();
+      //this.initWorkers();
     }
 
     instance = this;

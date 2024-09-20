@@ -382,10 +382,11 @@ describe('Eval - Cost', () =>
       bne $s7, $zero, LABEL_0001
       nop
       vxor $v28, $v00, $v30.e7
+      nop
     `);
     const cycles = linesToCycles(lines);
     expect(cycles).toEqual([
-      1,1,2,3
+      1,1,3,5,5
     ]);
   });
 
