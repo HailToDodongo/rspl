@@ -273,7 +273,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
           console.log(`[${funcName}] Timeout after ${i} iterations.`);
           break;
         }
-        console.log(`[${funcName}] Step: ${i}, Left: ${maxTime - totalTime}ms | Time: ${dur.toFixed(4)}`);
+        console.log(`[${funcName}] Step: ${i}, Left: ${(maxTime - totalTime).toFixed(4)}ms | Time: ${dur.toFixed(4)}`);
         time = performance.now();
       }
       const funcCopy = cloneFunction(asmFunc);

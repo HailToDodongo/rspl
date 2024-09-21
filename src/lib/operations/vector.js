@@ -583,6 +583,7 @@ function opMul(varRes, varLeft, varRight, clearAccum)
   let varRightHigh = varRight.reg + swizzleRight;
 
   // @TODO: refactor
+  const resRegs = getVec32Regs(varRes);
 
   // 16bit * 16bit multiply
   if(varRes.type === "vec32" && varLeft.type === "vec16" && varRight.type === "vec16")
@@ -592,14 +593,21 @@ function opMul(varRes, varLeft, varRight, clearAccum)
        !["sfract", "ufract"].includes(varRight.castType))
     {
       const intOp = clearAccum ? "vmudh": "vmadh";
-      const resRegs = getVec32Regs(varRes);
-
       return [
         asm(intOp,  [resRegs[1], varLeft.reg, varRight.reg + swizzleRight]),
         asm("vsar", [resRegs[0], REG_COP2.ACC_HI]),
         asm("vsar", [resRegs[1], REG_COP2.ACC_MD]),
       ];
     }
+  }
+
+  // 16bit * 32bit multiply
+  if(right32Bit && varRes.type === "vec32" && varLeft.type === "vec16" && !["sfract", "ufract"].includes(varLeft.castType)) {
+    return [
+      asm("vmudm", [resRegs[1], varLeft.reg, fractReg(varRight) + swizzleRight]),
+      asm("vmadh", [resRegs[0], varLeft.reg, intReg(varRight) + swizzleRight]),
+      asm("vmadn", [resRegs[1], REGS.VZERO, REGS.VZERO]),
+    ];
   }
 
   const rightSideIsFraction = ["sfract", "ufract"].includes(varRight.castType);
