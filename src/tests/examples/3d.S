@@ -260,10 +260,9 @@ T3DCmd_VertLoad:
   vadd $v06, $v06, $v03.v
   LABEL_0004:
   vmulf $v07, $v07, $v06.v
-  vmudl $v29, $v00, $v09.h3
-  vmadm $v29, $v15, $v09.h3
-  vmadn $v03, $v00, $v08.h3
+  vmudm $v03, $v15, $v09.h3
   vmadh $v02, $v15, $v08.h3
+  vmadn $v03, $v00, $v00
   vch $v29, $v08, $v02
   vcl $v29, $v09, $v03
   cfc2 $k1, $vcc
@@ -684,8 +683,7 @@ T3DCmd_MatrixStack:
   addu $s5, $s5, $a1
   bne $s6, $zero, RSPQ_Loop
   sw $s5, %lo(MATRIX_STACK_PTR)($zero)
-  slt $at, $a1, $zero
-  beq $at, $zero, LABEL_0012
+  bgez $a1, LABEL_0012
   ori $s4, $zero, %lo(CLIP_BUFFER_TMP)
   or $a0, $zero, $s5
   LABEL_0012:

@@ -5,6 +5,7 @@
 import {asm} from "../../intsructions/asmWriter.js";
 import {REG} from "../../syntax/registers.js";
 import state from "../../state.js";
+import {invertBranchOp} from "../../operations/branch.js";
 
 /**
  * If a branch has the form of: " if(cond)goto TARGET; "
@@ -29,7 +30,7 @@ export function branchJump(asmFunc)
   for(let i=0; i<lines.length; ++i)
   {
     const line = lines[i];
-    if(line.op === "beq" || line.op === "bne")
+    if(line.opIsBranch && line.op.startsWith("b"))
     {
       const labelTemp = line.args[line.args.length-1];
       const jumpOp = lines[i+2]?.op;
@@ -41,7 +42,7 @@ export function branchJump(asmFunc)
       {
         const labelTarget = lines[i+2].args[lines[i+2].args.length-1];
         // invert condition and patch label
-        line.op = line.op === "beq" ? "bne" : "beq";
+        line.op = invertBranchOp(line.op);
         line.args[line.args.length-1] = labelTarget;
 
         // if it was a jal, we need to manually assign the return register

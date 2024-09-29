@@ -20,7 +20,7 @@ export const LOAD_OPS_VECTOR = ["lbv", "lsv", "llv", "ldv", "lqv", "lpv", "luv"]
 // ops that load from RAM, r/w register access
 export const LOAD_OPS = [...LOAD_OPS_SCALAR, ...LOAD_OPS_VECTOR];
 
-export const BRANCH_OPS = ["beq", "bne", "bgezal", "j", "jr", "jal"];
+export const BRANCH_OPS = ["beq", "bne", "bgezal", "bltzal", "bgez", "bltz", "j", "jr", "jal"];
 
 // ops that don't write to any register
 export const READ_ONLY_OPS = [...BRANCH_OPS, ...STORE_OPS, "mtc0"];
@@ -208,8 +208,9 @@ function getSourceRegs(line)
   if(["jr", "mtc2", "mtc0", "ctc2"].includes(line.op)) {
     return [line.args[0]];
   }
-  if(["beq", "bne"].includes(line.op)) {
-    return [line.args[0], line.args[1]]; // 3rd arg is the label
+  if(line.opIsBranch && line.op.startsWith("b")) {
+    // last arg is label, take all before that
+    return line.args.slice(0, -1);
   }
   if(line.opIsStore) {
     return line.args;

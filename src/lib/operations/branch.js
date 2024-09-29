@@ -4,8 +4,19 @@ import {asm, asmBranch, asmNOP} from "../intsructions/asmWriter.js";
 import {isSigned, u32InS16Range} from "../dataTypes/dataTypes.js";
 import opsScalar from "./scalar.js";
 
-function invertOp(op) {
-  return op === "bne" ? "beq" : "bne";
+// "beq", "bne", "bgezal", "bltzal", "bgez", "bltz"
+const BRANCH_INVERT = {
+  "beq": "bne",
+  "bne": "beq",
+  "bgezal": "bltzal",
+  "bltzal": "bgezal",
+  "bgez": "bltz",
+  "bltz": "bgez",
+};
+
+export function invertBranchOp(op) {
+  if(!BRANCH_INVERT[op])state.throwError("Cannot invert branch operation: " + op);
+  return BRANCH_INVERT[op];
 }
 
 /**
@@ -37,7 +48,7 @@ export function opBranch(compare, labelElse, invert = false)
   if(compare.op === "==" || compare.op === "!=")
   {
     let opBranch = compare.op === "==" ? "bne" : "beq";
-    if(invert)opBranch = invertOp(opBranch);
+    if(invert)opBranch = invertBranchOp(opBranch);
 
     return [
       ...(isImmediate ? opsScalar.loadImmediate(REG.AT, compare.right.value) : []),
@@ -48,6 +59,7 @@ export function opBranch(compare, labelElse, invert = false)
 
   const opsLoad = [];
   let regOrValRight = isImmediate ? compare.right.value : regTestRes;
+  let isZeroCompare = !isImmediate && regTestRes === REG.ZERO;
 
   // Both ">" and "<=" are causing the biggest issues when inverted, so map them to the other two
   if(compare.op === ">" || compare.op === "<=") {
@@ -76,7 +88,17 @@ export function opBranch(compare, labelElse, invert = false)
   if(compare.op === "<" || compare.op === ">=")
   {
     let opBranch = compare.op === "<" ? "beq" : "bne";
-    if(invert)opBranch = invertOp(opBranch);
+    if(invert)opBranch = invertBranchOp(opBranch);
+
+    if(isZeroCompare) {
+      console.log("Zero compare", invert);
+      opBranch = compare.op === "<" ? "bgez" : "bltz";
+      if(invert)opBranch = invertBranchOp(opBranch);
+      return [
+        asmBranch(opBranch, [regLeft, labelElse], labelElse), // jump if "<" fails (aka ">=")
+        asmNOP(),
+      ];
+    }
 
     return [
       ...opsLoad,
