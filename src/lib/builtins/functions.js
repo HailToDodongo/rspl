@@ -342,12 +342,33 @@ function get_acc(varRes, args, swizzle)
   if(!varRes)state.throwError("Builtin get_acc() must have a left side!", varRes);
   if(args.length > 0)state.throwError("Builtin get_acc() requires no arguments!", args[0]);
   if(!isVecReg(varRes.reg))state.throwError("Builtin get_acc() must be assigned to a vector variable!", varRes);
-  if(varRes.type !== "vec32")state.throwError("Builtin get_acc() must be assigned to a vec32 variable!", varRes);
+  if(varRes.type !== "vec32")state.throwError("Builtin get_acc() must be assigned to a vec32 variable!\nUse get_acc_high/mid/low.", varRes);
 
   return [
     asm("vsar", [intReg(varRes), REG_COP2.ACC_HI]),
     asm("vsar", [fractReg(varRes), REG_COP2.ACC_MD]),
   ];
+}
+
+function get_acc_single(varRes, args, swizzle, name, part)
+{
+  if(swizzle)state.throwError("Builtin "+name+"() cannot use swizzle!", varRes);
+  if(!varRes)state.throwError("Builtin "+name+"() must have a left side!", varRes);
+  if(args.length > 0)state.throwError("Builtin "+name+"() requires no arguments!", args[0]);
+  if(!isVecReg(varRes.reg))state.throwError("Builtin "+name+"() must be assigned to a vector variable!", varRes);
+  if(varRes.type !== "vec16")state.throwError("Builtin "+name+"() must be assigned to a vec16 variable!\nUse get_acc().", varRes);
+
+  return [asm("vsar", [varRes.reg, part])];
+}
+
+function get_acc_high(varRes, args, swizzle) {
+  return get_acc_single(varRes, args, swizzle, "get_acc_high", REG_COP2.ACC_HI);
+}
+function get_acc_mid(varRes, args, swizzle) {
+  return get_acc_single(varRes, args, swizzle, "get_acc_mid", REG_COP2.ACC_MD);
+}
+function get_acc_low(varRes, args, swizzle) {
+  return get_acc_single(varRes, args, swizzle, "get_acc_low", REG_COP2.ACC_LO);
 }
 
 /**
@@ -695,6 +716,7 @@ function select(varRes, args, swizzle) {
 export default {
   load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
   asm: inlineAsm, asm_op, print, printf, abs, clip, clear_vcc, get_acc, set_vcc, get_dma_busy,
+  get_acc_high, get_acc_mid, get_acc_low,
   get_rdp_start, get_rdp_end, get_rdp_current,
   set_rdp_start, set_rdp_end, set_rdp_current,
   set_dma_addr_rsp, set_dma_addr_rdram, set_dma_write, set_dma_read,

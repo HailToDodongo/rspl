@@ -44,6 +44,7 @@ export const REG_COP2 = {
   VCE: "$vce",
   ACC_MD: "COP2_ACC_MD",
   ACC_HI: "COP2_ACC_HI",
+  ACC_LO: "COP2_ACC_LO",
 };
 
 // MIPS scalar register in correct order ($0 - $31)

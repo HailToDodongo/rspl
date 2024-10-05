@@ -497,15 +497,22 @@ function opShiftRight(varRes, varLeft, varRight, logical)
   const shiftReg = POW2_SWIZZLE_VAR[shiftVal];
   if(!shiftReg)state.throwError(`Invalid shift value (${varRight.value} -> V:${shiftVal})`, varRight);
 
-  if(varRes.type !== varLeft.type) {
-    state.throwError("Shift-Right requires all arguments to be of the same type!");
-  }
-
   if(varRes.type === "vec32") {
     const regsRes = getVec32Regs(varRes);
     const regsL = getVec32Regs(varLeft);
+    let instMid;
 
-    const instMid = logical ? "vmadn" : "vmadm";
+    // s16 shift into s16.16 result
+    if(regsL[1] === REG.VZERO) {
+      instMid = logical ? "vmudn" : "vmudm";
+      return [
+        asm(instMid, [regsRes[0], regsL[0], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
+        asm("vmadn", [regsRes[1], REGS.VZERO, REGS.VZERO]),
+      ];
+    }
+
+    // s16.s16 shift into s16.16 result
+    instMid = logical ? "vmadn" : "vmadm";
     return [
       asm("vmudl", [regsRes[1], regsL[1], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
       asm(instMid, [regsRes[0], regsL[0], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
