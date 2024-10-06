@@ -16,7 +16,7 @@
       "optimize": true,
       "context": "node",
       "isLibrary": false,
-      "sourceMap": false,
+      "sourceMap": true,
       "outputFormat": "esmodule",
       "includeNodeModules": {
         "typescript": false,

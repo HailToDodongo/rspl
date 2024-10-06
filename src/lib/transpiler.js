@@ -67,7 +67,7 @@ export async function transpileSource(source, config, updateCb = undefined)
       // add surrounding lines to error message
       const lineCount = 3;
       const lines = source.split("\n");
-      const line = parseInt(e.message.match(/line (\d+)/)[1]);
+      const line = parseInt(e.message.match(/line (\d+)/)?.[1]);
       const start = Math.max(0, line - lineCount);
       const end = Math.min(lines.length, line + lineCount);
       const context = lines.slice(start, end)
@@ -128,7 +128,7 @@ export async function transpile(ast, updateCb, config = {})
     // pre-generate the first version of the ASM to get line numbers
     for(const func of functionsAsm)
     {
-      if(config.patchFunction && func.name !== config.patchFunction)continue;
+      if(config.patchFunctions.length && !config.patchFunctions.includes(func.name))continue;
 
       writeASM(ast, functionsAsm, config);
       asmInitDeps(func);
@@ -141,7 +141,7 @@ export async function transpile(ast, updateCb, config = {})
 
     for(const func of functionsAsm)
     {
-      if(config.patchFunction && func.name !== config.patchFunction)continue;
+      if(config.patchFunctions.length && !config.patchFunctions.includes(func.name))continue;
 
       func.cyclesBefore = evalFunctionCost(func);
       asmOptimizePattern(func);
@@ -165,7 +165,7 @@ export async function transpile(ast, updateCb, config = {})
       console.log("==== Optimization Overview ====");
       let longestFuncName = functionsAsm.reduce((a, b) => a.name.length > b.name.length ? a : b).name.length;
       for(const func of functionsAsm) {
-        if(config.patchFunction && func.name !== config.patchFunction)continue;
+        if(config.patchFunctions.length && !config.patchFunctions.includes(func.name))continue;
         console.log(`- ${func.name.padEnd(longestFuncName, ' ')}: ${func.cyclesBefore.toString().padStart(4, ' ')}  -> ${func.cyclesAfter.toString().padStart(4, ' ')} cycles`);
       }
       console.log("===============================");

@@ -653,9 +653,10 @@ function opMul(varRes, varLeft, varRight, clearAccum)
     return [asm(intOp, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight])];
   }
 
+  const regResFract = resRegs[1] === REGS.VZERO ? REGS.VTEMP0 : resRegs[1];
   res.push(
-    asm(intOp,   [nextVecReg(varRes.reg), fractReg(varLeft), varRightHigh]),
-    asm("vmadh", [           varRes.reg,        varLeft.reg, varRightHigh]),
+    asm(intOp,   [regResFract, fractReg(varLeft), varRightHigh]),
+    asm("vmadh", [ varRes.reg,        varLeft.reg, varRightHigh]),
   );
   return res;
 }

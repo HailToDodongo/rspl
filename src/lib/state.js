@@ -44,6 +44,7 @@ const state =
     state.outInfo = "";
     state.funcMap = {};
     state.barrierMaskMap = {};
+    state.regAllocAllowed = true;
 
     for(let globalLabel of Object.values(LABELS)) {
       this.declareMemVar(globalLabel, "u16", 1);
@@ -202,6 +203,8 @@ const state =
    */
   allocRegister(type) {
     // avoid collisions, this assumes a command to be the main code path, and 1 level deep calls
+    if(!state.regAllocAllowed)state.throwError("Register allocation not allowed in this function!");
+
     const reverse = state.funcType === "command";
     const scope = state.getScope();
     let regList = isVecType(type) ? REGS_ALLOC_VECTOR : REGS_ALLOC_SCALAR;

@@ -4,7 +4,7 @@
 */
 
 import { transpileSource } from "./lib/transpiler";
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, watch } from "fs";
 import * as path from "path";
 import {initWorker, registerTask, WorkerThreads} from "./lib/workerThreads.js";
 
@@ -19,7 +19,8 @@ let config = {
   reorder: false,
   rspqWrapper: true,
   defines: {},
-  patchFunction: undefined,
+  patchFunctions: [],
+  watch: false,
 };
 
 function getFunctionStartEnd(source, funcName) {
@@ -42,6 +43,9 @@ for(let i=3; i<process.argv.length; ++i) {
   if(process.argv[i] === "--optimize") {
     config.optimize = true;
   }
+  if(process.argv[i] === "--watch") {
+    config.watch = true;
+  }
 
   if(process.argv[i].startsWith("--opt-time=")) {
     config.optimizeTime = parseInt(process.argv[i].split("=")[1]) * 1000;
@@ -56,7 +60,7 @@ for(let i=3; i<process.argv.length; ++i) {
 
   if(process.argv[i] === "--patch") {
     if(!process.argv[i+1])throw new Error("Missing patch function name in arguments!");
-    config.patchFunction = process.argv[++i];
+    config.patchFunctions = process.argv[++i].split(",");
   }
 
   if(process.argv[i] === "-D") {
@@ -89,23 +93,40 @@ async function main() {
     console.info(asmRes.info);
   }
 
-  if(config.patchFunction) {
-    console.log("Patching function", config.patchFunction);
-    const oldSource = readFileSync(pathOut, "utf8");
-    const posOld = getFunctionStartEnd(oldSource, config.patchFunction);
-    const posNew = getFunctionStartEnd(asmRes.asm, config.patchFunction);
-    const newSource = oldSource.substring(0, posOld[0])
-      + asmRes.asm.substring(posNew[0], posNew[1])
-      + oldSource.substring(posOld[1]);
+  if(config.patchFunctions.length) {
+    let oldSource = readFileSync(pathOut, "utf8");
+    for(const patchFunc of config.patchFunctions) {
+      console.log("Patching functions", config.patchFunctions.join(", "));
 
-    writeFileSync(pathOut, newSource);
+      const posOld = getFunctionStartEnd(oldSource, patchFunc);
+      const posNew = getFunctionStartEnd(asmRes.asm, patchFunc);
+      oldSource = oldSource.substring(0, posOld[0])
+        + asmRes.asm.substring(posNew[0], posNew[1])
+        + oldSource.substring(posOld[1]);
+    }
+    writeFileSync(pathOut, oldSource);
   } else {
     writeFileSync(pathOut, asmRes.asm);
   }
   worker.stop();
 }
 
-main().catch(e => {
-  console.error(e);
-  process.exit(1);
-});
+if(config.watch) {
+  console.log("Watching for changes on: " + process.argv[2]);
+  let lastChangeTime = 0;
+  let isRunning = false;
+  watch(process.argv[2], (eventType, filename) =>
+  {
+    if(isRunning || eventType !== "change")return;
+    if(Date.now() - lastChangeTime < 100)return;
+    lastChangeTime = Date.now();
+    isRunning = true;
+    main().catch(e => console.error(e))
+      .finally(() => isRunning = false);
+  });
+} else {
+  main().catch(e => {
+    console.error(e);
+    process.exit(1);
+  });
+}

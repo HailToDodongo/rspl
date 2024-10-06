@@ -423,6 +423,7 @@ export function ast2asm(ast)
 
       if(!block.body)continue;
       state.enterFunction(block.name, block.type, getArgSize(block));
+      state.regAllocAllowed = !getAnnotationVal(block.annotations || [], ANNOTATIONS.NoRegAlloc);
 
       const blockAsm = scopedBlockToASM(block.body, block.args, block.type === "command");
       ++state.line;

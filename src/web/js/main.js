@@ -25,6 +25,7 @@ let config = {
   optimize: true,
   rspqWrapper: true,
   reorder: false,
+  patchFunctions: [],
 };
 
 function getEditorLine() {
