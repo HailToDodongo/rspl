@@ -15,7 +15,7 @@ import {mergeSequence} from "./pattern/mergeSequence.js";
 import {removeDeadCode} from "./pattern/removeDeadCode.js";
 import {sleep} from "../utils.js";
 import {commandAlias} from "./pattern/commandAlias.js";
-import {registerTask, WorkerThreads} from "../workerThreads.js";
+//import {registerTask, WorkerThreads} from "../workerThreads.js";
 
 /**
  * Optimizes ASM before any dependency analysis.
@@ -248,14 +248,15 @@ export async function asmOptimize(asmFunc, updateCb, config)
   {
     let costBest = evalFunctionCost(asmFunc);
     asmFunc.cyclesBefore = costBest;
-    const worker = WorkerThreads.getInstance();
+    //const worker = WorkerThreads.getInstance();
+    const poolSize = 8;
 
     const costInit = costBest;
     console.log("costOpt", costInit);
 
     let totalTime = 0;
-    let maxTime = config.optimizeTime || 30_000;
-    console.log(`Starting optimization with max. time: ${new Date(maxTime).toISOString().substr(11, 8)}, worker pool size: ${worker.poolSize}`);
+    let maxTime = config.optimizeTime || 5_000;
+    console.log(`Starting optimization with max. time: ${new Date(maxTime).toISOString().substr(11, 8)}, worker pool size: ${poolSize}`);
 
     let lastRandPick = cloneFunction(asmFunc);
     let anyRandPick = cloneFunction(asmFunc);
@@ -282,7 +283,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
       let bestAsm = [...funcCopy.asm];
       let results = [];
       //console.time("reorderRound");
-      for(let s=0; s<worker.poolSize; ++s)
+      for(let s=0; s<poolSize; ++s)
       {
         let refFunc = funcCopy;
         if(rand() < 0.1)refFunc = lastRandPick;
@@ -322,6 +323,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
       if(i % 3 === 0)lastRandPick = funcCopy;
       if(rand() < 0.5)anyRandPick = funcCopy;
       ++i;
+      await sleep();
     }
 
   } else {

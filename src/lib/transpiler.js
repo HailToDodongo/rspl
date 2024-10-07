@@ -24,6 +24,7 @@ function normalizeConfig(config)
 {
   if(config.rspqWrapper === undefined)config.rspqWrapper = true;
   if(config.optimize    === undefined)config.optimize = false;
+  if(config.patchFunctions === undefined)config.patchFunctions = [];
 }
 
 /**
