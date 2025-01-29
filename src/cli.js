@@ -21,6 +21,7 @@ let config = {
   defines: {},
   patchFunctions: [],
   watch: false,
+  magma: false
 };
 
 function getFunctionStartEnd(source, funcName) {
@@ -67,6 +68,10 @@ for(let i=3; i<process.argv.length; ++i) {
     if(!process.argv[i+1])throw new Error("Missing define name/value in arguments!");
     const [key, value] = process.argv[++i].split("=");
     config.defines[key] = value;
+  }
+
+  if(process.argv[i] === "--magma") {
+    config.magma = true;
   }
 }
 

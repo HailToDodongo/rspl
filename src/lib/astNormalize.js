@@ -7,6 +7,7 @@ import {nextReg} from "./syntax/registers";
 import state from "./state.js";
 import {validateAnnotation} from "./syntax/annotations.js";
 import builtins from "./builtins/functions.js";
+import { config } from "ace-builds";
 
 /**
  * @param {ASTScopedBlock} block
@@ -179,32 +180,59 @@ function normalizeScopedBlock(block, astState, macros)
 
 /**
  * @param {AST} ast
+ * @param {RSPLConfig} config
  * @returns {ASTFunc[]}
  */
-export function astNormalizeFunctions(ast)
+export function astNormalizeFunctions(ast, config)
 {
   const astFunctions = ast.functions;
 
   /** @type {ASTMacroMap} */
   const macros = {};
+  let shaderCount = 0;
 
   for(const block of astFunctions) {
-    if(!["function", "command", "macro"].includes(block.type) || !block.body)continue;
+    if(!["function", "command", "macro", "shader"].includes(block.type) || !block.body)continue;
 
     for(const anno of block.annotations) {
       validateAnnotation(anno);
     }
 
-    if(block.type === "command" && block.resultType === null) {
-      state.throwError("Commands must specify an index (e.g. 'command<4>')!", block)
+    if(block.type === "command") {
+      if(config.magma) {
+        state.throwError("Commands must not be defined when compiling for magma (define a 'shader' instead)!", block);
+      }
+      if(block.resultType === null) {
+        state.throwError("Commands must specify an index (e.g. 'command<4>')!", block);
+      }
     }
 
     if(block.type === "macro") {
       if(block.resultType != null) {
-        state.throwError("Macros must not specify an result-type (use 'macro' without `< >`)!", block);
+        state.throwError("Macros must not specify a result-type (use 'macro' without `< >`)!", block);
       }
       macros[block.name] = block;
     }
+
+    if(block.type === "shader") {
+      if(!config.magma) {
+        state.throwError("Shaders are only allowed when compiling for magma (pass '--magma' on the command line)!", block);
+      }
+      if(shaderCount > 0) {
+        state.throwError("A shader has already been defined!", block);
+      }
+      if(block.resultType != null) {
+        state.throwError("Shaders must not specify a result-type (use 'shader' without `< >`)!", block);
+      }
+      if(block.args.length > 0) {
+        state.throwError("Shaders must not specify arguments!", block);
+      }
+      shaderCount++;
+    }
+  }
+
+  if(config.magma && shaderCount === 0) {
+    state.throwError("Exactly one shader must be defined when compiling for magma (use 'shader')!");
   }
 
   for(const block of astFunctions) {
@@ -215,4 +243,60 @@ export function astNormalizeFunctions(ast)
   }
 
   return astFunctions;
+}
+
+/**
+ * @param {AST} ast
+ * @param {RSPLConfig} config
+ * @returns {ASTState[]}
+ */
+export function astNormalizeState(ast, config)
+{
+  const astState = ast.state;
+  return astState;
+}
+
+/**
+ * @param {AST} ast
+ * @param {RSPLConfig} config
+ * @returns {ASTUniform[]}
+ */
+export function astNormalizeUniforms(ast, config)
+{
+  const astUniforms = ast.uniforms;
+
+  let curBindingNumber = 0;
+  const usedBindingNumbers = new Set(astUniforms.map(u => u.binding));
+
+  for(const uniform of astUniforms) {
+    if(!config.magma) {
+      state.throwError("Uniforms are only allowed when compiling for magma (pass '--magma' on the command line)!", uniform);
+    }
+    if(typeof uniform.binding === 'number') {
+      if(uniform.binding < 0 || uniform.binding >= 2**32) {
+        state.throwError("Uniform binding number must be in [0, 2^32)!", uniform);
+      }
+      curBindingNumber = uniform.binding;
+    } else {
+      while (usedBindingNumbers.has(curBindingNumber)) curBindingNumber++;
+      uniform.binding = curBindingNumber;
+    }
+    usedBindingNumbers.add(curBindingNumber);
+  }
+
+  return astUniforms;
+}
+
+/**
+ * @param {AST} ast
+ * @param {RSPLConfig} config
+ * @returns {ASTAttribute[]}
+ */
+export function astNormalizeAttributes(ast, config)
+{
+  const astAttributes = ast.attributes;
+
+  
+
+  return astAttributes;
 }

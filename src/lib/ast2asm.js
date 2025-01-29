@@ -415,7 +415,7 @@ export function ast2asm(ast)
     state.func = block.name || "";
     state.line = block.line || 0;
 
-    if(["function", "command"].includes(block.type)) {
+    if(["function", "command", "shader"].includes(block.type)) {
 
       state.declareFunction(block.name, block.args,
         !!getAnnotationVal(block.annotations || [], ANNOTATIONS.Relative)
@@ -431,7 +431,7 @@ export function ast2asm(ast)
       const needsReturn = !getAnnotationVal(block.annotations || [], ANNOTATIONS.NoReturn);
 
       if(needsReturn) {
-        if(block.type === "command") {
+        if(["command", "shader"].includes(block.type)) {
           blockAsm.push(asm("j", [LABEL_CMD_LOOP]), asmNOP());
         } else {
           blockAsm.push(asm("jr", [REG.RA]), asmNOP());

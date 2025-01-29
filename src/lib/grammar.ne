@@ -61,7 +61,7 @@ const lexer = moo.compile({
 	  ".0", ".1", ".2", ".3", ".4", ".5", ".6", ".7",
 	], value: s => NORM_SWIZZLE(s.substring(1))},
 
-	FunctionType: ["function", "command", "macro"],
+	FunctionType: ["function", "command", "macro", "shader"],
 	KWIf      : "if",
 	KWLoop    : "loop",
 	KWElse    : "else",
@@ -77,6 +77,8 @@ const lexer = moo.compile({
 	KWUndef   : "undef",
 	KWExit    : "exit",
 	KWAlign   : "alignas",
+	KWUniform : "uniform",
+	KWAttr	  : "attribute",
 
 	ValueHex: /0x[0-9A-Fa-f']+/,
 	ValueBin: /0b[0-1']+/,
@@ -132,12 +134,14 @@ const lexer = moo.compile({
 # Pass your lexer with @lexer:
 @lexer lexer
 
-main -> (_ SectionIncl):* (_ SectionState):? (_ SectionTmpState):? (Function):* (_ SectionIncl):* _ {% d => ({
+main -> (_ SectionIncl):* (_ SectionState):? (_ SectionTmpState):? (_ Uniform):* (_ VertexAttribute):* (Function):* (_ SectionIncl):* _ {% d => ({
 	includes: MAP_TAKE(d[0], 1),
 	state: (d[1] && d[1][1]) || [],
 	tempState: (d[2] && d[2][1]) || [],
-	functions: MAP_TAKE(d[3], 0),
-	postIncludes: MAP_TAKE(d[4], 1),
+	uniforms: MAP_TAKE(d[3], 1),
+	attributes: MAP_TAKE(d[4], 1),
+	functions: MAP_TAKE(d[5], 0),
+	postIncludes: MAP_TAKE(d[6], 1),
 }) %}
 
 ######### Include-Section #########
@@ -146,6 +150,12 @@ SectionIncl -> %KWInclude _ %String {% d => d[2].value %}
 ######### State-Section #########
 SectionState -> %KWState _ %BlockStart _ StateVarDef:* %BlockEnd {% d => d[4] %}
 SectionTmpState -> %KWTmpState _ %BlockStart _ StateVarDef:* %BlockEnd {% d => d[4] %}
+
+Uniform -> %KWUniform RegNumDef:? _ %VarName _ %BlockStart _ StateVarDef:* %BlockEnd {% d => ({
+	name: d[3],
+	binding: d[1],
+	state: d[7]
+})%}
 
 StateVarDef -> (%KWExtern _):? StateAlign:? %DataType _ %VarName IndexDef:* StateValueDef:? _ %StmEnd _ {% d => ({
 	type: "varState",
@@ -164,6 +174,13 @@ StateAlign -> %KWAlign %ArgsStart ValueNumeric %ArgsEnd _ {% d => d[2][0] %}
 NumList -> ValueNumeric {% MAP_FIRST %}
 		  | (NumList _ %Seperator _ ValueNumeric) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
 
+VertexAttribute -> %KWAttr RegNumDef:? _ %DataType _ %VarName IndexDef:* %QuestionMark:? _ %StmEnd {% d => ({
+	name: d[5],
+	binding: d[1],
+	type: d[3],
+	arraySize: d[6] || 1,
+	optional: !!d[7],
+})%}
 
 ######### Function-Section #########
 

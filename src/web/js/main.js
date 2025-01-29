@@ -25,6 +25,7 @@ let config = {
   optimize: true,
   rspqWrapper: true,
   reorder: false,
+  magma: false,
   patchFunctions: [],
 };
 
@@ -125,6 +126,11 @@ optionWrapper.onchange = async () => {
 
 optionReorder.onchange = async () => {
   config.reorder = optionReorder.checked;
+  await update(true);
+};
+
+optionMagma.onchange = async () => {
+  config.magma = optionMagma.checked;
   await update(true);
 };
 

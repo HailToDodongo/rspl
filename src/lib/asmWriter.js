@@ -72,6 +72,93 @@ function writeStateVar(stateVar, writeLine) {
   return byteSize;
 }
 
+function writeRSPQHeader(ast, functionsAsm, writeLine, writeLines) {
+  writeLines(["", ".data", "  RSPQ_BeginOverlayHeader"]);
+
+  let commandList = [];
+  for(const block of functionsAsm) {
+    if(block.type === "command") {
+      const name = block.nameOverride || block.name;
+      commandList[block.resultType] = "    RSPQ_DefineCommand " + name + ", " + block.argSize;
+    }
+  }
+  for(let i=0; i<commandList.length; ++i) {
+    if(commandList[i] === undefined) {
+      commandList[i] = "    RSPQ_DefineCommand RSPQ_Loop, 4";
+    }
+  }
+
+  if(commandList.includes(undefined))state.throwError("Command list has gaps!", ast);
+
+  writeLines(commandList);
+  writeLines(["  RSPQ_EndOverlayHeader", ""]);
+
+  let totalSaveByteSize = 0;
+
+  const hasState = !!ast.state.find(v => !v.extern);
+  if(hasState) {
+    writeLine("  RSPQ_BeginSavedState");
+    writeLine("    STATE_MEM_START:");
+
+    for(const stateVar of ast.state) {
+      if(stateVar.extern)continue;
+      totalSaveByteSize += writeStateVar(stateVar, writeLine);
+    }
+
+    writeLine("    STATE_MEM_END:");
+    writeLine("  RSPQ_EndSavedState");
+  } else {
+    writeLine("  RSPQ_EmptySavedState");
+  }
+
+  if(ast.tempState.length > 0) {
+    writeLine("");
+    writeLine("  TEMP_STATE_MEM_START:");
+    for(const tmpVar of ast.tempState) {
+      if(tmpVar.extern)continue;
+      totalSaveByteSize += writeStateVar(tmpVar, writeLine);
+    }
+    writeLine("  TEMP_STATE_MEM_END:");
+  }
+
+  writeLines(["", ".text", "OVERLAY_CODE_START:", ""]);
+
+  return totalSaveByteSize;
+}
+
+/**
+ * 
+ * @param {AST} ast 
+ * @param {(line: any) => void} writeLine 
+ * @param {(line: any[]) => void} writeLines 
+ * @returns 
+ */
+function writeMagmaHeader(ast, writeLine, writeLines) {
+  let totalSaveByteSize = 0;
+
+  writeLines(["", "MgBeginUniforms"]);
+  for(const uniform of ast.uniforms) {
+    writeLine(`  MgBeginUniform ${uniform.binding}, ${uniform.name}`);
+    for(const stateVar of uniform.state) {
+      if(stateVar.extern)continue;
+      totalSaveByteSize += writeStateVar(stateVar, writeLine);
+    }
+    writeLines(["  MgEndUniform", ""]);
+  }
+  writeLines(["MgEndUniforms", ""]);
+  
+  writeLine("MgBeginVertexInput");
+  for(const attribute of ast.attributes) {
+    writeLine(`MgBeginVertexAttribute ${attribute.binding}, ${attribute.optional ? 1 : 0}`);
+    writeLines(["MgEndVertexAttribute", ""]);
+  }
+  writeLines(["MgEndVertexInput", ""]);
+
+  writeLine("MgBeginShader");
+
+  return totalSaveByteSize;
+}
+
 /**
  * Writes the ASM of all functions and the AST into a string.
  * @param {AST} ast
@@ -121,56 +208,14 @@ export function writeASM(ast, functionsAsm, config)
   writeLine("#define vcc 1");
   writeLine("#define vce 2");
 
-  writeLines(["", ".data", "  RSPQ_BeginOverlayHeader"]);
-
-  let commandList = [];
-  for(const block of functionsAsm) {
-    if(block.type === "command") {
-      const name = block.nameOverride || block.name;
-      commandList[block.resultType] = "    RSPQ_DefineCommand " + name + ", " + block.argSize;
-    }
-  }
-  for(let i=0; i<commandList.length; ++i) {
-    if(commandList[i] === undefined) {
-      commandList[i] = "    RSPQ_DefineCommand RSPQ_Loop, 4";
-    }
-  }
-
-  if(commandList.includes(undefined))state.throwError("Command list has gaps!", ast);
-
-  writeLines(commandList);
-  writeLines(["  RSPQ_EndOverlayHeader", ""]);
-
   let totalSaveByteSize = 0;
   let totalTextSize = 0;
 
-  const hasState = !!ast.state.find(v => !v.extern);
-  if(hasState) {
-    writeLine("  RSPQ_BeginSavedState");
-    writeLine("    STATE_MEM_START:");
-
-    for(const stateVar of ast.state) {
-      if(stateVar.extern)continue;
-      totalSaveByteSize += writeStateVar(stateVar, writeLine);
-    }
-
-    writeLine("    STATE_MEM_END:");
-    writeLine("  RSPQ_EndSavedState");
+  if(config.magma) {
+    totalSaveByteSize += writeMagmaHeader(ast, writeLine, writeLines);
   } else {
-    writeLine("  RSPQ_EmptySavedState");
+    totalSaveByteSize += writeRSPQHeader(ast, functionsAsm, writeLine, writeLines);
   }
-
-  if(ast.tempState.length > 0) {
-    writeLine("");
-    writeLine("  TEMP_STATE_MEM_START:");
-    for(const tmpVar of ast.tempState) {
-      if(tmpVar.extern)continue;
-      totalSaveByteSize += writeStateVar(tmpVar, writeLine);
-    }
-    writeLine("  TEMP_STATE_MEM_END:");
-  }
-
-  writeLines(["", ".text", "OVERLAY_CODE_START:", ""]);
 
   if(!config.rspqWrapper) {
     state.line = 1;
@@ -178,7 +223,7 @@ export function writeASM(ast, functionsAsm, config)
   }
 
   for(const block of functionsAsm) {
-    if(!["function", "command"].includes(block.type))continue;
+    if(!["function", "command", "shader"].includes(block.type))continue;
     if(block.asm.length === 0)continue;
 
     const align = getAnnotationVal(block.annotations, ANNOTATIONS.Align, 0) || 0;
@@ -241,8 +286,13 @@ export function writeASM(ast, functionsAsm, config)
 
   if(!config.rspqWrapper)return res;
 
-  writeLine("OVERLAY_CODE_END:");
-  writeLine("");
+  if(config.magma) {
+    writeLine("MgEndShader");
+    writeLine("");
+  } else {
+    writeLine("OVERLAY_CODE_END:");
+    writeLine("");
+  }
 
   REGS_SCALAR.map((reg, i) => "#define " + reg.substring(1) + " $" + i)
     .filter((_, i) => i !== 1)

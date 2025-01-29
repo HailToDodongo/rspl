@@ -58,6 +58,7 @@ declare global {
         optimizeWorker: number;
         reorder: boolean;
         rspqWrapper: boolean;
+        magma: boolean;
         fileLoader: (path: string) => string;
         defines: Record<string, string>;
         patchFunctions: string[];
