@@ -11,6 +11,8 @@ export const ANNOTATIONS = {
   NoReturn: "NoReturn",
   Unlikely: "Unlikely",
   NoRegAlloc: "NoRegAlloc",
+  AttrLoader: "AttrLoader",
+  AttrPatch: "AttrPatch"
 };
 
 export const KNOWN_ANNOTATIONS = Object.keys(ANNOTATIONS);
@@ -26,7 +28,7 @@ export function validateAnnotation(anno) {
   }
 
   // string annotations
-  if(["Barrier"].includes(anno.name)) {
+  if(["Barrier", "AttrPatch"].includes(anno.name)) {
     if(typeof anno.value !== "string") {
       state.throwError("Annotation '"+anno.name+"' expects a string value!");
     }
