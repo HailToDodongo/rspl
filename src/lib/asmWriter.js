@@ -9,12 +9,18 @@ import {ASM_TYPE} from "./intsructions/asmWriter.js";
 import {REGS_SCALAR} from "./syntax/registers.js";
 import {ANNOTATIONS, getAnnotationVal} from "./syntax/annotations.js";
 
+function getAttrLoaderLabel(asm) {
+  if (!asm.loaderAttr) return null;
+  return "LOAD_" + asm.loaderAttr + asm.debug.lineRSPL;
+}
+
 /**
  * @param {ASM} asm
  * @returns {string}
  */
 function stringifyInstr(asm) {
-  return asm.op + (asm.args.length ? (" " + asm.args.join(", ")) : "");
+  const label = getAttrLoaderLabel(asm);
+  return (label ? label + ": " : "") + asm.op + (asm.args.length ? (" " + asm.args.join(", ")) : "");
 }
 
 /**
@@ -128,12 +134,30 @@ function writeRSPQHeader(ast, functionsAsm, writeLine, writeLines) {
 
 /**
  * 
+ * @param {ASMFunc[]} functionsAsm
+ */
+function collectAttrLoaders(functionsAsm) {
+  const res = {};
+  for(const asmFunc of functionsAsm) {
+    for(const asm of asmFunc.asm.filter(a => a.loaderAttr)) {
+      if(!res[asm.loaderAttr]) {
+        res[asm.loaderAttr] = [];
+      }
+      res[asm.loaderAttr].push(asm);
+    }
+  }
+  return res;
+}
+
+/**
+ * 
  * @param {AST} ast 
+ * @param {ASMFunc[]} functionsAsm
  * @param {(line: any) => void} writeLine 
  * @param {(line: any[]) => void} writeLines 
  * @returns 
  */
-function writeMagmaHeader(ast, writeLine, writeLines) {
+function writeMagmaHeader(ast, functionsAsm, writeLine, writeLines) {
   let totalSaveByteSize = 0;
 
   writeLines(["", "MgBeginUniforms"]);
@@ -146,11 +170,17 @@ function writeMagmaHeader(ast, writeLine, writeLines) {
     writeLines(["  MgEndUniform", ""]);
   }
   writeLines(["MgEndUniforms", ""]);
+
+  const attrLoaders = collectAttrLoaders(functionsAsm);
   
   writeLine("MgBeginVertexInput");
   for(const attribute of ast.attributes) {
-    writeLine(`MgBeginVertexAttribute ${attribute.binding}, ${attribute.optional ? 1 : 0}`);
-    writeLines(["MgEndVertexAttribute", ""]);
+    writeLine(`  MgBeginVertexAttribute ${attribute.binding}, ${attribute.optional ? 1 : 0}`);
+    const loaders = attrLoaders[attribute.name];
+    if(loaders) {
+      writeLine("    MgVertexAttributeLoaders " + loaders.map(getAttrLoaderLabel).join(", "));
+    }
+    writeLines(["  MgEndVertexAttribute", ""]);
   }
   writeLines(["MgEndVertexInput", ""]);
 
@@ -212,7 +242,7 @@ export function writeASM(ast, functionsAsm, config)
   let totalTextSize = 0;
 
   if(config.magma) {
-    totalSaveByteSize += writeMagmaHeader(ast, writeLine, writeLines);
+    totalSaveByteSize += writeMagmaHeader(ast, functionsAsm, writeLine, writeLines);
   } else {
     totalSaveByteSize += writeRSPQHeader(ast, functionsAsm, writeLine, writeLines);
   }

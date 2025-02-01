@@ -28,7 +28,7 @@ export function validateAnnotation(anno) {
   }
 
   // string annotations
-  if(["Barrier", "AttrPatch"].includes(anno.name)) {
+  if(["Barrier", "AttrLoader", "AttrPatch"].includes(anno.name)) {
     if(typeof anno.value !== "string") {
       state.throwError("Annotation '"+anno.name+"' expects a string value!");
     }

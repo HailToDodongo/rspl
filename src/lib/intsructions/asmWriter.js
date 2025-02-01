@@ -61,6 +61,7 @@ function getOpInfo(op) {
     annotations,
     funcArgs: [],
     depsArgMask: 0n,
+    loaderAttr: getAnnotationVal(annotations, "AttrLoader"),
   };
 }
 

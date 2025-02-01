@@ -7,7 +7,6 @@ import {nextReg} from "./syntax/registers";
 import state from "./state.js";
 import {validateAnnotation} from "./syntax/annotations.js";
 import builtins from "./builtins/functions.js";
-import { config } from "ace-builds";
 
 /**
  * @param {ASTScopedBlock} block

@@ -61,6 +61,8 @@ declare global
 
         debug: ASMDebug;
         annotations: Annotation[];
+
+        loaderAttr?: string;
     };
 
     type ASMFunc = ASTFunc | {
