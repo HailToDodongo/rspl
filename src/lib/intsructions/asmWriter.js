@@ -45,6 +45,18 @@ function getDebugData() {
   };
 }
 
+/**
+ * 
+ * @returns {ASMAttrPatch}
+ */
+function getAttrPatch(annotations) {
+  const annoVal = getAnnotationVal(annotations, "AttrPatch");
+  if (!annoVal) return undefined;
+
+  const [name, op, ...rest] = annoVal.split(":");
+  return {name, op};
+}
+
 function getOpInfo(op) {
   const annotations = state.getAnnotations();
   return {
@@ -61,7 +73,8 @@ function getOpInfo(op) {
     annotations,
     funcArgs: [],
     depsArgMask: 0n,
-    loaderAttr: getAnnotationVal(annotations, "AttrLoader"),
+    attrLoader: getAnnotationVal(annotations, "AttrLoader"),
+    attrPatch: getAttrPatch(annotations),
   };
 }
 

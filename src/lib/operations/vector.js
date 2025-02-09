@@ -636,7 +636,7 @@ function opMul(varRes, varLeft, varRight, clearAccum)
     );
     return res;
   } // 16-Bit multiplication
-  else if(varRes.type === "vec16")
+  else if(varRes.type === "vec16" && varLeft.type == "vec16")
   {
     const caseRef = varLeft.castType || varRight.castType || varRes.castType;
     if(caseRef === "ufract" || caseRef === "sfract")

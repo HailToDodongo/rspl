@@ -25,7 +25,7 @@ let config = {
   optimize: true,
   rspqWrapper: true,
   reorder: false,
-  magma: false,
+  magma: true,
   patchFunctions: [],
 };
 

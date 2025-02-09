@@ -28,7 +28,7 @@ const NORM_SWIZZLE = s => s.split("")
 
 const moo = require("moo")
 const lexer = moo.compile({
-	String: /".*"/,
+	String: /".*?"/,
 
 	DataType: ["u8", "s8", "u16", "s16", "u32", "s32", "vec32", "vec16"],
 	Registers: [

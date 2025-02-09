@@ -10,8 +10,21 @@ import {REGS_SCALAR} from "./syntax/registers.js";
 import {ANNOTATIONS, getAnnotationVal} from "./syntax/annotations.js";
 
 function getAttrLoaderLabel(asm) {
-  if (!asm.loaderAttr) return null;
-  return "LOAD_" + asm.loaderAttr + asm.debug.lineRSPL;
+  if (!asm.attrLoader) return null;
+  return "LOAD_" + asm.attrLoader + asm.debug.lineRSPL;
+}
+
+function getAttrPatchLabel(asm) {
+  if (!asm.attrPatch?.name) return null;
+  return "PATCH_" + asm.attrPatch.name + asm.debug.lineRSPL;
+}
+
+function getAsmLabels(asm) {
+  let labels = "";
+  for(const label of [getAttrLoaderLabel(asm), getAttrPatchLabel(asm)].filter(l => l)) {
+    labels += label + ": ";
+  }
+  return labels;
 }
 
 /**
@@ -19,8 +32,7 @@ function getAttrLoaderLabel(asm) {
  * @returns {string}
  */
 function stringifyInstr(asm) {
-  const label = getAttrLoaderLabel(asm);
-  return (label ? label + ": " : "") + asm.op + (asm.args.length ? (" " + asm.args.join(", ")) : "");
+  return getAsmLabels(asm) + asm.op + (asm.args.length ? (" " + asm.args.join(", ")) : "");
 }
 
 /**
@@ -138,12 +150,26 @@ function writeRSPQHeader(ast, functionsAsm, writeLine, writeLines) {
  */
 function collectAttrLoaders(functionsAsm) {
   const res = {};
+
+  const addEntry = (attrName) => {
+    if(!res[attrName]) {
+      res[attrName] = {
+        loaders: [],
+        patches: []
+      };
+    }
+  };
+
   for(const asmFunc of functionsAsm) {
-    for(const asm of asmFunc.asm.filter(a => a.loaderAttr)) {
-      if(!res[asm.loaderAttr]) {
-        res[asm.loaderAttr] = [];
+    for(const asm of asmFunc.asm) {
+      if (asm.attrLoader) {
+        addEntry(asm.attrLoader);
+        res[asm.attrLoader].loaders.push(asm);
       }
-      res[asm.loaderAttr].push(asm);
+      if (asm.attrPatch) {
+        addEntry(asm.attrPatch.name);
+        res[asm.attrPatch.name].patches.push(asm);
+      }
     }
   }
   return res;
@@ -160,26 +186,31 @@ function collectAttrLoaders(functionsAsm) {
 function writeMagmaHeader(ast, functionsAsm, writeLine, writeLines) {
   let totalSaveByteSize = 0;
 
-  writeLines(["", "MgBeginUniforms"]);
+  writeLines(["", "MgBeginShaderUniforms"]);
   for(const uniform of ast.uniforms) {
-    writeLine(`  MgBeginUniform ${uniform.binding}, ${uniform.name}`);
+    writeLine(`  MgBeginUniform ${uniform.name}, ${uniform.binding}`);
     for(const stateVar of uniform.state) {
       if(stateVar.extern)continue;
       totalSaveByteSize += writeStateVar(stateVar, writeLine);
     }
     writeLines(["  MgEndUniform", ""]);
   }
-  writeLines(["MgEndUniforms", ""]);
+  writeLines(["MgEndShaderUniforms", ""]);
 
   const attrLoaders = collectAttrLoaders(functionsAsm);
   
   writeLine("MgBeginVertexInput");
   for(const attribute of ast.attributes) {
     writeLine(`  MgBeginVertexAttribute ${attribute.binding}, ${attribute.optional ? 1 : 0}`);
-    const loaders = attrLoaders[attribute.name];
+    const loaders = attrLoaders[attribute.name].loaders;
     if(loaders) {
       writeLine("    MgVertexAttributeLoaders " + loaders.map(getAttrLoaderLabel).join(", "));
     }
+    for(const patch of attrLoaders[attribute.name].patches) {
+      writeLine(`    MgBeginVertexAttributePatch ${getAttrPatchLabel(patch)}`);
+      writeLine(`      ${patch.attrPatch.op ?? "nop"}`);
+      writeLine("    MgEndVertexAttributePatch");
+    };
     writeLines(["  MgEndVertexAttribute", ""]);
   }
   writeLines(["MgEndVertexInput", ""]);

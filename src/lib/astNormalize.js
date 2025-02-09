@@ -237,7 +237,8 @@ export function astNormalizeFunctions(ast, config)
   for(const block of astFunctions) {
     if(block.type !== "macro" && block.body) {
       state.func = block.name || "";
-      normalizeScopedBlock(block.body, [...ast.state, ...ast.tempState], macros);
+      const uniformsState = ast.uniforms.flatMap(u => u.state);
+      normalizeScopedBlock(block.body, [...ast.state, ...ast.tempState, ...uniformsState], macros);
     }
   }
 

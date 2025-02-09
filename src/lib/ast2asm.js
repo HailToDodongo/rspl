@@ -391,6 +391,7 @@ function scopedBlockToASM(block, args = [], isCommand = false)
 
 function getArgSize(block)
 {
+  if(block.type === "shader")return 8;
   if(block.type !== "command")return 0;
   // each arg is always 4-bytes, the first one is implicitly set
   return Math.max(block.args.length * 4, 4);

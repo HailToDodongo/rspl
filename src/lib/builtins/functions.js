@@ -426,6 +426,7 @@ function max(varRes, args, swizzle) {
   if(varArg0.type !== varArg1.type)state.throwError("Builtin max() requires both arguments to be of the same type!", args);
   if(varArg0.type !== "vec16")state.throwError("Builtin max() requires both arguments to be of type vec16! (@TODO: add scalar)", args);
 
+  varArg1.swizzle = args[1].swizzle;
   return opsVector.opCompare(varRes, varArg0, varArg1, ">=", undefined);
 }
 
@@ -438,6 +439,7 @@ function min(varRes, args, swizzle) {
   if(varArg0.type !== varArg1.type)state.throwError("Builtin min() requires both arguments to be of the same type!", args);
   if(varArg0.type !== "vec16")state.throwError("Builtin min() requires both arguments to be of type vec16! (@TODO: add scalar)", args);
 
+  varArg1.swizzle = args[1].swizzle;
   return opsVector.opCompare(varRes, varArg0, varArg1, "<", undefined);
 }
 

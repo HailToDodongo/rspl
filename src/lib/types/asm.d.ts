@@ -19,6 +19,11 @@ declare global
         stall: number;
     };
 
+    type ASMAttrPatch = {
+        name: string;
+        op: string;
+    }
+
     type ASM = {
         type: ASMType;
         op: string;
@@ -62,7 +67,8 @@ declare global
         debug: ASMDebug;
         annotations: Annotation[];
 
-        loaderAttr?: string;
+        attrLoader?: string;
+        attrPatch?: ASMAttrPatch;
     };
 
     type ASMFunc = ASTFunc | {

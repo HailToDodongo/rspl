@@ -32,6 +32,9 @@ export function validateAnnotation(anno) {
     if(typeof anno.value !== "string") {
       state.throwError("Annotation '"+anno.name+"' expects a string value!");
     }
+    if(anno.value === "") {
+      state.throwError("Annotation '"+anno.name+"' expects a non-empty string value!");
+    }
   }
 }
 
