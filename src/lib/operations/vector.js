@@ -581,7 +581,7 @@ function opMul(varRes, varLeft, varRight, clearAccum)
     && varLeft.type === "vec32" && varRight.type === "vec32"
    ) {
       return [
-        asm("vmudl", [REG.VTEMP0, fractReg(varLeft), fractReg(varRight) + swizzleRight]),
+        asm(fractOp, [REG.VTEMP0, fractReg(varLeft), fractReg(varRight) + swizzleRight]),
         asm("vmadm", [REG.VTEMP0,   intReg(varLeft), fractReg(varRight) + swizzleRight]),
         asm("vmadn", [varRes.reg, fractReg(varLeft),   intReg(varRight) + swizzleRight]),
       ];
@@ -608,12 +608,25 @@ function opMul(varRes, varLeft, varRight, clearAccum)
     }
   }
 
+  const leftIsFraction = ["sfract", "ufract"].includes(varLeft.castType);
+  const resIsFraction = ["sfract", "ufract"].includes(varRes.castType);
+
   // 16bit * 32bit multiply
-  if(right32Bit && varRes.type === "vec32" && varLeft.type === "vec16" && !["sfract", "ufract"].includes(varLeft.castType)) {
+  if(right32Bit && varRes.type === "vec32" && varLeft.type === "vec16" && !leftIsFraction) {
+    const fractOp = clearAccum ? "vmudm" : "vmadm";
     return [
-      asm("vmudm", [resRegs[1], varLeft.reg, fractReg(varRight) + swizzleRight]),
+      asm(fractOp, [resRegs[1], varLeft.reg, fractReg(varRight) + swizzleRight]),
       asm("vmadh", [resRegs[0], varLeft.reg, intReg(varRight) + swizzleRight]),
       asm("vmadn", [resRegs[1], REGS.VZERO, REGS.VZERO]),
+    ];
+  }
+
+  // 16bit * 32bit multiply with 16bit result
+  if(right32Bit && varRes.type === "vec16" && varLeft.type === "vec16" && !leftIsFraction && !resIsFraction) {
+    const fractOp = clearAccum ? "vmudm" : "vmadm";
+    return [
+      asm(fractOp, [REG.VTEMP0, varLeft.reg, fractReg(varRight) + swizzleRight]),
+      asm("vmadh", [resRegs[0], varLeft.reg, intReg(varRight) + swizzleRight]),
     ];
   }
 
@@ -629,15 +642,34 @@ function opMul(varRes, varLeft, varRight, clearAccum)
   } // Partial multiplication: s16.16 * 0.16 (fractional part of original s16.16)
   else if(rightSideIsFraction && (varRight.originalType === "vec32" || varRes.type === "vec32"))
   {
+    if(varLeft.type === "vec32") {
+      res.push(
+        asm(fractOp, [nextVecReg(varRes.reg), fractReg(varLeft), varRight.reg + swizzleRight]),
+        asm("vmadm", [           varRes.reg,        varLeft.reg, varRight.reg + swizzleRight]),
+      );
+    } else {
+      const fractOp = clearAccum ? "vmudm" : "vmadm";
+      res.push(
+        asm(fractOp, [           varRes.reg,        varLeft.reg, varRight.reg + swizzleRight]),
+      );
+    }
     res.push(
-      asm(fractOp, [nextVecReg(varRes.reg), fractReg(varLeft), varRight.reg + swizzleRight]),
-      asm("vmadm", [           varRes.reg,        varLeft.reg, varRight.reg + swizzleRight]),
       asm("vmadn", [nextVecReg(varRes.reg), REGS.VZERO,        REGS.VZERO]),
     );
     return res;
   } // 16-Bit multiplication
   else if(varRes.type === "vec16" && varLeft.type == "vec16")
   {
+    if(varLeft.castType === "ufract" && varRight.castType === "sint") {
+      intOp = clearAccum ? "vmudn": "vmadn";
+      return [asm(intOp, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight])];
+    }
+
+    if(varLeft.castType === "sint" && varRight.castType === "ufract") {
+      intOp = clearAccum ? "vmudm": "vmadm";
+      return [asm(intOp, [varRes.reg, varLeft.reg, varRight.reg + swizzleRight])];
+    }
+
     const caseRef = varLeft.castType || varRight.castType || varRes.castType;
     if(caseRef === "ufract" || caseRef === "sfract")
     {
