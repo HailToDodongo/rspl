@@ -197,7 +197,7 @@ export function getTargetRegs(line) {
   if(READ_ONLY_OPS.includes(line.op)) {
     return [];
   }
-  const targetReg = ["mtc2"].includes(line.op) ? line.args[1] : line.args[0];
+  const targetReg = ["mtc2", "ctc2"].includes(line.op) ? line.args[1] : line.args[0];
   return [targetReg, ...HIDDEN_REGS_WRITE[line.op] || []]
     .filter(Boolean)
 }
