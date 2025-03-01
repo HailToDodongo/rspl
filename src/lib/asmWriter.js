@@ -202,15 +202,18 @@ function writeMagmaHeader(ast, functionsAsm, writeLine, writeLines) {
   writeLine("MgBeginVertexInput");
   for(const attribute of ast.attributes) {
     writeLine(`  MgBeginVertexAttribute ${attribute.binding}, ${attribute.optional ? 1 : 0}`);
-    const loaders = attrLoaders[attribute.name].loaders;
+    const loaders = attrLoaders[attribute.name]?.loaders;
     if(loaders) {
       writeLine("    MgVertexAttributeLoaders " + loaders.map(getAttrLoaderLabel).join(", "));
     }
-    for(const patch of attrLoaders[attribute.name].patches) {
-      writeLine(`    MgBeginVertexAttributePatch ${getAttrPatchLabel(patch)}`);
-      writeLine(`      ${patch.attrPatch.op ?? "nop"}`);
-      writeLine("    MgEndVertexAttributePatch");
-    };
+    const patches = attrLoaders[attribute.name]?.patches;
+    if(patches) {
+      for(const patch of patches) {
+        writeLine(`    MgBeginVertexAttributePatch ${getAttrPatchLabel(patch)}`);
+        writeLine(`      ${patch.attrPatch.op ?? "nop"}`);
+        writeLine("    MgEndVertexAttributePatch");
+      };
+    }
     writeLines(["  MgEndVertexAttribute", ""]);
   }
   writeLines(["MgEndVertexInput", ""]);
