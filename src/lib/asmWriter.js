@@ -287,7 +287,7 @@ export function writeASM(ast, functionsAsm, config)
     const align = getAnnotationVal(block.annotations, ANNOTATIONS.Align, 0) || 0;
     if(align)writeLine(`.align ${alignToExp(align)}`);
 
-    writeLine(block.name + ":");
+    if(block.type !== "shader") writeLine(block.name + ":");
 
     for(const asm of block.asm)
     {
