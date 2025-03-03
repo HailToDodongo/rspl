@@ -255,6 +255,12 @@ export function writeASM(ast, functionsAsm, config)
 
   writeLine("## Auto-generated file, transpiled with RSPL");
 
+  if(ast.defines) {
+    for(const [name, def] of Object.entries(ast.defines)) {
+      writeLine(`#define ${name} ${def.value}`);
+    }
+  }
+
   const preIncs = generateIncs(ast.includes);
   for(const inc of preIncs)writeLine(inc);
 
