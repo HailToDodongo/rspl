@@ -11,7 +11,7 @@ For a detailed documentation on the langue itself, see the language docs: [RSPL]
 
 This project provides both a CLI, and an interactive Web-App which can transpile code in real-time.
 
-A hosted version of the web-app is available at: https://mbeboek.gitlab.io/rspl/ <br/>
+A hosted version of the web-app is available at: [https://mbeboek.gitlab.io/rspl/](https://hailtododongo.github.io/rspl/) <br/>
 
 The CLI is currently not available as a pre-build, and needs to be build from sources.<br/>
 See the build section for more information.
