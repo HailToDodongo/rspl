@@ -626,6 +626,12 @@ Example:</p>
 <p>Single raw asm instruction, with the opcode and arguments separated.<br>
 In contrast to <code>asm()</code>, this will allow for reordering.<br>
 However using an instruction or argument that is unknown to RSPL my result in an error.<br></p>
+<h3 id="asm_includefilepath"><code>asm_include(filePath)</code></h3>
+<p>Includes a raw ASM file directly at the position of the call.<br>
+This will also act as a barrier for optimizations / reordering.<br>
+Example:</p>
+<pre><code class="c++ language-c++">asm_include("./some_ucode.inc");
+</code></pre>
 <h2 id="references">References</h2>
 <ul>
 <li><a href="https://emudev.org/2020/03/28/RSP.html" target="_blank">RSP Instruction Set</a></li>

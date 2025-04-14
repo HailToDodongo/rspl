@@ -97,7 +97,7 @@ export function asmBranch(op, args, labelEnd) {
   return {type: ASM_TYPE.OP, op, args, debug: getDebugData(), ...getOpInfo(op), labelEnd};
 }
 
-export function asmInline(op, args) {
+export function asmInline(op, args = []) {
   return {type: ASM_TYPE.INLINE, op, args, debug: getDebugData(), ...getOpInfo(op)};
 }
 

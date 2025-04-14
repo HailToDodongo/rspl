@@ -162,6 +162,7 @@ export function writeASM(ast, functionsAsm, config)
 
   if(ast.tempState.length > 0) {
     writeLine("");
+    writeLine(".bss");
     writeLine("  TEMP_STATE_MEM_START:");
     for(const tmpVar of ast.tempState) {
       if(tmpVar.extern)continue;

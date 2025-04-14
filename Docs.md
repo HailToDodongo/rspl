@@ -756,5 +756,13 @@ Single raw asm instruction, with the opcode and arguments separated.<br>
 In contrast to `asm()`, this will allow for reordering.<br>
 However using an instruction or argument that is unknown to RSPL my result in an error.<br>
 
+### `asm_include(filePath)`
+Includes a raw ASM file directly at the position of the call.<br>
+This will also act as a barrier for optimizations / reordering.<br>
+Example:
+```c++
+asm_include("./some_ucode.inc");
+```
+
 ## References
 - <a href="https://emudev.org/2020/03/28/RSP.html" target="_blank">RSP Instruction Set</a>

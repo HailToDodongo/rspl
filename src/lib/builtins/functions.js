@@ -11,7 +11,8 @@ import {
   nextVecReg,
   REG, REG_COP0,
   REG_COP2,
-  REGS_VECTOR
+  REGS_VECTOR,
+  REGS_SCALAR
 } from "../syntax/registers";
 import state from "../state";
 import opsScalar from "../operations/scalar";
@@ -128,6 +129,29 @@ function asm_op(varRes, args, swizzle) {
     return v.reg + swizzle;
   }))];
 }
+
+function asm_include(varRes, args, swizzle) {
+  const path = args[0].value;
+
+  const res = REGS_SCALAR.map((reg, i) => "#define " + reg.substring(1) + " $" + i)
+      .filter((_, i) => i !== 1)
+      .map(line => asmInline(line, []));
+    
+  res.push(asmInline(".set at"));
+  res.push(asmInline(".set macro"));
+
+  res.push(asmInline(`#include "${path}"`));
+
+  res.push(
+    asmInline(".set noreorder"),
+    asmInline(".set noat"),
+    asmInline(".set nomacro"),
+    ...REGS_SCALAR.map(reg => asmInline("#undef " + reg.substring(1)))
+  );
+
+  return res;
+}
+
 
 function inlineAsm(varRes, args, swizzle) {
   assertArgsNoSwizzle(args);
@@ -715,7 +739,7 @@ function select(varRes, args, swizzle) {
 
 export default {
   load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
-  asm: inlineAsm, asm_op, print, printf, abs, clip, clear_vcc, get_acc, set_vcc, get_dma_busy,
+  asm: inlineAsm, asm_op, asm_include, print, printf, abs, clip, clear_vcc, get_acc, set_vcc, get_dma_busy,
   get_acc_high, get_acc_mid, get_acc_low,
   get_rdp_start, get_rdp_end, get_rdp_current,
   set_rdp_start, set_rdp_end, set_rdp_current,
