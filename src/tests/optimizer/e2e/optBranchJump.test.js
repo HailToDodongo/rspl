@@ -35,11 +35,11 @@ describe('Optimizer E2E - Branch-Jump', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   LABEL_A:
-  beq $t0, $zero, LABEL_0001
+  beq $t0, $zero, LABEL_test_0001
   nop
   j LABEL_A
   addiu $t0, $t0, 1
-  LABEL_0001:
+  LABEL_test_0001:
   jr $ra
   nop`);
   });

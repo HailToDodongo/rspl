@@ -22,6 +22,7 @@ const state =
   argSize: 0,
   line: 0,
   outWarn: "",
+  sourceLines: [],
 
   /** @type {ScopeStack} */
   scopeStack: [], // function & block scope (variables)
@@ -145,7 +146,7 @@ const state =
 
   generateLabel: () => {
     ++state.nextLabelId;
-    return `LABEL_${state.nextLabelId.toString(16).toUpperCase().padStart(4, '0')}`;
+    return `LABEL_${state.func}_${state.nextLabelId.toString(16).toUpperCase().padStart(4, '0')}`;
   },
 
   /**

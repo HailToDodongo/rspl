@@ -225,7 +225,7 @@ T3DCmd_VertLoad:
   addu $s2, $s2, $s3
   jal DMAWaitIdle
   vmadn $v14, $v00, $v00
-  LABEL_0001:
+  LABEL_T3DCmd_VertLoad_0001:
   lqv $v06, 0, 0, $s4
   vand $v05, $v17, $v06.h3
   vmudn $v05, $v05, $v16.v
@@ -246,8 +246,8 @@ T3DCmd_VertLoad:
   luv $v07, 0, 16, $s4
   ori $at, $zero, %lo(COLOR_AMBIENT)
   luv $v06, 0, 0, $at
-  LABEL_0003:
-  beq $s3, $s2, LABEL_0004
+  LABEL_T3DCmd_VertLoad_0003:
+  beq $s3, $s2, LABEL_T3DCmd_VertLoad_0004
   nop
   lpv $v04, 0, 8, $s3
   vmulf $v03, $v05, $v04.v
@@ -256,9 +256,9 @@ T3DCmd_VertLoad:
   luv $v02, 0, 0, $s3
   vmulu $v03, $v02, $v03.h0
   addiu $s3, $s3, 16
-  j LABEL_0003
+  j LABEL_T3DCmd_VertLoad_0003
   vadd $v06, $v06, $v03.v
-  LABEL_0004:
+  LABEL_T3DCmd_VertLoad_0004:
   vmulf $v07, $v07, $v06.v
   vmudm $v03, $v15, $v09.h3
   vmadh $v02, $v15, $v08.h3
@@ -302,11 +302,11 @@ T3DCmd_VertLoad:
   vmadh $v05, $v05, $v11.e0
   vor $v04, $v00, $v11.e3
   vsub $v05, $v04, $v05.v
-  beq $k1, $zero, LABEL_0005
+  beq $k1, $zero, LABEL_T3DCmd_VertLoad_0005
   ori $s3, $zero, %lo(LIGHT_DIR_COLOR)
   vmov $v07.e3, $v05.e2
   vmov $v07.e7, $v05.e6
-  LABEL_0005:
+  LABEL_T3DCmd_VertLoad_0005:
   ssv $v08, 6, 32, $s6
   ssv $v09, 6, 34, $s6
   ssv $v08, 14, 32, $s5
@@ -333,9 +333,9 @@ T3DCmd_VertLoad:
   sb $fp, 7($s6) ## Barrier: 0x1
   sb $sp, 7($s5) ## Barrier: 0x1
   addiu $s5, $s5, 72
-  bne $s4, $s7, LABEL_0001
+  bne $s4, $s7, LABEL_T3DCmd_VertLoad_0001
   addiu $s6, $s6, 72
-  LABEL_0002:
+  LABEL_T3DCmd_VertLoad_0002:
   j RSPQ_Loop
   nop
 copyClippingVertex:
@@ -390,12 +390,12 @@ T3DCmd_TriDraw:
   ori $sp, $zero, %lo(RSPQ_Loop)
   jal RDPQ_Triangle_Send_Async ## Args: $a0, $a1, $a2
   srl $a2, $a1, 16
-  bne $v1, $zero, LABEL_0006
+  bne $v1, $zero, LABEL_T3DCmd_TriDraw_0006
   lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET + 0)
   xori $s7, $s7, 176
   j RSPQ_Loop
   sh $s7, %lo(RDPQ_TRI_BUFF_OFFSET)($zero)
-  LABEL_0006:
+  LABEL_T3DCmd_TriDraw_0006:
   lhu $a1, %lo(RSPQ_DMEM_BUFFER  -4)($gp)
   jal RDPQ_Triangle_Send_End
   lhu $a2, %lo(RSPQ_DMEM_BUFFER  -2)($gp)
@@ -412,7 +412,7 @@ T3DCmd_TriDraw:
   or $s0, $zero, $a2
   ori $s4, $zero, %lo(CLIPPING_PLANES)
   addiu $s3, $zero, 1
-  LABEL_0007:
+  LABEL_T3DCmd_TriDraw_0007:
   addiu $s2, $s5, 65500
   luv $v28, 0, 8, $s2
   ldv $v26, 0, 16, $s2
@@ -425,7 +425,7 @@ T3DCmd_TriDraw:
   or $s5, $zero, $s6
   or $s2, $zero, $s7
   addu $s0, $s7, $t0
-  LABEL_0009:
+  LABEL_T3DCmd_TriDraw_0009:
   ldv $v24, 0, 16, $s2
   llv $v24, 8, 12, $s2
   luv $v23, 0, 8, $s2
@@ -434,7 +434,7 @@ T3DCmd_TriDraw:
   nor $k1, $zero, $fp
   and $sp, $sp, $s3
   and $k1, $k1, $s3
-  beq $sp, $zero, LABEL_000B
+  beq $sp, $zero, LABEL_T3DCmd_TriDraw_000B
   ldv $v25, 0, 24, $s2
   ori $at, $zero, %lo(NORM_SCALE_W)
   ldv $v22, 0, 8, $at
@@ -498,23 +498,23 @@ T3DCmd_TriDraw:
   srl $k0, $s1, 5
   jal emitClippedTri ## Args: $s5, $s1, $v26, $v28
   or $s1, $s1, $k0
-  LABEL_000B:
+  LABEL_T3DCmd_TriDraw_000B:
   vor $v27, $v00, $v25
   or $s1, $zero, $fp
   vor $v28, $v00, $v23
-  ori $ra, $zero, LABEL_000C
+  ori $ra, $zero, LABEL_T3DCmd_TriDraw_000C
   bne $k1, $zero, emitClippedTri
   vor $v26, $v00, $v24
-  LABEL_000C:
+  LABEL_T3DCmd_TriDraw_000C:
   addiu $s2, $s2, 36
-  bne $s2, $s0, LABEL_0009
+  bne $s2, $s0, LABEL_T3DCmd_TriDraw_0009
   nop
-  LABEL_000A:
+  LABEL_T3DCmd_TriDraw_000A:
   subu $t0, $s5, $s6
   beq $t0, $zero, RSPQ_Loop
   sll $s3, $s3, 1
   addiu $at, $zero, 32
-  bne $s3, $at, LABEL_0007
+  bne $s3, $at, LABEL_T3DCmd_TriDraw_0007
   addiu $s4, $s4, 4
   CLIP_END:
   ori $s6, $zero, %lo(CLIP_BUFFER_RESULT)
@@ -524,7 +524,7 @@ T3DCmd_TriDraw:
   addiu $s5, $s5, 65464
   jal triToScreenSpace ## Args: $s6
   addiu $s6, $s6, 72
-  LABEL_000E:
+  LABEL_T3DCmd_TriDraw_000E:
   jal triToScreenSpace ## Args: $s6
   addiu $s6, $s6, 72
   or $a2, $zero, $s6
@@ -538,9 +538,9 @@ T3DCmd_TriDraw:
   jal RDPQ_Triangle_Send_End
   nop
   CLIP_AFTER_EMIT:
-  bne $s6, $s5, LABEL_000E
+  bne $s6, $s5, LABEL_T3DCmd_TriDraw_000E
   nop
-  LABEL_000F:
+  LABEL_T3DCmd_TriDraw_000F:
   j RSPQ_Loop
   nop
 T3DCmd_SetScreenSize:
@@ -566,11 +566,11 @@ T3DCmd_SetFogState:
   j RSPQ_Loop
   sb $a0, %lo(USE_FOG)($zero)
 T3DCmd_LightSet:
-  beq $a2, $zero, LABEL_0010
+  beq $a2, $zero, LABEL_T3DCmd_LightSet_0010
   sw $a1, 0($a0)
   sw $a2, 8($a0)
   sw $a2, 12($a0)
-  LABEL_0010:
+  LABEL_T3DCmd_LightSet_0010:
   j RSPQ_Loop
   sw $a1, 4($a0)
 T3DCmd_LightCount:
@@ -683,17 +683,17 @@ T3DCmd_MatrixStack:
   addu $s5, $s5, $a1
   bne $s6, $zero, RSPQ_Loop
   sw $s5, %lo(MATRIX_STACK_PTR)($zero)
-  bgez $a1, LABEL_0012
+  bgez $a1, LABEL_T3DCmd_MatrixStack_0012
   ori $s4, $zero, %lo(CLIP_BUFFER_TMP)
   or $a0, $zero, $s5
-  LABEL_0012:
+  LABEL_T3DCmd_MatrixStack_0012:
   lui $at, 0xFF
   ori $at, $at, 0xFFFF
   ori $t0, $zero, 63
   addiu $t2, $zero, 12
   jal DMAExec ## Args: $t0, $t1, $s0, $s4, $t2
   and $s0, $a0, $at
-  beq $s7, $zero, LABEL_0013
+  beq $s7, $zero, LABEL_T3DCmd_MatrixStack_0013
   ori $t1, $zero, %lo(MATRIX_NORMAL)
   addiu $s0, $s5, 65472
   ori $t0, $zero, 63
@@ -704,7 +704,7 @@ T3DCmd_MatrixStack:
   ori $s4, $zero, %lo(CLIP_BUFFER_TMP)
   jal mulMat4Mat4 ## Args: $s2, $s3, $s4
   ori $s2, $zero, %lo(CLIP_BUFFER_TMP)
-  LABEL_0013:
+  LABEL_T3DCmd_MatrixStack_0013:
   ori $t0, $zero, 63
   addiu $t2, $zero, -32756
   jal DMAExec ## Args: $t0, $t1, $s0, $s4, $t2

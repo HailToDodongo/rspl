@@ -13,14 +13,14 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   addiu $at, $zero, 42
-  bne $v0, $at, LABEL_0001
+  bne $v0, $at, LABEL_test_if_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, LABEL_0002
+  beq $zero, $zero, LABEL_test_if_0002
   nop
-  LABEL_0001:
+  LABEL_test_if_0001:
   addiu $v0, $v0, 2222
-  LABEL_0002:
+  LABEL_test_if_0002:
   jr $ra
   nop`);
   });
@@ -35,14 +35,14 @@ describe('Branch (Var vs. Const)', () =>
     expect(asm).toBe(`test_if:
   lui $at, 0x11
   ori $at, $at, 0x2233
-  bne $v0, $at, LABEL_0001
+  bne $v0, $at, LABEL_test_if_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, LABEL_0002
+  beq $zero, $zero, LABEL_test_if_0002
   nop
-  LABEL_0001:
+  LABEL_test_if_0001:
   addiu $v0, $v0, 2222
-  LABEL_0002:
+  LABEL_test_if_0002:
   jr $ra
   nop`);
   });
@@ -56,14 +56,14 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   addiu $at, $zero, 42
-  beq $v0, $at, LABEL_0001
+  beq $v0, $at, LABEL_test_if_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, LABEL_0002
+  beq $zero, $zero, LABEL_test_if_0002
   nop
-  LABEL_0001:
+  LABEL_test_if_0001:
   addiu $v0, $v0, 2222
-  LABEL_0002:
+  LABEL_test_if_0002:
   jr $ra
   nop`);
   });
@@ -77,14 +77,14 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   sltiu $at, $v0, 43
-  bne $at, $zero, LABEL_0001
+  bne $at, $zero, LABEL_test_if_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, LABEL_0002
+  beq $zero, $zero, LABEL_test_if_0002
   nop
-  LABEL_0001:
+  LABEL_test_if_0001:
   addiu $v0, $v0, 2222
-  LABEL_0002:
+  LABEL_test_if_0002:
   jr $ra
   nop`);
   });
@@ -100,14 +100,14 @@ describe('Branch (Var vs. Const)', () =>
     expect(asm).toBe(`test_if:
   lui $at, 0xFFFF
   sltu $at, $v0, $at
-  bne $at, $zero, LABEL_0001
+  bne $at, $zero, LABEL_test_if_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, LABEL_0002
+  beq $zero, $zero, LABEL_test_if_0002
   nop
-  LABEL_0001:
+  LABEL_test_if_0001:
   addiu $v0, $v0, 2222
-  LABEL_0002:
+  LABEL_test_if_0002:
   jr $ra
   nop`);
   });
@@ -121,14 +121,14 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   sltiu $at, $v0, 42
-  beq $at, $zero, LABEL_0001
+  beq $at, $zero, LABEL_test_if_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, LABEL_0002
+  beq $zero, $zero, LABEL_test_if_0002
   nop
-  LABEL_0001:
+  LABEL_test_if_0001:
   addiu $v0, $v0, 2222
-  LABEL_0002:
+  LABEL_test_if_0002:
   jr $ra
   nop`);
   });
@@ -142,14 +142,14 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   sltiu $at, $v0, 42
-  bne $at, $zero, LABEL_0001
+  bne $at, $zero, LABEL_test_if_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, LABEL_0002
+  beq $zero, $zero, LABEL_test_if_0002
   nop
-  LABEL_0001:
+  LABEL_test_if_0001:
   addiu $v0, $v0, 2222
-  LABEL_0002:
+  LABEL_test_if_0002:
   jr $ra
   nop`);
   });
@@ -163,14 +163,14 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   sltiu $at, $v0, 43
-  beq $at, $zero, LABEL_0001
+  beq $at, $zero, LABEL_test_if_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, LABEL_0002
+  beq $zero, $zero, LABEL_test_if_0002
   nop
-  LABEL_0001:
+  LABEL_test_if_0001:
   addiu $v0, $v0, 2222
-  LABEL_0002:
+  LABEL_test_if_0002:
   jr $ra
   nop`);
   });
@@ -186,14 +186,14 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   addiu $at, $zero, 42
-  bne $v0, $at, LABEL_0001
+  bne $v0, $at, LABEL_test_if_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, LABEL_0002
+  beq $zero, $zero, LABEL_test_if_0002
   nop
-  LABEL_0001:
+  LABEL_test_if_0001:
   addiu $v0, $v0, 2222
-  LABEL_0002:
+  LABEL_test_if_0002:
   jr $ra
   nop`);
   });
@@ -207,14 +207,14 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   addiu $at, $zero, 42
-  beq $v0, $at, LABEL_0001
+  beq $v0, $at, LABEL_test_if_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, LABEL_0002
+  beq $zero, $zero, LABEL_test_if_0002
   nop
-  LABEL_0001:
+  LABEL_test_if_0001:
   addiu $v0, $v0, 2222
-  LABEL_0002:
+  LABEL_test_if_0002:
   jr $ra
   nop`);
   });
@@ -228,14 +228,14 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   slti $at, $v0, 43
-  bne $at, $zero, LABEL_0001
+  bne $at, $zero, LABEL_test_if_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, LABEL_0002
+  beq $zero, $zero, LABEL_test_if_0002
   nop
-  LABEL_0001:
+  LABEL_test_if_0001:
   addiu $v0, $v0, 2222
-  LABEL_0002:
+  LABEL_test_if_0002:
   jr $ra
   nop`);
   });
@@ -249,14 +249,14 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   slti $at, $v0, 42
-  beq $at, $zero, LABEL_0001
+  beq $at, $zero, LABEL_test_if_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, LABEL_0002
+  beq $zero, $zero, LABEL_test_if_0002
   nop
-  LABEL_0001:
+  LABEL_test_if_0001:
   addiu $v0, $v0, 2222
-  LABEL_0002:
+  LABEL_test_if_0002:
   jr $ra
   nop`);
   });
@@ -270,14 +270,14 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   slti $at, $v0, 42
-  bne $at, $zero, LABEL_0001
+  bne $at, $zero, LABEL_test_if_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, LABEL_0002
+  beq $zero, $zero, LABEL_test_if_0002
   nop
-  LABEL_0001:
+  LABEL_test_if_0001:
   addiu $v0, $v0, 2222
-  LABEL_0002:
+  LABEL_test_if_0002:
   jr $ra
   nop`);
   });
@@ -291,14 +291,14 @@ describe('Branch (Var vs. Const)', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test_if:
   slti $at, $v0, 43
-  beq $at, $zero, LABEL_0001
+  beq $at, $zero, LABEL_test_if_0001
   nop
   addiu $v0, $v0, 1111
-  beq $zero, $zero, LABEL_0002
+  beq $zero, $zero, LABEL_test_if_0002
   nop
-  LABEL_0001:
+  LABEL_test_if_0001:
   addiu $v0, $v0, 2222
-  LABEL_0002:
+  LABEL_test_if_0002:
   jr $ra
   nop`);
   });

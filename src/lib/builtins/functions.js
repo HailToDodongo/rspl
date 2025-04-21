@@ -124,6 +124,7 @@ function asm_op(varRes, args, swizzle) {
   }
 
   return [asm(args[0].value, args.slice(1).map(arg => {
+    if(arg.type === 'num')return arg.value;
     const v = state.getRequiredVar(arg.value, "arg");
     const swizzle = SWIZZLE_MAP[arg.swizzle] || "";
     return v.reg + swizzle;

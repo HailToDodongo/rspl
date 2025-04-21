@@ -51,6 +51,7 @@ export async function transpileSource(source, config, updateCb = undefined)
   source = preprocess(source, defines, config.fileLoader);
   //console.timeEnd("Preprocessor");
 
+  state.sourceLines = source.split("\n").map((l => l.trim()));
   //console.time("parser");
   const astList = parser.feed(source);
   //console.timeEnd("parser");

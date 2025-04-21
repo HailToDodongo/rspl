@@ -215,7 +215,7 @@ export function writeASM(ast, functionsAsm, config)
       }
 
       if(asm.debug.lineRSPL) {
-        //debugInfo += " ## L:" + asm.debug.lineRSPL;
+        // debugInfo += " ## L:" + asm.debug.lineRSPL + " | " + (state.sourceLines[asm.debug.lineRSPL-1] || '');
       }
 
       // ASM Text output

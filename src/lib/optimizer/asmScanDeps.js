@@ -11,7 +11,7 @@ import state from "../state.js";
 export const STORE_OPS = [
   "sw", "sh", "sb",
   "sbv", "ssv", "slv", "sdv", "sqv",
-  "spv", "suv"
+  "spv", "suv", "shv", "sfv"
 ];
 
 export const LOAD_OPS_SCALAR = ["lw", "lh", "lhu", "lb", "lbu"];
@@ -203,7 +203,7 @@ export function getTargetRegs(line) {
 }
 
 /** @param {ASM} line */
-function getSourceRegs(line)
+export function getSourceRegs(line)
 {
   if(["jr", "mtc2", "mtc0", "ctc2"].includes(line.op)) {
     return [line.args[0]];
@@ -227,7 +227,7 @@ function getSourceRegs(line)
  * @param {ASM} line
  * @returns {string[]}
  */
-function getSourceRegsFiltered(line)
+export function getSourceRegsFiltered(line)
 {
   return getSourceRegs(line)
     .filter(reg => typeof reg === "string")

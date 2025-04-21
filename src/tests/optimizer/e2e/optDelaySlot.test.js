@@ -33,18 +33,18 @@ describe('Optimizer E2E - Delay-Slots', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   or $t0, $zero, $zero
-  LABEL_0001:
-  beq $a0, $zero, LABEL_0002
+  LABEL_test_0001:
+  beq $a0, $zero, LABEL_test_0002
   nop
   addiu $at, $zero, 6
-  bne $a0, $at, LABEL_0003
+  bne $a0, $at, LABEL_test_0003
   nop
-  j LABEL_0002
+  j LABEL_test_0002
   addiu $t0, $zero, 42
-  LABEL_0003:
-  j LABEL_0001
+  LABEL_test_0003:
+  j LABEL_test_0001
   addiu $a0, $a0, 65535
-  LABEL_0002:
+  LABEL_test_0002:
   jr $ra
   nop`);
   });
