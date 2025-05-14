@@ -27,7 +27,7 @@
   "scripts": {
     "start": "yarn parcel src/web/index.html",
     "build": "parcel build --public-url '/rspl'",
-    "build:cli": "parcel build --target cli src/cli.js && mv dist/cli.js dist/cli.mjs",
+    "build:cli": "parcel build --no-cache --target cli src/cli.js && mv dist/cli.js dist/cli.mjs",
     "build:lang": "nearleyc src/lib/grammar.ne -o src/lib/grammar.cjs",
     "clean": "rm -rf .parcel-cache && rm -rf dist",
     "test": "NODE_OPTIONS=--experimental-vm-modules yarn jest"
