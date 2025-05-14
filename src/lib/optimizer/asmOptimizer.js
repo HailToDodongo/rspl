@@ -56,8 +56,9 @@ export function asmOptimizePattern(asmFunc)
  *
  * Below are settings to fine-tune this process:
  */
-const SUB_ITERATION_COUNT    = 15;   // sub-iterations per variant
-const PREFER_STALLS_RATE     = 0.33;  // chance to directly fill a stall instead of a random pick
+const POOL_SIZE            = 8;   // sub-iterations per variant
+const PREFER_STALLS_RATE   = 0.20;  // chance to directly fill a stall instead of a random pick
+const PREFER_PAIR_RATE     = 0.80;  // chance to directly fill a stall instead of a random pick
 
 const REORDER_MIN_OPS = 4;  // minimum instructions to reorder per round
 const REORDER_MAX_OPS = 15; // maximum instructions to reorder per round
@@ -168,16 +169,33 @@ function optimizeStep(asmFunc)
 
   // now sometimes we prefer to fill stalls directly, since this prevents any reordering that takes a few moves
   // we cannot do this all the time
-  if(rand() < PREFER_STALLS_RATE) {
+  let foundIndex = false;
+  if(rand() < PREFER_PAIR_RATE) {
+    for(let j=reorderRange[0]; j<=reorderRange[1]; ++j) {
+      if(asmFunc.asm[j].opIsVector !== asmFunc.asm[i].opIsVector) {
+        let paired = asmFunc.asm[j].debug.paired;
+        if(!paired) {
+          targetIdx = j;
+          foundIndex = true;
+        }
+      }
+    }
+    if(!foundIndex)return;
+  }
+
+  if(!foundIndex && rand() < PREFER_STALLS_RATE) {
     let maxStalls = 0;
     for(let j=reorderRange[0]; j<=reorderRange[1]; ++j) {
       let stalls = asmFunc.asm[j].debug.stall || 0;
       if(stalls > maxStalls) {
         maxStalls = stalls;
         targetIdx = j;
+        foundIndex = true;
       }
     }
-  } else {
+  }
+
+  if(!foundIndex) {
     while(targetIdx === i) {
       targetIdx = getRandIndex(reorderRange[0], reorderRange[1]);
     }
@@ -249,7 +267,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
     let costBest = evalFunctionCost(asmFunc);
     asmFunc.cyclesBefore = costBest;
     //const worker = WorkerThreads.getInstance();
-    const poolSize = 8;
+    const poolSize = POOL_SIZE;
 
     const costInit = costBest;
     console.log("costOpt", costInit);
@@ -292,7 +310,6 @@ export async function asmOptimize(asmFunc, updateCb, config)
           if(historyBest[randPick])refFunc = {...refFunc, asm: [...historyBest[randPick]]};
         }
 
-        refFunc._iterCount = Math.floor(i / 600) + SUB_ITERATION_COUNT;
         //results.push(worker.runTask("reorder", refFunc));
         results.push(reorderRound(refFunc));
       }

@@ -42,6 +42,15 @@ export function evalFunctionCost(asmFunc)
   while(pc === 0 || execOps.length)
   {
     let hadStall; // wait out any stalls
+
+    if(execOps[0]) {
+      execOps[0].debug.paired = false;
+      if(execOps.length === 2) {
+        execOps[0].debug.paired = true;
+        execOps[1].debug.paired = true;
+      }
+    }
+
     do {
       hadStall = false;
       for(let execOp of execOps) {

@@ -206,22 +206,25 @@ export function writeASM(ast, functionsAsm, config)
         res.debug.lineStallMap[asm.debug.lineASMOpt] = asm.debug.stall;
       }
 
-      let debugInfo = asm.barrierMask
-        ? " ## Barrier: 0x" + asm.barrierMask.toString(16).toUpperCase()
-        : "";
+      let debugInfo = '';
+
+      if(asm.debug.lineRSPL) {
+        debugInfo += " ## L:" + asm.debug.lineRSPL + " | " + (state.sourceLines[asm.debug.lineRSPL-1] || '');
+      }
 
       if(asm.funcArgs && asm.funcArgs.length) {
         debugInfo += " ## Args: " + asm.funcArgs.join(", ");
       }
 
-      if(asm.debug.lineRSPL) {
-        // debugInfo += " ## L:" + asm.debug.lineRSPL + " | " + (state.sourceLines[asm.debug.lineRSPL-1] || '');
+      if(asm.barrierMask) {
+        debugInfo += " ## Barrier: 0x" + asm.barrierMask.toString(16).toUpperCase();
       }
+
 
       // ASM Text output
       switch (asm.type) {
         case ASM_TYPE.INLINE:
-        case ASM_TYPE.OP     : writeLine(`  ${stringifyInstr(asm)}${debugInfo}`);break;
+        case ASM_TYPE.OP     : writeLine(`  ${stringifyInstr(asm).padEnd(debugInfo ? 50 : 0,' ')}${debugInfo}`);break;
         case ASM_TYPE.LABEL  : writeLine(`  ${asm.label}:`);         break;
         case ASM_TYPE.COMMENT: writeLine(`  ##${asm.comment}`);      break;
         default: state.throwError("Unknown ASM type: " + asm.type, asm);

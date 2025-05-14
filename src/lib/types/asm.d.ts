@@ -17,6 +17,7 @@ declare global
         reorderLineMax: number;
         cycle: number;
         stall: number;
+        paired: boolean;
     };
 
     type ASM = {
