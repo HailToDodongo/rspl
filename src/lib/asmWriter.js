@@ -187,6 +187,7 @@ export function writeASM(ast, functionsAsm, config)
 
     writeLine(block.name + ":");
 
+    let lastAsm = block.asm[0] || null;
     for(const asm of block.asm)
     {
       // Debug Information
@@ -209,7 +210,17 @@ export function writeASM(ast, functionsAsm, config)
       let debugInfo = '';
 
       if(asm.debug.lineRSPL) {
-        debugInfo += " ## L:" + asm.debug.lineRSPL + " | " + (state.sourceLines[asm.debug.lineRSPL-1] || '');
+        let cycleStr = '     ^';
+        let cycleDiff = asm.debug.cycle - lastAsm.debug.cycle;
+        if(cycleDiff !== 0) {
+          let stars = '';
+          if(cycleDiff > 1) {
+            stars = '*'.repeat(cycleDiff - 1);
+          }
+          cycleStr = (stars + asm.debug.cycle.toString()).padStart(6, ' ');
+        }
+
+        debugInfo += ` ## L:${asm.debug.lineRSPL.toString().padEnd(4, ' ')} | ${cycleStr} | ${state.sourceLines[asm.debug.lineRSPL-1] || ''}`;
       }
 
       if(asm.funcArgs && asm.funcArgs.length) {
@@ -231,6 +242,9 @@ export function writeASM(ast, functionsAsm, config)
       }
 
       totalTextSize += asm.type === ASM_TYPE.OP ? 4 : 0;
+      if(asm.type === ASM_TYPE.OP) {
+        lastAsm = asm;
+      }
     }
 
     for(const asm of block.asm)
