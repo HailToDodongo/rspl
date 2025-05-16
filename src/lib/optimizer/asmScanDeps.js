@@ -11,7 +11,7 @@ import state from "../state.js";
 export const STORE_OPS = [
   "sw", "sh", "sb",
   "sbv", "ssv", "slv", "sdv", "sqv",
-  "spv", "suv", "shv", "sfv", "stv"
+  "spv", "suv", "shv", "sfv", "stv", "swv"
 ];
 
 export const LOAD_OPS_SCALAR = ["lw", "lh", "lhu", "lb", "lbu"];
@@ -151,6 +151,13 @@ const REG_INDEX_MAP = {
   SIZE: 293
 };
 
+const LTV_REG_MAP = {
+  "$v00": ["$v00", "$v01", "$v02", "$v03", "$v04", "$v05", "$v06", "$v07"],
+  "$v08": ["$v08", "$v09", "$v10", "$v11", "$v12", "$v13", "$v14", "$v15"],
+  "$v16": ["$v16", "$v17", "$v18", "$v19", "$v20", "$v21", "$v22", "$v23"],
+  "$v24": ["$v24", "$v25", "$v26", "$v27", "$v28", "$v29", "$v30", "$v31"],
+};
+
 const REG_MASK_MAP = {SIZE: REG_INDEX_MAP.SIZE};
 let REG_MASK_ALL = 0n;
 
@@ -212,7 +219,24 @@ export function getSourceRegs(line)
     // last arg is label, take all before that
     return line.args.slice(0, -1);
   }
-  if(line.opIsStore) {
+  if(line.opIsStore)
+  {
+    // transpose, access 8 registers and lanes in a diagonal pattern
+    if(line.op === 'stv')
+    {
+      const mainReg = line.args[0] || '$v00';
+      const row = parseInt(line.args[1]) / 2;
+
+      let regs = [...LTV_REG_MAP[mainReg]];
+      if(!regs)state.throwError(`Invalid base register ${mainReg} for stv!`);
+
+      for(let i=0; i < 8; ++i) {
+        regs[i] += ".e" + ((8 + i - row) % 8);
+      }
+      regs.push(line.args[line.args.length-1]);
+      return regs;
+    }
+
     return line.args;
   }
   if(["j", "jal"].includes(line.op)) {
