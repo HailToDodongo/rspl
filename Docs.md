@@ -743,6 +743,38 @@ vec16 color;
 store_vec_u8(color, ptrColor, 0x08);
 ```
 
+### `load_transposed(row, address, [offset])`
+Special load (`ltv`) that can be used to perform a 8x8 transpose of registers.<br>
+This will load 16 bytes (8 16bit values) of linear memory into 8 different registers and lanes.<br>
+The target register must be either $v00, $v08, $v16 or $v24.<br>
+And it will touch all 8 registers (7 after the one you specified), with one lane of each.<br>
+The lane of each register as it moves diagonally is determined by the row number.<br>
+See https://emudev.org/2020/03/28/RSP.html#128-bit-vector-transpose for more details.
+
+Example:
+```c++
+vec16<$v08> t0;
+t0 = load_transposed(7, buff, 0x10);
+t0 = load_transposed(6, buff, 0x20);
+t0 = load_transposed(5, buff, 0x30);
+```
+
+### `store_transposed(vec, row, address, [offset])`
+Special store (`stv`) that can be used to perform a 8x8 transpose of registers.<br>
+This store load 16 bytes (8 16bit values) into linear memory from 8 different registers and lanes.<br>
+The source register must be either $v00, $v08, $v16 or $v24.<br>
+And it will go through 8 registers (7 after the one you specified), with one lane of each.<br>
+The lane of each register as it moves diagonally is determined by the row number.<br>
+See https://emudev.org/2020/03/28/RSP.html#128-bit-vector-transpose for more details.
+
+Example:
+```c++
+vec16<$v08> v0;
+store_transposed(v0, 6, buff);
+store_transposed(v0, 5, buff, 0x10);
+store_transposed(v0, 7, buff, 0x10);
+```
+
 ### `asm(x)`
 Injects raw asm/text into the output, no checks are performed<br>
 Note that this acts as a barrier for optimizations / reordering.<br>

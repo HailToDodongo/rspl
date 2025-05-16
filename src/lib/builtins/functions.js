@@ -115,6 +115,71 @@ function store_vec_s8(varRes, args, swizzle) {
   return store_vec_u8(varRes, args, swizzle, true);
 }
 
+function load_transposed(varRes, args, swizzle) {
+  if(swizzle)state.throwError("Builtin load_transposed() cannot use swizzle!", varRes);
+  if(!varRes)state.throwError("Builtin load_transposed() needs a left-side", varRes);
+  if(!isVecReg(varRes.reg))state.throwError("Builtin load_transposed() must store the result into a vector!", varRes);
+  if(args.length !== 2 && args.length !== 3)state.throwError("Builtin load_transposed() requires 2 or 3 arguments!", args[0]);
+  if(args[0].type !== 'num')state.throwError("Builtin load_transposed() requires first argument to be a number (row offset 0-7)!", args[0]);
+
+  let row = parseInt(args[0].value);
+  if(row < 0 || row > 7) {
+    state.throwError("Builtin load_transposed() requires first argument (row) to be a number between 0 and 7!", args[0]);
+  }
+
+  let offset = 0;
+  if(args.length === 3) {
+    if(args[2].type !== 'num')state.throwError("Builtin load_transposed() requires third argument to be a number (offset in steps of 0x10)!", args[2]);
+    offset = parseInt(args[2].value);
+    if(offset % 16 !== 0) {
+      state.throwError("Builtin load_transposed() requires offset to be multiple of 16!", args[2]);
+    }
+  }
+
+  const addrReg = state.getRequiredVar(args[1].value, "arg1");
+  if(isVecReg(addrReg.reg))state.throwError("Builtin load_transposed() requires second argument to be a scalar variable!", args[1]);
+  const regIndex = parseInt(varRes.reg.substring(2), 10);
+  if(regIndex % 8 !== 0) {
+    state.throwError("Builtin load_transposed() requires result register to be $v00, $v08, $v16 or $v24!", varRes);
+  }
+
+  return [asm("ltv", [varRes.reg, row*2, offset, addrReg.reg])];
+}
+
+function store_transposed(varRes, args, swizzle) {
+  if(swizzle)state.throwError("Builtin store_transposed() cannot use swizzle!", varRes);
+  if(varRes)state.throwError("Builtin store_transposed() has no left-side", varRes);
+
+  if(args.length !== 3 && args.length !== 4)state.throwError("Builtin store_transposed() requires 3 or 4 arguments!", args[0]);
+  if(args[1].type !== 'num')state.throwError("Builtin store_transposed() requires second argument to be a number (row offset 0-7)!", args[0]);
+
+  const res = state.getRequiredVar(args[0].value, "arg0");
+  if(!isVecReg(res.reg))state.throwError("Builtin store_transposed() must store the result into a vector!", varRes);
+
+  let row = parseInt(args[1].value);
+  if(row < 0 || row > 7) {
+    state.throwError("Builtin store_transposed() requires second argument (row) to be a number between 0 and 7!", args[1]);
+  }
+
+  let offset = 0;
+  if(args.length === 4) {
+    if(args[3].type !== 'num')state.throwError("Builtin store_transposed() requires third argument to be a number (offset in steps of 0x10)!", args[2]);
+    offset = parseInt(args[3].value);
+    if(offset % 16 !== 0) {
+      state.throwError("Builtin store_transposed() requires offset to be multiple of 16!", args[3]);
+    }
+  }
+
+  const addrReg = state.getRequiredVar(args[2].value, "arg1");
+  if(isVecReg(addrReg.reg))state.throwError("Builtin store_transposed() requires third argument to be a scalar variable!", args[2]);
+  const regIndex = parseInt(res.reg.substring(2), 10);
+  if(regIndex % 8 !== 0) {
+    state.throwError("Builtin store_transposed() requires target register to be $v00, $v08, $v16 or $v24!", res.reg);
+  }
+
+  return [asm("stv", [res.reg, row*2, offset, addrReg.reg])];
+}
+
 function asm_op(varRes, args, swizzle) {
 
   if(swizzle)state.throwError("Builtin asm_op() cannot use swizzle!", varRes);
@@ -740,6 +805,7 @@ function select(varRes, args, swizzle) {
 
 export default {
   load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
+  load_transposed, store_transposed,
   asm: inlineAsm, asm_op, asm_include, print, printf, abs, clip, clear_vcc, get_acc, set_vcc, get_dma_busy,
   get_acc_high, get_acc_mid, get_acc_low,
   get_rdp_start, get_rdp_end, get_rdp_current,
