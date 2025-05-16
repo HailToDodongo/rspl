@@ -209,26 +209,29 @@ export function writeASM(ast, functionsAsm, config)
 
       let debugInfo = '';
 
-      if(asm.debug.lineRSPL) {
-        let cycleStr = '     ^';
-        let cycleDiff = asm.debug.cycle - lastAsm.debug.cycle;
-        if(cycleDiff !== 0) {
-          let stars = '';
-          if(cycleDiff > 1) {
-            stars = '*'.repeat(cycleDiff - 1);
+      if(config.debugInfo)
+      {
+        if(asm.debug.lineRSPL) {
+          let cycleStr = '     ^';
+          let cycleDiff = asm.debug.cycle - lastAsm.debug.cycle;
+          if(cycleDiff !== 0) {
+            let stars = '';
+            if(cycleDiff > 1) {
+              stars = '*'.repeat(cycleDiff - 1);
+            }
+            cycleStr = (stars + asm.debug.cycle.toString()).padStart(6, ' ');
           }
-          cycleStr = (stars + asm.debug.cycle.toString()).padStart(6, ' ');
+
+          debugInfo += ` ## L:${asm.debug.lineRSPL.toString().padEnd(4, ' ')} | ${cycleStr} | ${state.sourceLines[asm.debug.lineRSPL-1] || ''}`;
         }
 
-        debugInfo += ` ## L:${asm.debug.lineRSPL.toString().padEnd(4, ' ')} | ${cycleStr} | ${state.sourceLines[asm.debug.lineRSPL-1] || ''}`;
-      }
+        if(asm.funcArgs && asm.funcArgs.length) {
+          debugInfo += " ## Args: " + asm.funcArgs.join(", ");
+        }
 
-      if(asm.funcArgs && asm.funcArgs.length) {
-        debugInfo += " ## Args: " + asm.funcArgs.join(", ");
-      }
-
-      if(asm.barrierMask) {
-        debugInfo += " ## Barrier: 0x" + asm.barrierMask.toString(16).toUpperCase();
+        if(asm.barrierMask) {
+          debugInfo += " ## Barrier: 0x" + asm.barrierMask.toString(16).toUpperCase();
+        }
       }
 
 
