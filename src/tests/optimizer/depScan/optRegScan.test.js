@@ -65,25 +65,34 @@ describe('Optimizer - Register Scanner', () =>
       srcStall: ["$v08", "$v09", "$v10", "$v11", "$v12", "$v13", "$v14", "$v15", "$t0"],
       tgtStall: [],
     },
+    "Lanes - LTV - base": {
+      asm: asm("ltv", ["$v16", 0, 0, "$t0"]),
+      src: ["$t0"],
+      tgt: ["$v16_0", "$v17_1", "$v18_2", "$v19_3", "$v20_4", "$v21_5", "$v22_6", "$v23_7"],
+      srcStall: ["$t0"],
+      tgtStall: ["$v16", "$v17", "$v18", "$v19", "$v20", "$v21", "$v22", "$v23"],
+    },
+    "Lanes - LTV - offset 2": {
+      asm: asm("ltv", ["$v08", 2, 0x10, "$t0"]),
+      src: ["$t0"],
+      tgt: ["$v08_7", "$v09_0", "$v10_1", "$v11_2", "$v12_3", "$v13_4", "$v14_5", "$v15_6"],
+      srcStall: ["$t0"],
+      tgtStall: ["$v08", "$v09", "$v10", "$v11", "$v12", "$v13", "$v14", "$v15"],
+    },
+    "Lanes - LTV - offset 8": {
+      asm: asm("ltv", ["$v00", 8, 0x20, "$t0"]),
+      src: ["$t0"],
+      tgt: ["$v00_4", "$v01_5", "$v02_6", "$v03_7", "$v04_0", "$v05_1", "$v06_2", "$v07_3"],
+      srcStall: ["$t0"],
+      tgtStall: ["$v00", "$v01", "$v02", "$v03", "$v04", "$v05", "$v06", "$v07"],
+    },
   };
 
   for(const [name, {asm, src, tgt, srcStall, tgtStall}] of Object.entries(CASES)) {
     asmInitDep(asm);
-
-    test(`Source (Logic) - ${name}`, () => {
-      expect(asm.depsSource).toEqual(src);
-    });
-
-    test(`Target (Logic) - ${name}`, () => {
-      expect(asm.depsTarget).toEqual(tgt);
-    });
-
-    test(`Source (Stalls) - ${name}`, () => {
-      expect(asm.depsStallSource).toEqual(srcStall);
-    });
-
-    test(`Target (Stalls) - ${name}`, () => {
-      expect(asm.depsStallTarget).toEqual(tgtStall);
-    });
+    test(`Source (Logic) - ${name}`,  () => expect(asm.depsSource).toEqual(src));
+    test(`Target (Logic) - ${name}`,  () => expect(asm.depsTarget).toEqual(tgt));
+    test(`Source (Stalls) - ${name}`, () => expect(asm.depsStallSource).toEqual(srcStall));
+    test(`Target (Stalls) - ${name}`, () => expect(asm.depsStallTarget).toEqual(tgtStall));
   }
 });

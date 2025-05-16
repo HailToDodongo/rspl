@@ -204,6 +204,24 @@ export function getTargetRegs(line) {
   if(READ_ONLY_OPS.includes(line.op)) {
     return [];
   }
+
+  if(line.opIsLoad) {
+    // transpose, access 8 registers and lanes in a diagonal pattern
+    if(line.op === 'ltv')
+    {
+      const mainReg = line.args[0] || '$v00';
+      const row = parseInt(line.args[1]) / 2;
+
+      let regs = [...LTV_REG_MAP[mainReg]];
+      if(!regs)state.throwError(`Invalid base register ${mainReg} for ltv!`);
+
+      for(let i=0; i < 8; ++i) {
+        regs[i] += ".e" + ((8 + i - row) % 8);
+      }
+      return regs;
+    }
+  }
+
   const targetReg = ["mtc2"].includes(line.op) ? line.args[1] : line.args[0];
   return [targetReg, ...HIDDEN_REGS_WRITE[line.op] || []]
     .filter(Boolean)
