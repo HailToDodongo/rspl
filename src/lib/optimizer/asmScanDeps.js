@@ -435,7 +435,7 @@ function checkAsmBackwardDep(asm, asmPrev) {
 }
 
 /**
- * Returns the min/max index of where an instruction can be reordered to.
+ * Returns the indices where an instruction can be reordered to.
  * @param {ASM[]} asmList
  * @param {number} i
  * @return {number[]} array of indices
@@ -514,8 +514,6 @@ export function asmGetReorderIndices(asmList, i)
       lastReadMask |= asmList[fRead].depsArgMask;
     }
   }
-  f = Math.max(fRead, f);
-
 
   // check if there was an instruction in between which wrote to one of our target registers.
   // if true, fall-back to that position (otherwise register would contain wrong value)
