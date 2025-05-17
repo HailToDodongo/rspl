@@ -203,6 +203,10 @@ export function astNormalizeFunctions(ast)
       if(block.resultType != null) {
         state.throwError("Macros must not specify an result-type (use 'macro' without `< >`)!", block);
       }
+      if(builtins[block.name]) {
+        state.throwError(`Macro '${block.name}' shadows a builtin function! Please use another name.`);
+      }
+
       macros[block.name] = block;
     }
   }

@@ -115,6 +115,8 @@ function store_vec_s8(varRes, args, swizzle) {
   return store_vec_u8(varRes, args, swizzle, true);
 }
 
+const VALID_TRANSPOSE_REGS = ["$v00", "$v08", "$v16", "$v24"];
+
 function load_transposed(varRes, args, swizzle) {
   if(swizzle)state.throwError("Builtin load_transposed() cannot use swizzle!", varRes);
   if(!varRes)state.throwError("Builtin load_transposed() needs a left-side", varRes);
@@ -138,8 +140,7 @@ function load_transposed(varRes, args, swizzle) {
 
   const addrReg = state.getRequiredVar(args[1].value, "arg1");
   if(isVecReg(addrReg.reg))state.throwError("Builtin load_transposed() requires second argument to be a scalar variable!", args[1]);
-  const regIndex = parseInt(varRes.reg.substring(2), 10);
-  if(regIndex % 8 !== 0) {
+  if(!VALID_TRANSPOSE_REGS.includes(varRes.reg)) {
     state.throwError("Builtin load_transposed() requires result register to be $v00, $v08, $v16 or $v24!", varRes);
   }
 
@@ -172,12 +173,67 @@ function store_transposed(varRes, args, swizzle) {
 
   const addrReg = state.getRequiredVar(args[2].value, "arg1");
   if(isVecReg(addrReg.reg))state.throwError("Builtin store_transposed() requires third argument to be a scalar variable!", args[2]);
-  const regIndex = parseInt(res.reg.substring(2), 10);
-  if(regIndex % 8 !== 0) {
+  if(!VALID_TRANSPOSE_REGS.includes(res.reg)) {
     state.throwError("Builtin store_transposed() requires target register to be $v00, $v08, $v16 or $v24!", res.reg);
   }
 
   return [asm("stv", [res.reg, row*2, offset, addrReg.reg])];
+}
+
+function transpose(varRes, args, swizzle) {
+  if(swizzle)state.throwError("Builtin transpose() cannot use swizzle!", varRes);
+  if(!varRes)state.throwError("Builtin transpose() needs a left-side", varRes);
+  if(!isVecReg(varRes.reg))state.throwError("Builtin transpose() must store the result into a vector!", varRes);
+  if(args.length !== 4)state.throwError("Builtin transpose() requires 4 arguments!", args[0]);
+
+  const varSrc = state.getRequiredVar(args[0].value, "arg0");
+  if(!isVecType(varSrc.type))state.throwError("Builtin transpose() requires first argument to be a vector!", args[0]);
+
+  const buffVar = state.getRequiredVar(args[1].value, "arg1");
+  if(isVecType(buffVar.type))state.throwError("Builtin transpose() requires second argument to be a scalar variable!", args[1]);
+  if(args[2].type !== "num")state.throwError("Builtin transpose() requires third argument to be the X dimension (1-8)!", args[2]);
+  if(args[3].type !== "num")state.throwError("Builtin transpose() requires fourth argument to be the Y dimension (1-8)!", args[3]);
+
+  const dimX = parseInt(args[2].value);
+  const dimY = parseInt(args[3].value);
+
+  if(dimX < 1 || dimX > 8 || dimY < 1 || dimY > 8) {
+    state.throwError("Builtin transpose() requires X and Y dimension to be between 1 and 8!", args[2]);
+  }
+
+  if(!VALID_TRANSPOSE_REGS.includes(varRes.reg)) {
+    state.throwError("Builtin transpose() requires target register to be $v00, $v08, $v16 or $v24!", varRes.reg);
+  }
+  if(!VALID_TRANSPOSE_REGS.includes(varSrc.reg)) {
+    state.throwError("Builtin transpose() requires source register to be $v00, $v08, $v16 or $v24!", varSrc.reg);
+  }
+
+  const isInPlace = varSrc.reg === varRes.reg;
+  const is8x8 = dimX > 4 || dimY > 4;
+
+  state.addAnnotation('Barrier', state.generateLabel());
+  const res = [
+    !isInPlace && asm("stv", [varSrc.reg, 0, 0x00, buffVar.reg]),
+    asm("stv", [varSrc.reg, 2, 0x10, buffVar.reg]),
+    asm("stv", [varSrc.reg, 4, 0x20, buffVar.reg]),
+    asm("stv", [varSrc.reg, 6, 0x30, buffVar.reg]),
+    is8x8 && asm("stv", [varSrc.reg, 8, 0x40, buffVar.reg]),
+    asm("stv", [varSrc.reg, 10, 0x50, buffVar.reg]),
+    asm("stv", [varSrc.reg, 12, 0x60, buffVar.reg]),
+    asm("stv", [varSrc.reg, 14, 0x70, buffVar.reg]),
+
+    asm("ltv", [varRes.reg, 14, 0x10, buffVar.reg]),
+    asm("ltv", [varRes.reg, 12, 0x20, buffVar.reg]),
+    asm("ltv", [varRes.reg, 10, 0x30, buffVar.reg]),
+    is8x8 && asm("ltv", [varRes.reg, 8, 0x40, buffVar.reg]),
+    asm("ltv", [varRes.reg, 6, 0x50, buffVar.reg]),
+    asm("ltv", [varRes.reg, 4, 0x60, buffVar.reg]),
+    asm("ltv", [varRes.reg, 2, 0x70, buffVar.reg]),
+    !isInPlace && asm("ltv", [varRes.reg, 0, 0x00, buffVar.reg]),
+  ];
+  state.clearAnnotations();
+
+  return res;
 }
 
 function asm_op(varRes, args, swizzle) {
@@ -805,7 +861,7 @@ function select(varRes, args, swizzle) {
 
 export default {
   load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
-  load_transposed, store_transposed,
+  load_transposed, store_transposed, transpose,
   asm: inlineAsm, asm_op, asm_include, print, printf, abs, clip, clear_vcc, get_acc, set_vcc, get_dma_busy,
   get_acc_high, get_acc_mid, get_acc_low,
   get_rdp_start, get_rdp_end, get_rdp_current,

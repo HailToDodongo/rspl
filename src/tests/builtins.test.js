@@ -135,4 +135,114 @@ describe('Builtins', () =>
   jr $ra
   nop`);
   });
+
+  test('transpose() - 8x8 in-place', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+        vec16<$v08> v0;
+        u16 buff;
+        v0 = transpose(v0, buff, 8, 8);
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  stv $v08, 2, 16, $t0
+  stv $v08, 4, 32, $t0
+  stv $v08, 6, 48, $t0
+  stv $v08, 8, 64, $t0
+  stv $v08, 10, 80, $t0
+  stv $v08, 12, 96, $t0
+  stv $v08, 14, 112, $t0
+  ltv $v08, 14, 16, $t0
+  ltv $v08, 12, 32, $t0
+  ltv $v08, 10, 48, $t0
+  ltv $v08, 8, 64, $t0
+  ltv $v08, 6, 80, $t0
+  ltv $v08, 4, 96, $t0
+  ltv $v08, 2, 112, $t0
+  jr $ra
+  nop`);
+  });
+
+  test('transpose() - 8x8 src-target', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+        vec16<$v08> v0;
+        vec16<$v16> v1;
+        u16 buff;
+        v1 = transpose(v0, buff, 8, 8);
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  stv $v08, 0, 0, $t0
+  stv $v08, 2, 16, $t0
+  stv $v08, 4, 32, $t0
+  stv $v08, 6, 48, $t0
+  stv $v08, 8, 64, $t0
+  stv $v08, 10, 80, $t0
+  stv $v08, 12, 96, $t0
+  stv $v08, 14, 112, $t0
+  ltv $v16, 14, 16, $t0
+  ltv $v16, 12, 32, $t0
+  ltv $v16, 10, 48, $t0
+  ltv $v16, 8, 64, $t0
+  ltv $v16, 6, 80, $t0
+  ltv $v16, 4, 96, $t0
+  ltv $v16, 2, 112, $t0
+  ltv $v16, 0, 0, $t0
+  jr $ra
+  nop`);
+  });
+
+  test('transpose() - 4x4 in-place', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+        vec16<$v08> v0;
+        u16 buff;
+        v0 = transpose(v0, buff, 4, 4);
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  stv $v08, 2, 16, $t0
+  stv $v08, 4, 32, $t0
+  stv $v08, 6, 48, $t0
+  stv $v08, 10, 80, $t0
+  stv $v08, 12, 96, $t0
+  stv $v08, 14, 112, $t0
+  ltv $v08, 14, 16, $t0
+  ltv $v08, 12, 32, $t0
+  ltv $v08, 10, 48, $t0
+  ltv $v08, 6, 80, $t0
+  ltv $v08, 4, 96, $t0
+  ltv $v08, 2, 112, $t0
+  jr $ra
+  nop`);
+  });
+
+  test('transpose() - 4x4 src-target', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+        vec16<$v08> v0;
+        vec16<$v16> v1;
+        u16 buff;
+        v1 = transpose(v0, buff, 4, 4);
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  stv $v08, 0, 0, $t0
+  stv $v08, 2, 16, $t0
+  stv $v08, 4, 32, $t0
+  stv $v08, 6, 48, $t0
+  stv $v08, 10, 80, $t0
+  stv $v08, 12, 96, $t0
+  stv $v08, 14, 112, $t0
+  ltv $v16, 14, 16, $t0
+  ltv $v16, 12, 32, $t0
+  ltv $v16, 10, 48, $t0
+  ltv $v16, 6, 80, $t0
+  ltv $v16, 4, 96, $t0
+  ltv $v16, 2, 112, $t0
+  ltv $v16, 0, 0, $t0
+  jr $ra
+  nop`);
+  });
 });

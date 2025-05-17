@@ -775,6 +775,25 @@ store_transposed(v0, 5, buff, 0x10);
 store_transposed(v0, 7, buff, 0x10);
 ```
 
+### `vecDst = transpose(vecSrc, address, sizeX, sizeY)`
+Transposes a set of registers (treating them as a matrix).
+This requires temporary storage for the transposed data, which is where `address` points to.<br>
+Make sure that buffer can hold 8 total registers worth of data.<br>
+For matrices with a size of 4x4 or smaller a faster version is used.<br> 
+Doing the transpose in-place (vecDst == vecSrc) is also faster.<br>
+
+Be aware that while you are forced to specific the start of a group of 8 registers as the source/target,
+the transpose will touch all 8 registers in the group.<br>
+
+Example:
+```c++
+u16 buff = SOME_BUFFER;
+vec16<$v08> vecSrc0, vecSrc1, vecSrc2, vecSrc3, vecSrc4, vecSrc5, vecSrc6, vecSrc7;
+vec16<$v16> vecDst0, vecDst1, vecDst2, vecDst3, vecDst4, vecDst5, vecDst6, vecDst7;
+
+vecDst0 = transpose(vecSrc0, buff, 8, 8);
+```
+
 ### `asm(x)`
 Injects raw asm/text into the output, no checks are performed<br>
 Note that this acts as a barrier for optimizations / reordering.<br>
