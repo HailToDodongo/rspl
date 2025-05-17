@@ -139,11 +139,18 @@ function fillDelaySlots(asmFunc)
     const reorderRange = asmGetReorderRange(asmFunc.asm, i);
 
     // check if we can move the instruction into a delay slot, this can only happen in the forward-direction.
-    const isDelaySlot = asmFunc.asm[reorderRange[1]]?.isNOP;
-    if(isDelaySlot) {
+    let delaySlotIdx = -1;
+    for(let idx of reorderRange) {
+      if(asmFunc.asm[idx].isNOP) {
+        delaySlotIdx = idx;
+        break;
+      }
+    }
+
+    if(delaySlotIdx >= 0) {
       //console.log("REORDER", asm.op, asm.debug.lineRSPL, reorderRange, isDelaySlot);
       ++asm.debug.reorderCount;
-      asmFunc.asm[reorderRange[1]] = asm;
+      asmFunc.asm[delaySlotIdx] = asm;
       asmFunc.asm.splice(i, 1);
     }
   }
@@ -156,13 +163,13 @@ function fillDelaySlots(asmFunc)
 function optimizeStep(asmFunc)
 {
   let i = 0;
-  let reorderRange = [0,0];
+  let reorderIndices = [];
 
-  for(let r=0; r<50 && (reorderRange[0] === reorderRange[1]); ++r) {
+  for(let r=0; r<50 && (reorderIndices.length <= 1); ++r) {
     i = getRandIndex(0, asmFunc.asm.length-1);
-    reorderRange = asmGetReorderRange(asmFunc.asm, i);
+    reorderIndices = asmGetReorderRange(asmFunc.asm, i);
   }
-  if(reorderRange[0] === reorderRange[1])return;
+  if(reorderIndices.length <= 1)return;
 
   // pick a random target index first, search until we find a new place
   let targetIdx = i;
@@ -171,7 +178,7 @@ function optimizeStep(asmFunc)
   // we cannot do this all the time
   let foundIndex = false;
   if(rand() < PREFER_PAIR_RATE) {
-    for(let j=reorderRange[0]; j<=reorderRange[1]; ++j) {
+    for(let j of reorderIndices) {
       if(asmFunc.asm[j].opIsVector !== asmFunc.asm[i].opIsVector) {
         let paired = asmFunc.asm[j].debug.paired;
         if(!paired) {
@@ -185,7 +192,7 @@ function optimizeStep(asmFunc)
 
   if(!foundIndex && rand() < PREFER_STALLS_RATE) {
     let maxStalls = 0;
-    for(let j=reorderRange[0]; j<=reorderRange[1]; ++j) {
+    for(let j of reorderIndices) {
       let stalls = asmFunc.asm[j].debug.stall || 0;
       if(stalls > maxStalls) {
         maxStalls = stalls;
@@ -197,7 +204,7 @@ function optimizeStep(asmFunc)
 
   if(!foundIndex) {
     while(targetIdx === i) {
-      targetIdx = getRandIndex(reorderRange[0], reorderRange[1]);
+      targetIdx = reorderIndices[getRandIndex(0, reorderIndices.length-1)];
     }
   }
 

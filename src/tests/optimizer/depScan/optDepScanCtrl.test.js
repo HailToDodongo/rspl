@@ -19,8 +19,8 @@ describe('Optimizer - Dependency Scanner - Control', () =>
     expect(asmLinesToDeps(lines)).toEqual([
       [0, 1],
       [0, 1],
-      [2, 2],
-      [3, 3],
+      [2],
+      [3],
     ]);
   });
 
@@ -35,9 +35,9 @@ describe('Optimizer - Dependency Scanner - Control', () =>
     expect(asmLinesToDeps(lines)).toEqual([
       [0, 1],
       [0, 1],
-      [2, 2], // j
-      [0, 3], // delay-slot, only move backwards
-      [4, 4],
+      [2], // j
+      [0, 1, 2, 3], // delay-slot, only move backwards
+      [4],
     ]);
   });
 });

@@ -438,13 +438,13 @@ function checkAsmBackwardDep(asm, asmPrev) {
  * Returns the min/max index of where an instruction can be reordered to.
  * @param {ASM[]} asmList
  * @param {number} i
- * @return {[number, number]} min/max index
+ * @return {number[]} array of indices
  */
 export function asmGetReorderRange(asmList, i)
 {
   const asm = asmList[i];
   if(asm.type !== ASM_TYPE.OP || asm.opIsImmovable) {
-    return [i, i];
+    return [i];
   }
 
   // Scan ahead...
@@ -550,7 +550,13 @@ export function asmGetReorderRange(asmList, i)
     }
   }
 
-  return minMax;
+  // @TODO:
+  // min-max to array
+  let res = [];
+  for(let i = minMax[0]; i <= minMax[1]; ++i) {
+    res.push(i);
+  }
+  return res;
 }
 /**
  * @param {ASMFunc} asmFunc
@@ -559,7 +565,9 @@ export function asmScanDeps(asmFunc)
 {
   for(let i = 0; i < asmFunc.asm.length; ++i) {
     const minMax = asmGetReorderRange(asmFunc.asm, i);
-    asmFunc.asm[i].debug.reorderLineMin = asmFunc.asm[minMax[0]]?.debug.lineASM;
-    asmFunc.asm[i].debug.reorderLineMax = asmFunc.asm[minMax[1]]?.debug.lineASM;
+    let min = Math.min(...minMax);
+    let max = Math.max(...minMax);
+    asmFunc.asm[i].debug.reorderLineMin = asmFunc.asm[min]?.debug.lineASM;
+    asmFunc.asm[i].debug.reorderLineMax = asmFunc.asm[max]?.debug.lineASM;
   }
 }

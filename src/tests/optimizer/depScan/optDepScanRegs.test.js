@@ -16,9 +16,9 @@ describe('Optimizer - Dependency Scanner', () =>
       /* 02 */ asm("or", ["$t2", "$zero", "$zero"]),
     ];
     expect(asmLinesToDeps(lines)).toEqual([
-      [0, 2],
-      [0, 2],
-      [0, 2],
+      [0, 1, 2],
+      [0, 1, 2],
+      [0, 1, 2],
     ]);
   });
 
@@ -31,9 +31,9 @@ describe('Optimizer - Dependency Scanner', () =>
     ];
     expect(asmLinesToDeps(lines)).toEqual([
       [0, 1],
-      [0, 3],
-      [1, 3],
-      [0, 3],
+      [0, 1, 2, 3],
+      [1, 2, 3],
+      [0, 1, 2, 3],
     ]);
   });
 
@@ -47,10 +47,10 @@ describe('Optimizer - Dependency Scanner', () =>
     ];
     expect(asmLinesToDeps(lines)).toEqual([
       [0, 1],
-      [0, 4],
+      [0, 1, 2, 3, 4],
       [1, 2],
       [3, 4],
-      [0, 4],
+      [0, 1, 2, 3, 4],
     ]);
   });
 
@@ -62,9 +62,9 @@ describe('Optimizer - Dependency Scanner', () =>
     ];
 
     expect(asmLinesToDeps(lines)).toEqual([
-      [0, 2],
+      [0, 1, 2],
       [0, 1],
-      [2, 2],
+      [2],
     ]);
   });
 
@@ -76,7 +76,7 @@ describe('Optimizer - Dependency Scanner', () =>
     ];
 
     expect(asmLinesToDeps(lines)).toEqual([
-      [0, 2],
+      [0, 1, 2],
       [1, 2], // @TODO: allow 0-1
       [1, 2],
     ]);
@@ -90,7 +90,7 @@ describe('Optimizer - Dependency Scanner', () =>
     ];
 
     expect(asmLinesToDeps(lines)).toEqual([
-      [0, 2],
+      [0, 1, 2],
       [1, 2], // @TODO: allow 0-1
       [1, 2],
     ]);
@@ -103,9 +103,9 @@ describe('Optimizer - Dependency Scanner', () =>
       /* 02 */ asm("or", ["$t0", "$zero", "$zero"]),
     ];
     expect(asmLinesToDeps(lines)).toEqual([
-      [0, 2],
-      [0, 2],
-      [2, 2],
+      [0, 1, 2],
+      [0, 1, 2],
+      [2],
     ]);
   });
 
@@ -118,11 +118,11 @@ describe('Optimizer - Dependency Scanner', () =>
       /* 04 */ asm("or", ["$t0", "$zero", "$zero"]),
     ];
     expect(asmLinesToDeps(lines)).toEqual([
-      [0, 0],
-      [1, 1],
-      [2, 2],
+      [0],
+      [1],
+      [2],
       [3, 4],
-      [4, 4],
+      [4],
     ]);
   });
 
@@ -135,10 +135,10 @@ describe('Optimizer - Dependency Scanner', () =>
       /* 04 */ asm("or",   ["$t0",  "$zero", "$zero"]),
     ];
     expect(asmLinesToDeps(lines)).toEqual([
-      [0, 2],
-      [0, 4],
-      [0, 4],
-      [1, 4],
+      [0, 1, 2],
+      [0, 1, 2, 3, 4],
+      [0, 1, 2, 3, 4],
+      [1, 2, 3, 4],
       [3, 4],
     ]);
   });
@@ -152,9 +152,9 @@ describe('Optimizer - Dependency Scanner', () =>
     ];
     expect(asmLinesToDeps(lines)).toEqual([
       [0, 1],
-      [0, 3],
-      [1, 3],
-      [3, 3],
+      [0, 1, 2, 3],
+      [1, 2, 3],
+      [3],
     ]);
   });
 
@@ -167,9 +167,9 @@ describe('Optimizer - Dependency Scanner', () =>
     ];
     expect(asmLinesToDeps(lines)).toEqual([
       [0, 1],
-      [0, 3],
-      [1, 3],
-      [0, 3],
+      [0, 1, 2, 3],
+      [1, 2, 3],
+      [0, 1, 2, 3],
     ]);
   });
 
@@ -183,12 +183,12 @@ describe('Optimizer - Dependency Scanner', () =>
       /* 05 */ asm("vadd",  ["$v17", "$v17", "$v23.v"]),
     ];
     expect(asmLinesToDeps(lines)).toEqual([
-      [0,0],
-      [1,1],
-      [2,2],
-      [3,3],
-      [4,4],
-      [5,5],
+      [0],
+      [1],
+      [2],
+      [3],
+      [4],
+      [5],
     ]);
   });
 });
