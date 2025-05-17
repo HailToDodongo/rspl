@@ -4,7 +4,7 @@
 */
 
 import {ASM_TYPE, asmNOP} from "../intsructions/asmWriter.js";
-import {asmInitDep, asmGetReorderRange} from "./asmScanDeps.js";
+import {asmInitDep, asmGetReorderIndices} from "./asmScanDeps.js";
 import {dedupeLabels} from "./pattern/dedupeLabels.js";
 import {dedupeJumps} from "./pattern/dedupeJumps.js";
 import {branchJump} from "./pattern/branchJump.js";
@@ -136,7 +136,7 @@ function fillDelaySlots(asmFunc)
     const asm = asmFunc.asm[i];
     if(asm.type !== ASM_TYPE.OP || asm.opIsImmovable)continue;
 
-    const reorderRange = asmGetReorderRange(asmFunc.asm, i);
+    const reorderRange = asmGetReorderIndices(asmFunc.asm, i);
 
     // check if we can move the instruction into a delay slot, this can only happen in the forward-direction.
     let delaySlotIdx = -1;
@@ -167,7 +167,7 @@ function optimizeStep(asmFunc)
 
   for(let r=0; r<50 && (reorderIndices.length <= 1); ++r) {
     i = getRandIndex(0, asmFunc.asm.length-1);
-    reorderIndices = asmGetReorderRange(asmFunc.asm, i);
+    reorderIndices = asmGetReorderIndices(asmFunc.asm, i);
   }
   if(reorderIndices.length <= 1)return;
 

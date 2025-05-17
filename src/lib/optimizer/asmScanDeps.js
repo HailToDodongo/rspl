@@ -395,7 +395,7 @@ export function asmInitDeps(asmFunc) {
 function checkAsmBackwardDep(asm, asmPrev) {
   // stop at any label
   if(asm.type !== ASM_TYPE.OP || asmPrev.type !== ASM_TYPE.OP) {
-    // Check for block-skips, See note in 'asmGetReorderRange' for more info.
+    // Check for block-skips, See note in 'asmGetReorderIndices' for more info.
     if(asmPrev.labelEnd) {
        // @TODO: scan backwards to find the start label
     }
@@ -440,7 +440,7 @@ function checkAsmBackwardDep(asm, asmPrev) {
  * @param {number} i
  * @return {number[]} array of indices
  */
-export function asmGetReorderRange(asmList, i)
+export function asmGetReorderIndices(asmList, i)
 {
   const asm = asmList[i];
   if(asm.type !== ASM_TYPE.OP || asm.opIsImmovable) {
@@ -564,7 +564,7 @@ export function asmGetReorderRange(asmList, i)
 export function asmScanDeps(asmFunc)
 {
   for(let i = 0; i < asmFunc.asm.length; ++i) {
-    const minMax = asmGetReorderRange(asmFunc.asm, i);
+    const minMax = asmGetReorderIndices(asmFunc.asm, i);
     let min = Math.min(...minMax);
     let max = Math.max(...minMax);
     asmFunc.asm[i].debug.reorderLineMin = asmFunc.asm[min]?.debug.lineASM;
