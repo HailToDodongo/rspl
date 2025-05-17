@@ -6,6 +6,7 @@ import {asm} from "../../intsructions/asmWriter.js";
 import {REG} from "../../syntax/registers.js";
 import state from "../../state.js";
 import {invertBranchOp} from "../../operations/branch.js";
+import {BRANCH_OPS} from "../asmScanDeps.js";
 
 /**
  * If a branch has the form of: " if(cond)goto TARGET; "
@@ -45,6 +46,8 @@ export function branchJump(asmFunc)
         line.op = invertBranchOp(line.op);
         line.args[line.args.length-1] = labelTarget;
 
+        const labelUsed = !!lines.find(l => BRANCH_OPS.includes(l.op) && l.args[l.args.length-1] === labelTemp);
+
         // if it was a jal, we need to manually assign the return register
         if(jumpOp === "jal") {
           lines.splice(i+2, 2); // remove jump, delay-slot
@@ -52,7 +55,11 @@ export function branchJump(asmFunc)
           if(!line.labelEnd)state.throwError("Missing labelEnd for branch, this is a bug in RSPL, please let me know");
           lines.splice(i, 0, asm("ori", [REG.RA, REG.ZERO, line.labelEnd]));
         } else {
-          lines.splice(i+2, 3); // remove jump, delay-slot, temp-label
+          if(labelUsed) {
+            lines.splice(i+2, 2); // remove jump, delay-slot
+          } else {
+            lines.splice(i+2, 3); // remove jump, delay-slot, temp-label
+          }
         }
 
         i-=2;
