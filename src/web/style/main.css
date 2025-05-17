@@ -53,6 +53,7 @@ body {
 pre, textarea, code {
   font-family: FiraCode, monospace;
   font-size: 12px;
+  line-height: 15px;
 }
 
 h1 {
