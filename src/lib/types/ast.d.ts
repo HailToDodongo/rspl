@@ -161,7 +161,8 @@ declare global
     type AST = {
         includes: string[];
         state: ASTState[];
-        tempState: ASTState[];
+        stateData: ASTState[];
+        stateBss: ASTState[];
         functions: ASTFunc[];
         postIncludes: string[];
         defines: Record<string, string>;

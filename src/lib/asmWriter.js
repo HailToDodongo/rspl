@@ -160,11 +160,19 @@ export function writeASM(ast, functionsAsm, config)
     writeLine("  RSPQ_EmptySavedState");
   }
 
-  if(ast.tempState.length > 0) {
+  if(ast.stateData.length > 0) {
+    writeLine("");
+    for(const tmpVar of ast.stateData) {
+      if(tmpVar.extern)continue;
+      totalSaveByteSize += writeStateVar(tmpVar, writeLine);
+    }
+  }
+
+  if(ast.stateBss.length > 0) {
     writeLine("");
     writeLine(".bss");
     writeLine("  TEMP_STATE_MEM_START:");
-    for(const tmpVar of ast.tempState) {
+    for(const tmpVar of ast.stateBss) {
       if(tmpVar.extern)continue;
       totalSaveByteSize += writeStateVar(tmpVar, writeLine);
     }

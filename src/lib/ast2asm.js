@@ -405,7 +405,7 @@ export function ast2asm(ast)
   /** @type {ASMFunc[]} */
   const res = [];
 
-  for(const stateVar of [...ast.state, ...ast.tempState]) {
+  for(const stateVar of [...ast.state, ...ast.stateData, ...ast.stateBss]) {
     const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
     state.declareMemVar(stateVar.varName, stateVar.varType, arraySize);
   }

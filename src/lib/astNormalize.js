@@ -214,7 +214,7 @@ export function astNormalizeFunctions(ast)
   for(const block of astFunctions) {
     if(block.type !== "macro" && block.body) {
       state.func = block.name || "";
-      normalizeScopedBlock(block.body, [...ast.state, ...ast.tempState], macros);
+      normalizeScopedBlock(block.body, [...ast.state, ...ast.stateData, ...ast.stateBss], macros);
     }
   }
 

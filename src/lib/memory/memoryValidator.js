@@ -6,15 +6,46 @@
 import state from "../state.js";
 import {TYPE_ALIGNMENT, TYPE_SIZE} from "../dataTypes/dataTypes.js";
 
+const STATE_NAMES = ["state", "data", "bss"];
+
 /**
  * validates state memory
- * @param {ASTState[]} mem
- * @param {ASTState[]} tempMem
+ * @param {AST} ast
+ * @param {Array<{name: string; vars: ASTState[]}>} states
  */
-export const validateMemory = (mem, tempMem) => {
+export const validateMemory = (ast, states) =>
+{
+  state.func = "state";
 
-  let stateVars = [...mem, ...tempMem]
+  const names = states.map(s => s.name).flat();
+  if((new Set(names)).size !== names.length) {
+    state.throwError("A type of state can only appear once!", names);
+  }
+
+  ast.state = [];
+  ast.stateBss = [];
+  ast.stateData = [];
+
+  for(const s of states) {
+    switch(s.name) {
+      case 'state': ast.state = s.vars; break;
+      case 'data': ast.stateData = s.vars; break;
+      case 'temp_state':
+      case 'bss': ast.stateBss = s.vars; break;
+      default:
+        state.throwError(`Invalid state name: ${s.name}, must be one of: ${STATE_NAMES.join(", ")}`);
+      break;
+    }
+  }
+
+  let stateVars = [...ast.state, ...ast.stateBss, ...ast.stateData]
     .filter(v => !v.extern);
+
+  for(const m of ast.stateBss) {
+    if(m.value) {
+      state.throwError("Memory inside .BSS ("+m.varName+") can not have a value!");
+    }
+  }
 
   if(stateVars.length === 0)return;
 

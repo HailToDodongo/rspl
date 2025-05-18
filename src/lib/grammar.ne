@@ -67,8 +67,6 @@ const lexer = moo.compile({
 	KWElse    : "else",
 	KWBreak   : "break",
 	KWWhile   : "while",
-	KWTmpState: "temp_state",
-	KWState   : "state",
 	KWGoto    : "goto",
 	KWExtern  : "extern",
 	KWContinue: "continue",
@@ -132,20 +130,21 @@ const lexer = moo.compile({
 # Pass your lexer with @lexer:
 @lexer lexer
 
-main -> (_ SectionIncl):* (_ SectionState):? (_ SectionTmpState):? (Function):* (_ SectionIncl):* _ {% d => ({
+main -> (_ SectionIncl):* (_ SectionState):* (Function):* (_ SectionIncl):* _ {% d => ({
 	includes: MAP_TAKE(d[0], 1),
-	state: (d[1] && d[1][1]) || [],
-	tempState: (d[2] && d[2][1]) || [],
-	functions: MAP_TAKE(d[3], 0),
-	postIncludes: MAP_TAKE(d[4], 1),
+	states: MAP_TAKE(d[1], 1),
+	functions: MAP_TAKE(d[2], 0),
+	postIncludes: MAP_TAKE(d[3], 1),
 }) %}
 
 ######### Include-Section #########
 SectionIncl -> %KWInclude _ %String {% d => d[2].value %}
 
 ######### State-Section #########
-SectionState -> %KWState _ %BlockStart _ StateVarDef:* %BlockEnd {% d => d[4] %}
-SectionTmpState -> %KWTmpState _ %BlockStart _ StateVarDef:* %BlockEnd {% d => d[4] %}
+SectionState -> %VarName _ %BlockStart _ StateVarDef:* %BlockEnd {% d => ({
+	name: d[0].value,
+	vars: d[4]
+}) %}
 
 StateVarDef -> (%KWExtern _):? StateAlign:? %DataType _ %VarName IndexDef:* StateValueDef:? _ %StmEnd _ {% d => ({
 	type: "varState",
