@@ -53,20 +53,30 @@ Types can be put into two categories: scalar-types and vector-types.<br></p>
 This means it's the only type split across two registers, where the first one contains the integer part and the second one the fractional part.<br>
 Any operation with that type takes this into account, any special behaviour will be documented.</p>
 <h2 id="state">State</h2>
-<p>In order to have memory that persists across overlay switches, a state section has to be defined.<br>
-This is done by using the <code>state</code> keyword, followed by a block inside curly-brackets.<br>
+<p>In order to have memory that persists across overlay switches, one or more state sections have to be defined.<br>
+This is done by using the <code>state</code>/<code>data</code>/<code>bss</code> keyword, followed by a block inside curly-brackets.<br>
 Inside the block, labels with types and an optional array-size can be declared.<br></p>
 <p>As an example:</p>
 <pre><code class="c++ language-c++">state {
   extern u32 RDPQ_CMD_STAGING;
 
   vec32 MAT_MODEL_DATA[8][2];
-  u32 CURRENT_MAT_ADDR;
+  u32 CURRENT_MAT_ADDR = {42};
 }
 </code></pre>
 <p>As seen in the first entry, it's possible to declare external labels, which will be resolved at compile-time.<br>
 This can be used for dependencies defined in assembly files (e.g. from <code>rsp_queue.inc</code>).<br>
 External labels don't take up any extra space in the overlay.</p>
+<p>Labels can have initial values, which must be specified in curly-brackets.<br>
+For scalar types, this can be a single value, for vectors it must be a list of values.<br>
+Any value left-out will be initialized to <code>0</code>.<br></p>
+<h3 id="temporarystate">Temporary state</h3>
+<p>The <code>state</code> section will be persist across overlay-switches, meaning it will be saved/restored.<br>
+For data that doesn't need to be saved, you can use the <code>data</code>/<code>bss</code> section.<br></p>
+<p>Values inside <code>data</code> can have an initial value that will get restored after a switch.<br>
+Modifying them is allowed, but may not persist across commands.<br></p>
+<p>Similarly, <code>bss</code> is a section that will be NOT be initialized and is not saved/restored.<br>
+Meaning for any given command you run, those values will be in an undefined state.<br></p>
 <h2 id="variables">Variables</h2>
 <p>To access registers, variables must be used.<br>
 You can think of them as just an alias for registers, they have no runtime overhead.<br>
