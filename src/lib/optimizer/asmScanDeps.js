@@ -11,11 +11,11 @@ import state from "../state.js";
 export const STORE_OPS = [
   "sw", "sh", "sb",
   "sbv", "ssv", "slv", "sdv", "sqv",
-  "spv", "suv", "shv", "sfv", "stv", "swv"
+  "spv", "suv", "shv", "sfv", "stv", "swv", "srv"
 ];
 
 export const LOAD_OPS_SCALAR = ["lw", "lh", "lhu", "lb", "lbu"];
-export const LOAD_OPS_VECTOR = ["lbv", "lsv", "llv", "ldv", "lqv", "lpv", "luv", "ltv"];
+export const LOAD_OPS_VECTOR = ["lbv", "lsv", "llv", "ldv", "lqv", "lpv", "luv", "ltv", "lrv"];
 
 // ops that load from RAM, r/w register access
 export const LOAD_OPS = [...LOAD_OPS_SCALAR, ...LOAD_OPS_VECTOR];
