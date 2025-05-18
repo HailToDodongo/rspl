@@ -86,6 +86,13 @@ describe('Optimizer - Register Scanner', () =>
       srcStall: ["$t0"],
       tgtStall: ["$v00", "$v01", "$v02", "$v03", "$v04", "$v05", "$v06", "$v07"],
     },
+    "ctc2 - VCC": {
+      asm: asm("ctc2", ["$at", "$vcc"]),
+      src: ["$at"],
+      tgt: ["$vcc"],
+      srcStall: ["$at"],
+      tgtStall: [],
+    }
   };
 
   for(const [name, {asm, src, tgt, srcStall, tgtStall}] of Object.entries(CASES)) {
