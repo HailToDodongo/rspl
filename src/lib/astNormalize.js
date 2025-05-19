@@ -147,7 +147,6 @@ function normalizeScopedBlock(block, astState, macros)
           state.throwError("@TODO: multiple calculation in an increment not supported!", st);
         }
 
-        console.log(st.calc.parts);
         let lastLeft = st.calc.left;
         let lastLeftSwizzle = st.swizzle;
         for(const part of st.calc.parts) {
@@ -178,7 +177,6 @@ function normalizeScopedBlock(block, astState, macros)
           // now use result as left side
           lastLeft = {type: 'VarName', value: st.varName};
           lastLeftSwizzle = st.swizzle;
-          console.log(calcLR);
         }
         continue;
       }
