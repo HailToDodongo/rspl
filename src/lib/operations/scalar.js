@@ -3,7 +3,7 @@
 * @license Apache-2.0
 */
 import state from "../state";
-import {isSigned, toHex, u32InS16Range, u32InU16Range} from "../dataTypes/dataTypes.js";
+import {isSigned, isVecType, toHex, u32InS16Range, u32InU16Range} from "../dataTypes/dataTypes.js";
 import {fractReg, intReg, REG} from "../syntax/registers";
 import {asm, asmComment} from "../intsructions/asmWriter.js";
 import {SWIZZLE_MAP} from "../syntax/swizzle.js";
@@ -116,6 +116,9 @@ function opStore(varRes, varOffsets)
   const offsets = varOffsets.slice(1);
   if(!varLoc.reg) {
     offsets.push({type: "var", value: varLoc.name});
+  }
+  if(isVecType(varLoc.type) && !varLoc.arraySize) {
+    state.throwError("store base-addresses must be in a scalar register!", varLoc);
   }
 
   let offsetStr = offsets.map(v => v.value).join(" + ");
