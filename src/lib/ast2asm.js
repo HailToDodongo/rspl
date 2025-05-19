@@ -29,31 +29,35 @@ function calcToAsm(calc, varRes)
   switch(calc.type)
   {
     case "calcVar": {
-      const varRight = state.getRequiredVar(calc.right, "right", calc);
+      const varRight = state.getRequiredVar(calc.right.value, "right", calc);
       varRight.swizzle = calc.swizzleRight;
       return calcAssignToAsm(calc, varRes, varRight);
     }
 
     case "calcNum": {
-      const varRight = {type: varRes.type, value: calc.right};
+      const varRight = {type: varRes.type, value: calc.right.value};
       return calcAssignToAsm(calc, varRes, varRight);
     }
 
-    case "calcVarVar": {
-      const varLeft = state.getRequiredVar(calc.left, "Left", calc);
-      const varRight = state.getRequiredVar(calc.right, "right", calc);
-      varLeft.swizzle = calc.swizzleLeft;
-      varRight.swizzle = calc.swizzleRight;
-
-      return calcLRToAsm(calc, varRes, varLeft, varRight);
-    }
-
-    case "calcVarNum": {
-      const varLeft = state.getRequiredVar(calc.left, "Left", calc);
-      varLeft.swizzle = calc.swizzleLeft;
-
-      return calcLRToAsm(calc, varRes, varLeft, {type: varLeft.type, value: calc.right});
-    }
+    case 'calcLR': {
+        const typeL = calc.left.type;
+        const typeR = calc.right.type;
+        if(typeL === "VarName" && typeR === "VarName")
+        {
+          const varLeft = state.getRequiredVar(calc.left.value, "Left", calc);
+          const varRight = state.getRequiredVar(calc.right.value, "right", calc);
+          varLeft.swizzle = calc.swizzleLeft;
+          varRight.swizzle = calc.swizzleRight;
+          return calcLRToAsm(calc, varRes, varLeft, varRight);
+        }
+        if(typeL === "VarName" && typeR === "num")
+        {
+          const varLeft = state.getRequiredVar(calc.left.value, "Left", calc);
+          varLeft.swizzle = calc.swizzleLeft;
+          return calcLRToAsm(calc, varRes, varLeft, {type: varLeft.type, value: calc.right.value});
+        }
+        state.throwError("Unimplemented calcLR type: " + typeL + " " + typeR, calc);
+    } break;
 
     case "calcFunc": {
       const builtinFunc = builtins[calc.funcName];
@@ -63,19 +67,18 @@ function calcToAsm(calc, varRes)
 
     case "calcCompare": {
       const varLeft = state.getRequiredVar(calc.left, "left", calc);
-
       if(!isVecType(varRes.type)) {
         /** @type {ASTFuncArg} */
         let varRight;
-        if(typeof (calc.right) === "number") {
-          if(calc.right === 0) {
+        if(calc.right.type === "num") {
+          if(calc.right.value === 0) {
             varRight = {type: varLeft.type, reg: REG.ZERO};
           } else {
             varRight = {type: varLeft.type, reg: REG.AT};
-            scalar.loadImmediate(varRight.reg, calc.right);
+            scalar.loadImmediate(varRight.reg, calc.right.value);
           }
         } else {
-          varRight = state.getRequiredVar(calc.right, "right", calc);
+          varRight = state.getRequiredVar(calc.right.value, "right", calc);
         }
 
         return opsScalar.opCompare(varRes, varLeft, varRight, calc.op, calc.ternary);
@@ -84,11 +87,11 @@ function calcToAsm(calc, varRes)
       let varRight;
 
       // right side of a compare can be a 2^x constant, resolve this back into a var
-      if(typeof (calc.right) === "number") {
-        varRight = POW2_SWIZZLE_VAR[calc.right + ""];
-        if(!varRight)state.throwError("Constant must be a power of two! " + calc.right, calc);
+      if(calc.right.type === "num") {
+        varRight = POW2_SWIZZLE_VAR[calc.right.value + ""];
+        if(!varRight)state.throwError("Constant must be a power of two! " + calc.right.value, calc);
       } else {
-        varRight = state.getRequiredVar(calc.right, "right", calc);
+        varRight = state.getRequiredVar(calc.right.value, "right", calc);
         varRight.swizzle = calc.swizzleRight;
       }
       return opsVector.opCompare(varRes, varLeft, varRight, calc.op, calc.ternary);

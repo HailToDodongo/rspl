@@ -91,7 +91,6 @@ export function opBranch(compare, labelElse, invert = false)
     if(invert)opBranch = invertBranchOp(opBranch);
 
     if(isZeroCompare) {
-      console.log("Zero compare", invert);
       opBranch = compare.op === "<" ? "bgez" : "bltz";
       if(invert)opBranch = invertBranchOp(opBranch);
       return [

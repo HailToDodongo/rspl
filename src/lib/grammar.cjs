@@ -358,8 +358,7 @@ var grammar = {
         	calc: d[5][0],
         	line: d[0].line
         })},
-    {"name": "ExprCalcAll", "symbols": ["ExprCalcVarVar"]},
-    {"name": "ExprCalcAll", "symbols": ["ExprCalcVarNum"]},
+    {"name": "ExprCalcAll", "symbols": ["ExprCalcLR"]},
     {"name": "ExprCalcAll", "symbols": ["ExprCalcNum"]},
     {"name": "ExprCalcAll", "symbols": ["ExprCalcVar"]},
     {"name": "ExprCalcAll", "symbols": ["ExprCalcFunc"]},
@@ -372,25 +371,27 @@ var grammar = {
     {"name": "ExprCalcVar", "symbols": ["ExprCalcVar$ebnf$1", (lexer.has("VarName") ? {type: "VarName"} : VarName), "ExprCalcVar$ebnf$2"], "postprocess":  d => ({
         	type: "calcVar",
         	op: SAFE_VAL(d[0]),
-        	right: d[1].value, swizzleRight: SAFE_VAL(d[2])
+        	right: {type: 'VarName', value: d[1].value},
+        	swizzleRight: SAFE_VAL(d[2])
         })},
-    {"name": "ExprCalcVarVar$ebnf$1", "symbols": [(lexer.has("Swizzle") ? {type: "Swizzle"} : Swizzle)], "postprocess": id},
-    {"name": "ExprCalcVarVar$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "ExprCalcVarVar$ebnf$2", "symbols": [(lexer.has("Swizzle") ? {type: "Swizzle"} : Swizzle)], "postprocess": id},
-    {"name": "ExprCalcVarVar$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "ExprCalcVarVar", "symbols": [(lexer.has("VarName") ? {type: "VarName"} : VarName), "ExprCalcVarVar$ebnf$1", "_", (lexer.has("OperatorLR") ? {type: "OperatorLR"} : OperatorLR), "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "ExprCalcVarVar$ebnf$2"], "postprocess":  d => ({
-        	type: "calcVarVar",
-        	left: d[0].value, swizzleLeft: SAFE_VAL(d[1]),
+    {"name": "ExprNum", "symbols": ["ValueNumeric"], "postprocess": d => ({type: "num", value: d[0][0]})},
+    {"name": "ExprVarName", "symbols": [(lexer.has("VarName") ? {type: "VarName"} : VarName)], "postprocess": d => ({type: "VarName",value: d[0].value})},
+    {"name": "ExprCalcLR$subexpression$1", "symbols": ["ExprVarName"]},
+    {"name": "ExprCalcLR$subexpression$1", "symbols": ["ExprNum"]},
+    {"name": "ExprCalcLR$subexpression$1", "symbols": ["ExprCalcLR"]},
+    {"name": "ExprCalcLR$ebnf$1", "symbols": [(lexer.has("Swizzle") ? {type: "Swizzle"} : Swizzle)], "postprocess": id},
+    {"name": "ExprCalcLR$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "ExprCalcLR$subexpression$2", "symbols": ["ExprVarName"]},
+    {"name": "ExprCalcLR$subexpression$2", "symbols": ["ExprNum"]},
+    {"name": "ExprCalcLR$ebnf$2", "symbols": [(lexer.has("Swizzle") ? {type: "Swizzle"} : Swizzle)], "postprocess": id},
+    {"name": "ExprCalcLR$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "ExprCalcLR", "symbols": ["ExprCalcLR$subexpression$1", "ExprCalcLR$ebnf$1", "_", (lexer.has("OperatorLR") ? {type: "OperatorLR"} : OperatorLR), "_", "ExprCalcLR$subexpression$2", "ExprCalcLR$ebnf$2"], "postprocess":  d => ({
+        	type: "calcLR",
+        	left: d[0][0],
+        	swizzleLeft: SAFE_VAL(d[1]),
         	op: d[3].value,
-        	right: d[5].value, swizzleRight: SAFE_VAL(d[6])
-        })},
-    {"name": "ExprCalcVarNum$ebnf$1", "symbols": [(lexer.has("Swizzle") ? {type: "Swizzle"} : Swizzle)], "postprocess": id},
-    {"name": "ExprCalcVarNum$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "ExprCalcVarNum", "symbols": [(lexer.has("VarName") ? {type: "VarName"} : VarName), "ExprCalcVarNum$ebnf$1", "_", (lexer.has("OperatorLR") ? {type: "OperatorLR"} : OperatorLR), "_", "ValueNumeric"], "postprocess":  d => ({
-        	type: "calcVarNum",
-        	left: d[0].value, swizzleLeft: SAFE_VAL(d[1]),
-        	op: d[3].value,
-        	right: d[5][0]
+        	right: d[5][0],
+        	swizzleRight: SAFE_VAL(d[6])
         })},
     {"name": "ExprCalcFunc$ebnf$1", "symbols": []},
     {"name": "ExprCalcFunc$ebnf$1", "symbols": ["ExprCalcFunc$ebnf$1", "FuncArgs"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},

@@ -307,28 +307,28 @@ ExprVarAssign -> ( %VarName %Swizzle:? _ (%Assignment | %OperatorSelfR) _ ExprCa
 })%}
 
 #### Calculations ####
-ExprCalcAll -> ExprCalcVarVar | ExprCalcVarNum | ExprCalcNum | ExprCalcVar | ExprCalcFunc | ExprCalcCompare
+ExprCalcAll -> ExprCalcLR | ExprCalcNum | ExprCalcVar | ExprCalcFunc | ExprCalcCompare
 
 ExprCalcNum -> ValueNumeric {% d => ({type: "calcNum", right: d[0][0]}) %}
 
 ExprCalcVar -> %OperatorUnary:? %VarName %Swizzle:? {% d => ({
 	type: "calcVar",
 	op: SAFE_VAL(d[0]),
-	right: d[1].value, swizzleRight: SAFE_VAL(d[2])
+	right: {type: 'VarName', value: d[1].value},
+	swizzleRight: SAFE_VAL(d[2])
 })%}
 
-ExprCalcVarVar -> %VarName %Swizzle:? _ %OperatorLR _ %VarName %Swizzle:? {% d => ({
-	type: "calcVarVar",
-	left: d[0].value, swizzleLeft: SAFE_VAL(d[1]),
-	op: d[3].value,
-	right: d[5].value, swizzleRight: SAFE_VAL(d[6])
-})%}
+ExprNum -> ValueNumeric {% d => ({type: "num", value: d[0][0]}) %}
+ExprVarName -> %VarName {% d => ({type: "VarName",value: d[0].value}) %}
 
-ExprCalcVarNum -> %VarName %Swizzle:? _ %OperatorLR _ ValueNumeric {% d => ({
-	type: "calcVarNum",
-	left: d[0].value, swizzleLeft: SAFE_VAL(d[1]),
+
+ExprCalcLR -> (ExprVarName | ExprNum | ExprCalcLR) %Swizzle:? _ %OperatorLR _ (ExprVarName | ExprNum) %Swizzle:? {% d => ({
+	type: "calcLR",
+	left: d[0][0],
+	swizzleLeft: SAFE_VAL(d[1]),
 	op: d[3].value,
-	right: d[5][0]
+	right: d[5][0],
+	swizzleRight: SAFE_VAL(d[6])
 })%}
 
 ExprCalcFunc -> %VarName %ArgsStart _ FuncArgs:* _ %ArgsEnd %Swizzle:? {% d => ({

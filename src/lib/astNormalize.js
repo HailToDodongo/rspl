@@ -140,21 +140,34 @@ function normalizeScopedBlock(block, astState, macros)
   {
     if(st.type === "varAssignCalc")
     {
+      let isVarR = st.calc.type === "calcLR" || st.calc.type === "calcVar";
       // convert constants from seemingly being variables to immediate-values
       // this changes the calc. type, instructions need to handle both numbers and strings
-      if(["calcVar", "calcVarVar"].includes(st.calc.type)) {
-        const stateVar = astState.find(s => s.varName === st.calc.right);
+      if(isVarR) {
+        const stateVar = astState.find(s => s.varName === st.calc.right.value);
         if(stateVar) {
-          st.calc.type = st.calc.type === "calcVar" ? "calcNum" : "calcVarNum";
-          st.calc.right = `%lo(${st.calc.right})`;
+          st.calc.type = st.calc.type === "calcLR" ? "calcLR" : "calcNum";
+          st.calc.right = {type: 'num', value: `%lo(${st.calc.right.value})`};
+          isVarR = false;
         }
+      } else {
+        st.calc.right = {
+          type: typeof(st.calc.right) === 'number' ? 'num' : 'VarName',
+          value: st.calc.right
+        };
       }
 
       // Expand the short form of assignments/calculations (e.g: "a += b" -> "a = a + b")
       if(st.assignType !== "=") {
         const expOp = st.assignType.substring(0, st.assignType.length-1);
-        st.calc.type = st.calc.type === "calcVar" ? "calcVarVar" : "calcVarNum";
-        st.calc.left = st.varName;
+        st.calc.type = 'calcLR';
+        st.calc.left = {type: 'VarName', value: st.varName};
+
+        if(!st.calc.right.type) {
+          st.calc.right = isVarR
+            ? {type: 'VarName', value: st.calc.right}
+            : {type: 'num', value: st.calc.right};
+        }
         st.calc.swizzleLeft = undefined; // @TODO: handle this?
         st.calc.op = expOp;
         st.assignType = "=";
