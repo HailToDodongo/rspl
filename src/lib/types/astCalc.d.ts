@@ -45,6 +45,23 @@ declare global
         swizzleRight?: Swizzle;
     };
 
+    type ASTCalcMultiPart = {
+      type: 'calcMultiPart';
+      op: CalcOp;
+      right: ASTExprNum | ASTExprVarName;
+      swizzleRight?: Swizzle;
+      groupStart: boolean;
+      groupEnd: boolean;
+    };
+
+    type ASTCalcMulti = {
+      type: 'calcMulti';
+      left: ASTExprNum | ASTExprVarName;
+      swizzleLeft?: Swizzle;
+      parts: ASTCalcMultiPart[];
+      groupStart: boolean;
+    };
+
     type ASTCalcLR = {
         type: 'calcLR';
         left: ASTExprNum | ASTExprVarName | ASTCalcLR;
@@ -76,5 +93,5 @@ declare global
         ternary?: ASTTernary
     };
 
-    type ASTCalc = ASTCalcLR | ASTCalcNum | ASTCalcVar | ASTCalcFunc | ASTCalcCompare;
+    type ASTCalc = ASTCalcMulti | ASTCalcLR | ASTCalcNum | ASTCalcVar | ASTCalcFunc | ASTCalcCompare;
 }
