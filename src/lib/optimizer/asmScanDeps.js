@@ -20,7 +20,7 @@ export const LOAD_OPS_VECTOR = ["lbv", "lsv", "llv", "ldv", "lqv", "lpv", "luv",
 // ops that load from RAM, r/w register access
 export const LOAD_OPS = [...LOAD_OPS_SCALAR, ...LOAD_OPS_VECTOR];
 
-export const BRANCH_OPS = ["beq", "bne", "bgezal", "bltzal", "bgez", "bltz", "j", "jr", "jal"];
+export const BRANCH_OPS = ["beq", "bne", "bgezal", "bltzal", "bgez", "bltz", "blez", "bgtz", "j", "jr", "jal"];
 
 // ops that don't write to any register
 export const READ_ONLY_OPS = [...BRANCH_OPS, ...STORE_OPS, "mtc0"];
