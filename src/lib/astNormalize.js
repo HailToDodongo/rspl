@@ -7,6 +7,7 @@ import {nextReg} from "./syntax/registers";
 import state from "./state.js";
 import {validateAnnotation} from "./syntax/annotations.js";
 import builtins from "./builtins/functions.js";
+import {astCalcNormalize} from "./astCalcNormalizer.js";
 
 /**
  * @param {ASTScopedBlock} block
@@ -143,41 +144,7 @@ function normalizeScopedBlock(block, astState, macros)
     {
       if(st.calc.type === "calcMulti")
       {
-        if(st.assignType !== "=") {
-          state.throwError("@TODO: multiple calculation in an increment not supported!", st);
-        }
-
-        let lastLeft = st.calc.left;
-        let lastLeftSwizzle = st.swizzle;
-        for(const part of st.calc.parts) {
-          /** @type {ASTCalcLR} */
-          const calcLR = {
-            type: "calcLR",
-            right: part.right,
-            op: part.op,
-            swizzleRight: part.swizzleRight,
-
-            left: lastLeft,
-            swizzleLeft: lastLeftSwizzle
-          };
-
-          const stateVar = astState.find(s => s.varName === part.right.value);
-          if(stateVar) {
-            //calcLR.type = "calcNum";
-            calcLR.right = {type: 'num', value: `%lo(${part.right.value})`};
-          }
-
-          newStm.push({
-            type: "varAssignCalc",
-            varName: st.varName,
-            calc: calcLR,
-            assignType: "=",
-            line: st.line,
-          });
-          // now use result as left side
-          lastLeft = {type: 'VarName', value: st.varName};
-          lastLeftSwizzle = st.swizzle;
-        }
+        newStm.push(...astCalcNormalize(st, astState));
         continue;
       }
 

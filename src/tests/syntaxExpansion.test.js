@@ -136,6 +136,91 @@ const CASES = [
             a = a + d;`,
     srcB: `u32 a,b,c,d;
             a = b + c + 4 + d;`,
+  },
+  {
+    name: 'Multi+Calc 2 - Scalar',
+    srcA: `u32 a,b,c,d;
+            a = b + 8;
+            a = b - 20;
+            `,
+    srcB: `u32 a,b,c,d;
+            a = b + 4 + 4;
+            a = b - (2 + 2 * 9);`,
+  },
+  {
+    name: 'Multi+Calc 3 - Scalar',
+    srcA: `u32 a,b,c,d;
+            a = b + 50;
+            `,
+    srcB: `u32 a,b,c,d;
+            a = b + ((3 + 2) * 10);`,
+  },
+  {
+    name: 'Multi+Calc - Scalar Const Op-Test',
+    srcA: `u32 a,b,c,d;
+            ARITH:
+            a = b + 5;
+            a = b + 6;
+            a = b + -1;
+            a = b + 3;
+            SHIFT:
+            a = b + 8;
+            a = b + 4;
+            a = b + -4;
+            a = b + -4;
+            a = b + ${-16 >>> 2};
+            LOGIC:
+            a = b + 0b1111;
+            a = b + 0b1110;
+            a = b + 0b110011;
+            `,
+    srcB: `u32 a,b,c,d;
+            ARITH:
+            a = b + (2 + 3);
+            a = b + (2 * 3);
+            a = b + (2 - 3);
+            a = b + (10 / 3);
+            SHIFT:
+            a = b + (1 << 3);
+            a = b + (16 >> 2);
+            a = b + (-2 << 1);
+            a = b + (-16 >> 2);
+            a = b + (-16 >>> 2);
+            LOGIC:
+            a = b + (0b0101 | 0b1010);
+            a = b + (0b1111 & 0b1110);
+            a = b + (0b010000 ^ 0b100011);
+            `,
+  },
+  {
+    name: 'Multi+Calc - Scalar Const Order or Operations',
+    srcA: `u32 a,b,c,d;
+            a = b + 10;
+            a = b + 1;
+            a = b + 4;
+            a = b + 0x14;
+            `,
+    srcB: `u32 a,b,c,d;
+            a = b + (1 + 1 * 9);
+            a = b + (10 - 1 * 9);
+            a = b + (1 + 1 << 1);
+            a = b + (1 + 1 << 1 | 0x10);
+            `,
+  },
+  {
+    name: 'Multi+Calc - Scalar Const Brackets',
+    srcA: `u32 a,b,c,d;
+            a = b + 10;
+            a = b + 20;
+            a = b + 10;
+            a = b + 31;
+            `,
+    srcB: `u32 a,b,c,d;
+            a = b + ((5) + (5));
+            a = b + ((10) + (((5*2))));
+            a = b + ((((((((((((((((10))))))))))))))));
+            a = b + (3 * 10) + 1;
+            `,
   }
 ];
 

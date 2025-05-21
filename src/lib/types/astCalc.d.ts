@@ -50,17 +50,17 @@ declare global
       op: CalcOp;
       right: ASTExprNum | ASTExprVarName;
       swizzleRight?: Swizzle;
-      groupStart: boolean;
-      groupEnd: boolean;
+      groupStart: number;
+      groupEnd: number;
     };
 
-    type ASTCalcMulti = {
+    interface ASTCalcMulti {
       type: 'calcMulti';
       left: ASTExprNum | ASTExprVarName;
       swizzleLeft?: Swizzle;
       parts: ASTCalcMultiPart[];
-      groupStart: boolean;
-    };
+      groupStart: number;
+    }
 
     type ASTCalcLR = {
         type: 'calcLR';
