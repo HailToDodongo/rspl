@@ -43,6 +43,10 @@ function load(varRes, args, swizzle)
   if(args.length > 2)state.throwError("Builtin load() requires 1 or 2 arguments!", args[0]);
 
   const argVar = state.getRequiredVarOrMem(args[0].value, "arg0");
+  if(argVar.reg && isVecType(argVar.type)) {
+    state.throwError("Builtin load() requires first argument to be a scalar!", args[0]);
+  }
+
   const argOffset = (args[1].type === "num")
     ? args[1]
     : state.getRequiredMem(args[1].value, "arg1");

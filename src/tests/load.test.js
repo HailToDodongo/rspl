@@ -259,4 +259,18 @@ describe('Load', () =>
    await expect(() => transpileSource(src, CONF))
     .rejects.toThrowError(/line 3: Invalid full vector-load offset, must be a multiple of 16, 5 given/);
   });
+
+  test('Invalid vector load (vector as addr)', async () => {
+    const src = `
+    state {
+      u32 TEST_CONST;
+    }
+    function test() {
+      vec32<$v01> a; 
+      a = load(a, TEST_CONST);
+    }`;
+
+   await expect(() => transpileSource(src, CONF))
+    .rejects.toThrowError(/Error in test, line 7: Builtin load\(\) requires first argument to be a scalar!/);
+  });
 });

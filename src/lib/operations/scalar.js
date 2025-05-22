@@ -16,7 +16,7 @@ for(let i = 0; i < 32; i++)MUL_TO_SHIFT[Math.pow(2, i)] = i;
  * @param {ASTFuncArg} varRight
  */
 function assertScalarVars(varLeft, varRight = undefined) {
-  if(varLeft.type.startsWith("vec") || (varRight && varRight.reg && varRight.type.startsWith("vec"))) {
+  if((varLeft.type || '').startsWith("vec") || (varRight && varRight.reg && varRight.type.startsWith("vec"))) {
     state.throwError("Scalar-Operation requires all variables to be scalars!");
   }
 }
