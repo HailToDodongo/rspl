@@ -29,8 +29,8 @@ declare global
         comment?: string;
         funcArgs: string[];
 
-        depsSource: string[];
-        depsTarget: string[];
+        depsSourceIdx: number[];
+        depsTargetIdx: number[];
         barrierMask: number;
 
         depsArgMask: BigInt;

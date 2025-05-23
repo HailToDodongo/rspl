@@ -106,7 +106,7 @@ const HIDDEN_REGS_WRITE = {
 
 const STALL_IGNORE_REGS = ["$vcc", "$vco", "$acc", "$DIV_OUT", "$DIV_IN"];
 
-const REG_INDEX_MAP = {
+export const REG_INDEX_MAP = {
   "$v00": 0,    "$v00_0": 0, "$v00_1": 1, "$v00_2": 2, "$v00_3": 3, "$v00_4": 4, "$v00_5": 5, "$v00_6": 6, "$v00_7": 7,
   "$v01": 8,    "$v01_0": 8, "$v01_1": 9, "$v01_2":10, "$v01_3":11, "$v01_4":12, "$v01_5":13, "$v01_6":14, "$v01_7":15,
   "$v02":16,    "$v02_0":16, "$v02_1":17, "$v02_2":18, "$v02_3":19, "$v02_4":20, "$v02_5":21, "$v02_6":22, "$v02_7":23,
@@ -301,8 +301,8 @@ export function getSourceRegsFiltered(line)
 export function asmInitDep(asm)
 {
   if(asm.type !== ASM_TYPE.OP || asm.isNOP) {
-    asm.depsSource = [];
-    asm.depsTarget = [];
+    asm.depsSourceIdx = [];
+    asm.depsTargetIdx = [];
     asm.depsStallSourceIdx = [];
     asm.depsStallTargetIdx = [];
     asm.depsSourceMask = 0n;
@@ -319,15 +319,15 @@ export function asmInitDep(asm)
   let depsStallSource = [...new Set(getSourceRegsFiltered(asm))];
   let depsStallTarget = [...new Set(getTargetRegs(asm))];
 
-  asm.depsSource = depsStallSource.flatMap(expandRegister);
-  asm.depsTarget = depsStallTarget.flatMap(expandRegister);
+  let depsSource = depsStallSource.flatMap(expandRegister);
+  let depsTarget = depsStallTarget.flatMap(expandRegister);
 
-  asm.depsSourceMask = getRegisterMask(asm.depsSource);
+  asm.depsSourceMask = getRegisterMask(depsSource);
   if(asm.funcArgs && asm.funcArgs.length) {
     asm.depsArgMask = getRegisterMask(asm.funcArgs);
   }
 
-  asm.depsTargetMask = getRegisterMask(asm.depsTarget);
+  asm.depsTargetMask = getRegisterMask(depsTarget);
 
   //console.log("Mask Src: ", asm.depsSourceMask.toString(2));
   //console.log("Mask Tgt: ", asm.depsTargetMask.toString(2));
@@ -339,6 +339,9 @@ export function asmInitDep(asm)
   depsStallTarget = depsStallTarget
     .map(reg => reg.split(".")[0])
     .filter(reg => !STALL_IGNORE_REGS.includes(reg));
+
+  asm.depsSourceIdx = depsSource.map(reg => REG_INDEX_MAP[reg]);
+  asm.depsTargetIdx = depsTarget.map(reg => REG_INDEX_MAP[reg]);
 
   asm.depsStallSourceIdx = depsStallSource.map(reg => REG_STALL_INDEX_MAP[reg]);
   asm.depsStallTargetIdx = depsStallTarget.map(reg => REG_STALL_INDEX_MAP[reg]);
@@ -512,8 +515,8 @@ export function asmGetReorderIndices(asmList, i)
     }
 
     // Remember the last write that occurs for each register, this is used to fall back if we stop at a read.
-    for(const reg of asmNext.depsTarget) {
-      lastWrite[REG_INDEX_MAP[reg]] = f;
+    for(const reg of asmNext.depsTargetIdx) {
+      lastWrite[reg] = f;
     }
     lastWriteMask |= asmNext.depsTargetMask;
   }
@@ -536,9 +539,9 @@ export function asmGetReorderIndices(asmList, i)
   const readWriteMask = lastReadMask & lastWriteMask;
   if((readWriteMask & asm.depsTargetMask) !== 0n) // avoid loop by checking mask first
   {
-    for(const reg of asm.depsTarget) {
-      let lastWritePos = lastWrite[REG_INDEX_MAP[reg]];
-      if(lastWritePos && (lastReadMask & REG_MASK_MAP[reg]) !== 0n) {
+    for(const reg of asm.depsTargetIdx) {
+      let lastWritePos = lastWrite[reg];
+      if(lastWritePos && (lastReadMask & (BigInt(1) << BigInt(reg))) !== 0n) {
         pos = Math.min(lastWritePos, pos);
       }
     }
