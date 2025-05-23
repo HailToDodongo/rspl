@@ -25,7 +25,11 @@ export function evalFunctionCost(asmFunc)
 
   let branchStep = 0;
   let lastLoadPosMask = 0;
-  let regCycleMap = {}; // register to stall counter
+  let regCycleMap = []; // register to stall counter
+
+  for(let i=0; i<64; ++i) {
+    regCycleMap[i] = 0;
+  }
 
   let didJump = false;
   let cycle = 0;
@@ -34,7 +38,7 @@ export function evalFunctionCost(asmFunc)
   let ops = asmFunc.asm.filter(asm => asm.type === ASM_TYPE.OP);
 
   const tick = () => {
-    for(const reg in regCycleMap)--regCycleMap[reg];
+    for(let i=0; i<64; ++i)--regCycleMap[i];
     lastLoadPosMask = (lastLoadPosMask << 1) & 0xFF;
     ++cycle;
   };
@@ -55,7 +59,7 @@ export function evalFunctionCost(asmFunc)
       hadStall = false;
       for(let execOp of execOps) {
         // check if one of our source or destination reg as written to in the last instruction
-        for(const regSrc of execOp.depsStallSource) {
+        for(const regSrc of execOp.depsStallSourceIdx) {
           while(regCycleMap[regSrc] > 0) {
             ++execOp.debug.stall;
             hadStall = true;
@@ -91,7 +95,7 @@ export function evalFunctionCost(asmFunc)
 
       // now "execute" by marking the target regs with stalls
       execOp.debug.cycle = cycle;
-      for(const regDst of execOp.depsStallTarget) {
+      for(const regDst of execOp.depsStallTargetIdx) {
         regCycleMap[regDst] = execOp.stallLatency;
       }
     }

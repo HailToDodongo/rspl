@@ -40,8 +40,8 @@ declare global
         depsBlockSourceMask: BigInt;
         depsBlockTargetMask: BigInt;
 
-        depsStallSource: string[];
-        depsStallTarget: string[];
+        depsStallSourceIdx: number[];
+        depsStallTargetIdx: number[];
 
         depsStallSourceMask: BigInt;
         depsStallTargetMask: BigInt;

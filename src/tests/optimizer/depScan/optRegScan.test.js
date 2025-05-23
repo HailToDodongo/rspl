@@ -1,5 +1,5 @@
 import {asm} from "../../../lib/intsructions/asmWriter.js";
-import { asmInitDep } from "../../../lib/optimizer/asmScanDeps.js";
+import {asmInitDep, REG_STALL_INDEX_MAP} from "../../../lib/optimizer/asmScanDeps.js";
 
 const laneIds = ['_0', '_1', '_2', '_3', '_4', '_5', '_6', '_7'];
 function allLanes(reg) {
@@ -99,7 +99,7 @@ describe('Optimizer - Register Scanner', () =>
     asmInitDep(asm);
     test(`Source (Logic) - ${name}`,  () => expect(asm.depsSource).toEqual(src));
     test(`Target (Logic) - ${name}`,  () => expect(asm.depsTarget).toEqual(tgt));
-    test(`Source (Stalls) - ${name}`, () => expect(asm.depsStallSource).toEqual(srcStall));
-    test(`Target (Stalls) - ${name}`, () => expect(asm.depsStallTarget).toEqual(tgtStall));
+    test(`Source (Stalls) - ${name}`, () => expect(asm.depsStallSourceIdx).toEqual(srcStall.map(r => REG_STALL_INDEX_MAP[r])));
+    test(`Target (Stalls) - ${name}`, () => expect(asm.depsStallTargetIdx).toEqual(tgtStall.map(r => REG_STALL_INDEX_MAP[r])));
   }
 });

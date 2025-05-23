@@ -63,11 +63,11 @@ const PREFER_PAIR_RATE     = 0.80;  // chance to directly fill a stall instead o
 const REORDER_MIN_OPS = 4;  // minimum instructions to reorder per round
 const REORDER_MAX_OPS = 15; // maximum instructions to reorder per round
 
-
-//let i =0;
+let seed = 0xDEADBEEF;
 function rand() {
-  //  i += 34.123; return i - Math.floor(i); // DEBUG: fixed randomness
   return Math.random();
+  /*seed = (seed * 0x41C64E6D + 0x3039) & 0xFFFFFFFF;
+  return (seed >>> 16) / 0x10000;*/
 }
 
 function getRandIndex(minIncl, maxIncl) {
@@ -243,6 +243,7 @@ export function reorderRound(asmFunc)
   for(let o=0; o<opCount; ++o) {
     optimizeStep(asmFunc);
   }
+
   //console.time("cost");
   const cost = evalFunctionCost(asmFunc);
   //console.timeEnd("cost");
@@ -253,9 +254,9 @@ export function reorderRound(asmFunc)
 }
 
 function cloneFunction(func) {
-  return structuredClone(func);
-  /*const asm = [...func.asm];
-  return {...func, asm};*/
+  //return structuredClone(func);
+  const asm = [...func.asm];
+  return {...func, asm};
 }
 
 /**
@@ -289,19 +290,23 @@ export async function asmOptimize(asmFunc, updateCb, config)
 
     // Main iteration loop
     let time = performance.now();
+    let timeEnd = time + maxTime;
     let i = 0;
     while(totalTime < maxTime)
     {
-      if(i !== 0 && (i % 100) === 0) {
+      if(i !== 0 && (i % 400) === 0)
+      {
         const dur = performance.now() - time;
         totalTime += dur;
-        if (totalTime > maxTime) {
-          console.log(`[${funcName}] Timeout after ${i} iterations.`);
-          break;
-        }
-        console.log(`[${funcName}] Step: ${i}, Left: ${(maxTime - totalTime).toFixed(4)}ms | Time: ${dur.toFixed(4)}`);
+        console.log(`[${funcName}] Step: ${i}, Left: ${(maxTime - totalTime).toFixed(4)}ms | Time: ${dur.toFixed(4)}s`);
         time = performance.now();
       }
+
+      if (performance.now() > timeEnd) {
+        console.log(`[${funcName}] Timeout after ${i} iterations.`);
+        break;
+      }
+
       const funcCopy = cloneFunction(asmFunc);
 
       // Variants per interation

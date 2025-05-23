@@ -151,6 +151,19 @@ const REG_INDEX_MAP = {
   SIZE: 293
 };
 
+export const REG_STALL_INDEX_MAP = {
+  "$zero": 0, "$at": 1, "$v0": 2, "$v1": 3, "$a0": 4, "$a1": 5, "$a2": 6, "$a3": 7,
+  "$t0": 8, "$t1": 9, "$t2": 10, "$t3": 11, "$t4": 12, "$t5": 13, "$t6": 14, "$t7": 15,
+  "$s0": 16, "$s1": 17, "$s2": 18, "$s3": 19, "$s4": 20, "$s5": 21, "$s6": 22, "$s7": 23,
+  "$t8": 24, "$t9": 25,
+  "$k0": 26, "$k1": 27, "$gp": 28, "$sp": 29, "$fp": 30, "$ra": 31,
+
+  "$v00": 32, "$v01": 33, "$v02": 34, "$v03": 35, "$v04": 36, "$v05": 37, "$v06": 38, "$v07": 39,
+  "$v08": 40, "$v09": 41, "$v10": 42, "$v11": 43, "$v12": 44, "$v13": 45, "$v14": 46, "$v15": 47,
+  "$v16": 48, "$v17": 49, "$v18": 50, "$v19": 51, "$v20": 52, "$v21": 53, "$v22": 54, "$v23": 55,
+  "$v24": 56, "$v25": 57, "$v26": 58, "$v27": 59, "$v28": 60, "$v29": 61, "$v30": 62, "$v31": 63,
+}
+
 const LTV_REG_MAP = {
   "$v00": ["$v00", "$v01", "$v02", "$v03", "$v04", "$v05", "$v06", "$v07"],
   "$v08": ["$v08", "$v09", "$v10", "$v11", "$v12", "$v13", "$v14", "$v15"],
@@ -290,8 +303,8 @@ export function asmInitDep(asm)
   if(asm.type !== ASM_TYPE.OP || asm.isNOP) {
     asm.depsSource = [];
     asm.depsTarget = [];
-    asm.depsStallSource = [];
-    asm.depsStallTarget = [];
+    asm.depsStallSourceIdx = [];
+    asm.depsStallTargetIdx = [];
     asm.depsSourceMask = 0n;
     asm.depsTargetMask = 0n;
     asm.depsBlockSourceMask = REG_MASK_ALL;
@@ -303,11 +316,11 @@ export function asmInitDep(asm)
     return;
   }
 
-  asm.depsStallSource = [...new Set(getSourceRegsFiltered(asm))];
-  asm.depsStallTarget = [...new Set(getTargetRegs(asm))];
+  let depsStallSource = [...new Set(getSourceRegsFiltered(asm))];
+  let depsStallTarget = [...new Set(getTargetRegs(asm))];
 
-  asm.depsSource = asm.depsStallSource.flatMap(expandRegister);
-  asm.depsTarget = asm.depsStallTarget.flatMap(expandRegister);
+  asm.depsSource = depsStallSource.flatMap(expandRegister);
+  asm.depsTarget = depsStallTarget.flatMap(expandRegister);
 
   asm.depsSourceMask = getRegisterMask(asm.depsSource);
   if(asm.funcArgs && asm.funcArgs.length) {
@@ -319,16 +332,19 @@ export function asmInitDep(asm)
   //console.log("Mask Src: ", asm.depsSourceMask.toString(2));
   //console.log("Mask Tgt: ", asm.depsTargetMask.toString(2));
 
-  asm.depsStallSource = asm.depsStallSource
+  depsStallSource = depsStallSource
     .map(reg => reg.split(".")[0])
     .filter(reg => !STALL_IGNORE_REGS.includes(reg));
 
-  asm.depsStallTarget = asm.depsStallTarget
+  depsStallTarget = depsStallTarget
     .map(reg => reg.split(".")[0])
     .filter(reg => !STALL_IGNORE_REGS.includes(reg));
 
-  asm.depsStallSourceMask = getRegisterMask(asm.depsStallSource);
-  asm.depsStallTargetMask = getRegisterMask(asm.depsStallTarget);
+  asm.depsStallSourceIdx = depsStallSource.map(reg => REG_STALL_INDEX_MAP[reg]);
+  asm.depsStallTargetIdx = depsStallTarget.map(reg => REG_STALL_INDEX_MAP[reg]);
+
+  asm.depsStallSourceMask = getRegisterMask(depsStallSource);
+  asm.depsStallTargetMask = getRegisterMask(depsStallTarget);
 
   asm.barrierMask = 0;
   for(const anno of asm.annotations) {
