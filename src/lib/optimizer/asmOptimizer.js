@@ -60,18 +60,19 @@ const POOL_SIZE            = 8;   // sub-iterations per variant
 const PREFER_STALLS_RATE   = 0.20;  // chance to directly fill a stall instead of a random pick
 const PREFER_PAIR_RATE     = 0.80;  // chance to directly fill a stall instead of a random pick
 
-const REORDER_MIN_OPS = 4;  // minimum instructions to reorder per round
-const REORDER_MAX_OPS = 15; // maximum instructions to reorder per round
+const REORDER_MIN_OPS = 3;  // minimum instructions to reorder per round
+const REORDER_MAX_OPS = 17; // maximum instructions to reorder per round
 
-let seed = 0xDEADBEEF;
+let seed = Math.floor(Math.random() * 0xFFFFFF);//0xDEADBEEF;
 function rand() {
-  return Math.random();
-  /*seed = (seed * 0x41C64E6D + 0x3039) & 0xFFFFFFFF;
-  return (seed >>> 16) / 0x10000;*/
+  //return Math.random();
+  seed = (seed * 0x41C64E6D + 0x3039) & 0xFFFFFFFF;
+  return (seed >>> 16) / 0x10000;
 }
 
-function getRandIndex(minIncl, maxIncl) {
-  return Math.floor(rand() * (maxIncl - minIncl + 1)) + minIncl;
+function getRandIndex(maxExcl) {
+  seed = (seed * 0x41C64E6D + 0x3039) & 0xFFFFFFFF;
+  return (seed >>> 16) % maxExcl;
 }
 
 /**
@@ -166,7 +167,7 @@ function optimizeStep(asmFunc)
   let reorderIndices = [];
 
   for(let r=0; r<50 && (reorderIndices.length <= 1); ++r) {
-    i = getRandIndex(0, asmFunc.asm.length-1);
+    i = getRandIndex(asmFunc.asm.length);
     reorderIndices = asmGetReorderIndices(asmFunc.asm, i);
   }
   if(reorderIndices.length <= 1)return;
@@ -204,7 +205,7 @@ function optimizeStep(asmFunc)
 
   if(!foundIndex) {
     while(targetIdx === i) {
-      targetIdx = reorderIndices[getRandIndex(0, reorderIndices.length-1)];
+      targetIdx = reorderIndices[getRandIndex(reorderIndices.length)];
     }
   }
 
@@ -281,7 +282,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
     console.log("costOpt", costInit);
 
     let totalTime = 0;
-    let maxTime = config.optimizeTime || 5_000;
+    let maxTime = config.optimizeTime || 10_000;
     console.log(`Starting optimization with max. time: ${new Date(maxTime).toISOString().substr(11, 8)}, worker pool size: ${poolSize}`);
 
     let lastRandPick = cloneFunction(asmFunc);
