@@ -20,8 +20,7 @@ const BRANCH_STEP_DELAY = 1;
  */
 export function evalFunctionCost(asmFunc)
 {
-  /** @type {Array<ASM>} */
-  let execOps = [];
+  let execCount = 0;
 
   let branchStep = 0;
   let lastLoadPosMask = 0;
@@ -43,13 +42,14 @@ export function evalFunctionCost(asmFunc)
     cycle += count;
   };
 
-  while(pc === 0 || execOps.length)
+  while(pc < ops.length)
   {
     let lastCycle;
     do {
       lastCycle = cycle;
-      for(const execOp of execOps) {
-        execOp.debug.paired = execOps.length === 2;
+      for(let i=0; i<execCount; ++i) {
+        const execOp = ops[pc + i];
+        execOp.debug.paired = execCount === 2;
 
         // check if one of our source or destination reg as written to in the last instruction
         for(const regSrc of execOp.depsStallSourceIdx) {
@@ -61,11 +61,11 @@ export function evalFunctionCost(asmFunc)
           ticks(1);
         }
       }
-    } while (lastCycle !== cycle);
+    } while (lastCycle !== cycle); // run until all stalls are resolved
 
     // now execute
-    for(let execOp of execOps)
-    {
+    for(let i=0; i<execCount; ++i) {
+      const execOp = ops[pc + i];
       if(execOp.opIsMemStallLoad)lastLoadPosMask |= 0b100;
       didJump ||= execOp.opIsBranch && execOp.isLikely;
 
@@ -86,7 +86,7 @@ export function evalFunctionCost(asmFunc)
     }
 
     // fetch next instructions to execute
-    if(pc >= ops.length)break;
+    pc += execCount;
     const op = ops[pc];
     const opNext = ops[pc+1];
 
@@ -107,8 +107,7 @@ export function evalFunctionCost(asmFunc)
       }
     }
 
-    execOps = canDualIssue ? [op, opNext] : [op];
-    pc += execOps.length;
+    execCount = canDualIssue ? 2 : 1;
     ticks(1);
   }
   return cycle;
