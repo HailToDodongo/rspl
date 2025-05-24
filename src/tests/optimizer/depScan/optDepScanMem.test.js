@@ -5,7 +5,7 @@ import state from "../../../lib/state.js";
 function asmLinesToDeps(lines)
 {
   asmInitDeps({asm: lines});
-  return lines.map((line, i) => asmGetReorderIndices(lines, i));
+  return lines.map((line, i) => asmGetReorderIndices(lines, i).sort());
 }
 
 describe('Optimizer - Dependency Scanner - Memory', () =>

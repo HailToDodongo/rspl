@@ -456,7 +456,7 @@ function checkAsmBackwardDep(asm, asmPrev) {
 export function asmGetReorderIndices(asmList, i)
 {
   const asm = asmList[i];
-  if(asm.type !== ASM_TYPE.OP || (asm.opFlags & OP_FLAG_IS_IMMOVABLE)) {
+  if(asm.opFlags & OP_FLAG_IS_IMMOVABLE) {
     return [i];
   }
 
@@ -541,7 +541,12 @@ export function asmGetReorderIndices(asmList, i)
     }
   }
 
-  const minMax = [0, pos-1];
+  // @TODO:
+  // min-max to array
+  let res = [];
+  for(let r = i; r <= pos-1; ++r) {
+    res.push(r);
+  }
 
   // collect all registers that where not overwritten by any instruction after us.
   // these need to be checked for writes in the backwards-scan.
@@ -556,17 +561,11 @@ export function asmGetReorderIndices(asmList, i)
       || checkAsmBackwardDep(asm, asmPrev)
       || (asmPrev.depsTargetMask & writeCheckRegsMask) !== 0n
     ) {
-      minMax[0] = b+1;
       break;
     }
+    res.push(b);
   }
 
-  // @TODO:
-  // min-max to array
-  let res = [];
-  for(let i = minMax[0]; i <= minMax[1]; ++i) {
-    res.push(i);
-  }
   return res;
 }
 /**

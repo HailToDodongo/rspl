@@ -57,7 +57,7 @@ function getDebugData() {
  * @param op
  * @return {ASM}
  */
-function getOpInfo(op) {
+function getOpInfo(op, type = ASM_TYPE.OP) {
   const annotations = state.getAnnotations();
   const res = {
     opFlags: (LOAD_OPS.includes(op) ? OP_FLAG_IS_LOAD : 0)
@@ -74,6 +74,7 @@ function getOpInfo(op) {
     stallLatency: getStallLatency(op),
     annotations,
     depsArgMask: 0n,
+    type: type,
   };
   if((res.opFlags & OP_FLAG_IS_BRANCH) && (res.opFlags & OP_FLAG_IS_LIKELY)) {
     res.opFlags |= OP_FLAG_LIKELY_BRANCH;
@@ -89,7 +90,7 @@ function getOpInfo(op) {
  * @return {ASM}
  */
 export function asm(op, args) {
-  return {type: ASM_TYPE.OP, op, args, debug: getDebugData(), ...getOpInfo(op)};
+  return {op, args, debug: getDebugData(), ...getOpInfo(op)};
 }
 
 /**
@@ -101,34 +102,34 @@ export function asm(op, args) {
  */
 export function asmFunction(target, argRegs, relative = false) {
   return relative ? {
-    type: ASM_TYPE.OP, op: "bgezal", args: [REG.ZERO, target],
+    op: "bgezal", args: [REG.ZERO, target],
     debug: getDebugData(), ...getOpInfo("bgezal"),
     funcArgs: argRegs
   } : {
-    type: ASM_TYPE.OP, op: "jal", args: [target],
+    op: "jal", args: [target],
     debug: getDebugData(), ...getOpInfo("jal"),
     funcArgs: argRegs
   };
 }
 
 export function asmBranch(op, args, labelEnd) {
-  return {type: ASM_TYPE.OP, op, args, debug: getDebugData(), ...getOpInfo(op), labelEnd};
+  return {op, args, debug: getDebugData(), ...getOpInfo(op), labelEnd};
 }
 
 export function asmInline(op, args = []) {
-  return {type: ASM_TYPE.INLINE, op, args, debug: getDebugData(), ...getOpInfo(op)};
+  return {op, args, debug: getDebugData(), ...getOpInfo(op, ASM_TYPE.INLINE)};
 }
 
 /** @returns {ASM} */
 export function asmNOP() {
-  return {type: ASM_TYPE.OP, op: "nop", args: [], debug: getDebugData(),
+  return {op: "nop", args: [], debug: getDebugData(),
     ...getOpInfo("nop"),
   };
 }
 
 /** @returns {ASM} */
 export function asmLabel(label) {
-  return {type: ASM_TYPE.LABEL, label, op: "", args: [], debug: getDebugData(),
-    ...getOpInfo(""),
+  return {label, op: "", args: [], debug: getDebugData(),
+    ...getOpInfo("", ASM_TYPE.LABEL),
   };
 }
