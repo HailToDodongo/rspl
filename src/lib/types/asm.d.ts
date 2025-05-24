@@ -27,7 +27,6 @@ declare global
 
         label?: string;
         comment?: string;
-        funcArgs: string[];
 
         depsSourceIdx: number[];
         depsTargetIdx: number[];
@@ -45,17 +44,7 @@ declare global
 
         depsStallSourceMask: BigInt;
         depsStallTargetMask: BigInt;
-
-        opIsLoad: boolean;
-        opIsStore: boolean;
-        opIsBranch: boolean;
-        opIsImmovable: boolean;
-        opIsMemStallLoad: boolean;
-        opIsMemStallStore: boolean;
-        opIsVector: boolean;
-        isNOP: boolean;
-        isLikely: boolean;
-
+        opFlags: number;
         labelEnd: string; // sets the end for a block
 
         stallLatency: number;

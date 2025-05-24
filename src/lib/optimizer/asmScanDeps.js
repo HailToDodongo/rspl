@@ -179,6 +179,18 @@ for(let reg of Object.keys(REG_INDEX_MAP)) {
   REG_MASK_ALL |= REG_MASK_MAP[reg];
 }
 
+export const OP_FLAG_IS_LOAD = 1 << 0;
+export const OP_FLAG_IS_STORE = 1 << 1;
+export const OP_FLAG_IS_BRANCH = 1 << 2;
+export const OP_FLAG_IS_IMMOVABLE = 1 << 3;
+export const OP_FLAG_IS_MEM_STALL_LOAD = 1 << 4;
+export const OP_FLAG_IS_MEM_STALL_STORE = 1 << 5;
+export const OP_FLAG_IS_VECTOR = 1 << 6;
+export const OP_FLAG_IS_NOP = 1 << 7;
+export const OP_FLAG_IS_LIKELY = 1 << 8;
+export const OP_FLAG_LIKELY_BRANCH = 1 << 9;
+export const OP_FLAG_CTC2_CFC2 = 1 << 10;
+
 /**
  *
  * @param {string[]} regs
@@ -218,7 +230,7 @@ export function getTargetRegs(line) {
     return [];
   }
 
-  if(line.opIsLoad) {
+  if(line.opFlags & OP_FLAG_IS_LOAD) {
     // transpose, access 8 registers and lanes in a diagonal pattern
     if(line.op === 'ltv')
     {
@@ -246,11 +258,11 @@ export function getSourceRegs(line)
   if(["jr", "mtc2", "mtc0", "ctc2"].includes(line.op)) {
     return [line.args[0]];
   }
-  if(line.opIsBranch && line.op.startsWith("b")) {
+  if((line.opFlags & OP_FLAG_IS_BRANCH) && line.op.startsWith("b")) {
     // last arg is label, take all before that
     return line.args.slice(0, -1);
   }
-  if(line.opIsStore)
+  if(line.opFlags & OP_FLAG_IS_STORE)
   {
     // transpose, access 8 registers and lanes in a diagonal pattern
     if(line.op === 'stv')
@@ -300,7 +312,7 @@ export function getSourceRegsFiltered(line)
  */
 export function asmInitDep(asm)
 {
-  if(asm.type !== ASM_TYPE.OP || asm.isNOP) {
+  if(asm.type !== ASM_TYPE.OP || (asm.opFlags & OP_FLAG_IS_NOP)) {
     asm.depsSourceIdx = [];
     asm.depsTargetIdx = [];
     asm.depsStallSourceIdx = [];
@@ -366,7 +378,7 @@ export function asmInitBlockDep(asmList, i)
 {
   const asm = asmList[i];
   // check if we are the start of a block (e.g. if-condition)
-  if(!asm.opIsBranch || !asm.labelEnd) {
+  if(!(asm.opFlags & OP_FLAG_IS_BRANCH) || !asm.labelEnd) {
     return;
   }
 
@@ -380,7 +392,7 @@ export function asmInitBlockDep(asmList, i)
     if(asmNext.label === asm.labelEnd) {
       break;
     }
-    if(asmNext.opIsBranch) {
+    if(asmNext.opFlags & OP_FLAG_IS_BRANCH) {
       asm.depsBlockSourceMask = REG_MASK_ALL;
       asm.depsBlockTargetMask = REG_MASK_ALL;
       break;
@@ -444,7 +456,7 @@ function checkAsmBackwardDep(asm, asmPrev) {
 export function asmGetReorderIndices(asmList, i)
 {
   const asm = asmList[i];
-  if(asm.type !== ASM_TYPE.OP || asm.opIsImmovable) {
+  if(asm.type !== ASM_TYPE.OP || (asm.opFlags & OP_FLAG_IS_IMMOVABLE)) {
     return [i];
   }
 
@@ -456,15 +468,15 @@ export function asmGetReorderIndices(asmList, i)
   let pos = asmList.length;
 
   let f = i + 1;
-  let isPastBranch = false;
+  let isPastBranch = 0;
   for(; f < asmList.length; ++f) {
     const asmNext = asmList[f];
     const amsPrevPrev = asmList[f-2];
 
     // stop at a branch with an already filled delay-slot,
     // or once we are past the delay-slot of a branch if it is empty.
-    const isFilledBranch = asmNext.opIsBranch && !asmList[f+1]?.isNOP;
-    isPastBranch = amsPrevPrev?.opIsBranch;
+    const isFilledBranch = (asmNext.opFlags & OP_FLAG_IS_BRANCH) && !(asmList[f+1]?.opFlags & OP_FLAG_IS_NOP);
+    isPastBranch = amsPrevPrev?.opFlags & OP_FLAG_IS_BRANCH;
 
     // @TODO: wip, implement forward and backward scan for this:
     // if the branch we hit is part of a block (e.g. if condition), we usually cannot move past it.
@@ -511,7 +523,7 @@ export function asmGetReorderIndices(asmList, i)
 
     // branches/jumps needs special care, their target can make use of registers set before in code.
     // The function arguments (if known) are stored in a separate mask
-    if(asmList[fRead].opIsBranch) {
+    if(asmList[fRead].opFlags & OP_FLAG_IS_BRANCH) {
       lastReadMask |= asmList[fRead].depsArgMask;
     }
   }
@@ -540,7 +552,7 @@ export function asmGetReorderIndices(asmList, i)
   {
     const asmPrev = asmList[b];
 
-    if(asmList[b-1]?.opIsBranch // stop at the delay-slot of a branch, we cannot fill it backwards
+    if((asmList[b-1]?.opFlags & OP_FLAG_IS_BRANCH) // stop at the delay-slot of a branch, we cannot fill it backwards
       || checkAsmBackwardDep(asm, asmPrev)
       || (asmPrev.depsTargetMask & writeCheckRegsMask) !== 0n
     ) {

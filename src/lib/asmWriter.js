@@ -248,7 +248,6 @@ export function writeASM(ast, functionsAsm, config)
         case ASM_TYPE.INLINE:
         case ASM_TYPE.OP     : writeLine(`  ${stringifyInstr(asm).padEnd(debugInfo ? 50 : 0,' ')}${debugInfo}`);break;
         case ASM_TYPE.LABEL  : writeLine(`  ${asm.label}:`);         break;
-        case ASM_TYPE.COMMENT: writeLine(`  ##${asm.comment}`);      break;
         default: state.throwError("Unknown ASM type: " + asm.type, asm);
       }
 

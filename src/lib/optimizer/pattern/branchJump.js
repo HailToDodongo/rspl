@@ -6,7 +6,7 @@ import {asm} from "../../intsructions/asmWriter.js";
 import {REG} from "../../syntax/registers.js";
 import state from "../../state.js";
 import {invertBranchOp} from "../../operations/branch.js";
-import {BRANCH_OPS} from "../asmScanDeps.js";
+import {BRANCH_OPS, OP_FLAG_IS_BRANCH, OP_FLAG_IS_NOP} from "../asmScanDeps.js";
 
 /**
  * If a branch has the form of: " if(cond)goto TARGET; "
@@ -31,14 +31,14 @@ export function branchJump(asmFunc)
   for(let i=0; i<lines.length; ++i)
   {
     const line = lines[i];
-    if(line.opIsBranch && line.op.startsWith("b"))
+    if((line.opFlags & OP_FLAG_IS_BRANCH) && line.op.startsWith("b"))
     {
       const labelTemp = line.args[line.args.length-1];
       const jumpOp = lines[i+2]?.op;
 
-      if(lines[i+1]?.isNOP &&
+      if((lines[i+1]?.opFlags & OP_FLAG_IS_NOP) &&
           (jumpOp === "j" || jumpOp === "jal")   &&
-         lines[i+3]?.isNOP &&
+        (lines[i+3]?.opFlags & OP_FLAG_IS_NOP) &&
          lines[i+4]?.label === labelTemp)
       {
         const labelTarget = lines[i+2].args[lines[i+2].args.length-1];

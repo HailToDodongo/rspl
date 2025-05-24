@@ -4,6 +4,13 @@
 */
 
 import {ASM_TYPE, asmNOP} from "../../intsructions/asmWriter.js";
+import {
+  OP_FLAG_CTC2_CFC2,
+  OP_FLAG_IS_BRANCH, OP_FLAG_IS_LIKELY,
+  OP_FLAG_IS_MEM_STALL_LOAD,
+  OP_FLAG_IS_MEM_STALL_STORE,
+  OP_FLAG_IS_VECTOR, OP_FLAG_LIKELY_BRANCH
+} from "../asmScanDeps.js";
 
 // Reference/Docs: https://n64brew.dev/wiki/Reality_Signal_Processor/CPU_Pipeline
 
@@ -56,7 +63,7 @@ export function evalFunctionCost(asmFunc)
           if(regCycleMap[regSrc] > 0)ticks(regCycleMap[regSrc]);
         }
         // if a store happens exactly two cycles after a load, stall it
-        if(lastLoadPosMask & 0b001 && execOp.opIsMemStallStore) {
+        if(lastLoadPosMask & 0b001 && (execOp.opFlags & OP_FLAG_IS_MEM_STALL_STORE)) {
           ++execOp.debug.stall;
           ticks(1);
         }
@@ -66,12 +73,12 @@ export function evalFunctionCost(asmFunc)
     // now execute
     for(let i=0; i<execCount; ++i) {
       const execOp = ops[pc + i];
-      if(execOp.opIsMemStallLoad)lastLoadPosMask |= 0b100;
-      didJump ||= execOp.opIsBranch && execOp.isLikely;
+      if(execOp.opFlags & OP_FLAG_IS_MEM_STALL_LOAD)lastLoadPosMask |= 0b100;
+      didJump ||= (execOp.opFlags & OP_FLAG_LIKELY_BRANCH);
 
       // update where in a branch we are (branch, delay, none)
       branchStep >>>= 1;
-      if(!branchStep && execOp.opIsBranch)branchStep = BRANCH_STEP_BRANCH;
+      if(!branchStep && (execOp.opFlags & OP_FLAG_IS_BRANCH) !== 0)branchStep = BRANCH_STEP_BRANCH;
 
       // if branch is taken, an unavoidable bubble is inserted
       if(didJump && branchStep === BRANCH_STEP_DELAY) {
@@ -93,16 +100,16 @@ export function evalFunctionCost(asmFunc)
     // now check if we can dual-issue, this is always checked from the perspective of the current instruction
     // seeing if the next one can be used
     let canDualIssue = opNext // needs something after to dual issue
-      && op.opIsVector !== opNext.opIsVector // can only do SU/VU or VU/SU
+      && (op.opFlags & OP_FLAG_IS_VECTOR) !== (opNext.opFlags & OP_FLAG_IS_VECTOR) // can only do SU/VU or VU/SU
       && !(branchStep === BRANCH_STEP_BRANCH) // cannot dual issue if in delay slot
-      && !op.opIsBranch // cannot dual issue with the delay slot
+      && !(op.opFlags & OP_FLAG_IS_BRANCH) // cannot dual issue with the delay slot
       // if a vector reg is written to, and the next instr. reads from it, do not dual issue
       && (op.depsStallTargetMask & opNext.depsStallSourceMask) === 0n
       && (op.depsStallTargetMask & opNext.depsStallTargetMask) === 0n;
 
     if(canDualIssue) {
       let ctrlRWMask = opNext.depsSourceMask | opNext.depsTargetMask; // incl. control regs here as an exception
-      if((opNext.op === "cfc2" || opNext.op === "ctc2") && (op.depsTargetMask & ctrlRWMask) !== 0n) {
+      if((opNext.opFlags & OP_FLAG_CTC2_CFC2) && (op.depsTargetMask & ctrlRWMask) !== 0n) {
         canDualIssue = false;
       }
     }

@@ -4,7 +4,13 @@
 */
 
 import {ASM_TYPE, asmNOP} from "../intsructions/asmWriter.js";
-import {asmInitDep, asmGetReorderIndices} from "./asmScanDeps.js";
+import {
+  asmInitDep,
+  asmGetReorderIndices,
+  OP_FLAG_IS_BRANCH,
+  OP_FLAG_IS_IMMOVABLE,
+  OP_FLAG_IS_VECTOR, OP_FLAG_IS_NOP
+} from "./asmScanDeps.js";
 import {dedupeLabels} from "./pattern/dedupeLabels.js";
 import {dedupeJumps} from "./pattern/dedupeJumps.js";
 import {branchJump} from "./pattern/branchJump.js";
@@ -25,9 +31,6 @@ import {commandAlias} from "./pattern/commandAlias.js";
  */
 export function asmOptimizePattern(asmFunc)
 {
-  // strip comments
-  asmFunc.asm = asmFunc.asm.filter(line => line.type !== ASM_TYPE.COMMENT);
-
   dedupeLabels(asmFunc);
   dedupeJumps(asmFunc);
   branchJump(asmFunc);
@@ -88,10 +91,10 @@ function getRandIndex(maxExcl) {
  */
 function relocateElement(arr, from, to)
 {
-  if(from === to || arr[to].opIsBranch)return;
-  const targetIsNOP = arr[to]?.isNOP;
+  if(from === to || arr[to].opFlags & OP_FLAG_IS_BRANCH)return;
+  const targetIsNOP = arr[to]?.opFlags & OP_FLAG_IS_NOP;
 
-  const sourceInDelaySlot = arr[from-1]?.opIsBranch;
+  const sourceInDelaySlot = arr[from-1]?.opFlags & OP_FLAG_IS_BRANCH;
 
   // This covers the 4 possible cases for moving an instruction, based on two factors:
   // A: Is the target a NOP?    -> can be replaced
@@ -140,14 +143,14 @@ function fillDelaySlots(asmFunc)
   for(let i=0; i<asmFunc.asm.length; ++i)
   {
     const asm = asmFunc.asm[i];
-    if(asm.type !== ASM_TYPE.OP || asm.opIsImmovable)continue;
+    if(asm.type !== ASM_TYPE.OP || (asm.opFlags & OP_FLAG_IS_IMMOVABLE))continue;
 
     const reorderRange = asmGetReorderIndices(asmFunc.asm, i);
 
     // check if we can move the instruction into a delay slot, this can only happen in the forward-direction.
     let delaySlotIdx = -1;
     for(let idx of reorderRange) {
-      if(asmFunc.asm[idx].isNOP) {
+      if(asmFunc.asm[idx].opFlags & OP_FLAG_IS_NOP) {
         delaySlotIdx = idx;
         break;
       }
@@ -185,7 +188,8 @@ function optimizeStep(asmFunc)
   let foundIndex = false;
   if(rand() < PREFER_PAIR_RATE) {
     for(let j of reorderIndices) {
-      if(asmFunc.asm[j].opIsVector !== asmFunc.asm[i].opIsVector) {
+      if((asmFunc.asm[j].opFlags & OP_FLAG_IS_VECTOR) !== (asmFunc.asm[i].opFlags & OP_FLAG_IS_VECTOR)
+      ) {
         let paired = asmFunc.asm[j].debug.paired;
         if(!paired) {
           targetIdx = j;

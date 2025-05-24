@@ -5,7 +5,7 @@
 import state from "../state";
 import {isSigned, isVecType, toHex, u32InS16Range, u32InU16Range} from "../dataTypes/dataTypes.js";
 import {fractReg, intReg, REG} from "../syntax/registers";
-import {asm, asmComment} from "../intsructions/asmWriter.js";
+import {asm} from "../intsructions/asmWriter.js";
 import {SWIZZLE_MAP} from "../syntax/swizzle.js";
 
 const MUL_TO_SHIFT = {}
@@ -71,7 +71,10 @@ function opMove(varRes, varRight)
     if(varRight.swizzle && !varRight.type.startsWith("vec")) {
       state.throwError("Swizzling not allowed for scalar operations!");
     }
-    if(varRes.reg === varRight.reg)return [asmComment("NOP: self-assign!")];
+    if(varRes.reg === varRight.reg) {
+      state.logWarning("Self-assignment detected, this is a NOP!", varRes);
+      return [];
+    }
     if(varRight.swizzle) {
       const swizzle =  SWIZZLE_MAP[varRight.swizzle];
       if(varRight.type === "vec16") {

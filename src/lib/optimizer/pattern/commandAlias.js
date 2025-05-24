@@ -4,7 +4,7 @@
 */
 
 import {ASM_TYPE} from "../../intsructions/asmWriter.js";
-import {BRANCH_OPS} from "../asmScanDeps.js";
+import {BRANCH_OPS, OP_FLAG_IS_NOP} from "../asmScanDeps.js";
 
 /**
  * If a command only calls another function, we can simplify use that in the command table.
@@ -25,7 +25,7 @@ export function commandAlias(asmFunc)
   if(lines.length < 2 || asmFunc.type !== "command")return;
 
   const safeBranch = ["beq", "bne", "j", "jr"];
-  if(safeBranch.includes(lines[0].op) && lines[1].isNOP) {
+  if(safeBranch.includes(lines[0].op) && (lines[1].opFlags & OP_FLAG_IS_NOP)) {
     asmFunc.nameOverride = lines[0].args[0];
 
     if(lines.length == 2) {
