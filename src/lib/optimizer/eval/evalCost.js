@@ -8,8 +8,8 @@ import {ASM_TYPE, asmNOP} from "../../intsructions/asmWriter.js";
 // Reference/Docs: https://n64brew.dev/wiki/Reality_Signal_Processor/CPU_Pipeline
 
 const BRANCH_STEP_NONE = 0;
-const BRANCH_STEP_BRANCH = 1;
-const BRANCH_STEP_DELAY = 2;
+const BRANCH_STEP_BRANCH = 2;
+const BRANCH_STEP_DELAY = 1;
 
 /**
  * Evaluates the cost of a given function.
@@ -37,60 +37,45 @@ export function evalFunctionCost(asmFunc)
   /** @type {ASM[]} */
   let ops = asmFunc.asm.filter(asm => asm.type === ASM_TYPE.OP);
 
-  const tick = () => {
-    for(let i=0; i<64; ++i)--regCycleMap[i];
-    lastLoadPosMask = (lastLoadPosMask << 1) & 0xFF;
-    ++cycle;
+  const ticks = (count) => {
+    for(let i=0; i<64; ++i)regCycleMap[i] -= count;
+    lastLoadPosMask = lastLoadPosMask >>> count;
+    cycle += count;
   };
 
   while(pc === 0 || execOps.length)
   {
-    let hadStall; // wait out any stalls
-
-    if(execOps[0]) {
-      execOps[0].debug.paired = false;
-      if(execOps.length === 2) {
-        execOps[0].debug.paired = true;
-        execOps[1].debug.paired = true;
-      }
-    }
-
+    let lastCycle;
     do {
-      hadStall = false;
-      for(let execOp of execOps) {
+      lastCycle = cycle;
+      for(const execOp of execOps) {
+        execOp.debug.paired = execOps.length === 2;
+
         // check if one of our source or destination reg as written to in the last instruction
         for(const regSrc of execOp.depsStallSourceIdx) {
-          while(regCycleMap[regSrc] > 0) {
-            ++execOp.debug.stall;
-            hadStall = true;
-            tick();
-          }
+          if(regCycleMap[regSrc] > 0)ticks(regCycleMap[regSrc]);
         }
         // if a store happens exactly two cycles after a load, stall it
-        if(lastLoadPosMask & 0b100 && execOp.opIsMemStallStore) {
+        if(lastLoadPosMask & 0b001 && execOp.opIsMemStallStore) {
           ++execOp.debug.stall;
-          hadStall = true;
-          tick();
+          ticks(1);
         }
       }
-    } while (hadStall);
+    } while (lastCycle !== cycle);
 
     // now execute
     for(let execOp of execOps)
     {
-      if(execOp.opIsMemStallLoad)lastLoadPosMask |= 1;
-      if(execOp.opIsBranch && execOp.isLikely) {
-        didJump = true;
-      }
+      if(execOp.opIsMemStallLoad)lastLoadPosMask |= 0b100;
+      didJump ||= execOp.opIsBranch && execOp.isLikely;
 
       // update where in a branch we are (branch, delay, none)
-      if(branchStep === BRANCH_STEP_DELAY)branchStep = BRANCH_STEP_NONE;
-        else if(branchStep === BRANCH_STEP_BRANCH)branchStep = BRANCH_STEP_DELAY;
-      if(branchStep === BRANCH_STEP_NONE && execOp.opIsBranch)branchStep = BRANCH_STEP_BRANCH;
+      branchStep >>>= 1;
+      if(!branchStep && execOp.opIsBranch)branchStep = BRANCH_STEP_BRANCH;
 
       // if branch is taken, an unavoidable bubble is inserted
       if(didJump && branchStep === BRANCH_STEP_DELAY) {
-        tick(); didJump = false;
+        ticks(1); didJump = false;
       }
 
       // now "execute" by marking the target regs with stalls
@@ -102,7 +87,6 @@ export function evalFunctionCost(asmFunc)
 
     // fetch next instructions to execute
     if(pc >= ops.length)break;
-    const opPrev = ops[pc-1];
     const op = ops[pc];
     const opNext = ops[pc+1];
 
@@ -110,16 +94,13 @@ export function evalFunctionCost(asmFunc)
     // seeing if the next one can be used
     let canDualIssue = opNext // needs something after to dual issue
       && op.opIsVector !== opNext.opIsVector // can only do SU/VU or VU/SU
-      && !(opPrev ? opPrev.opIsBranch : false) // cannot dual issue if in delay slot
-      && !op.opIsBranch; // cannot dual issue with the delay slot
+      && !(branchStep === BRANCH_STEP_BRANCH) // cannot dual issue if in delay slot
+      && !op.opIsBranch // cannot dual issue with the delay slot
+      // if a vector reg is written to, and the next instr. reads from it, do not dual issue
+      && (op.depsStallTargetMask & opNext.depsStallSourceMask) === 0n
+      && (op.depsStallTargetMask & opNext.depsStallTargetMask) === 0n;
 
-    // if a vector reg is written to, and the next instr. reads from it, do not dual issue
     if(canDualIssue) {
-      if((op.depsStallTargetMask & opNext.depsStallSourceMask) !== 0n ||
-         (op.depsStallTargetMask & opNext.depsStallTargetMask) !== 0n) {
-        canDualIssue = false;
-      }
-
       let ctrlRWMask = opNext.depsSourceMask | opNext.depsTargetMask; // incl. control regs here as an exception
       if((opNext.op === "cfc2" || opNext.op === "ctc2") && (op.depsTargetMask & ctrlRWMask) !== 0n) {
         canDualIssue = false;
@@ -127,8 +108,8 @@ export function evalFunctionCost(asmFunc)
     }
 
     execOps = canDualIssue ? [op, opNext] : [op];
-    pc += canDualIssue ? 2 : 1;
-    tick();
+    pc += execOps.length;
+    ticks(1);
   }
   return cycle;
 }
