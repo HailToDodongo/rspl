@@ -422,33 +422,15 @@ function checkAsmBackwardDep(asm, asmPrev) {
     return true;
   }
 
-  if(asm.barrierMask & asmPrev.barrierMask) {
-    return true;
-  }
-
-  // Don't reorder writes to RAM, this is an oversimplification.
-  // For a more accurate check, the RAM location/size would need to be checked (if possible).
-  /*const isStore = !asm.opIsLoad && asm.opIsStore;
-  if(asm.opIsLoad || isStore) { // memory access can be ignored if it's not a load or store
-    const isLoadPrev = asmPrev.opIsLoad;
-    const isStorePrev = !isLoadPrev && asmPrev.opIsStore;
-
-    // load cannot be put before a previous store (previous load is ok)
-    if(asm.opIsLoad && isStorePrev) {
-      return true;
-    }
-    // store cannot be put before a previous load or store
-    //if(isStore && (isLoadPrev || isStorePrev)) {
-    if(isStore && isLoadPrev) {
-     return true;
-    }
-  }*/
-
   // check if any of our source registers is a destination of a previous instruction, and the reserve.
   // (otherwise our read would see a different value if reordered)
   // (otherwise out write could change what the previous instruction(s) reads)
   if((asmPrev.depsTargetMask & asm.depsSourceMask) !== 0n)return true;
   if((asmPrev.depsSourceMask & asm.depsTargetMask) !== 0n)return true;
+
+  if(asm.barrierMask & asmPrev.barrierMask) {
+    return true;
+  }
 
   return false;
 }

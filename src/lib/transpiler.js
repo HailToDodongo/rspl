@@ -152,9 +152,9 @@ export async function transpile(ast, updateCb, config = {})
         asmInitDeps(func);
 
         if(config.reorder)console.time("asmOptimize");
-        await asmOptimize(func, (bestFunc) => {
-          if(updateCb)updateCb(generateASM());
-        }, config);
+        await asmOptimize(func, updateCb ? (bestFunc) => {
+          updateCb(generateASM());
+        } : undefined, config);
         if(config.reorder)console.timeEnd("asmOptimize");
 
         asmScanDeps(func); // debugging only

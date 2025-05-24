@@ -60,12 +60,17 @@ const POOL_SIZE            = 8;   // sub-iterations per variant
 const PREFER_STALLS_RATE   = 0.20;  // chance to directly fill a stall instead of a random pick
 const PREFER_PAIR_RATE     = 0.80;  // chance to directly fill a stall instead of a random pick
 
-const REORDER_MIN_OPS = 3;  // minimum instructions to reorder per round
-const REORDER_MAX_OPS = 17; // maximum instructions to reorder per round
+const MAX_STEPS_NO_CHANGE  = 6000; // steps with no better results until we generate new variants
+const SEARCH_VARIANT_SEARCH = 6; // how many variants to check when searching a worse solution
+const SEARCH_BACK_STEPS_FACTOR = 10; // when searching for new variants, how many steps to go back mult. by the consecutive amount of failed attempts
+const SEARCH_FWD_STEPS_FACTOR = 5;
 
-let seed = Math.floor(Math.random() * 0xFFFFFF);//0xDEADBEEF;
+const REORDER_MIN_OPS = 3;  // minimum instructions to reorder per round
+const REORDER_MAX_OPS = 15; // maximum instructions to reorder per round
+
+let seed = Math.floor(Math.random() * 0xFFFFFF);
+//seed = 0xDEADBEEF;
 function rand() {
-  //return Math.random();
   seed = (seed * 0x41C64E6D + 0x3039) & 0xFFFFFFFF;
   return (seed >>> 16) / 0x10000;
 }
@@ -234,13 +239,35 @@ export function reorderTask(asmFunc) {
 
 /**
  * Round for a single variant, performs a number of reorder steps.
+ * @param {ASMFunc} asmFunc
+ * @param {number} steps
+ * @return ASMFunc
+ */
+function generateWorseFunction(asmFunc, steps) {
+  let maxCost = 0;
+  let newWorst = asmFunc;
+  for(let i=0; i<steps; ++i) {
+    const f = cloneFunction(asmFunc);
+    reorderRound(f);
+    reorderRound(f);
+    const cost = evalFunctionCost(f);
+    if(cost > maxCost) {
+      newWorst = f;
+      maxCost = cost;
+    }
+  }
+
+  return [newWorst, maxCost];
+}
+
+/**
+ * Round for a single variant, performs a number of reorder steps.
  * @param asmFunc
  * @return {{cost: number, asm: *[]}}
  */
 export function reorderRound(asmFunc)
 {
-  const opCount = Math.floor(rand() * REORDER_MAX_OPS) + REORDER_MIN_OPS;
-  //const opCount = 1;
+  const opCount = getRandIndex(REORDER_MAX_OPS) + REORDER_MIN_OPS;
   for(let o=0; o<opCount; ++o) {
     optimizeStep(asmFunc);
   }
@@ -254,6 +281,11 @@ export function reorderRound(asmFunc)
   }
 }
 
+/**
+ *
+ * @param {ASMFunc} func
+ * @return {ASMFunc}
+ */
 function cloneFunction(func) {
   //return structuredClone(func);
   const asm = [...func.asm];
@@ -265,98 +297,116 @@ function cloneFunction(func) {
  * This will mostly reorder instructions to fill delay-slots,
  * interleave vector instructions, and minimize stalls.
  * @param {ASMFunc} asmFunc
- * @param {function} updateCb
+ * @param {function|undefined} updateCb
  * @param {RSPLConfig} config
  */
 export async function asmOptimize(asmFunc, updateCb, config)
 {
   const funcName = asmFunc.name || "(???)";
-  if(config.reorder)
+  if(!config.reorder) {
+    fillDelaySlots(asmFunc);
+    return;
+  }
+
+  let costBest = evalFunctionCost(asmFunc);
+  asmFunc.cyclesBefore = costBest;
+  //const worker = WorkerThreads.getInstance();
+  const poolSize = POOL_SIZE;
+
+  const costInit = costBest;
+  let totalTime = 0;
+  let maxTime = config.optimizeTime || 10_000;
+  console.log(`Starting optimization with max. time: ${new Date(maxTime).toISOString().substr(11, 8)}, worker pool size: ${poolSize}`);
+
+  let lastRandPick = cloneFunction(asmFunc);
+
+  // Main iteration loop
+  let time = performance.now();
+  let timeEnd = time + maxTime;
+  let i = 0;
+  let stepsSinceLastOpt = 0;
+  let consecutiveSame = 0;
+  while(totalTime < maxTime)
   {
-    let costBest = evalFunctionCost(asmFunc);
-    asmFunc.cyclesBefore = costBest;
-    //const worker = WorkerThreads.getInstance();
-    const poolSize = POOL_SIZE;
-
-    const costInit = costBest;
-    console.log("costOpt", costInit);
-
-    let totalTime = 0;
-    let maxTime = config.optimizeTime || 10_000;
-    console.log(`Starting optimization with max. time: ${new Date(maxTime).toISOString().substr(11, 8)}, worker pool size: ${poolSize}`);
-
-    let lastRandPick = cloneFunction(asmFunc);
-    let anyRandPick = cloneFunction(asmFunc);
-    let historyBest = [];
-
-    // Main iteration loop
-    let time = performance.now();
-    let timeEnd = time + maxTime;
-    let i = 0;
-    while(totalTime < maxTime)
+    if(i !== 0 && (i % 1000) === 0)
     {
-      if(i !== 0 && (i % 400) === 0)
-      {
-        const dur = performance.now() - time;
-        totalTime += dur;
-        console.log(`[${funcName}] Step: ${i}, Left: ${(maxTime - totalTime).toFixed(4)}ms | Time: ${dur.toFixed(4)}s`);
-        time = performance.now();
-      }
-
-      if (performance.now() > timeEnd) {
-        console.log(`[${funcName}] Timeout after ${i} iterations.`);
-        break;
-      }
-
-      const funcCopy = cloneFunction(asmFunc);
-
-      // Variants per interation
-      let bestAsm = [...funcCopy.asm];
-      let results = [];
-      //console.time("reorderRound");
-      for(let s=0; s<poolSize; ++s)
-      {
-        let refFunc = funcCopy;
-        if(rand() < 0.1)refFunc = lastRandPick;
-        if(rand() < 0.2) {
-          const randPick = Math.floor(rand() * historyBest.length);
-          if(historyBest[randPick])refFunc = {...refFunc, asm: [...historyBest[randPick]]};
-        }
-
-        //results.push(worker.runTask("reorder", refFunc));
-        results.push(reorderRound(refFunc));
-      }
-
-      results = await Promise.all(results);
-
-      for(let s=0; s<results.length; ++s)
-      {
-        const {cost, asm} = results[s];
-        const isBetter = cost < costBest;
-        const isSame = cost === costBest;
-        const canUseTheSame = s < (results.length / 2);
-
-        if(isBetter || (canUseTheSame && isSame)) {
-          costBest = cost;
-          bestAsm = asm;
-          asmFunc.asm = asm;
-          asmFunc.cyclesAfter = cost;
-
-          if(isBetter) {
-            historyBest.push(asm);
-            updateCb(asmFunc);
-            console.log(`[${funcName}] \x1B[32m**** New Best for '${funcName}': ${costInit} -> ${cost} ****\x1B[0m`);
-          }
-        }
-      }
-
-      if(i % 3 === 0)lastRandPick = funcCopy;
-      if(rand() < 0.5)anyRandPick = funcCopy;
-      ++i;
-      await sleep();
+      const dur = performance.now() - time;
+      totalTime += dur;
+      console.log(`[${funcName}] Step: ${i}, Left: ${(maxTime - totalTime).toFixed(4)}ms | Time: ${dur.toFixed(4)}s`);
+      time = performance.now();
     }
 
-  } else {
-    fillDelaySlots(asmFunc);
+    if (performance.now() > timeEnd) {
+      console.log(`[${funcName}] Timeout after ${i} iterations.`);
+      break;
+    }
+
+    const funcCopy = cloneFunction(asmFunc);
+
+    // Variants per interation
+    const results = [];
+
+    if(stepsSinceLastOpt > MAX_STEPS_NO_CHANGE) {
+      ++consecutiveSame;
+      const stepsBack = consecutiveSame * SEARCH_BACK_STEPS_FACTOR;
+      const stepsFwd = consecutiveSame * SEARCH_FWD_STEPS_FACTOR;
+      console.log(`[${funcName}] ${stepsSinceLastOpt} steps since last improvement, generate new versions (${stepsBack} steps backward)`);
+
+
+      // try to get "unstuck" from a potential local-minimum
+      // this works by intentionally generating worse versions of the function (aka walking uphill)
+      // which my discover a new path to a smaller minimum
+      for(let s=0; s<SEARCH_VARIANT_SEARCH; ++s) {
+        let [worseCopy, maxCost] = generateWorseFunction(funcCopy, stepsBack);
+        for(let t=0; t<stepsFwd; ++t) {
+          const worseCopyTry = cloneFunction(worseCopy);
+          reorderRound(worseCopyTry);
+          const cost = evalFunctionCost(worseCopyTry);
+          if(cost < maxCost) {
+            // we found a better version, use that instead
+            worseCopy.asm = worseCopyTry.asm;
+            maxCost = cost;
+          }
+        }
+
+        results.push(reorderRound(worseCopy));
+      }
+      for(let s=SEARCH_VARIANT_SEARCH; s<poolSize; ++s) {
+        results.push(reorderRound(rand() < 0.1 ? lastRandPick : funcCopy));
+      }
+
+      stepsSinceLastOpt = 0;
+    } else {
+      //console.time("reorderRound");
+      for(let s=0; s<poolSize; ++s) {
+        results.push(reorderRound(rand() < 0.1 ? lastRandPick : funcCopy));
+      }
+    }
+
+    for(let s=0; s<results.length; ++s)
+    {
+      const {cost, asm} = results[s];
+      const isBetter = cost < costBest;
+      const isSame = cost === costBest;
+      const canUseTheSame = s < (results.length / 4);
+
+      if(isBetter || (canUseTheSame && isSame)) {
+        costBest = cost;
+        asmFunc.asm = asm;
+        asmFunc.cyclesAfter = cost;
+
+        if(isBetter) {
+          if(updateCb)updateCb(asmFunc);
+          console.log(`[${funcName}] \x1B[32m**** New Best for '${funcName}': ${costInit} -> ${cost} ****\x1B[0m`);
+          stepsSinceLastOpt = 0;
+          consecutiveSame = 0;
+        }
+      }
+    }
+
+    if(i % 3 === 0)lastRandPick = funcCopy;
+    ++i;
+    ++stepsSinceLastOpt;
+    if(updateCb)await sleep();
   }
 }
