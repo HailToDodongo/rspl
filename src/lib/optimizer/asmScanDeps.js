@@ -207,6 +207,18 @@ function getRegisterMask(regs)
   return regMask;
 }
 
+function getRegisterMaskStalls(regs)
+{
+  let regMask = BigInt(0);
+  for(const r of regs) {
+    regMask |= 1n << BigInt(r);
+  }
+  return [
+    Number((regMask >> 32n)),
+    Number(regMask & 0xffffffffn)
+  ];
+}
+
 /**
  * Expands vector registers into separate lanes.
  * Does nothing for scalar registers.
@@ -321,8 +333,10 @@ export function asmInitDep(asm)
     asm.depsTargetMask = 0n;
     asm.depsBlockSourceMask = REG_MASK_ALL;
     asm.depsBlockTargetMask = REG_MASK_ALL;
-    asm.depsStallSourceMask = 0n;
-    asm.depsStallTargetMask = 0n;
+    asm.depsStallSourceMask0 = 0;
+    asm.depsStallSourceMask1 = 0;
+    asm.depsStallTargetMask0 = 0;
+    asm.depsStallTargetMask1 = 0;
     asm.barrierMask = 0;
     asm.depsArgMask = 0n;
     return;
@@ -358,8 +372,12 @@ export function asmInitDep(asm)
   asm.depsStallSourceIdx = depsStallSource.map(reg => REG_STALL_INDEX_MAP[reg]);
   asm.depsStallTargetIdx = depsStallTarget.map(reg => REG_STALL_INDEX_MAP[reg]);
 
-  asm.depsStallSourceMask = getRegisterMask(depsStallSource);
-  asm.depsStallTargetMask = getRegisterMask(depsStallTarget);
+  const [src0, src1] = getRegisterMaskStalls(asm.depsStallSourceIdx);
+  const [tgt0, tgt1] = getRegisterMaskStalls(asm.depsStallTargetIdx);
+  asm.depsStallSourceMask0 = src0;
+  asm.depsStallSourceMask1 = src1;
+  asm.depsStallTargetMask0 = tgt0;
+  asm.depsStallTargetMask1 = tgt1;
 
   asm.barrierMask = 0;
   for(const anno of asm.annotations) {

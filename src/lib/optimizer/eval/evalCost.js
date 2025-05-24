@@ -104,8 +104,10 @@ export function evalFunctionCost(asmFunc)
       && !(branchStep === BRANCH_STEP_BRANCH) // cannot dual issue if in delay slot
       && !(op.opFlags & OP_FLAG_IS_BRANCH) // cannot dual issue with the delay slot
       // if a vector reg is written to, and the next instr. reads from it, do not dual issue
-      && (op.depsStallTargetMask & opNext.depsStallSourceMask) === 0n
-      && (op.depsStallTargetMask & opNext.depsStallTargetMask) === 0n;
+      && (op.depsStallTargetMask0 & opNext.depsStallSourceMask0) === 0
+      && (op.depsStallTargetMask1 & opNext.depsStallSourceMask1) === 0
+      && (op.depsStallTargetMask0 & opNext.depsStallTargetMask0) === 0
+      && (op.depsStallTargetMask1 & opNext.depsStallTargetMask1) === 0;
 
     if(canDualIssue) {
       let ctrlRWMask = opNext.depsSourceMask | opNext.depsTargetMask; // incl. control regs here as an exception

@@ -42,8 +42,10 @@ declare global
         depsStallSourceIdx: number[];
         depsStallTargetIdx: number[];
 
-        depsStallSourceMask: BigInt;
-        depsStallTargetMask: BigInt;
+        depsStallSourceMask0: number;
+        depsStallSourceMask1: number;
+        depsStallTargetMask0: number;
+        depsStallTargetMask1: number;
         opFlags: number;
         labelEnd: string; // sets the end for a block
 
