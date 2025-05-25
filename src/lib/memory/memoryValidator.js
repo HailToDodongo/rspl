@@ -56,12 +56,17 @@ export const validateMemory = (ast, states) =>
     const byteSize = TYPE_SIZE[stateVar.varType] * arraySize;
     let align = stateVar.align || (2 ** TYPE_ALIGNMENT[stateVar.varType]);
 
-    let alignDiff = currentAddr % (align);
-    if(alignDiff > 0) {
-      state.logInfo(`Info: Alignment gap (${alignDiff} bytes) between ${lastVar.varName} and ${stateVar.varName}`);
+    let newAddr = currentAddr + byteSize;
+    if(newAddr % align !== 0) {
+      newAddr += align - (newAddr % align);
     }
 
-    currentAddr += alignDiff + byteSize;
+    let alignDiff = (newAddr - currentAddr) % align;
+    if(alignDiff > 0) {
+      state.logInfo(`Info: Alignment gap (${alignDiff} bytes) between ${lastVar.varName} and ${stateVar.varName} at 0x${currentAddr.toString(16)}`);
+    }
+
+    currentAddr = newAddr;
     lastVar = stateVar;
   }
 };
