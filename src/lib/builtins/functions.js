@@ -598,7 +598,21 @@ function print(varRes, args, swizzle)
   if(args.length === 0)state.throwError("Builtin printf() requires at least one argument!", args[0]);
   // only registers, no constants
   for(const arg of args) {
-    if(arg.type === "num")state.throwError("Builtin print() requires all arguments to be variables!", arg);
+    if(arg.type === "num")state.throwError("Builtin print() requires all arguments to be variables or strings!", arg);
+  }
+
+  const mainType = args[0].type;
+  for(const arg of args) {
+    if(arg.type !== mainType)state.throwError("Builtin print() requires all arguments to be of the same type!", arg);
+  }
+
+  if(mainType === "string") {
+    return [
+      asmInline(".set macro", ["# print"]),
+      asmInline("emux_log_string", args.map(arg => `"${arg.value}"`)),
+      asmInline(".set noat", ["# print"]),
+      asmInline(".set nomacro", ["# print"])
+    ];
   }
 
   args = args.map(arg => {
