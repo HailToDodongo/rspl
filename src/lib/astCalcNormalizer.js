@@ -148,13 +148,16 @@ function printParts(parts) {
  */
 export function astCalcNormalize(st, astState)
 {
-  const newStm = [];
-  if(st.assignType !== "=") {
-    state.throwError("@TODO: multiple calculation in an increment not supported!", st);
-  }
-
   // First flatten out the linked-list structure into an array of operators, brackets, and vars
   let parts = [];
+
+  if(st.assignType !== "=") {
+    const expOp = st.assignType.substring(0, st.assignType.length-1);
+    parts.push({val: {type: 'VarName', value: st.varName}, swizzle: st.swizzle});
+    parts.push(expOp);
+    parts.push("(");
+  }
+
   for(let i=0; i<st.calc.groupStart; ++i)parts.push("(");
   parts.push({val: st.calc.left, swizzle: st.calc.swizzleLeft});
 
@@ -165,15 +168,33 @@ export function astCalcNormalize(st, astState)
     for(let i=0; i<part.groupEnd; ++i)parts.push(")");
   }
 
-  //console.log(parts);
+  if(st.assignType !== "=") {
+    parts.push(")");
+    st.assignType = "=";
+    st.calc.type = 'calcLR';
+  }
+
   parts = partsToTree(parts)
-  parts = applyPrecedence(parts);
+  return applyPrecedence(parts);
+}
+
+/**
+ * Converts a normalized AST calculation into ASM.
+ * This step is deferred from the normalization stage into actual ASM generation,
+ * this is done to allow for temp. regs to be used on a per-case basis, as well
+ * as cont-eval with values per use-case.
+ *
+ * @param st {ASTNestedCalc}
+ * @return {ASTStatement[]}
+ */
+export function astCalcPartsToASM(st)
+{
+  let parts = structuredClone(st.parts);
   parts = partsEval(parts);
   if(!Array.isArray(parts))parts = [parts];
-  //console.log("EVAL" , printParts(parts));
 
   if(parts.length === 1) {
-    newStm.push({
+    return [{
       type: "varAssignCalc",
       varName: st.varName,
       calc:  {
@@ -182,49 +203,102 @@ export function astCalcNormalize(st, astState)
       },
       assignType: "=",
       line: st.line,
-    })
-    return newStm;
+    }];
   }
 
-  let lastLeft = st.calc.left;
-  let lastLeftSwizzle = st.swizzle;
+  let tmpVarBaseName = "__tmp" + st.line + "_";
+  let tmpVarStack = [];
+  const targetType = state.getRequiredVar(st.varName, "syntax expansion").type;
 
-  // now turn into actual individual assignments
-  let firstPart = parts[0];
-  for(let i=1; i<parts.length; i+=2) {
-    const op = parts[i];
-    const part = parts[i+1];
-    if(Array.isArray(part)) {
-      console.log(printParts(parts));
-      state.throwError("@TODO: Nested brackets not supported!", part);
-    }
+  /**
+   * Flattens out an array of statement into a single variable assignment.
+   * This will insert all calculations into "newStm" and returns a new part
+   * that will contain the target variable of all those statements.
+   *
+   * @param {ASTStatement[]} newStm
+   * @param {ASTCalcMultiPart[]} parts
+   * @param {string} targetVar
+   * @param {Swizzle} targetSwizzle
+   * @return {{newStm: ASTStatement[], part: ASTCalcMultiPart}}
+   */
+  const flattenPartArray = (parts, targetSwizzle) => {
+    const tmpVarName = tmpVarBaseName + tmpVarStack.length;
+    tmpVarStack.push(tmpVarName);
 
-    /** @type {ASTCalcLR} */
-    const calcLR = {
-      type: "calcLR",
-      right: part.val,
-      op,
-      swizzleRight: part.swizzle,
-      left: lastLeft,
-      swizzleLeft: lastLeftSwizzle
+    return {
+      newStm: [{
+          type: 'varDecl',
+          varName: tmpVarName,
+          reg: undefined,
+          varType: targetType,
+          isConst: false,
+        },
+        ...partsToAsm(parts, tmpVarName, undefined)
+      ],
+      part: {
+        val: {type: 'VarName', value: tmpVarName},
+        swizzle: targetSwizzle,
+      }
     };
+  };
 
-    const stateVar = astState.find(s => s.varName === part.val.value);
-    if(stateVar) {
-      //calcLR.type = "calcNum";
-      calcLR.right = {type: 'num', value: `%lo(${part.val.value})`};
+  /**
+   * Converts a list of (potentially nested) parts into ASM statements.
+   * @param {ASTCalcMultiPart[]} parts
+   * @param targetVar
+   * @param targetSwizzle
+   * @return {ASTStatement[]}
+   */
+  const partsToAsm = (parts, targetVar, targetSwizzle) => {
+    const newStm = [];
+    if(Array.isArray(parts[0])) {
+      const res = flattenPartArray(parts[0], targetSwizzle);
+      parts[0] = res.part;
+      newStm.push(...res.newStm);
     }
 
-    newStm.push({
-      type: "varAssignCalc",
-      varName: st.varName,
-      calc: calcLR,
-      assignType: "=",
-      line: st.line,
-    });
-    // now use result as left side
-    lastLeft = {type: 'VarName', value: st.varName};
-    lastLeftSwizzle = st.swizzle;
-  }
-  return newStm;
+    let lastLeft = parts[0].val;
+    let lastLeftSwizzle = parts[0].swizzle;
+
+    // now turn into actual individual assignments
+    //console.log("EVAL" , printParts(parts), parts[0]);
+
+    for(let i=1; i<parts.length; i+=2) {
+      const op = parts[i];
+      let part = parts[i+1];
+
+      if(Array.isArray(part)) {
+        const res = flattenPartArray(part, targetSwizzle);
+        part = res.part;
+        newStm.push(...res.newStm);
+      }
+
+      const stateVar = state.memVarMap[part.val.value];
+
+      newStm.push({
+        type: "varAssignCalc",
+        varName: targetVar,
+        calc: {
+          type: "calcLR", op,
+          left: lastLeft,
+          swizzleLeft: lastLeftSwizzle,
+          right: stateVar ? {type: 'num', value: `%lo(${part.val.value})`} : part.val,
+          swizzleRight: part.swizzle,
+        },
+        assignType: "=",
+        line: st.line,
+      });
+
+      // now use result as left side
+      lastLeft = {type: 'VarName', value: targetVar};
+      lastLeftSwizzle = targetSwizzle;
+    }
+
+    return newStm;
+  };
+
+  return [
+    ...partsToAsm(parts, st.varName, st.swizzle),
+    ...tmpVarStack.map(varName => ({type: 'varUndef', varName}))
+  ];
 }

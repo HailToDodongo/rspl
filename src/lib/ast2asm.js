@@ -16,6 +16,7 @@ import {POW2_SWIZZLE_VAR} from "./syntax/swizzle.js";
 import {LABEL_CMD_LOOP} from "./builtins/libdragon.js";
 import scalar from "./operations/scalar";
 import {ANNOTATIONS, getAnnotationVal} from "./syntax/annotations.js";
+import {astCalcPartsToASM} from "./astCalcNormalizer.js";
 
 const VECTOR_TYPES = ["vec16", "vec32"];
 
@@ -379,6 +380,11 @@ function scopedBlockToASM(block, args = [], isCommand = false)
         state.pushScope();
         res.push(...scopedBlockToASM(st));
         state.popScope();
+      break;
+
+      case "nestedCalc":
+        const ast = astCalcPartsToASM(st);
+        res.push(...scopedBlockToASM({statements: ast}));
       break;
 
       default:

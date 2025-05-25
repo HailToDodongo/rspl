@@ -156,6 +156,75 @@ const CASES = [
             a = b + ((3 + 2) * 10);`,
   },
   {
+    name: 'Multi+Calc 4 - Scalar',
+    srcA: `u32 a,b,c,d;
+            u32 tmp = b + c;
+            a = tmp >> d;
+            `,
+    srcB: `u32 a,b,c,d;
+            a = (b + c) >> d;
+            `,
+  },
+  {
+    name: 'Multi+Calc 5 - Scalar',
+    srcA: `u32 a,b,c,d;
+            u32 tmp0 = b + c;
+            u32 tmp1 = d - a;
+            a = tmp0 >> tmp1;
+            `,
+    srcB: `u32 a,b,c,d;
+            a = (b + c) >> (d - a);
+            `,
+  },
+    {
+    name: 'Multi+Calc 5.1 - Scalar',
+    srcA: `u32 a,b,c,d;
+            u32 tmp0 = c + d;
+            a = a + tmp0;
+            `,
+    srcB: `u32 a,b,c,d;
+            a = a + (c + d);
+            `,
+  },
+  {
+    name: 'Multi+Calc 6 - Vector deeply nested',
+    srcA: `vec16<$v02> a,b,c,d;           
+          vec16 tmp0, tmp1, tmp2, tmp3, tmp4;
+
+          tmp1 = b * c;
+          tmp0 = a + tmp1;
+                             
+          tmp4 = a + 4;
+          tmp3 = tmp4 * c;
+          tmp2 = d - tmp3;
+          
+          a = tmp0 - tmp2;
+            `,
+    srcB: `vec16<$v02> a,b,c,d;
+           a = (a + b * c) - (d - (a + (2+2)) * c);
+            `,
+  },
+  {
+    name: 'Multi+Calc 7 - Scalar Increment',
+    srcA: `u32 a,b,c,d;
+            u32 tmp0 = b + c;
+            a = a + tmp0;
+            `,
+    srcB: `u32 a,b,c,d;
+            a += b + c;
+            `,
+  },
+  {
+    name: 'Multi+Calc - Vector + Cast',
+    srcA: `vec16 a,b,c,d;
+            vec16 tmp = b + c;
+            a = tmp:sfract * d:sfract;
+            `,
+    srcB: `vec16 a,b,c,d;
+            a = (b + c) * d:sfract;
+            `,
+  },
+  {
     name: 'Multi+Calc - Scalar Const Op-Test',
     srcA: `u32 a,b,c,d;
             ARITH:
@@ -222,7 +291,7 @@ const CASES = [
             a = b + (3 * 10) + 1;
             `,
   },
-    {
+  {
     name: 'Multi+Calc - Scalar Only',
     srcA: `u32 a,b,c,d;
             a = 10;
