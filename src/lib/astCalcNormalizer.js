@@ -169,7 +169,22 @@ export function astCalcNormalize(st, astState)
   parts = partsToTree(parts)
   parts = applyPrecedence(parts);
   parts = partsEval(parts);
-  //console.log("EVAL" ,printParts(parts));
+  if(!Array.isArray(parts))parts = [parts];
+  //console.log("EVAL" , printParts(parts));
+
+  if(parts.length === 1) {
+    newStm.push({
+      type: "varAssignCalc",
+      varName: st.varName,
+      calc:  {
+        type: "calcNum",
+        right: parts[0].val,
+      },
+      assignType: "=",
+      line: st.line,
+    })
+    return newStm;
+  }
 
   let lastLeft = st.calc.left;
   let lastLeftSwizzle = st.swizzle;
@@ -183,7 +198,6 @@ export function astCalcNormalize(st, astState)
       console.log(printParts(parts));
       state.throwError("@TODO: Nested brackets not supported!", part);
     }
-
 
     /** @type {ASTCalcLR} */
     const calcLR = {
