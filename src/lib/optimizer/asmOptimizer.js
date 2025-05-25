@@ -21,6 +21,7 @@ import {mergeSequence} from "./pattern/mergeSequence.js";
 import {removeDeadCode} from "./pattern/removeDeadCode.js";
 import {sleep} from "../utils.js";
 import {commandAlias} from "./pattern/commandAlias.js";
+import {assertCompare} from "./pattern/assertCompare.js";
 //import {registerTask, WorkerThreads} from "../workerThreads.js";
 
 /**
@@ -37,6 +38,7 @@ export function asmOptimizePattern(asmFunc)
   tailCall(asmFunc);
   dedupeImmediate(asmFunc);
   mergeSequence(asmFunc);
+  assertCompare(asmFunc);
   removeDeadCode(asmFunc);
   commandAlias(asmFunc);
 }

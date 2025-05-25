@@ -20,7 +20,7 @@ import opsVector from "../operations/vector";
 import {asm, asmFunction, asmInline, asmNOP} from "../intsructions/asmWriter.js";
 import {isTwoRegType, isVecType, TYPE_SIZE} from "../dataTypes/dataTypes.js";
 import {POW2_SWIZZLE_VAR, SWIZZLE_MAP, SWIZZLE_MAP_KEYS_STR} from "../syntax/swizzle.js";
-import {DMA_FLAGS} from "./libdragon.js";
+import {DMA_FLAGS, LABEL_ASSERT} from "./libdragon.js";
 import scalar from "../operations/scalar";
 
 function assertArgsNoSwizzle(args, offset = 0) {
@@ -863,6 +863,33 @@ function select(varRes, args, swizzle) {
   ];
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg[]} args
+ * @param {?Swizzle} swizzle
+ * @return {ASM[]}
+ */
+function assert(varRes, args, swizzle) {
+  if(swizzle)state.throwError("Builtin assert() cannot use swizzle!", varRes);
+  if(varRes)state.throwError("Builtin assert() cannot have a left side!", varRes);
+  if(args.length !== 1)state.throwError("Builtin assert() requires exactly one argument!", args[0]);
+
+  const arg = args[0];
+  if(arg.type !== "num") {
+    state.throwError("Builtin assert() requires the argument to be a number!", arg);
+  }
+  const errorCode = parseInt(arg.value, 10);
+  if(errorCode < 0 || errorCode > 0xFFFF) {
+    state.throwError("Builtin assert() requires the argument to be a number between 0 and 0xFFFF!", arg);
+  }
+
+  return [
+    asm('lui', [REG.AT, errorCode]),
+    asm("j", [LABEL_ASSERT]),
+    asmNOP(),
+  ];
+}
+
 export default {
   load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
   load_transposed, store_transposed, transpose,
@@ -873,5 +900,6 @@ export default {
   set_dma_addr_rsp, set_dma_addr_rdram, set_dma_write, set_dma_read,
   dma_in, dma_out, dma_in_async, dma_out_async, dma_await,
   invert_half, invert_half_sqrt, invert, swap, select,
-  get_cmd_address, get_vcc, max, min, load_arg
+  get_cmd_address, get_vcc, max, min, load_arg,
+  assert
 };

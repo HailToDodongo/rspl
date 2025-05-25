@@ -808,6 +808,17 @@ vec16<$v16> vecDst0, vecDst1, vecDst2, vecDst3, vecDst4, vecDst5, vecDst6, vecDs
 vecDst0 = transpose(vecSrc0, buff, 8, 8);
 ```
 
+### `assert(code)`
+Asserts with a given code (0 - 0xFFFF).<br/>
+For conditional checks, wrap this in a branch (which has special optimizations to keep it short). 
+
+Example:
+```c++
+u32 someBuff;
+if(someBuff == 0)assert(0x42);
+```
+
+
 ### `asm(x)`
 Injects raw asm/text into the output, no checks are performed<br>
 Note that this acts as a barrier for optimizations / reordering.<br>
