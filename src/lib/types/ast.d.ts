@@ -113,11 +113,6 @@ declare global
         args: ASTFuncArg[];
     };
 
-    type ASTComment = ASTStatementBase & {
-        type: 'comment';
-        comment: string;
-    };
-
     type ASTLabelDecl = ASTStatementBase & {
         type: 'labelDecl';
         name: string;
@@ -155,13 +150,14 @@ declare global
     };
 
     type ASTStatement = ASTScopedBlock | ASTIf | ASTWhile | ASTLoop | ASTDeclAssign | ASTDeclMulti
-        | ASTDecl | ASTFuncCall | ASTComment | ASTDeclAlias | ASTAssignCalc
+        | ASTDecl | ASTFuncCall | ASTDeclAlias | ASTAssignCalc
         | ASTLabelDecl | ASTGoto | ASTBreak | ASTExit | ASTContinue | ASTVarUndef | ASTAnnotation;
 
     type AST = {
         includes: string[];
         state: ASTState[];
-        tempState: ASTState[];
+        stateData: ASTState[];
+        stateBss: ASTState[];
         functions: ASTFunc[];
         postIncludes: string[];
         defines: Record<string, string>;

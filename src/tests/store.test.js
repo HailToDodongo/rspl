@@ -163,4 +163,53 @@ describe('Store', () =>
   jr $ra
   nop`);
   });
+
+    test('Vector - Transposed-Store', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
+      {
+        u32<$t0> ptr;
+        vec16<$v08> a;
+        vec16<$v16> b;
+        
+        store_transposed(a, 0, ptr, 0x00);
+        store_transposed(a, 0, ptr);
+        store_transposed(a, 1, ptr, 0x10);
+        store_transposed(b, 4, ptr, 0x20);
+        store_transposed(b, 7, ptr, 0x30);
+        END:
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  stv $v08, 0, 0, $t0
+  stv $v08, 0, 0, $t0
+  stv $v08, 2, 16, $t0
+  stv $v16, 8, 32, $t0
+  stv $v16, 14, 48, $t0
+  END:
+  jr $ra
+  nop`);
+  });
+
+  test('Invalid Transpose Store - reg', async () => {
+    const src = `function test() {
+      u32<$t0> ptr;
+      vec32<$v04> v;
+      store_transposed(v, 0, ptr, 0x00);
+    }`;
+
+   await expect(() => transpileSource(src, CONF))
+    .rejects.toThrowError(/Error in test, line 4: Builtin store_transposed\(\) requires target register to be \$v00, \$v08, \$v16 or \$v24!/);
+  });
+
+  test('Invalid Transpose Store - offset', async () => {
+    const src = `function test() {
+      u32<$t0> ptr;
+      vec32<$v16> v;
+      store_transposed(v, 0, ptr, 0x04);
+    }`;
+
+   await expect(() => transpileSource(src, CONF))
+    .rejects.toThrowError(/Error in test, line 4: Builtin store_transposed\(\) requires offset to be multiple of 16/);
+  });
 });

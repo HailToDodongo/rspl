@@ -37,6 +37,25 @@ describe('Preproc - Base', () =>
     `.trim());
   });
 
+  test('Define - Deps', () => {
+    const src = `
+      #define TEST 42
+      #define TEST_AB TEST+1
+      
+      macro test() {
+        u32 x = TEST;
+        u32 y = TEST_AB;
+      }
+    `;
+    const res = preprocess(src, CONF);
+    expect(res.trim()).toBe(`
+      macro test() {
+        u32 x = 42;
+        u32 y = 42+1;
+      }
+    `.trim());
+  });
+
   test('Define - Partial', () => {
     const src = `
       #define my 42

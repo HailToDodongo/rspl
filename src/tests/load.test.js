@@ -201,6 +201,55 @@ describe('Load', () =>
   nop`);
   });
 
+  test('Vector - Transposed-Load', async () => {
+    const {asm, warn} = await transpileSource(`function test() 
+      {
+        u32<$t0> ptr;
+        vec16<$v08> a;
+        vec16<$v16> b;
+        
+        a = load_transposed(0, ptr, 0x00);
+        a = load_transposed(0, ptr);
+        a = load_transposed(1, ptr, 0x10);
+        b = load_transposed(4, ptr, 0x20);
+        b = load_transposed(7, ptr, 0x30);
+        END:
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  ltv $v08, 0, 0, $t0
+  ltv $v08, 0, 0, $t0
+  ltv $v08, 2, 16, $t0
+  ltv $v16, 8, 32, $t0
+  ltv $v16, 14, 48, $t0
+  END:
+  jr $ra
+  nop`);
+  });
+
+  test('Invalid Transpose Load - reg', async () => {
+    const src = `function test() {
+      u32<$t0> ptr;
+      vec32<$v04> v;
+      v = load_transposed(0, ptr, 0x00);
+    }`;
+
+   await expect(() => transpileSource(src, CONF))
+    .rejects.toThrowError(/Error in test, line 4: Builtin load_transposed\(\) requires result register to be \$v00, \$v08, \$v16 or \$v24!/);
+  });
+
+  test('Invalid Transpose Load - offset', async () => {
+    const src = `function test() {
+      u32<$t0> ptr;
+      vec32<$v16> v;
+      v = load_transposed(0, ptr, 0x04);
+    }`;
+
+   await expect(() => transpileSource(src, CONF))
+    .rejects.toThrowError(/Error in test, line 4: Builtin load_transposed\(\) requires offset to be multiple of 16/);
+  });
+
   test('Invalid vector load (const not % 16)', async () => {
     const src = `function test() {
       u32<$t0> a;
@@ -209,5 +258,19 @@ describe('Load', () =>
 
    await expect(() => transpileSource(src, CONF))
     .rejects.toThrowError(/line 3: Invalid full vector-load offset, must be a multiple of 16, 5 given/);
+  });
+
+  test('Invalid vector load (vector as addr)', async () => {
+    const src = `
+    state {
+      u32 TEST_CONST;
+    }
+    function test() {
+      vec32<$v01> a; 
+      a = load(a, TEST_CONST);
+    }`;
+
+   await expect(() => transpileSource(src, CONF))
+    .rejects.toThrowError(/Error in test, line 7: Builtin load\(\) requires first argument to be a scalar!/);
   });
 });

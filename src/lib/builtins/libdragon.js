@@ -33,3 +33,4 @@ export const DMA_FLAGS = {
 };
 
 export const LABEL_CMD_LOOP = "RSPQ_Loop";
+export const LABEL_ASSERT = "assertion_failed";

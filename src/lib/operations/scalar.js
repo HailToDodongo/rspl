@@ -3,13 +3,23 @@
 * @license Apache-2.0
 */
 import state from "../state";
-import {isSigned, toHex, u32InS16Range, u32InU16Range} from "../dataTypes/dataTypes.js";
+import {isSigned, isVecType, toHex, u32InS16Range, u32InU16Range} from "../dataTypes/dataTypes.js";
 import {fractReg, intReg, REG} from "../syntax/registers";
-import {asm, asmComment} from "../intsructions/asmWriter.js";
+import {asm} from "../intsructions/asmWriter.js";
 import {SWIZZLE_MAP} from "../syntax/swizzle.js";
 
 const MUL_TO_SHIFT = {}
 for(let i = 0; i < 32; i++)MUL_TO_SHIFT[Math.pow(2, i)] = i;
+
+/**
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight
+ */
+function assertScalarVars(varLeft, varRight = undefined) {
+  if((varLeft.type || '').startsWith("vec") || (varRight && varRight.reg && varRight.type.startsWith("vec"))) {
+    state.throwError("Scalar-Operation requires all variables to be scalars!");
+  }
+}
 
 /**
  * Loads a 32bit integer into a register with as few instructions as possible.
@@ -61,7 +71,10 @@ function opMove(varRes, varRight)
     if(varRight.swizzle && !varRight.type.startsWith("vec")) {
       state.throwError("Swizzling not allowed for scalar operations!");
     }
-    if(varRes.reg === varRight.reg)return [asmComment("NOP: self-assign!")];
+    if(varRes.reg === varRight.reg) {
+      state.logWarning("Self-assignment detected, this is a NOP!", varRes);
+      return [];
+    }
     if(varRight.swizzle) {
       const swizzle =  SWIZZLE_MAP[varRight.swizzle];
       if(varRight.type === "vec16") {
@@ -117,6 +130,9 @@ function opStore(varRes, varOffsets)
   if(!varLoc.reg) {
     offsets.push({type: "var", value: varLoc.name});
   }
+  if(isVecType(varLoc.type) && !varLoc.arraySize) {
+    state.throwError("store base-addresses must be in a scalar register!", varLoc);
+  }
 
   let offsetStr = offsets.map(v => v.value).join(" + ");
   if(offsets.some(o => o.type !== "num"))offsetStr = `%lo(${offsetStr})`;
@@ -143,6 +159,8 @@ function opStore(varRes, varOffsets)
  */
 function opRegOrImmediate(opReg, opImm, rangeCheckFunc, varRes, varLeft, varRight)
 {
+  assertScalarVars(varLeft, varRight);
+
   if(varRight.reg) {
     return [asm(opReg, [varRes.reg, varLeft.reg, varRight.reg])];
   }
@@ -169,6 +187,7 @@ function opRegOrImmediate(opReg, opImm, rangeCheckFunc, varRes, varLeft, varRigh
  */
 function opSub(varRes, varLeft, varRight)
 {
+  assertScalarVars(varLeft, varRight);
   if(varRight.reg) {
     return [asm("subu", [varRes.reg, varLeft.reg, varRight.reg])];
   }
@@ -183,6 +202,7 @@ function opSub(varRes, varLeft, varRight)
  * @returns {ASM[]}
  */
 function opAdd(varRes, varLeft, varRight) {
+  assertScalarVars(varLeft, varRight);
   return opRegOrImmediate("addu", "addiu", u32InS16Range, varRes, varLeft, varRight);
 }
 
@@ -194,6 +214,7 @@ function opAdd(varRes, varLeft, varRight) {
  */
 function opShiftLeft(varRes, varLeft, varRight)
 {
+  assertScalarVars(varLeft, varRight);
   if(typeof(varRight.value) === "string")state.throwError("Shift-Left cannot use labels!");
   if(varRight.value < 0 || varRight.value > 31) {
     state.throwError("Shift-Left value must be in range 0<x<32!");
@@ -214,6 +235,7 @@ function opShiftLeft(varRes, varLeft, varRight)
  */
 function opShiftRight(varRes, varLeft, varRight, logical)
 {
+  assertScalarVars(varLeft, varRight);
   if(typeof(varRight.value) === "string")state.throwError("Shift-Right cannot use labels!");
   if(varRight.value < 0 || varRight.value > 31) {
     state.throwError("Shift-Right value must be in range 0<x<32!");
@@ -285,6 +307,7 @@ function opBitFlip(varRes, varRight)
  * @returns {ASM[]}
  */
 function opMul(varRes, varLeft, varRight) {
+  assertScalarVars(varLeft, varRight);
   const shiftVal = MUL_TO_SHIFT[varRight.value || 0];
   if(varRight.reg || shiftVal === undefined) {
     state.throwError("Scalar-Multiplication only allowed with a power-of-two constant on the right side!\nFor example 'a = b * 4;' or 'a *= 8;' is allowed.", [varRes, varLeft, varRight]);
@@ -302,6 +325,7 @@ function opMul(varRes, varLeft, varRight) {
  * @returns {ASM[]}
  */
 function opDiv(varRes, varLeft, varRight) {
+  assertScalarVars(varLeft, varRight);
   const shiftVal = MUL_TO_SHIFT[varRight.value || 0];
   if(varRight.reg || shiftVal === undefined) {
     state.throwError("Scalar-Division only allowed with a power-of-two constant on the right side!\nFor example 'a = b / 4;' or 'a /= 8;' is allowed.", [varRes, varLeft, varRight]);

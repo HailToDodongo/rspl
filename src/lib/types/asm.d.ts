@@ -17,6 +17,7 @@ declare global
         reorderLineMax: number;
         cycle: number;
         stall: number;
+        paired: boolean;
     };
 
     type ASM = {
@@ -26,10 +27,9 @@ declare global
 
         label?: string;
         comment?: string;
-        funcArgs: string[];
 
-        depsSource: string[];
-        depsTarget: string[];
+        depsSourceIdx: number[];
+        depsTargetIdx: number[];
         barrierMask: number;
 
         depsArgMask: BigInt;
@@ -39,22 +39,14 @@ declare global
         depsBlockSourceMask: BigInt;
         depsBlockTargetMask: BigInt;
 
-        depsStallSource: string[];
-        depsStallTarget: string[];
+        depsStallSourceIdx: number[];
+        depsStallTargetIdx: number[];
 
-        depsStallSourceMask: BigInt;
-        depsStallTargetMask: BigInt;
-
-        opIsLoad: boolean;
-        opIsStore: boolean;
-        opIsBranch: boolean;
-        opIsImmovable: boolean;
-        opIsMemStallLoad: boolean;
-        opIsMemStallStore: boolean;
-        opIsVector: boolean;
-        isNOP: boolean;
-        isLikely: boolean;
-
+        depsStallSourceMask0: number;
+        depsStallSourceMask1: number;
+        depsStallTargetMask0: number;
+        depsStallTargetMask1: number;
+        opFlags: number;
         labelEnd: string; // sets the end for a block
 
         stallLatency: number;

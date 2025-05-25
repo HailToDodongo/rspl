@@ -25,6 +25,9 @@ function linesToCycles(lines)
   const func = {asm: lines};
   asmInitDeps(func);
   evalFunctionCost(func);
+  /*for(const line of lines) {
+    console.log(line.op, line.debug.stallReason);
+  }*/
   return lines.map(line => line.debug.cycle);
 }
 
@@ -586,6 +589,29 @@ describe('Eval - Cost', () =>
      7,
      8+2,
      11
+    ]);
+  });
+
+  // LTV will write to registers not directly visible in the ASM
+  test('Example - LTV', async () => {
+    const lines = textToAsmLines(`
+      addu $k0, $s2, $k1
+      vmacf $v17, $v18, $v16.e0
+      vmudn $v07, $v07, $v30.e7
+      ltv $v08, 4, 96, $s7
+      vmadn $v07, $v18, $v29.q0
+      sqv $v19, 0, 0, $s7
+      ltv $v08, 2, 112, $s7
+      vmudn $v06, $v06, $v30.e7
+      vmadn $v06, $v18, $v29.q1
+      slv $v17, 0, 20, $at
+      vor $v23, $v00, $v11
+      sltu $at, $s6, $k0
+    `);
+    const cycles = linesToCycles(lines);
+    expect(cycles).toEqual([
+      1,1,2,2,3,3,4,4,5,5,
+      8,8
     ]);
   });
 

@@ -4,7 +4,7 @@
 */
 
 import {ASM_TYPE} from "../../intsructions/asmWriter.js";
-import {BRANCH_OPS} from "../asmScanDeps.js";
+import {BRANCH_OPS, OP_FLAG_IS_NOP} from "../asmScanDeps.js";
 import {REG} from "../../syntax/registers.js";
 
 /**
@@ -43,7 +43,7 @@ export function removeDeadCode(asmFunc)
       lastSafeIndex = i; // incl. delay-slot
       break;
     }
-    if(asm.isNOP)continue;
+    if(asm.opFlags & OP_FLAG_IS_NOP)continue;
     break;
   }
 

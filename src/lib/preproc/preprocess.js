@@ -42,7 +42,11 @@ export function preprocess(src, defines = {}, fileLoader = undefined)
     {
       const parts = lineTrimmed.match(/#define\s+([a-zA-Z0-9_]+)\s+(.*)/);
       if(!parts)throw new Error(`Line ${i+1}: Invalid #define statement!`);
-      const [_, name, value] = parts;
+      let [_, name, value] = parts;
+
+      for (const data of Object.values(defines))  {
+        value = value.replace(data.regex, data.value);
+      }
 
       defines[name] = {
         regex: new RegExp(`\\b${name}\\b`, "g"),

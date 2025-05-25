@@ -160,11 +160,19 @@ export function writeASM(ast, functionsAsm, config)
     writeLine("  RSPQ_EmptySavedState");
   }
 
-  if(ast.tempState.length > 0) {
+  if(ast.stateData.length > 0) {
+    writeLine("");
+    for(const tmpVar of ast.stateData) {
+      if(tmpVar.extern)continue;
+      totalSaveByteSize += writeStateVar(tmpVar, writeLine);
+    }
+  }
+
+  if(ast.stateBss.length > 0) {
     writeLine("");
     writeLine(".bss");
     writeLine("  TEMP_STATE_MEM_START:");
-    for(const tmpVar of ast.tempState) {
+    for(const tmpVar of ast.stateBss) {
       if(tmpVar.extern)continue;
       totalSaveByteSize += writeStateVar(tmpVar, writeLine);
     }
@@ -187,6 +195,7 @@ export function writeASM(ast, functionsAsm, config)
 
     writeLine(block.name + ":");
 
+    let lastAsm = block.asm[0] || null;
     for(const asm of block.asm)
     {
       // Debug Information
@@ -206,28 +215,46 @@ export function writeASM(ast, functionsAsm, config)
         res.debug.lineStallMap[asm.debug.lineASMOpt] = asm.debug.stall;
       }
 
-      let debugInfo = asm.barrierMask
-        ? " ## Barrier: 0x" + asm.barrierMask.toString(16).toUpperCase()
-        : "";
+      let debugInfo = '';
 
-      if(asm.funcArgs && asm.funcArgs.length) {
-        debugInfo += " ## Args: " + asm.funcArgs.join(", ");
+      if(config.debugInfo)
+      {
+        if(asm.debug.lineRSPL) {
+          let cycleStr = '     ^';
+          let cycleDiff = asm.debug.cycle - lastAsm.debug.cycle;
+          if(cycleDiff !== 0) {
+            let stars = '';
+            if(cycleDiff > 1) {
+              stars = '*'.repeat(cycleDiff - 1);
+            }
+            cycleStr = (stars + asm.debug.cycle.toString()).padStart(6, ' ');
+          }
+
+          debugInfo += ` ## L:${asm.debug.lineRSPL.toString().padEnd(4, ' ')} | ${cycleStr} | ${state.sourceLines[asm.debug.lineRSPL-1] || ''}`;
+        }
+
+        if(asm.funcArgs && asm.funcArgs.length) {
+          debugInfo += " ## Args: " + asm.funcArgs.join(", ");
+        }
+
+        if(asm.barrierMask) {
+          debugInfo += " ## Barrier: 0x" + asm.barrierMask.toString(16).toUpperCase();
+        }
       }
 
-      if(asm.debug.lineRSPL) {
-        // debugInfo += " ## L:" + asm.debug.lineRSPL + " | " + (state.sourceLines[asm.debug.lineRSPL-1] || '');
-      }
 
       // ASM Text output
       switch (asm.type) {
         case ASM_TYPE.INLINE:
-        case ASM_TYPE.OP     : writeLine(`  ${stringifyInstr(asm)}${debugInfo}`);break;
+        case ASM_TYPE.OP     : writeLine(`  ${stringifyInstr(asm).padEnd(debugInfo ? 50 : 0,' ')}${debugInfo}`);break;
         case ASM_TYPE.LABEL  : writeLine(`  ${asm.label}:`);         break;
-        case ASM_TYPE.COMMENT: writeLine(`  ##${asm.comment}`);      break;
         default: state.throwError("Unknown ASM type: " + asm.type, asm);
       }
 
       totalTextSize += asm.type === ASM_TYPE.OP ? 4 : 0;
+      if(asm.type === ASM_TYPE.OP) {
+        lastAsm = asm;
+      }
     }
 
     for(const asm of block.asm)

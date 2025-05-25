@@ -20,7 +20,7 @@ import opsVector from "../operations/vector";
 import {asm, asmFunction, asmInline, asmNOP} from "../intsructions/asmWriter.js";
 import {isTwoRegType, isVecType, TYPE_SIZE} from "../dataTypes/dataTypes.js";
 import {POW2_SWIZZLE_VAR, SWIZZLE_MAP, SWIZZLE_MAP_KEYS_STR} from "../syntax/swizzle.js";
-import {DMA_FLAGS} from "./libdragon.js";
+import {DMA_FLAGS, LABEL_ASSERT} from "./libdragon.js";
 import scalar from "../operations/scalar";
 
 function assertArgsNoSwizzle(args, offset = 0) {
@@ -43,6 +43,10 @@ function load(varRes, args, swizzle)
   if(args.length > 2)state.throwError("Builtin load() requires 1 or 2 arguments!", args[0]);
 
   const argVar = state.getRequiredVarOrMem(args[0].value, "arg0");
+  if(argVar.reg && isVecType(argVar.type)) {
+    state.throwError("Builtin load() requires first argument to be a scalar!", args[0]);
+  }
+
   const argOffset = (args[1].type === "num")
     ? args[1]
     : state.getRequiredMem(args[1].value, "arg1");
@@ -113,6 +117,127 @@ function store_vec_u8(varRes, args, swizzle, isSigned = false) {
 
 function store_vec_s8(varRes, args, swizzle) {
   return store_vec_u8(varRes, args, swizzle, true);
+}
+
+const VALID_TRANSPOSE_REGS = ["$v00", "$v08", "$v16", "$v24"];
+
+function load_transposed(varRes, args, swizzle) {
+  if(swizzle)state.throwError("Builtin load_transposed() cannot use swizzle!", varRes);
+  if(!varRes)state.throwError("Builtin load_transposed() needs a left-side", varRes);
+  if(!isVecReg(varRes.reg))state.throwError("Builtin load_transposed() must store the result into a vector!", varRes);
+  if(args.length !== 2 && args.length !== 3)state.throwError("Builtin load_transposed() requires 2 or 3 arguments!", args[0]);
+  if(args[0].type !== 'num')state.throwError("Builtin load_transposed() requires first argument to be a number (row offset 0-7)!", args[0]);
+
+  let row = parseInt(args[0].value);
+  if(row < 0 || row > 7) {
+    state.throwError("Builtin load_transposed() requires first argument (row) to be a number between 0 and 7!", args[0]);
+  }
+
+  let offset = 0;
+  if(args.length === 3) {
+    if(args[2].type !== 'num')state.throwError("Builtin load_transposed() requires third argument to be a number (offset in steps of 0x10)!", args[2]);
+    offset = parseInt(args[2].value);
+    if(offset % 16 !== 0) {
+      state.throwError("Builtin load_transposed() requires offset to be multiple of 16!", args[2]);
+    }
+  }
+
+  const addrReg = state.getRequiredVar(args[1].value, "arg1");
+  if(isVecReg(addrReg.reg))state.throwError("Builtin load_transposed() requires second argument to be a scalar variable!", args[1]);
+  if(!VALID_TRANSPOSE_REGS.includes(varRes.reg)) {
+    state.throwError("Builtin load_transposed() requires result register to be $v00, $v08, $v16 or $v24!", varRes);
+  }
+
+  return [asm("ltv", [varRes.reg, row*2, offset, addrReg.reg])];
+}
+
+function store_transposed(varRes, args, swizzle) {
+  if(swizzle)state.throwError("Builtin store_transposed() cannot use swizzle!", varRes);
+  if(varRes)state.throwError("Builtin store_transposed() has no left-side", varRes);
+
+  if(args.length !== 3 && args.length !== 4)state.throwError("Builtin store_transposed() requires 3 or 4 arguments!", args[0]);
+  if(args[1].type !== 'num')state.throwError("Builtin store_transposed() requires second argument to be a number (row offset 0-7)!", args[0]);
+
+  const res = state.getRequiredVar(args[0].value, "arg0");
+  if(!isVecReg(res.reg))state.throwError("Builtin store_transposed() must store the result into a vector!", varRes);
+
+  let row = parseInt(args[1].value);
+  if(row < 0 || row > 7) {
+    state.throwError("Builtin store_transposed() requires second argument (row) to be a number between 0 and 7!", args[1]);
+  }
+
+  let offset = 0;
+  if(args.length === 4) {
+    if(args[3].type !== 'num')state.throwError("Builtin store_transposed() requires third argument to be a number (offset in steps of 0x10)!", args[2]);
+    offset = parseInt(args[3].value);
+    if(offset % 16 !== 0) {
+      state.throwError("Builtin store_transposed() requires offset to be multiple of 16!", args[3]);
+    }
+  }
+
+  const addrReg = state.getRequiredVar(args[2].value, "arg1");
+  if(isVecReg(addrReg.reg))state.throwError("Builtin store_transposed() requires third argument to be a scalar variable!", args[2]);
+  if(!VALID_TRANSPOSE_REGS.includes(res.reg)) {
+    state.throwError("Builtin store_transposed() requires target register to be $v00, $v08, $v16 or $v24!", res.reg);
+  }
+
+  return [asm("stv", [res.reg, row*2, offset, addrReg.reg])];
+}
+
+function transpose(varRes, args, swizzle) {
+  if(swizzle)state.throwError("Builtin transpose() cannot use swizzle!", varRes);
+  if(!varRes)state.throwError("Builtin transpose() needs a left-side", varRes);
+  if(!isVecReg(varRes.reg))state.throwError("Builtin transpose() must store the result into a vector!", varRes);
+  if(args.length !== 4)state.throwError("Builtin transpose() requires 4 arguments!", args[0]);
+
+  const varSrc = state.getRequiredVar(args[0].value, "arg0");
+  if(!isVecType(varSrc.type))state.throwError("Builtin transpose() requires first argument to be a vector!", args[0]);
+
+  const buffVar = state.getRequiredVar(args[1].value, "arg1");
+  if(isVecType(buffVar.type))state.throwError("Builtin transpose() requires second argument to be a scalar variable!", args[1]);
+  if(args[2].type !== "num")state.throwError("Builtin transpose() requires third argument to be the X dimension (1-8)!", args[2]);
+  if(args[3].type !== "num")state.throwError("Builtin transpose() requires fourth argument to be the Y dimension (1-8)!", args[3]);
+
+  const dimX = parseInt(args[2].value);
+  const dimY = parseInt(args[3].value);
+
+  if(dimX < 1 || dimX > 8 || dimY < 1 || dimY > 8) {
+    state.throwError("Builtin transpose() requires X and Y dimension to be between 1 and 8!", args[2]);
+  }
+
+  if(!VALID_TRANSPOSE_REGS.includes(varRes.reg)) {
+    state.throwError("Builtin transpose() requires target register to be $v00, $v08, $v16 or $v24!", varRes.reg);
+  }
+  if(!VALID_TRANSPOSE_REGS.includes(varSrc.reg)) {
+    state.throwError("Builtin transpose() requires source register to be $v00, $v08, $v16 or $v24!", varSrc.reg);
+  }
+
+  const isInPlace = varSrc.reg === varRes.reg;
+  const is8x8 = dimX > 4 || dimY > 4;
+
+  state.addAnnotation('Barrier', state.generateLabel());
+  const res = [
+    !isInPlace && asm("stv", [varSrc.reg, 0, 0x00, buffVar.reg]),
+    asm("stv", [varSrc.reg, 2, 0x10, buffVar.reg]),
+    asm("stv", [varSrc.reg, 4, 0x20, buffVar.reg]),
+    asm("stv", [varSrc.reg, 6, 0x30, buffVar.reg]),
+    is8x8 && asm("stv", [varSrc.reg, 8, 0x40, buffVar.reg]),
+    asm("stv", [varSrc.reg, 10, 0x50, buffVar.reg]),
+    asm("stv", [varSrc.reg, 12, 0x60, buffVar.reg]),
+    asm("stv", [varSrc.reg, 14, 0x70, buffVar.reg]),
+
+    asm("ltv", [varRes.reg, 14, 0x10, buffVar.reg]),
+    asm("ltv", [varRes.reg, 12, 0x20, buffVar.reg]),
+    asm("ltv", [varRes.reg, 10, 0x30, buffVar.reg]),
+    is8x8 && asm("ltv", [varRes.reg, 8, 0x40, buffVar.reg]),
+    asm("ltv", [varRes.reg, 6, 0x50, buffVar.reg]),
+    asm("ltv", [varRes.reg, 4, 0x60, buffVar.reg]),
+    asm("ltv", [varRes.reg, 2, 0x70, buffVar.reg]),
+    !isInPlace && asm("ltv", [varRes.reg, 0, 0x00, buffVar.reg]),
+  ];
+  state.clearAnnotations();
+
+  return res;
 }
 
 function asm_op(varRes, args, swizzle) {
@@ -738,8 +863,36 @@ function select(varRes, args, swizzle) {
   ];
 }
 
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg[]} args
+ * @param {?Swizzle} swizzle
+ * @return {ASM[]}
+ */
+function assert(varRes, args, swizzle) {
+  if(swizzle)state.throwError("Builtin assert() cannot use swizzle!", varRes);
+  if(varRes)state.throwError("Builtin assert() cannot have a left side!", varRes);
+  if(args.length !== 1)state.throwError("Builtin assert() requires exactly one argument!", args[0]);
+
+  const arg = args[0];
+  if(arg.type !== "num") {
+    state.throwError("Builtin assert() requires the argument to be a number!", arg);
+  }
+  const errorCode = parseInt(arg.value, 10);
+  if(errorCode < 0 || errorCode > 0xFFFF) {
+    state.throwError("Builtin assert() requires the argument to be a number between 0 and 0xFFFF!", arg);
+  }
+
+  return [
+    asm('lui', [REG.AT, errorCode]),
+    asm("j", [LABEL_ASSERT]),
+    asmNOP(),
+  ];
+}
+
 export default {
   load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
+  load_transposed, store_transposed, transpose,
   asm: inlineAsm, asm_op, asm_include, print, printf, abs, clip, clear_vcc, get_acc, set_vcc, get_dma_busy,
   get_acc_high, get_acc_mid, get_acc_low,
   get_rdp_start, get_rdp_end, get_rdp_current,
@@ -747,5 +900,6 @@ export default {
   set_dma_addr_rsp, set_dma_addr_rdram, set_dma_write, set_dma_read,
   dma_in, dma_out, dma_in_async, dma_out_async, dma_await,
   invert_half, invert_half_sqrt, invert, swap, select,
-  get_cmd_address, get_vcc, max, min, load_arg
+  get_cmd_address, get_vcc, max, min, load_arg,
+  assert
 };

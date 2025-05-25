@@ -11,16 +11,16 @@ import state from "../state.js";
 export const STORE_OPS = [
   "sw", "sh", "sb",
   "sbv", "ssv", "slv", "sdv", "sqv",
-  "spv", "suv", "shv", "sfv"
+  "spv", "suv", "shv", "sfv", "stv", "swv", "srv"
 ];
 
 export const LOAD_OPS_SCALAR = ["lw", "lh", "lhu", "lb", "lbu"];
-export const LOAD_OPS_VECTOR = ["lbv", "lsv", "llv", "ldv", "lqv", "lpv", "luv"];
+export const LOAD_OPS_VECTOR = ["lbv", "lsv", "llv", "ldv", "lqv", "lpv", "luv", "ltv", "lrv"];
 
 // ops that load from RAM, r/w register access
 export const LOAD_OPS = [...LOAD_OPS_SCALAR, ...LOAD_OPS_VECTOR];
 
-export const BRANCH_OPS = ["beq", "bne", "bgezal", "bltzal", "bgez", "bltz", "j", "jr", "jal"];
+export const BRANCH_OPS = ["beq", "bne", "bgezal", "bltzal", "bgez", "bltz", "blez", "bgtz", "j", "jr", "jal"];
 
 // ops that don't write to any register
 export const READ_ONLY_OPS = [...BRANCH_OPS, ...STORE_OPS, "mtc0"];
@@ -106,7 +106,7 @@ const HIDDEN_REGS_WRITE = {
 
 const STALL_IGNORE_REGS = ["$vcc", "$vco", "$acc", "$DIV_OUT", "$DIV_IN"];
 
-const REG_INDEX_MAP = {
+export const REG_INDEX_MAP = {
   "$v00": 0,    "$v00_0": 0, "$v00_1": 1, "$v00_2": 2, "$v00_3": 3, "$v00_4": 4, "$v00_5": 5, "$v00_6": 6, "$v00_7": 7,
   "$v01": 8,    "$v01_0": 8, "$v01_1": 9, "$v01_2":10, "$v01_3":11, "$v01_4":12, "$v01_5":13, "$v01_6":14, "$v01_7":15,
   "$v02":16,    "$v02_0":16, "$v02_1":17, "$v02_2":18, "$v02_3":19, "$v02_4":20, "$v02_5":21, "$v02_6":22, "$v02_7":23,
@@ -151,6 +151,26 @@ const REG_INDEX_MAP = {
   SIZE: 293
 };
 
+export const REG_STALL_INDEX_MAP = {
+  "$zero": 0, "$at": 1, "$v0": 2, "$v1": 3, "$a0": 4, "$a1": 5, "$a2": 6, "$a3": 7,
+  "$t0": 8, "$t1": 9, "$t2": 10, "$t3": 11, "$t4": 12, "$t5": 13, "$t6": 14, "$t7": 15,
+  "$s0": 16, "$s1": 17, "$s2": 18, "$s3": 19, "$s4": 20, "$s5": 21, "$s6": 22, "$s7": 23,
+  "$t8": 24, "$t9": 25,
+  "$k0": 26, "$k1": 27, "$gp": 28, "$sp": 29, "$fp": 30, "$ra": 31,
+
+  "$v00": 32, "$v01": 33, "$v02": 34, "$v03": 35, "$v04": 36, "$v05": 37, "$v06": 38, "$v07": 39,
+  "$v08": 40, "$v09": 41, "$v10": 42, "$v11": 43, "$v12": 44, "$v13": 45, "$v14": 46, "$v15": 47,
+  "$v16": 48, "$v17": 49, "$v18": 50, "$v19": 51, "$v20": 52, "$v21": 53, "$v22": 54, "$v23": 55,
+  "$v24": 56, "$v25": 57, "$v26": 58, "$v27": 59, "$v28": 60, "$v29": 61, "$v30": 62, "$v31": 63,
+}
+
+const LTV_REG_MAP = {
+  "$v00": ["$v00", "$v01", "$v02", "$v03", "$v04", "$v05", "$v06", "$v07"],
+  "$v08": ["$v08", "$v09", "$v10", "$v11", "$v12", "$v13", "$v14", "$v15"],
+  "$v16": ["$v16", "$v17", "$v18", "$v19", "$v20", "$v21", "$v22", "$v23"],
+  "$v24": ["$v24", "$v25", "$v26", "$v27", "$v28", "$v29", "$v30", "$v31"],
+};
+
 const REG_MASK_MAP = {SIZE: REG_INDEX_MAP.SIZE};
 let REG_MASK_ALL = 0n;
 
@@ -158,6 +178,18 @@ for(let reg of Object.keys(REG_INDEX_MAP)) {
   REG_MASK_MAP[reg] = BigInt(1) << BigInt(REG_INDEX_MAP[reg]);
   REG_MASK_ALL |= REG_MASK_MAP[reg];
 }
+
+export const OP_FLAG_IS_LOAD = 1 << 0;
+export const OP_FLAG_IS_STORE = 1 << 1;
+export const OP_FLAG_IS_BRANCH = 1 << 2;
+export const OP_FLAG_IS_IMMOVABLE = 1 << 3;
+export const OP_FLAG_IS_MEM_STALL_LOAD = 1 << 4;
+export const OP_FLAG_IS_MEM_STALL_STORE = 1 << 5;
+export const OP_FLAG_IS_VECTOR = 1 << 6;
+export const OP_FLAG_IS_NOP = 1 << 7;
+export const OP_FLAG_IS_LIKELY = 1 << 8;
+export const OP_FLAG_LIKELY_BRANCH = 1 << 9;
+export const OP_FLAG_CTC2_CFC2 = 1 << 10;
 
 /**
  *
@@ -173,6 +205,18 @@ function getRegisterMask(regs)
     regMask |= BigInt(regIdx);
   }
   return regMask;
+}
+
+function getRegisterMaskStalls(regs)
+{
+  let regMask = BigInt(0);
+  for(const r of regs) {
+    regMask |= 1n << BigInt(r);
+  }
+  return [
+    Number((regMask >> 32n)),
+    Number(regMask & 0xffffffffn)
+  ];
 }
 
 /**
@@ -197,7 +241,25 @@ export function getTargetRegs(line) {
   if(READ_ONLY_OPS.includes(line.op)) {
     return [];
   }
-  const targetReg = ["mtc2"].includes(line.op) ? line.args[1] : line.args[0];
+
+  if(line.opFlags & OP_FLAG_IS_LOAD) {
+    // transpose, access 8 registers and lanes in a diagonal pattern
+    if(line.op === 'ltv')
+    {
+      const mainReg = line.args[0] || '$v00';
+      const row = parseInt(line.args[1]) / 2;
+
+      let regs = [...LTV_REG_MAP[mainReg]];
+      if(!regs)state.throwError(`Invalid base register ${mainReg} for ltv!`);
+
+      for(let i=0; i < 8; ++i) {
+        regs[i] += ".e" + ((8 + i - row) % 8);
+      }
+      return regs;
+    }
+  }
+
+  const targetReg = ["mtc2", "ctc2"].includes(line.op) ? line.args[1] : line.args[0];
   return [targetReg, ...HIDDEN_REGS_WRITE[line.op] || []]
     .filter(Boolean)
 }
@@ -208,11 +270,28 @@ export function getSourceRegs(line)
   if(["jr", "mtc2", "mtc0", "ctc2"].includes(line.op)) {
     return [line.args[0]];
   }
-  if(line.opIsBranch && line.op.startsWith("b")) {
+  if((line.opFlags & OP_FLAG_IS_BRANCH) && line.op.startsWith("b")) {
     // last arg is label, take all before that
     return line.args.slice(0, -1);
   }
-  if(line.opIsStore) {
+  if(line.opFlags & OP_FLAG_IS_STORE)
+  {
+    // transpose, access 8 registers and lanes in a diagonal pattern
+    if(line.op === 'stv')
+    {
+      const mainReg = line.args[0] || '$v00';
+      const row = parseInt(line.args[1]) / 2;
+
+      let regs = [...LTV_REG_MAP[mainReg]];
+      if(!regs)state.throwError(`Invalid base register ${mainReg} for stv!`);
+
+      for(let i=0; i < 8; ++i) {
+        regs[i] += ".e" + ((8 + i - row) % 8);
+      }
+      regs.push(line.args[line.args.length-1]);
+      return regs;
+    }
+
     return line.args;
   }
   if(["j", "jal"].includes(line.op)) {
@@ -245,48 +324,60 @@ export function getSourceRegsFiltered(line)
  */
 export function asmInitDep(asm)
 {
-  if(asm.type !== ASM_TYPE.OP || asm.isNOP) {
-    asm.depsSource = [];
-    asm.depsTarget = [];
-    asm.depsStallSource = [];
-    asm.depsStallTarget = [];
+  if(asm.type !== ASM_TYPE.OP || (asm.opFlags & OP_FLAG_IS_NOP)) {
+    asm.depsSourceIdx = [];
+    asm.depsTargetIdx = [];
+    asm.depsStallSourceIdx = [];
+    asm.depsStallTargetIdx = [];
     asm.depsSourceMask = 0n;
     asm.depsTargetMask = 0n;
     asm.depsBlockSourceMask = REG_MASK_ALL;
     asm.depsBlockTargetMask = REG_MASK_ALL;
-    asm.depsStallSourceMask = 0n;
-    asm.depsStallTargetMask = 0n;
+    asm.depsStallSourceMask0 = 0;
+    asm.depsStallSourceMask1 = 0;
+    asm.depsStallTargetMask0 = 0;
+    asm.depsStallTargetMask1 = 0;
     asm.barrierMask = 0;
     asm.depsArgMask = 0n;
     return;
   }
 
-  asm.depsStallSource = [...new Set(getSourceRegsFiltered(asm))];
-  asm.depsStallTarget = [...new Set(getTargetRegs(asm))];
+  let depsStallSource = [...new Set(getSourceRegsFiltered(asm))];
+  let depsStallTarget = [...new Set(getTargetRegs(asm))];
 
-  asm.depsSource = asm.depsStallSource.flatMap(expandRegister);
-  asm.depsTarget = asm.depsStallTarget.flatMap(expandRegister);
+  let depsSource = depsStallSource.flatMap(expandRegister);
+  let depsTarget = depsStallTarget.flatMap(expandRegister);
 
-  asm.depsSourceMask = getRegisterMask(asm.depsSource);
+  asm.depsSourceMask = getRegisterMask(depsSource);
   if(asm.funcArgs && asm.funcArgs.length) {
     asm.depsArgMask = getRegisterMask(asm.funcArgs);
   }
 
-  asm.depsTargetMask = getRegisterMask(asm.depsTarget);
+  asm.depsTargetMask = getRegisterMask(depsTarget);
 
   //console.log("Mask Src: ", asm.depsSourceMask.toString(2));
   //console.log("Mask Tgt: ", asm.depsTargetMask.toString(2));
 
-  asm.depsStallSource = asm.depsStallSource
+  depsStallSource = depsStallSource
     .map(reg => reg.split(".")[0])
     .filter(reg => !STALL_IGNORE_REGS.includes(reg));
 
-  asm.depsStallTarget = asm.depsStallTarget
+  depsStallTarget = depsStallTarget
     .map(reg => reg.split(".")[0])
     .filter(reg => !STALL_IGNORE_REGS.includes(reg));
 
-  asm.depsStallSourceMask = getRegisterMask(asm.depsStallSource);
-  asm.depsStallTargetMask = getRegisterMask(asm.depsStallTarget);
+  asm.depsSourceIdx = depsSource.map(reg => REG_INDEX_MAP[reg]);
+  asm.depsTargetIdx = depsTarget.map(reg => REG_INDEX_MAP[reg]);
+
+  asm.depsStallSourceIdx = depsStallSource.map(reg => REG_STALL_INDEX_MAP[reg]);
+  asm.depsStallTargetIdx = depsStallTarget.map(reg => REG_STALL_INDEX_MAP[reg]);
+
+  const [src0, src1] = getRegisterMaskStalls(asm.depsStallSourceIdx);
+  const [tgt0, tgt1] = getRegisterMaskStalls(asm.depsStallTargetIdx);
+  asm.depsStallSourceMask0 = src0;
+  asm.depsStallSourceMask1 = src1;
+  asm.depsStallTargetMask0 = tgt0;
+  asm.depsStallTargetMask1 = tgt1;
 
   asm.barrierMask = 0;
   for(const anno of asm.annotations) {
@@ -305,7 +396,7 @@ export function asmInitBlockDep(asmList, i)
 {
   const asm = asmList[i];
   // check if we are the start of a block (e.g. if-condition)
-  if(!asm.opIsBranch || !asm.labelEnd) {
+  if(!(asm.opFlags & OP_FLAG_IS_BRANCH) || !asm.labelEnd) {
     return;
   }
 
@@ -319,7 +410,7 @@ export function asmInitBlockDep(asmList, i)
     if(asmNext.label === asm.labelEnd) {
       break;
     }
-    if(asmNext.opIsBranch) {
+    if(asmNext.opFlags & OP_FLAG_IS_BRANCH) {
       asm.depsBlockSourceMask = REG_MASK_ALL;
       asm.depsBlockTargetMask = REG_MASK_ALL;
       break;
@@ -353,7 +444,7 @@ export function asmInitDeps(asmFunc) {
 function checkAsmBackwardDep(asm, asmPrev) {
   // stop at any label
   if(asm.type !== ASM_TYPE.OP || asmPrev.type !== ASM_TYPE.OP) {
-    // Check for block-skips, See note in 'asmGetReorderRange' for more info.
+    // Check for block-skips, See note in 'asmGetReorderIndices' for more info.
     if(asmPrev.labelEnd) {
        // @TODO: scan backwards to find the start label
     }
@@ -361,48 +452,30 @@ function checkAsmBackwardDep(asm, asmPrev) {
     return true;
   }
 
-  if(asm.barrierMask & asmPrev.barrierMask) {
-    return true;
-  }
-
-  // Don't reorder writes to RAM, this is an oversimplification.
-  // For a more accurate check, the RAM location/size would need to be checked (if possible).
-  /*const isStore = !asm.opIsLoad && asm.opIsStore;
-  if(asm.opIsLoad || isStore) { // memory access can be ignored if it's not a load or store
-    const isLoadPrev = asmPrev.opIsLoad;
-    const isStorePrev = !isLoadPrev && asmPrev.opIsStore;
-
-    // load cannot be put before a previous store (previous load is ok)
-    if(asm.opIsLoad && isStorePrev) {
-      return true;
-    }
-    // store cannot be put before a previous load or store
-    //if(isStore && (isLoadPrev || isStorePrev)) {
-    if(isStore && isLoadPrev) {
-     return true;
-    }
-  }*/
-
   // check if any of our source registers is a destination of a previous instruction, and the reserve.
   // (otherwise our read would see a different value if reordered)
   // (otherwise out write could change what the previous instruction(s) reads)
   if((asmPrev.depsTargetMask & asm.depsSourceMask) !== 0n)return true;
   if((asmPrev.depsSourceMask & asm.depsTargetMask) !== 0n)return true;
 
+  if(asm.barrierMask & asmPrev.barrierMask) {
+    return true;
+  }
+
   return false;
 }
 
 /**
- * Returns the min/max index of where an instruction can be reordered to.
+ * Returns the indices where an instruction can be reordered to.
  * @param {ASM[]} asmList
  * @param {number} i
- * @return {[number, number]} min/max index
+ * @return {number[]} array of indices
  */
-export function asmGetReorderRange(asmList, i)
+export function asmGetReorderIndices(asmList, i)
 {
   const asm = asmList[i];
-  if(asm.type !== ASM_TYPE.OP || asm.opIsImmovable) {
-    return [i, i];
+  if(asm.opFlags & OP_FLAG_IS_IMMOVABLE) {
+    return [i];
   }
 
   // Scan ahead...
@@ -413,15 +486,15 @@ export function asmGetReorderRange(asmList, i)
   let pos = asmList.length;
 
   let f = i + 1;
-  let isPastBranch = false;
+  let isPastBranch = 0;
   for(; f < asmList.length; ++f) {
     const asmNext = asmList[f];
     const amsPrevPrev = asmList[f-2];
 
     // stop at a branch with an already filled delay-slot,
     // or once we are past the delay-slot of a branch if it is empty.
-    const isFilledBranch = asmNext.opIsBranch && !asmList[f+1]?.isNOP;
-    isPastBranch = amsPrevPrev?.opIsBranch;
+    const isFilledBranch = (asmNext.opFlags & OP_FLAG_IS_BRANCH) && !(asmList[f+1]?.opFlags & OP_FLAG_IS_NOP);
+    isPastBranch = amsPrevPrev?.opFlags & OP_FLAG_IS_BRANCH;
 
     // @TODO: wip, implement forward and backward scan for this:
     // if the branch we hit is part of a block (e.g. if condition), we usually cannot move past it.
@@ -454,8 +527,8 @@ export function asmGetReorderRange(asmList, i)
     }
 
     // Remember the last write that occurs for each register, this is used to fall back if we stop at a read.
-    for(const reg of asmNext.depsTarget) {
-      lastWrite[REG_INDEX_MAP[reg]] = f;
+    for(const reg of asmNext.depsTargetIdx) {
+      lastWrite[reg] = f;
     }
     lastWriteMask |= asmNext.depsTargetMask;
   }
@@ -468,27 +541,30 @@ export function asmGetReorderRange(asmList, i)
 
     // branches/jumps needs special care, their target can make use of registers set before in code.
     // The function arguments (if known) are stored in a separate mask
-    if(asmList[fRead].opIsBranch) {
+    if(asmList[fRead].opFlags & OP_FLAG_IS_BRANCH) {
       lastReadMask |= asmList[fRead].depsArgMask;
     }
   }
-  f = Math.max(fRead, f);
-
 
   // check if there was an instruction in between which wrote to one of our target registers.
   // if true, fall-back to that position (otherwise register would contain wrong value)
   const readWriteMask = lastReadMask & lastWriteMask;
   if((readWriteMask & asm.depsTargetMask) !== 0n) // avoid loop by checking mask first
   {
-    for(const reg of asm.depsTarget) {
-      let lastWritePos = lastWrite[REG_INDEX_MAP[reg]];
-      if(lastWritePos && (lastReadMask & REG_MASK_MAP[reg]) !== 0n) {
+    for(const reg of asm.depsTargetIdx) {
+      let lastWritePos = lastWrite[reg];
+      if(lastWritePos && (lastReadMask & (BigInt(1) << BigInt(reg))) !== 0n) {
         pos = Math.min(lastWritePos, pos);
       }
     }
   }
 
-  const minMax = [0, pos-1];
+  // @TODO:
+  // min-max to array
+  let res = [];
+  for(let r = i; r <= pos-1; ++r) {
+    res.push(r);
+  }
 
   // collect all registers that where not overwritten by any instruction after us.
   // these need to be checked for writes in the backwards-scan.
@@ -499,16 +575,16 @@ export function asmGetReorderRange(asmList, i)
   {
     const asmPrev = asmList[b];
 
-    if(asmList[b-1]?.opIsBranch // stop at the delay-slot of a branch, we cannot fill it backwards
+    if((asmList[b-1]?.opFlags & OP_FLAG_IS_BRANCH) // stop at the delay-slot of a branch, we cannot fill it backwards
       || checkAsmBackwardDep(asm, asmPrev)
       || (asmPrev.depsTargetMask & writeCheckRegsMask) !== 0n
     ) {
-      minMax[0] = b+1;
       break;
     }
+    res.push(b);
   }
 
-  return minMax;
+  return res;
 }
 /**
  * @param {ASMFunc} asmFunc
@@ -516,8 +592,10 @@ export function asmGetReorderRange(asmList, i)
 export function asmScanDeps(asmFunc)
 {
   for(let i = 0; i < asmFunc.asm.length; ++i) {
-    const minMax = asmGetReorderRange(asmFunc.asm, i);
-    asmFunc.asm[i].debug.reorderLineMin = asmFunc.asm[minMax[0]]?.debug.lineASM;
-    asmFunc.asm[i].debug.reorderLineMax = asmFunc.asm[minMax[1]]?.debug.lineASM;
+    const minMax = asmGetReorderIndices(asmFunc.asm, i);
+    let min = Math.min(...minMax);
+    let max = Math.max(...minMax);
+    asmFunc.asm[i].debug.reorderLineMin = asmFunc.asm[min]?.debug.lineASM;
+    asmFunc.asm[i].debug.reorderLineMax = asmFunc.asm[max]?.debug.lineASM;
   }
 }

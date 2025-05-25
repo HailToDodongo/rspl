@@ -172,7 +172,7 @@ T3DCmd_VertLoad:
   addu $s7, $s4, $t0
   addiu $t0, $t0, -1
   or $t2, $zero, $zero
-  jal DMAExec ## Args: $t0, $t1, $s0, $s4, $t2
+  jal DMAExec
   or $s0, $zero, $a1
   ori $s6, $zero, %lo(MATRIX_MVP)
   ldv $v27, 0, 0, $s6
@@ -320,18 +320,18 @@ T3DCmd_VertLoad:
   vmadn $v09, $v09, $v13.v
   vmadh $v08, $v08, $v13.v
   vadd $v08, $v08, $v12.v
-  sdv $v08, 0, 0, $s6 ## Barrier: 0x1
-  sdv $v08, 8, 0, $s5 ## Barrier: 0x1
-  suv $v07, 0, 8, $s6 ## Barrier: 0x2
-  suv $v07, 4, 8, $s5 ## Barrier: 0x2
+  sdv $v08, 0, 0, $s6
+  sdv $v08, 8, 0, $s5
+  suv $v07, 0, 8, $s6
+  suv $v07, 4, 8, $s5
   ldv $v09, 0, 24, $s4
-  slv $v09, 0, 12, $s6 ## Barrier: 0x2
-  slv $v09, 4, 12, $s5 ## Barrier: 0x2
+  slv $v09, 0, 12, $s6
+  slv $v09, 4, 12, $s5
   addiu $s4, $s4, 32
-  sb $s1, 6($s6) ## Barrier: 0x1
-  sb $s0, 6($s5) ## Barrier: 0x1
-  sb $fp, 7($s6) ## Barrier: 0x1
-  sb $sp, 7($s5) ## Barrier: 0x1
+  sb $s1, 6($s6)
+  sb $s0, 6($s5)
+  sb $fp, 7($s6)
+  sb $sp, 7($s5)
   addiu $s5, $s5, 72
   bne $s4, $s7, LABEL_T3DCmd_VertLoad_0001
   addiu $s6, $s6, 72
@@ -350,8 +350,8 @@ copyClippingVertex:
   jr $ra
   addiu $s5, $s5, 36
 emitClippedTri:
-  suv $v28, 0, 8, $s5 ## Barrier: 0x2
-  slv $v26, 8, 12, $s5 ## Barrier: 0x2
+  suv $v28, 0, 8, $s5
+  slv $v26, 8, 12, $s5
   sb $s1, 6($s5)
   sdv $v26, 0, 16, $s5
   sdv $v27, 0, 24, $s5
@@ -381,14 +381,14 @@ triToScreenSpace:
   vmadn $v05, $v05, $v01.v
   vmadh $v04, $v04, $v01.v
   vadd $v04, $v04, $v03.v
-  sdv $v04, 0, 0, $s6 ## Barrier: 0x4
-  ssv $v03, 6, 6, $s6 ## Barrier: 0x4
+  sdv $v04, 0, 0, $s6
+  ssv $v03, 6, 6, $s6
   jr $ra
   addiu $s6, $s6, 65500
 T3DCmd_TriDraw:
   addiu $v1, $gp, %lo(RSPQ_DMEM_BUFFER)  -6
   ori $sp, $zero, %lo(RSPQ_Loop)
-  jal RDPQ_Triangle_Send_Async ## Args: $a0, $a1, $a2
+  jal RDPQ_Triangle_Send_Async
   srl $a2, $a1, 16
   bne $v1, $zero, LABEL_T3DCmd_TriDraw_0006
   lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET + 0)
@@ -404,11 +404,11 @@ T3DCmd_TriDraw:
   ori $s6, $zero, %lo(CLIP_BUFFER_TMP)
   ori $s5, $zero, %lo(CLIP_BUFFER_TMP)
   or $s0, $zero, $a0
-  jal copyClippingVertex ## Args: $s5, $s0
+  jal copyClippingVertex
   addiu $t0, $zero, 108
-  jal copyClippingVertex ## Args: $s5, $s0
+  jal copyClippingVertex
   or $s0, $zero, $a1
-  jal copyClippingVertex ## Args: $s5, $s0
+  jal copyClippingVertex
   or $s0, $zero, $a2
   ori $s4, $zero, %lo(CLIPPING_PLANES)
   addiu $s3, $zero, 1
@@ -446,18 +446,18 @@ T3DCmd_TriDraw:
   vmudl $v18, $v00, $v31.e7
   vmadm $v17, $v17, $v31.e7
   vmadn $v18, $v00, $v00
-  ori $at, $zero, %lo(RSPQ_SCRATCH_MEM) ## Barrier: 0x8
-  sdv $v17, 0, 0, $at ## Barrier: 0x8
-  ldv $v17, 8, 0, $at ## Barrier: 0x8
+  ori $at, $zero, %lo(RSPQ_SCRATCH_MEM)
+  sdv $v17, 0, 0, $at
+  ldv $v17, 8, 0, $at
   vmudl $v18, $v18, $v22.v
   vmadm $v17, $v17, $v22.v
   vmadn $v18, $v00, $v00
   vor $v15, $v00, $v26
   vor $v16, $v00, $v27
-  sdv $v24, 0, 0, $at ## Barrier: 0x8
-  sdv $v25, 0, 8, $at ## Barrier: 0x8
-  ldv $v15, 8, 0, $at ## Barrier: 0x8
-  ldv $v16, 8, 8, $at ## Barrier: 0x8
+  sdv $v24, 0, 0, $at
+  sdv $v25, 0, 8, $at
+  ldv $v15, 8, 0, $at
+  ldv $v16, 8, 8, $at
   vmudl $v29, $v16, $v18.v
   vmadm $v29, $v15, $v18.v
   vmadn $v14, $v16, $v17.v
@@ -496,7 +496,7 @@ T3DCmd_TriDraw:
   cfc2 $s1, $vcc
   andi $s1, $s1, 1799
   srl $k0, $s1, 5
-  jal emitClippedTri ## Args: $s5, $s1, $v26, $v28
+  jal emitClippedTri
   or $s1, $s1, $k0
   LABEL_T3DCmd_TriDraw_000B:
   vor $v27, $v00, $v25
@@ -520,12 +520,12 @@ T3DCmd_TriDraw:
   ori $s6, $zero, %lo(CLIP_BUFFER_RESULT)
   addu $s5, $s6, $t0
   sh $s6, %lo(0 + RSPQ_SCRATCH_MEM)($zero)
-  jal triToScreenSpace ## Args: $s6
+  jal triToScreenSpace
   addiu $s5, $s5, 65464
-  jal triToScreenSpace ## Args: $s6
+  jal triToScreenSpace
   addiu $s6, $s6, 72
   LABEL_T3DCmd_TriDraw_000E:
-  jal triToScreenSpace ## Args: $s6
+  jal triToScreenSpace
   addiu $s6, $s6, 72
   or $a2, $zero, $s6
   addiu $a1, $s6, 36
@@ -533,7 +533,7 @@ T3DCmd_TriDraw:
   sh $a2, %lo(2 + RSPQ_SCRATCH_MEM)($zero)
   sh $a1, %lo(4 + RSPQ_SCRATCH_MEM)($zero)
   ori $sp, $zero, %lo(CLIP_AFTER_EMIT)
-  jal RDPQ_Triangle_Send_Async ## Args: $a0, $a1, $a2
+  jal RDPQ_Triangle_Send_Async
   ori $a0, $zero, %lo(CLIP_BUFFER_RESULT)
   jal RDPQ_Triangle_Send_End
   nop
@@ -691,31 +691,31 @@ T3DCmd_MatrixStack:
   ori $at, $at, 0xFFFF
   ori $t0, $zero, 63
   addiu $t2, $zero, 12
-  jal DMAExec ## Args: $t0, $t1, $s0, $s4, $t2
+  jal DMAExec
   and $s0, $a0, $at
   beq $s7, $zero, LABEL_T3DCmd_MatrixStack_0013
   ori $t1, $zero, %lo(MATRIX_NORMAL)
   addiu $s0, $s5, 65472
   ori $t0, $zero, 63
   addiu $t2, $zero, 12
-  jal DMAExec ## Args: $t0, $t1, $s0, $s4, $t2
+  jal DMAExec
   ori $s4, $zero, %lo(CLIP_BUFFER_RESULT)
   ori $s3, $zero, %lo(CLIP_BUFFER_RESULT)
   ori $s4, $zero, %lo(CLIP_BUFFER_TMP)
-  jal mulMat4Mat4 ## Args: $s2, $s3, $s4
+  jal mulMat4Mat4
   ori $s2, $zero, %lo(CLIP_BUFFER_TMP)
   LABEL_T3DCmd_MatrixStack_0013:
   ori $t0, $zero, 63
   addiu $t2, $zero, -32756
-  jal DMAExec ## Args: $t0, $t1, $s0, $s4, $t2
+  jal DMAExec
   or $s0, $zero, $s5
-  jal normalizeMatrixVector ## Args: $s4, $t1
+  jal normalizeMatrixVector
   ori $s2, $zero, %lo(MATRIX_MVP)
-  jal normalizeMatrixVector ## Args: $s4, $t1
+  jal normalizeMatrixVector
   ori $s3, $zero, %lo(MATRIX_PROJ)
-  jal normalizeMatrixVector ## Args: $s4, $t1
+  jal normalizeMatrixVector
   nop
-  jal mulMat4Mat4 ## Args: $s2, $s3, $s4
+  jal mulMat4Mat4
   ori $s4, $zero, %lo(CLIP_BUFFER_TMP)
   j RSPQ_Loop
   nop
@@ -725,7 +725,7 @@ T3DCmd_MatProjectionSet:
   ori $t0, $zero, 63
   ori $s4, $zero, %lo(MATRIX_PROJ)
   addiu $t2, $zero, 12
-  j DMAExec ## Args: $t0, $t1, $s0, $s4, $t2
+  j DMAExec
   and $s0, $a0, $at
 
 OVERLAY_CODE_END:

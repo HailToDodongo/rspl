@@ -6,9 +6,16 @@ import state from "../state.js";
 import {
   BRANCH_OPS,
   IMMOVABLE_OPS,
-  LOAD_OPS, LOAD_OPS_SCALAR, LOAD_OPS_VECTOR,
+  LOAD_OPS,
+  LOAD_OPS_SCALAR,
+  LOAD_OPS_VECTOR,
   MEM_STALL_LOAD_OPS,
-  MEM_STALL_STORE_OPS,
+  MEM_STALL_STORE_OPS, OP_FLAG_CTC2_CFC2,
+  OP_FLAG_IS_BRANCH,
+  OP_FLAG_IS_IMMOVABLE, OP_FLAG_IS_LIKELY,
+  OP_FLAG_IS_LOAD,
+  OP_FLAG_IS_MEM_STALL_LOAD, OP_FLAG_IS_MEM_STALL_STORE, OP_FLAG_IS_NOP,
+  OP_FLAG_IS_STORE, OP_FLAG_IS_VECTOR, OP_FLAG_LIKELY_BRANCH,
   STORE_OPS
 } from "../optimizer/asmScanDeps.js";
 import {REG} from "../syntax/registers.js";
@@ -17,7 +24,7 @@ import {getAnnotationVal} from "../syntax/annotations.js";
 export const ASM_TYPE = {
   OP: 0,
   LABEL: 1,
-  COMMENT: 2,
+//  COMMENT: 2,
   INLINE: 3,
 }
 
@@ -45,23 +52,35 @@ function getDebugData() {
   };
 }
 
-function getOpInfo(op) {
+/**
+ *
+ * @param op
+ * @return {ASM}
+ */
+function getOpInfo(op, type = ASM_TYPE.OP) {
   const annotations = state.getAnnotations();
-  return {
-    opIsLoad: LOAD_OPS.includes(op),
-    opIsStore: STORE_OPS.includes(op),
-    opIsBranch: BRANCH_OPS.includes(op),
-    opIsImmovable: IMMOVABLE_OPS.includes(op),
-    opIsMemStallLoad: MEM_STALL_LOAD_OPS.includes(op),
-    opIsMemStallStore: MEM_STALL_STORE_OPS.includes(op),
-    opIsVector: op.startsWith("v"),
+  const res = {
+    opFlags: (LOAD_OPS.includes(op) ? OP_FLAG_IS_LOAD : 0)
+     | (STORE_OPS.includes(op) ? OP_FLAG_IS_STORE : 0)
+     | (BRANCH_OPS.includes(op) ? OP_FLAG_IS_BRANCH : 0)
+     | (IMMOVABLE_OPS.includes(op) ? OP_FLAG_IS_IMMOVABLE : 0)
+     | (MEM_STALL_LOAD_OPS.includes(op) ? OP_FLAG_IS_MEM_STALL_LOAD : 0)
+     | (MEM_STALL_STORE_OPS.includes(op) ? OP_FLAG_IS_MEM_STALL_STORE : 0)
+     | (op.startsWith("v") ? OP_FLAG_IS_VECTOR : 0)
+     | (op === "nop" ? OP_FLAG_IS_NOP : 0)
+     | (!getAnnotationVal(annotations, "Unlikely") ? OP_FLAG_IS_LIKELY : 0)
+     | ((op === "cfc2" || op === "ctc2") ? OP_FLAG_CTC2_CFC2 : 0)
+    ,
     stallLatency: getStallLatency(op),
-    isNOP: op === "nop",
-    isLikely: !getAnnotationVal(annotations, "Unlikely"),
     annotations,
-    funcArgs: [],
     depsArgMask: 0n,
+    type: type,
   };
+  if((res.opFlags & OP_FLAG_IS_BRANCH) && (res.opFlags & OP_FLAG_IS_LIKELY)) {
+    res.opFlags |= OP_FLAG_LIKELY_BRANCH;
+  }
+
+  return res;
 }
 
 /**
@@ -71,7 +90,7 @@ function getOpInfo(op) {
  * @return {ASM}
  */
 export function asm(op, args) {
-  return {type: ASM_TYPE.OP, op, args, debug: getDebugData(), ...getOpInfo(op)};
+  return {op, args, debug: getDebugData(), ...getOpInfo(op)};
 }
 
 /**
@@ -83,41 +102,34 @@ export function asm(op, args) {
  */
 export function asmFunction(target, argRegs, relative = false) {
   return relative ? {
-    type: ASM_TYPE.OP, op: "bgezal", args: [REG.ZERO, target],
+    op: "bgezal", args: [REG.ZERO, target],
     debug: getDebugData(), ...getOpInfo("bgezal"),
     funcArgs: argRegs
   } : {
-    type: ASM_TYPE.OP, op: "jal", args: [target],
+    op: "jal", args: [target],
     debug: getDebugData(), ...getOpInfo("jal"),
     funcArgs: argRegs
   };
 }
 
 export function asmBranch(op, args, labelEnd) {
-  return {type: ASM_TYPE.OP, op, args, debug: getDebugData(), ...getOpInfo(op), labelEnd};
+  return {op, args, debug: getDebugData(), ...getOpInfo(op), labelEnd};
 }
 
 export function asmInline(op, args = []) {
-  return {type: ASM_TYPE.INLINE, op, args, debug: getDebugData(), ...getOpInfo(op)};
+  return {op, args, debug: getDebugData(), ...getOpInfo(op, ASM_TYPE.INLINE)};
 }
 
 /** @returns {ASM} */
 export function asmNOP() {
-  return {type: ASM_TYPE.OP, op: "nop", args: [], debug: getDebugData(),
+  return {op: "nop", args: [], debug: getDebugData(),
     ...getOpInfo("nop"),
   };
 }
 
 /** @returns {ASM} */
 export function asmLabel(label) {
-  return {type: ASM_TYPE.LABEL, label, op: "", args: [], debug: getDebugData(),
-    ...getOpInfo(""),
-  };
-}
-
-/** @returns {ASM} */
-export function asmComment(comment) {
-  return {type: ASM_TYPE.COMMENT, comment, op: "", args: [], debug: getDebugData(),
-    ...getOpInfo(""),
+  return {label, op: "", args: [], debug: getDebugData(),
+    ...getOpInfo("", ASM_TYPE.LABEL),
   };
 }

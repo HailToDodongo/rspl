@@ -66,8 +66,8 @@ This means it's the only type split across two registers, where the first one co
 Any operation with that type takes this into account, any special behaviour will be documented.
 
 ## State
-In order to have memory that persists across overlay switches, a state section has to be defined.<br>
-This is done by using the `state` keyword, followed by a block inside curly-brackets.<br>
+In order to have memory that persists across overlay switches, one or more state sections have to be defined.<br>
+This is done by using the `state`/`data`/`bss` keyword, followed by a block inside curly-brackets.<br>
 Inside the block, labels with types and an optional array-size can be declared.<br>
 
 As an example:
@@ -76,12 +76,26 @@ state {
   extern u32 RDPQ_CMD_STAGING;
   
   vec32 MAT_MODEL_DATA[8][2];
-  u32 CURRENT_MAT_ADDR;
+  u32 CURRENT_MAT_ADDR = {42};
 }
 ```
 As seen in the first entry, it's possible to declare external labels, which will be resolved at compile-time.<br>
 This can be used for dependencies defined in assembly files (e.g. from `rsp_queue.inc`).<br>
 External labels don't take up any extra space in the overlay.
+
+Labels can have initial values, which must be specified in curly-brackets.<br>
+For scalar types, this can be a single value, for vectors it must be a list of values.<br>
+Any value left-out will be initialized to `0`.<br>
+
+### Temporary state
+The `state` section will be persist across overlay-switches, meaning it will be saved/restored.<br>
+For data that doesn't need to be saved, you can use the `data`/`bss` section.<br>
+
+Values inside `data` can have an initial value that will get restored after a switch.<br>
+Modifying them is allowed, but may not persist across commands.<br>
+
+Similarly, `bss` is a section that will be NOT be initialized and is not saved/restored.<br>
+Meaning for any given command you run, those values will be in an undefined state.<br>
 
 ## Variables
 To access registers, variables must be used.<br>
@@ -742,6 +756,68 @@ Example:
 vec16 color;
 store_vec_u8(color, ptrColor, 0x08);
 ```
+
+### `load_transposed(row, address, [offset])`
+Special load (`ltv`) that can be used to perform a 8x8 transpose of registers.<br>
+This will load 16 bytes (8 16bit values) of linear memory into 8 different registers and lanes.<br>
+The target register must be either $v00, $v08, $v16 or $v24.<br>
+And it will touch all 8 registers (7 after the one you specified), with one lane of each.<br>
+The lane of each register as it moves diagonally is determined by the row number.<br>
+See https://emudev.org/2020/03/28/RSP.html#128-bit-vector-transpose for more details.
+
+Example:
+```c++
+vec16<$v08> t0;
+t0 = load_transposed(7, buff, 0x10);
+t0 = load_transposed(6, buff, 0x20);
+t0 = load_transposed(5, buff, 0x30);
+```
+
+### `store_transposed(vec, row, address, [offset])`
+Special store (`stv`) that can be used to perform a 8x8 transpose of registers.<br>
+This store load 16 bytes (8 16bit values) into linear memory from 8 different registers and lanes.<br>
+The source register must be either $v00, $v08, $v16 or $v24.<br>
+And it will go through 8 registers (7 after the one you specified), with one lane of each.<br>
+The lane of each register as it moves diagonally is determined by the row number.<br>
+See https://emudev.org/2020/03/28/RSP.html#128-bit-vector-transpose for more details.
+
+Example:
+```c++
+vec16<$v08> v0;
+store_transposed(v0, 6, buff);
+store_transposed(v0, 5, buff, 0x10);
+store_transposed(v0, 7, buff, 0x10);
+```
+
+### `vecDst = transpose(vecSrc, address, sizeX, sizeY)`
+Transposes a set of registers (treating them as a matrix).
+This requires temporary storage for the transposed data, which is where `address` points to.<br>
+Make sure that buffer can hold 8 total registers worth of data.<br>
+For matrices with a size of 4x4 or smaller a faster version is used.<br> 
+Doing the transpose in-place (vecDst == vecSrc) is also faster.<br>
+
+Be aware that while you are forced to specific the start of a group of 8 registers as the source/target,
+the transpose will touch all 8 registers in the group.<br>
+
+Example:
+```c++
+u16 buff = SOME_BUFFER;
+vec16<$v08> vecSrc0, vecSrc1, vecSrc2, vecSrc3, vecSrc4, vecSrc5, vecSrc6, vecSrc7;
+vec16<$v16> vecDst0, vecDst1, vecDst2, vecDst3, vecDst4, vecDst5, vecDst6, vecDst7;
+
+vecDst0 = transpose(vecSrc0, buff, 8, 8);
+```
+
+### `assert(code)`
+Asserts with a given code (0 - 0xFFFF).<br/>
+For conditional checks, wrap this in a branch (which has special optimizations to keep it short). 
+
+Example:
+```c++
+u32 someBuff;
+if(someBuff == 0)assert(0x42);
+```
+
 
 ### `asm(x)`
 Injects raw asm/text into the output, no checks are performed<br>

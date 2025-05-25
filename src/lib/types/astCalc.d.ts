@@ -22,33 +22,51 @@ declare global
         line: number;
     }
 
-    type ASTCalcNum = {
-        type: 'calcNum';
-        right: number;
+    type ASTExprNum = {
+      type: 'num',
+      value: number;
+    };
+    type ASTExprVarName = {
+      type: 'VarName',
+      value: string;
     };
 
-    type ASTCalcVarNum = {
-        type: 'calcVarNum';
-        left: string;
-        op: CalcOp;
-        right: number;
-        swizzleLeft?: Swizzle;
+    type ASTCalcNum = {
+        type: 'calcNum';
+        right: ASTExprNum;
     };
 
     type ASTCalcVar = {
         type: 'calcVar';
         left?: string;
         op?: CalcOp;
-        right: string;
+        right: ASTExprVarName;
         swizzleLeft?: Swizzle;
         swizzleRight?: Swizzle;
     };
 
-    type ASTCalcVarVar = {
-        type: 'calcVarVar';
-        left: string;
+    type ASTCalcMultiPart = {
+      type: 'calcMultiPart';
+      op: CalcOp;
+      right: ASTExprNum | ASTExprVarName;
+      swizzleRight?: Swizzle;
+      groupStart: number;
+      groupEnd: number;
+    };
+
+    interface ASTCalcMulti {
+      type: 'calcMulti';
+      left: ASTExprNum | ASTExprVarName;
+      swizzleLeft?: Swizzle;
+      parts: ASTCalcMultiPart[];
+      groupStart: number;
+    }
+
+    type ASTCalcLR = {
+        type: 'calcLR';
+        left: ASTExprNum | ASTExprVarName | ASTCalcLR;
         op: CalcOp;
-        right: string;
+        right: ASTExprNum | ASTExprVarName;
         swizzleLeft?: Swizzle;
         swizzleRight?: Swizzle;
     };
@@ -70,10 +88,10 @@ declare global
         type: 'calcCompare';
         left: string;
         op: CalcOp;
-        right: string | number;
+        right: ASTExprNum | ASTExprVarName;
         swizzleRight?: Swizzle;
         ternary?: ASTTernary
     };
 
-    type ASTCalc = ASTCalcNum | ASTCalcVarNum | ASTCalcVar | ASTCalcFunc | ASTCalcVarVar | ASTCalcCompare;
+    type ASTCalc = ASTCalcMulti | ASTCalcLR | ASTCalcNum | ASTCalcVar | ASTCalcFunc | ASTCalcCompare;
 }

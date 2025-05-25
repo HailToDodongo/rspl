@@ -12,6 +12,9 @@ import { fileURLToPath } from 'url';
 import {reorderRound, reorderTask} from "./lib/optimizer/asmOptimizer.js";
 const __filename = fileURLToPath(import.meta.url);
 
+/**
+ * @type RSPLConfig
+ */
 let config = {
   optimize: true,
   optimizeTime: 1000 * 30,
@@ -21,6 +24,7 @@ let config = {
   defines: {},
   patchFunctions: [],
   watch: false,
+  debugInfo: true
 };
 
 function getFunctionStartEnd(source, funcName) {

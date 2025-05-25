@@ -22,7 +22,7 @@ import {
   SWIZZLE_MAP_KEYS_STR,
   SWIZZLE_SCALAR_IDX
 } from "../syntax/swizzle";
-import {f32ToFP32, isTwoRegType} from "../dataTypes/dataTypes.js";
+import {f32ToFP32, isTwoRegType, isVecType} from "../dataTypes/dataTypes.js";
 import {asm, asmNOP} from "../intsructions/asmWriter.js";
 import opsScalar from "./scalar";
 import builtins from "../builtins/functions.js";
@@ -253,6 +253,9 @@ function opStore(varRes, varOffsets, isPackedByte = false, isSigned = true)
 {
   if(varOffsets.length < 1)state.throwError("Vector stores need at least one offset / more than 1 argument!");
   const varLoc = state.getRequiredVarOrMem(varOffsets[0].value, "base");
+  if(isVecType(varLoc.type) && !varLoc.arraySize) {
+    state.throwError("store base-addresses must be in a scalar register!", varLoc);
+  }
 
   const opsLoad = [];
   if(!varLoc.reg) {
