@@ -690,22 +690,19 @@ describe('Vector - Ops', () =>
     const {asm, warn} = await transpileSource(`function test() {
       vec32<$v02> b;
       vec16<$v04> a;
-      b = a << 1;
-      b = a << 4;
-      b = a << 15;
+      a = b << 1;
+      a = b << 4;
+      a = b << 15;
     }`, CONF);
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmudl $v29, $v00, $v30.e6
-  vmadn $v02, $v04, $v30.e6
-  vmudn $v03, $v00, $v30.e6
-  vmudl $v29, $v00, $v30.e3
-  vmadn $v02, $v04, $v30.e3
-  vmudn $v03, $v00, $v30.e3
-  vmudl $v29, $v00, $v31.e0
-  vmadn $v02, $v04, $v31.e0
-  vmudn $v03, $v00, $v31.e0
+  vmudl $v04, $v03, $v30.e6
+  vmadn $v04, $v02, $v30.e6
+  vmudl $v04, $v03, $v30.e3
+  vmadn $v04, $v02, $v30.e3
+  vmudl $v04, $v03, $v31.e0
+  vmadn $v04, $v02, $v31.e0
   jr $ra
   nop`);
   });

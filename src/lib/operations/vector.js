@@ -476,7 +476,7 @@ function opShiftLeft(varRes, varLeft, varRight) {
   if(varRes.type === "vec16" && varLeft.type === 'vec32') {
     const regsL = getVec32Regs(varLeft);
     return [
-      asm("vmudl", [REG.VTEMP0, regsL[1], regR]),
+      asm("vmudl", [varRes.reg, regsL[1], regR]),
       asm("vmadn", [varRes.reg, regsL[0], regR]),
     ];
   }
