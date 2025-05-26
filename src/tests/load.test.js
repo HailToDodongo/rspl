@@ -146,6 +146,66 @@ describe('Load', () =>
   nop`);
   });
 
+    test('Vector - 32-Bit (unaligned)', async () => {
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
+      function test_vector_load() 
+      {
+        u32<$t0> src;
+        vec32<$v01> dst;
+        
+        WholeVector:
+        dst = load_unaligned(src);
+        dst = load_unaligned(src, 0x10);
+        dst.y = load_unaligned(src);
+        dst.z = load_unaligned(src, 0x10);
+        
+        Swizzle:
+        dst = load_unaligned(src).xyzwxyzw;
+        dst = load_unaligned(src, 0x10).xyzwxyzw;
+        dst.y = load_unaligned(src).xyzwxyzw;
+        dst.z = load_unaligned(src, 0x10).xyzwxyzw;
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test_vector_load:
+  WholeVector:
+  lqv $v01, 0, 0, $t0
+  lrv $v01, 0, 16, $t0
+  lqv $v02, 0, 16, $t0
+  lrv $v02, 0, 32, $t0
+  lqv $v01, 0, 16, $t0
+  lrv $v01, 0, 32, $t0
+  lqv $v02, 0, 32, $t0
+  lrv $v02, 0, 48, $t0
+  lqv $v01, 2, 0, $t0
+  lrv $v01, 2, 16, $t0
+  lqv $v02, 2, 16, $t0
+  lrv $v02, 2, 32, $t0
+  lqv $v01, 4, 16, $t0
+  lrv $v01, 4, 32, $t0
+  lqv $v02, 4, 32, $t0
+  lrv $v02, 4, 48, $t0
+  Swizzle:
+  ldv $v01, 0, 0, $t0
+  ldv $v01, 8, 0, $t0
+  ldv $v02, 0, 8, $t0
+  ldv $v02, 8, 8, $t0
+  ldv $v01, 0, 16, $t0
+  ldv $v01, 8, 16, $t0
+  ldv $v02, 0, 24, $t0
+  ldv $v02, 8, 24, $t0
+  ldv $v01, 2, 0, $t0
+  ldv $v01, 10, 0, $t0
+  ldv $v02, 2, 8, $t0
+  ldv $v02, 10, 8, $t0
+  ldv $v01, 4, 16, $t0
+  ldv $v01, 12, 16, $t0
+  ldv $v02, 4, 24, $t0
+  ldv $v02, 12, 24, $t0
+  jr $ra
+  nop`);
+  });
+
   test('Vector - Cast', async () => {
     const {asm, warn} = await transpileSource(`function test() 
       {

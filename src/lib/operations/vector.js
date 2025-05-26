@@ -229,7 +229,7 @@ function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSign
     destOffset /= 2;
   }
 
-  let postLoadInstr = loadInstr === 'lqv' ? "vext" : "vextb";
+  let alignLoadOp = (isUnaligned && loadInstr === 'lqv') ? "lrv" : undefined;
 
   srcOffset += varOffset.value;
 
@@ -240,13 +240,19 @@ function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSign
   res.push(            asm(loadInstr, [varRes.reg, destOffset,   srcOffset, varLoc.reg]));
   if(dupeLoad)res.push(asm(loadInstr, [varRes.reg, destOffset+8, srcOffset, varLoc.reg]));
 
-  if(isUnaligned) {
-
+  if(alignLoadOp) {
+    res.push(            asm(alignLoadOp, [varRes.reg, destOffset,   srcOffset+0x10, varLoc.reg]));
+    if(dupeLoad)res.push(asm(alignLoadOp, [varRes.reg, destOffset+8, srcOffset+0x10, varLoc.reg]));
   }
 
   if(is32) {
     res.push(            asm(loadInstr, [nextVecReg(varRes.reg), destOffset,   srcOffset + accessLen, varLoc.reg]));
     if(dupeLoad)res.push(asm(loadInstr, [nextVecReg(varRes.reg), destOffset+8, srcOffset + accessLen, varLoc.reg]));
+
+    if(alignLoadOp) {
+      res.push(            asm(alignLoadOp, [nextVecReg(varRes.reg), destOffset,   srcOffset + accessLen+0x10, varLoc.reg]));
+      if(dupeLoad)res.push(asm(alignLoadOp, [nextVecReg(varRes.reg), destOffset+8, srcOffset + accessLen+0x10, varLoc.reg]));
+    }
   }
   return res;
 }
