@@ -261,7 +261,7 @@ function opLoadBytes(varRes, varLoc, varOffset, swizzle, isSigned) {
   return opLoad(varRes, varLoc, varOffset, swizzle, true, isSigned);
 }
 
-function opStore(varRes, varOffsets, isPackedByte = false, isSigned = true)
+function opStore(varRes, varOffsets, isPackedByte = false, isSigned = true, isUnaligned = false)
 {
   if(varOffsets.length < 1)state.throwError("Vector stores need at least one offset / more than 1 argument!");
   const varLoc = state.getRequiredVarOrMem(varOffsets[0].value, "base");
@@ -297,9 +297,14 @@ function opStore(varRes, varOffsets, isPackedByte = false, isSigned = true)
     srcOffset /= 2;
   }
 
+  const alignOp = (isUnaligned && storeInstr === 'sqv') ? "srv" : undefined;
+
   return [...opsLoad,
-          asm(storeInstr, [           varRes.reg,  srcOffset, baseOffset            , varLoc.reg]),
-   is32 ? asm(storeInstr, [nextVecReg(varRes.reg), srcOffset, baseOffset + accessLen, varLoc.reg]) : null
+             asm(storeInstr, [           varRes.reg,  srcOffset, baseOffset            , varLoc.reg]),
+   alignOp ? asm(alignOp,    [           varRes.reg,  srcOffset, baseOffset + 0x10     , varLoc.reg]) : null,
+   is32    ? asm(storeInstr, [nextVecReg(varRes.reg), srcOffset, baseOffset + accessLen, varLoc.reg]) : null,
+   is32 && alignOp
+           ? asm(alignOp,    [nextVecReg(varRes.reg), srcOffset, baseOffset + accessLen + 0x10, varLoc.reg]) : null,
   ];
 }
 

@@ -743,6 +743,12 @@ store(uv, address); // stores entire vector to address
 store(uv.xy, address, 0x0C); // stores the first two lanes to address + 0x0C
 store(uv.XYZW, address, 0x0C); // stores the last 4 lanes to address + 0x0C
 ```
+
+### `store_unaligned(value, address, offset)`
+Exactly the same as store in almost all cases with no overhead.<br>
+If the store uses a full vector, this will emit a 2 instruction version handling the misalignment.<br> 
+Whenever possible, prefer using `store()` instead, and make sure the pointer is aligned.<br>
+
 ### `load_vec_u8(address, offset)` & `load_vec_s8(...)`
 Special load for packed 8-bit vectors, using the `lpv` / `luv` instructions.<br>
 Instead of loading 16-bit per lane, it loads 8-bit per lane expanding the value.<br>

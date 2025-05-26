@@ -59,7 +59,7 @@ function load(varRes, args, swizzle, isUnaligned = false)
   return opsVector.opLoad(varRes, argVar, argOffset, swizzle, false, true, isUnaligned);
 }
 
-function store(varRes, args, swizzle)
+function store(varRes, args, swizzle, isUnaligned = false)
 {
   assertArgsNoSwizzle(args, 1);
   if(varRes)state.throwError("Builtin store() cannot have a left side!\nUsage: 'store(varToSave, address, optionalOffset);'", varRes);
@@ -72,7 +72,7 @@ function store(varRes, args, swizzle)
   if(swizzle)state.throwError("Builtin store() cannot use swizzle!");
 
   if(isVectorSrc) {
-    return opsVector.opStore(varSrc, args.slice(1));
+    return opsVector.opStore(varSrc, args.slice(1), false, true, isUnaligned);
   }
 
   if(varSrc.swizzle)state.throwError("Scalar variables cannot use swizzling!", varSrc);
@@ -126,6 +126,15 @@ function store_vec_s8(varRes, args, swizzle) {
  */
 function load_unaligned(varRes, args, swizzle) {
   return load(varRes, args, swizzle, true);
+}
+
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg[]} args
+ * @param {?Swizzle} swizzle
+ */
+function store_unaligned(varRes, args, swizzle) {
+  return store(varRes, args, swizzle, true);
 }
 
 const VALID_TRANSPOSE_REGS = ["$v00", "$v08", "$v16", "$v24"];
@@ -915,7 +924,7 @@ function assert(varRes, args, swizzle) {
 
 export default {
   load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
-  load_unaligned,
+  load_unaligned, store_unaligned,
   load_transposed, store_transposed, transpose,
   asm: inlineAsm, asm_op, asm_include, print, printf, abs, clip, clear_vcc, get_acc, set_vcc, get_dma_busy,
   get_acc_high, get_acc_mid, get_acc_low,

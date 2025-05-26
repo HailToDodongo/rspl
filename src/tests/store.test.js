@@ -101,6 +101,95 @@ describe('Store', () =>
   nop`);
   });
 
+
+  test('Vector - 32-Bit (unaligned)', async () => {
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
+      function test_vector_store() 
+      {
+        u32<$t0> dst;
+        vec32<$v01> val;
+        
+        WholeVector:
+        store_unaligned(val, dst);
+        store_unaligned(val, TEST_CONST);
+        
+        Swizzle:
+        store_unaligned(val.y, dst);
+        store_unaligned(val.z, dst, 0x10);
+        store_unaligned(val.zw, dst);
+        store_unaligned(val.zw, dst, 0x10);
+        store_unaligned(val.XYZW, dst);
+        store_unaligned(val.XYZW, dst, 0x10);
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test_vector_store:
+  WholeVector:
+  sqv $v01, 0, 0, $t0
+  srv $v01, 0, 16, $t0
+  sqv $v02, 0, 16, $t0
+  srv $v02, 0, 32, $t0
+  ori $at, $zero, %lo(TEST_CONST)
+  sqv $v01, 0, 0, $at
+  srv $v01, 0, 16, $at
+  sqv $v02, 0, 16, $at
+  srv $v02, 0, 32, $at
+  Swizzle:
+  ssv $v01, 2, 0, $t0
+  ssv $v02, 2, 2, $t0
+  ssv $v01, 4, 16, $t0
+  ssv $v02, 4, 18, $t0
+  slv $v01, 4, 0, $t0
+  slv $v02, 4, 4, $t0
+  slv $v01, 4, 16, $t0
+  slv $v02, 4, 20, $t0
+  sdv $v01, 8, 0, $t0
+  sdv $v02, 8, 8, $t0
+  sdv $v01, 8, 16, $t0
+  sdv $v02, 8, 24, $t0
+  jr $ra
+  nop`);
+  });
+
+    test('Vector - 16-Bit (unaligned)', async () => {
+    const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
+      function test_vector_store() 
+      {
+        u32<$t0> dst;
+        vec16<$v01> val;
+        
+        WholeVector:
+        store_unaligned(val, dst);
+        store_unaligned(val, TEST_CONST);
+        
+        Swizzle:
+        store_unaligned(val.y, dst);
+        store_unaligned(val.z, dst, 0x10);
+        store_unaligned(val.zw, dst);
+        store_unaligned(val.zw, dst, 0x10);
+        store_unaligned(val.XYZW, dst);
+        store_unaligned(val.XYZW, dst, 0x10);
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test_vector_store:
+  WholeVector:
+  sqv $v01, 0, 0, $t0
+  srv $v01, 0, 16, $t0
+  ori $at, $zero, %lo(TEST_CONST)
+  sqv $v01, 0, 0, $at
+  srv $v01, 0, 16, $at
+  Swizzle:
+  ssv $v01, 2, 0, $t0
+  ssv $v01, 4, 16, $t0
+  slv $v01, 4, 0, $t0
+  slv $v01, 4, 16, $t0
+  sdv $v01, 8, 0, $t0
+  sdv $v01, 8, 16, $t0
+  jr $ra
+  nop`);
+  });
+
   test('Vector - Cast', async () => {
     const {asm, warn} = await transpileSource(` state { u32 TEST_CONST; }
       function test_vector_store() 
