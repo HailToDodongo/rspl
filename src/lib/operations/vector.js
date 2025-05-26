@@ -185,7 +185,7 @@ function opMove(varRes, varRight)
  * @param {boolean} isSigned
  * @returns {ASM[]}
  */
-function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSigned = true)
+function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSigned = true, isUnaligned = false)
 {
   const res = [];
 
@@ -229,6 +229,8 @@ function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSign
     destOffset /= 2;
   }
 
+  let postLoadInstr = loadInstr === 'lqv' ? "vext" : "vextb";
+
   srcOffset += varOffset.value;
 
   if(loadInstr === "lqv" && srcOffset % 16 !== 0) {
@@ -237,6 +239,10 @@ function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSign
 
   res.push(            asm(loadInstr, [varRes.reg, destOffset,   srcOffset, varLoc.reg]));
   if(dupeLoad)res.push(asm(loadInstr, [varRes.reg, destOffset+8, srcOffset, varLoc.reg]));
+
+  if(isUnaligned) {
+
+  }
 
   if(is32) {
     res.push(            asm(loadInstr, [nextVecReg(varRes.reg), destOffset,   srcOffset + accessLen, varLoc.reg]));
@@ -466,8 +472,10 @@ function opShiftLeft(varRes, varLeft, varRight) {
     const regsRes = getVec32Regs(varRes);
     const regsL = getVec32Regs(varLeft);
 
+    const firstReg = (regsRes[0] === regsL[0]) ? REG.VTEMP0 : regsRes[0];
+
     return [
-      asm("vmudl", [REG.VTEMP0, regsL[1], regR]),
+      asm("vmudl", [firstReg,   regsL[1], regR]),
       asm("vmadn", [regsRes[0], regsL[0], regR]),
       asm("vmudn", [regsRes[1], regsL[1], regR])
     ];

@@ -33,7 +33,7 @@ function assertArgsNoSwizzle(args, offset = 0) {
   }
 }
 
-function load(varRes, args, swizzle)
+function load(varRes, args, swizzle, isUnaligned = false)
 {
   assertArgsNoSwizzle(args);
   if(!varRes)state.throwError("Builtin load() needs a left-side", varRes);
@@ -56,7 +56,7 @@ function load(varRes, args, swizzle)
     return opsScalar.opLoad(varRes, argVar, argOffset);
   }
 
-  return opsVector.opLoad(varRes, argVar, argOffset, swizzle);
+  return opsVector.opLoad(varRes, argVar, argOffset, swizzle, false, true, isUnaligned);
 }
 
 function store(varRes, args, swizzle)
@@ -117,6 +117,15 @@ function store_vec_u8(varRes, args, swizzle, isSigned = false) {
 
 function store_vec_s8(varRes, args, swizzle) {
   return store_vec_u8(varRes, args, swizzle, true);
+}
+
+/**
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg[]} args
+ * @param {?Swizzle} swizzle
+ */
+function load_unaligned(varRes, args, swizzle) {
+  return load(varRes, args, swizzle, true);
 }
 
 const VALID_TRANSPOSE_REGS = ["$v00", "$v08", "$v16", "$v24"];
@@ -906,6 +915,7 @@ function assert(varRes, args, swizzle) {
 
 export default {
   load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
+  load_unaligned,
   load_transposed, store_transposed, transpose,
   asm: inlineAsm, asm_op, asm_include, print, printf, abs, clip, clear_vcc, get_acc, set_vcc, get_dma_busy,
   get_acc_high, get_acc_mid, get_acc_low,
