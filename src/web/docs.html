@@ -597,6 +597,10 @@ Meaning it should look like this (two bytes per letter): <code>IIII IIII FFFF FF
 If you specify a partial or repeating load (e.g. <code>.xyzw</code>, <code>.xyzwxyzw</code>)  it should look like this: <code>IIII FFFF</code>.<br></p>
 <p>In general, the swizzle will specify the amount of components and the target offset.<br>
 The fractional part always comes after that block.</p>
+<h3 id="load_unalignedu32addressoffset"><code>load_unaligned(u32 address, offset, ...)</code></h3>
+<p>Exactly the same as load in almost all cases with no overhead.<br>
+If the load is a full vector, this will emit a 2 instruction version handling the misalignment.<br> 
+Whenever possible, prefer using <code>load()</code> instead, and make sure data is aligned.<br></p>
 <h3 id="storevalueaddressoffset"><code>store(value, address, offset)</code></h3>
 <p>Stores a value from a register into memory.<br></p>
 <p>Similar to <code>load()</code>, there is some special behaviour for vectors.<br>

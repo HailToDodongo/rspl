@@ -721,6 +721,11 @@ If you specify a partial or repeating load (e.g. `.xyzw`, `.xyzwxyzw`)  it shoul
 In general, the swizzle will specify the amount of components and the target offset.<br>
 The fractional part always comes after that block.
 
+### `load_unaligned(u32 address, offset, ...)`
+Exactly the same as load in almost all cases with no overhead.<br>
+If the load is a full vector, this will emit a 2 instruction version handling the misalignment.<br> 
+Whenever possible, prefer using `load()` instead, and make sure data is aligned.<br>
+
 ### `store(value, address, offset)` 
 Stores a value from a register into memory.<br>
 
