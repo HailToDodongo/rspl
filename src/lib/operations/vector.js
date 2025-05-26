@@ -460,23 +460,33 @@ function opShiftLeft(varRes, varLeft, varRight) {
   const shiftReg = POW2_SWIZZLE_VAR[shiftVal];
   if(!shiftReg)state.throwError(`Invalid shift value (${varRight.value} -> V:${shiftVal})`, varRight);
 
-  if(varRes.type !== varLeft.type) {
-    state.throwError("Shift-Left requires all arguments to be of the same type!");
-  }
+  const regR = shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle];
 
   if(varRes.type === "vec32") {
     const regsRes = getVec32Regs(varRes);
     const regsL = getVec32Regs(varLeft);
 
     return [
-      asm("vmudl", [regsRes[1], regsL[1], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
-      asm("vmadm", [regsRes[0], regsL[0], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
-      asm("vmadn", [regsRes[1], REGS.VZERO, REGS.VZERO]),
+      asm("vmudl", [REG.VTEMP0, regsL[1], regR]),
+      asm("vmadn", [regsRes[0], regsL[0], regR]),
+      asm("vmudn", [regsRes[1], regsL[1], regR])
     ];
   }
 
+  if(varRes.type === "vec16" && varLeft.type === 'vec32') {
+    const regsL = getVec32Regs(varLeft);
+    return [
+      asm("vmudl", [REG.VTEMP0, regsL[1], regR]),
+      asm("vmadn", [varRes.reg, regsL[0], regR]),
+    ];
+  }
+
+  if(varRes.type !== varLeft.type) {
+    state.throwError("Cannot left-shift vec16 into vec32!");
+  }
+
   return [
-    asm("vmudn", [varRes.reg, varLeft.reg, shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]])
+    asm("vmudn", [varRes.reg, varLeft.reg, regR])
   ];
 }
 
