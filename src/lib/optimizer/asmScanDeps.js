@@ -52,9 +52,10 @@ const HIDDEN_REGS_READ = {
   "vrndn":[              "$acc"],
   "vmacq":[              "$acc"],
   "vsar" :[              "$acc"],
-  "vrcph":[    "$DIV_OUT"      ],
-  "vrcpl":[    "$DIV_IN"       ],
-  "vrsql":[    "$DIV_IN"       ],
+  "vrcph":[    "$divOut"       ],
+  "vrsqh":[    "$divOut"       ],
+  "vrcpl":[    "$divIn", "$divDP"],
+  "vrsql":[    "$divIn", "$divDP"],
   "vadd": [      "$vco",       ],
   "vsub": [      "$vco",       ],
 };
@@ -70,12 +71,12 @@ const HIDDEN_REGS_WRITE = {
   "vcl" : ["$vcc", "$vco", "$acc", "$vce"],
   "vmrg": [        "$vco", "$acc"],
   "vmov": [                "$acc"],
-  "vrcp": [                "$acc", "$DIV_OUT"],
-  "vrcph":[                "$acc", "$DIV_IN" ],
-  "vrsq": [                "$acc", "$DIV_OUT"],
-  "vrsqh":[                "$acc", "$DIV_IN" ],
-  "vrcpl":[                "$acc", "$DIV_OUT"],
-  "vrsql":[                "$acc", "$DIV_OUT"],
+  "vrcp": [                "$acc", "$divOut", "$divDP"],
+  "vrcph":[                "$acc", "$divIn" , "$divDP"],
+  "vrcpl":[                "$acc", "$divOut", "$divDP"],
+  "vrsq": [                "$acc", "$divOut", "$divDP"],
+  "vrsqh":[                "$acc", "$divIn" , "$divDP"],
+  "vrsql":[                "$acc", "$divOut", "$divDP"],
   "vadd": [        "$vco", "$acc"],
   "vsub": [        "$vco", "$acc"],
   "vaddc":[        "$vco", "$acc"],
@@ -105,7 +106,7 @@ const HIDDEN_REGS_WRITE = {
   "vmacq":[                "$acc"],
 };
 
-const STALL_IGNORE_REGS = ["$vcc", "$vco", "$acc", "$vce", "$DIV_OUT", "$DIV_IN"];
+const STALL_IGNORE_REGS = ["$vcc", "$vco", "$acc", "$vce", "$divOut", "$divIn", "$divDP"];
 
 export const REG_INDEX_MAP = {
   "$v00": 0,    "$v00_0": 0, "$v00_1": 1, "$v00_2": 2, "$v00_3": 3, "$v00_4": 4, "$v00_5": 5, "$v00_6": 6, "$v00_7": 7,
@@ -147,10 +148,10 @@ export const REG_INDEX_MAP = {
   "$t8": 280, "$t9": 281,
   "$k0": 282, "$k1": 283, "$gp": 284, "$sp": 285, "$fp": 286, "$ra": 287,
 
-  "$vco": 288, "$vcc": 289, "$acc": 290, "$DIV_OUT": 291, "$DIV_IN": 292,
-  "$vce": 293,
+  "$vco": 288, "$vcc": 289, "$acc": 290, "$divOut": 291, "$divIn": 292, "$divDP": 293,
+  "$vce": 294,
 
-  SIZE: 294
+  SIZE: 295
 };
 
 export const REG_STALL_INDEX_MAP = {
