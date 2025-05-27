@@ -37,7 +37,7 @@ const HIDDEN_REGS_READ = {
   "vne" : [       "$vco"       ],
   "vge" : [       "$vco"       ],
   "vmrg": ["$vcc"              ],
-  "vcl" : [       "$vco",      ],
+  "vcl" : [       "$vco",        "$vce"],
   "vmacf":[              "$acc"],
   "vmacu":[              "$acc"],
   "vmudn":[              "$acc"],
@@ -65,9 +65,9 @@ const HIDDEN_REGS_WRITE = {
   "veq" : ["$vcc", "$vco", "$acc"],
   "vne" : ["$vcc", "$vco", "$acc"],
   "vge" : ["$vcc", "$vco", "$acc"],
-  "vch" : ["$vcc", "$vco", "$acc"],
-  "vcr" : ["$vcc", "$vco", "$acc"],
-  "vcl" : ["$vcc", "$vco", "$acc"],
+  "vch" : ["$vcc", "$vco", "$acc", "$vce"],
+  "vcr" : ["$vcc", "$vco", "$acc", "$vce"],
+  "vcl" : ["$vcc", "$vco", "$acc", "$vce"],
   "vmrg": [        "$vco", "$acc"],
   "vmov": [                "$acc"],
   "vrcp": [                "$acc", "$DIV_OUT"],
@@ -80,6 +80,7 @@ const HIDDEN_REGS_WRITE = {
   "vsub": [        "$vco", "$acc"],
   "vaddc":[        "$vco", "$acc"],
   "vsubc":[        "$vco", "$acc"],
+  "vabs": [                "$acc"],
   "vand": [                "$acc"],
   "vnand":[                "$acc"],
   "vor":  [                "$acc"],
@@ -104,7 +105,7 @@ const HIDDEN_REGS_WRITE = {
   "vmacq":[                "$acc"],
 };
 
-const STALL_IGNORE_REGS = ["$vcc", "$vco", "$acc", "$DIV_OUT", "$DIV_IN"];
+const STALL_IGNORE_REGS = ["$vcc", "$vco", "$acc", "$vce", "$DIV_OUT", "$DIV_IN"];
 
 export const REG_INDEX_MAP = {
   "$v00": 0,    "$v00_0": 0, "$v00_1": 1, "$v00_2": 2, "$v00_3": 3, "$v00_4": 4, "$v00_5": 5, "$v00_6": 6, "$v00_7": 7,
@@ -147,8 +148,9 @@ export const REG_INDEX_MAP = {
   "$k0": 282, "$k1": 283, "$gp": 284, "$sp": 285, "$fp": 286, "$ra": 287,
 
   "$vco": 288, "$vcc": 289, "$acc": 290, "$DIV_OUT": 291, "$DIV_IN": 292,
+  "$vce": 293,
 
-  SIZE: 293
+  SIZE: 294
 };
 
 export const REG_STALL_INDEX_MAP = {

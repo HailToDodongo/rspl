@@ -245,4 +245,24 @@ describe('Builtins', () =>
   jr $ra
   nop`);
   });
+
+  test('abs() - 16bit', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+        vec16<$v08> v0;
+        vec16<$v16> v1;
+        TEST_0:
+        v0 = abs(v1);
+        TEST_1:
+        v1 = abs(v1);
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  TEST_0:
+  vabs $v08, $v16, $v16
+  TEST_1:
+  vabs $v16, $v16, $v16
+  jr $ra
+  nop`);
+  });
 });

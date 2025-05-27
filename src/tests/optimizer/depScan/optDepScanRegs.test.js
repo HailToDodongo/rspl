@@ -191,4 +191,30 @@ describe('Optimizer - Dependency Scanner', () =>
       [5],
     ]);
   });
+
+  test('Vector Example (vabs)', () => {
+    const lines = [
+      /* 00 */ asm("vmacf", ["$v27", "$v27", "$v27"]),
+      /* 01 */ asm("vabs",  ["$v01", "$v01", "$v01"]),
+      /* 02 */ asm("vmacf", ["$v27", "$v27", "$v27"]),
+    ];
+    expect(asmLinesToDeps(lines)).toEqual([
+      [0],
+      [1],
+      [2],
+    ]);
+  });
+
+  test('Vector Example ($VCE)', () => {
+    const lines = [
+      /* 00 */ asm("vcr", ["$v01", "$v01", "$v01"]),
+      /* 01 */ asm("ori", ["$t0", "$t0", "$t0"]),
+      /* 02 */ asm("vcl", ["$v03", "$v03", "$v03"]),
+    ];
+    expect(asmLinesToDeps(lines)).toEqual([
+      [0, 1   ],
+      [0, 1, 2],
+      [   1, 2],
+    ]);
+  });
 });
