@@ -676,6 +676,10 @@ Similar to the ones above, there are function to read/write to the MFC0 register
 - `set_dma_write(int value)`
 - `set_dma_read(int value)`
 
+### `get_ticks()`
+Returns the RCP clock (24bit) and stored it into a scalar variable.<br>
+This can be used to measure performance of code in both emulators and on hardware.<br>
+
 ### `invert_half(vec a)` & `invert(vec a)`
 Inverts a (single component of a) vector (`1 / x`).<br>
 The `invert_half` version maps directly to the hardware instruction, returning `0.5 / x`.<br>

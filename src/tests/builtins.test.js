@@ -265,4 +265,17 @@ describe('Builtins', () =>
   jr $ra
   nop`);
   });
+
+ test('Interface', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+        u32 a;
+        a = get_ticks();
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  mfc0 $t0, COP0_DP_CLOCK
+  jr $ra
+  nop`);
+  });
 });

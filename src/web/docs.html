@@ -561,6 +561,9 @@ The argument must be a scalar variable or constant.</p>
 <li><code>set_dma_write(int value)</code></li>
 <li><code>set_dma_read(int value)</code></li>
 </ul>
+<h3 id="get_ticks"><code>get_ticks()</code></h3>
+<p>Returns the RCP clock (24bit) and stored it into a scalar variable.<br>
+This can be used to measure performance of code in both emulators and on hardware.<br></p>
 <h3 id="invert_halfvecainvertveca"><code>invert_half(vec a)</code> &amp; <code>invert(vec a)</code></h3>
 <p>Inverts a (single component of a) vector (<code>1 / x</code>).<br>
 The <code>invert_half</code> version maps directly to the hardware instruction, returning <code>0.5 / x</code>.<br>
