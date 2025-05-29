@@ -153,7 +153,9 @@ export async function transpile(ast, updateCb, config = {})
 
         if(config.reorder)console.time("asmOptimize");
         await asmOptimize(func, updateCb ? (bestFunc) => {
-          updateCb(generateASM());
+          func.asm = structuredClone(bestFunc.asm);
+          func.cyclesAfter = bestFunc.cyclesAfter;
+          return updateCb(generateASM());
         } : undefined, config);
         if(config.reorder)console.timeEnd("asmOptimize");
 

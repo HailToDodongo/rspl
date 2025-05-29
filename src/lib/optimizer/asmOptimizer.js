@@ -403,7 +403,10 @@ export async function asmOptimize(asmFunc, updateCb, config)
         asmFunc.cyclesAfter = cost;
 
         if(isBetter) {
-          if(updateCb)updateCb(asmFunc);
+          if(updateCb) {
+            evalFunctionCost(asmFunc);
+            updateCb(asmFunc);
+          }
           console.log(`[${funcName}] \x1B[32m**** New Best for '${funcName}': ${costInit} -> ${cost} ****\x1B[0m`);
           stepsSinceLastOpt = 0;
           consecutiveSame = 0;

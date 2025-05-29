@@ -30,7 +30,7 @@ let config = {
 function getFunctionStartEnd(source, funcName) {
  const funcIdx = source.search(funcName + ":\n");
   if(funcIdx === -1) {
-    throw new Error("Function not found in output file!");
+    throw new Error("Function "+funcName+" not found in output file!");
   }
   // search for end, each following line starts with 2 spaces and the function ends when a line has none
   const endIdx = source.substring(funcIdx).search(/\n[A-Za-z0-9]/);
