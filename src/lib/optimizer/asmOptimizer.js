@@ -314,6 +314,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
     return;
   }
 
+  const doSleep = typeof window !== "undefined";
   let costBest = evalFunctionCost(asmFunc);
   asmFunc.cyclesBefore = costBest;
   //const worker = WorkerThreads.getInstance();
@@ -413,6 +414,6 @@ export async function asmOptimize(asmFunc, updateCb, config)
     if(i % 3 === 0)lastRandPick = funcCopy;
     ++i;
     ++stepsSinceLastOpt;
-    if(updateCb)await sleep();
+    if(doSleep)await sleep();
   }
 }

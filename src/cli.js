@@ -87,31 +87,39 @@ async function main() {
   const sourceBaseDir = path.dirname(process.argv[2]);
   config.fileLoader =  filePath => readFileSync(path.join(sourceBaseDir, filePath), "utf8");
 
-  console.time("transpile");
-  const asmRes = await transpileSource(source, config);
-  console.timeEnd("transpile");
-  if(asmRes.warn) {
-    console.warn(asmRes.warn);
-  }
-  if(asmRes.info) {
-    console.info(asmRes.info);
-  }
-
-  if(config.patchFunctions.length) {
-    let oldSource = readFileSync(pathOut, "utf8");
-    for(const patchFunc of config.patchFunctions) {
-      console.log("Patching functions", config.patchFunctions.join(", "));
-
-      const posOld = getFunctionStartEnd(oldSource, patchFunc);
-      const posNew = getFunctionStartEnd(asmRes.asm, patchFunc);
-      oldSource = oldSource.substring(0, posOld[0])
-        + asmRes.asm.substring(posNew[0], posNew[1])
-        + oldSource.substring(posOld[1]);
+  const finalizeASM = (asmRes, lastRun = false) => {
+    if(asmRes.warn && lastRun) {
+      console.warn(asmRes.warn);
+      asmRes.warn = "";
     }
-    writeFileSync(pathOut, oldSource);
-  } else {
-    writeFileSync(pathOut, asmRes.asm);
-  }
+    if(asmRes.info && lastRun) {
+      console.info(asmRes.info);
+      asmRes.info = "";
+    }
+
+    if(config.patchFunctions.length) {
+      let oldSource = readFileSync(pathOut, "utf8");
+      for(const patchFunc of config.patchFunctions) {
+        if(lastRun)console.log("Patching functions", config.patchFunctions.join(", "));
+
+        const posOld = getFunctionStartEnd(oldSource, patchFunc);
+        const posNew = getFunctionStartEnd(asmRes.asm, patchFunc);
+        oldSource = oldSource.substring(0, posOld[0])
+          + asmRes.asm.substring(posNew[0], posNew[1])
+          + oldSource.substring(posOld[1]);
+      }
+      writeFileSync(pathOut, oldSource);
+    } else {
+      writeFileSync(pathOut, asmRes.asm);
+    }
+  };
+
+  console.time("transpile");
+  const asmRes = await transpileSource(source, config, finalizeASM);
+  console.timeEnd("transpile");
+
+  finalizeASM(asmRes, true);
+
   worker.stop();
 }
 
