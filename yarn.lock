@@ -1555,10 +1555,10 @@ argparse@^1.0.7:
   dependencies:
     sprintf-js "~1.0.2"
 
-armips@^1.0.0:
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/armips/-/armips-1.0.0.tgz#e70f61032c35df4232666c894bbe238a7dec5fe1"
-  integrity sha512-joXBzBHdHpLlPLp0G5chS8X0uqXShJOdWYmZJNe85bC/Pvb23almlixtVyklWCl70o8zl5sPXwxQ73ElFd0+Aw==
+armips@1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/armips/-/armips-1.1.0.tgz#8b02147441923199d05010f374ec67b2dadb43f6"
+  integrity sha512-XvYowqmjrOrazHjRgd2QRuCmWIu9ePah8+IxlXRaABHoWSkRce1mH7oMBbY4BQ0wgHMPM+bBuUGZEFC5JnMgKw==
 
 babel-jest@^29.7.0:
   version "29.7.0"
@@ -3141,10 +3141,10 @@ ret@~0.1.10:
   resolved "https://registry.yarnpkg.com/ret/-/ret-0.1.15.tgz#b8a4825d5bdb1fc3f6f53c2bc33f81388681c7bc"
   integrity sha512-TTlYpa+OL+vMMNG24xSlQGEJ3B/RzEfUlLct7b5G/ytav+wPrplCpVMFuwzXbkecJrb6IYo1iFb0S9v37754mg==
 
-rsp-wasm@^1.0.1:
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/rsp-wasm/-/rsp-wasm-1.0.1.tgz#0ccac01b99148f220f8ea474db746918ddee168a"
-  integrity sha512-azdwo45gY82/dnWY66v8YHbrd2Vd/9aE3gjvD8OGZ1kd6s4RcdEQKD7V0hxXvmHvBZL3VaiyjqkzDtxKmA66Hg==
+rsp-wasm@1.0.3:
+  version "1.0.3"
+  resolved "https://registry.yarnpkg.com/rsp-wasm/-/rsp-wasm-1.0.3.tgz#e473610551fa42b25d40560901173114bd2e5f65"
+  integrity sha512-dto9iW3NCLE0nz4Inl87HslbQodjOrXFz/THI2SIq9w1DmG5e2KmVhMo+Xq6WqsXsP55ugzPtLSQ5esul/wtZQ==
 
 safe-buffer@^5.0.1:
   version "5.2.1"

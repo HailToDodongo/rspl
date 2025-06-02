@@ -12,7 +12,6 @@ describe('E2E', () =>
          b.x = 4;
          b *= 2;
     }`);
-
     expect(rsp.getVPR("$v02")).toEqual([0,0,0,0, 0,0,0,0]);
     rsp.step(3);
     expect(rsp.getVPR("$v02")).toEqual([8,4,4,4, 4,4,4,4]);
