@@ -205,6 +205,15 @@ export function astNormalizeFunctions(ast)
   const macros = {};
 
   for(const block of astFunctions) {
+    if(["function", "command"].includes(block.type)) {
+      ast.state.push({
+        arraySize: [1], extern: true, varType: 'u16',
+        varName: block.name, align: 0, value: undefined
+      });
+    }
+  }
+
+  for(const block of astFunctions) {
     if(!["function", "command", "macro"].includes(block.type) || !block.body)continue;
 
     for(const anno of block.annotations) {
