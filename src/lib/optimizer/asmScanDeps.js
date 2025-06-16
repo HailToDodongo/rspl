@@ -15,7 +15,7 @@ export const STORE_OPS = [
 ];
 
 export const LOAD_OPS_SCALAR = ["lw", "lh", "lhu", "lb", "lbu"];
-export const LOAD_OPS_VECTOR = ["lbv", "lsv", "llv", "ldv", "lqv", "lpv", "luv", "ltv", "lrv"];
+export const LOAD_OPS_VECTOR = ["lbv", "lsv", "llv", "ldv", "lqv", "lpv", "luv", "lhv", "lfv", "ltv", "lrv"];
 
 // ops that load from RAM, r/w register access
 export const LOAD_OPS = [...LOAD_OPS_SCALAR, ...LOAD_OPS_VECTOR];
