@@ -65,8 +65,8 @@ const POOL_SIZE            = 8;   // sub-iterations per variant
 const PREFER_STALLS_RATE   = 0.20;  // chance to directly fill a stall instead of a random pick
 const PREFER_PAIR_RATE     = 0.80;  // chance to directly fill a stall instead of a random pick
 
-const MAX_STEPS_NO_CHANGE  = 6000; // steps with no better results until we generate new variants
-const SEARCH_VARIANT_SEARCH = 6; // how many variants to check when searching a worse solution
+const MAX_STEPS_NO_CHANGE  = 5000; // steps with no better results until we generate new variants
+const SEARCH_VARIANT_SEARCH = 10; // how many variants to check when searching a worse solution
 const SEARCH_BACK_STEPS_FACTOR = 10; // when searching for new variants, how many steps to go back mult. by the consecutive amount of failed attempts
 const SEARCH_FWD_STEPS_FACTOR = 5;
 

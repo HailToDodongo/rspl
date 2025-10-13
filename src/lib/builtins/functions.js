@@ -496,6 +496,9 @@ function set_dma_write(varRes, args, swizzle) {
 function set_dma_read(varRes, args, swizzle) {
   return generic_mfc0_write(varRes, args, swizzle, "set_dma_read", REG_COP0.DMA_READ);
 }
+function set_rsp_status(varRes, args, swizzle) {
+  return generic_mfc0_write(varRes, args, swizzle, "set_rsp_status", REG_COP0.SP_STATUS);
+}
 
 
 function clear_vcc(varRes, args, swizzle)
@@ -935,6 +938,7 @@ export default {
   set_rdp_start, set_rdp_end, set_rdp_current,
   set_dma_addr_rsp, set_dma_addr_rdram, set_dma_write, set_dma_read,
   dma_in, dma_out, dma_in_async, dma_out_async, dma_await,
+  set_rsp_status,
   invert_half, invert_half_sqrt, invert, swap, select,
   get_cmd_address, get_vcc, max, min, load_arg,
   assert

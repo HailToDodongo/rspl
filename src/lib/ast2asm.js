@@ -421,14 +421,19 @@ export function ast2asm(ast)
 
   for(const block of ast.functions)
   {
+    if(["function", "command"].includes(block.type)) {
+      state.declareFunction(block.name, block.args,
+        !!getAnnotationVal(block.annotations || [], ANNOTATIONS.Relative)
+      );
+    }
+  }
+
+  for(const block of ast.functions)
+  {
     state.func = block.name || "";
     state.line = block.line || 0;
 
     if(["function", "command"].includes(block.type)) {
-
-      state.declareFunction(block.name, block.args,
-        !!getAnnotationVal(block.annotations || [], ANNOTATIONS.Relative)
-      );
 
       if(!block.body)continue;
       state.enterFunction(block.name, block.type, getArgSize(block));

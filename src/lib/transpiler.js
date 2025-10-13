@@ -110,9 +110,9 @@ export async function transpile(ast, updateCb, config = {})
   //console.timeEnd("writeASM");
 
     const usageImemPercent = sizeDMEM / 4096 * 100;
-    state.logInfo(`Total state size: ${sizeDMEM} bytes (${usageImemPercent.toFixed(2)}%)`);
+    //state.logInfo(`Total state size: ${sizeDMEM} bytes (${usageImemPercent.toFixed(2)}%)`);
     const useageDmemPercent = sizeIMEM / 4096 * 100;
-    state.logInfo(`Total text size: ${sizeIMEM} bytes (${useageDmemPercent.toFixed(2)}%)`);
+    //state.logInfo(`Total text size: ${sizeIMEM} bytes (${useageDmemPercent.toFixed(2)}%)`);
 
     debug.lineDepMap = debugUnopt.lineDepMap;
     return {

@@ -49,7 +49,7 @@ export function preprocess(src, defines = {}, fileLoader = undefined)
       }
 
       defines[name] = {
-        regex: new RegExp(`\\b${name}\\b`, "g"),
+        regex: new RegExp(`(\\b${name}\\b)|(\\$\\{${name}\\})`, "g"),
         value
       };
     }

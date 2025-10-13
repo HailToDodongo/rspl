@@ -7,6 +7,7 @@ import { transpileSource } from "./lib/transpiler";
 import { readFileSync, writeFileSync, watch } from "fs";
 import * as path from "path";
 import {initWorker, registerTask, WorkerThreads} from "./lib/workerThreads.js";
+import crypto from 'crypto';
 
 import { fileURLToPath } from 'url';
 import {reorderRound, reorderTask} from "./lib/optimizer/asmOptimizer.js";
@@ -74,15 +75,25 @@ for(let i=3; i<process.argv.length; ++i) {
   }
 }
 
+let lastFileHash = "";
+
 async function main() {
   registerTask("reorder", reorderTask);
   if(initWorker())return;
 
   const source = readFileSync(process.argv[2], "utf8");
+
+  const fileHash = crypto.createHash('md5').update(source).digest('hex');
+  if(fileHash === lastFileHash) {
+    console.log("File unchanged, skipping transpile.");
+    return;
+  }
+  lastFileHash = fileHash;
+
   const pathOut = process.argv[2].replace(".rspl", "") + ".S";
 
   const selfPath = process.argv.find(arg => arg.includes(".mjs"));
-  const worker = new WorkerThreads(config.optimizeWorker, selfPath);
+  //const worker = new WorkerThreads(config.optimizeWorker, selfPath);
 
   const sourceBaseDir = path.dirname(process.argv[2]);
   config.fileLoader =  filePath => readFileSync(path.join(sourceBaseDir, filePath), "utf8");
@@ -120,7 +131,7 @@ async function main() {
 
   finalizeASM(asmRes, true);
 
-  worker.stop();
+  //worker.stop();
 }
 
 if(config.watch) {
