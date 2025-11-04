@@ -12,6 +12,15 @@ const BRANCH_INVERT = {
   "bltzal": "bgezal",
   "bgez": "bltz",
   "bltz": "bgez",
+  "blez": "bgtz",
+  "bgtz": "blez",
+};
+
+const ZERO_COMB_BRANCH = {
+  "<": "bltz",
+  "<=": "blez",
+  ">": "bgtz",
+  ">=": "bgez",
 };
 
 export function invertBranchOp(op) {
@@ -61,6 +70,17 @@ export function opBranch(compare, labelElse, invert = false)
   let regOrValRight = isImmediate ? compare.right.value : regTestRes;
   let isZeroCompare = !isImmediate && regTestRes === REG.ZERO;
 
+
+  if(isZeroCompare) {
+      let op = ZERO_COMB_BRANCH[compare.op];
+      if(!invert)op = invertBranchOp(op);
+
+      return [
+        asmBranch(op, [regLeft, labelElse], labelElse), // jump if "<" fails (aka ">=")
+        asmNOP(),
+      ];
+  }
+
   // Both ">" and "<=" are causing the biggest issues when inverted, so map them to the other two
   if(compare.op === ">" || compare.op === "<=") {
     if(isImmediate) {
@@ -89,16 +109,6 @@ export function opBranch(compare, labelElse, invert = false)
   {
     let opBranch = compare.op === "<" ? "beq" : "bne";
     if(invert)opBranch = invertBranchOp(opBranch);
-
-    if(isZeroCompare) {
-      console.log("Zero compare", invert);
-      opBranch = compare.op === "<" ? "bgez" : "bltz";
-      if(invert)opBranch = invertBranchOp(opBranch);
-      return [
-        asmBranch(opBranch, [regLeft, labelElse], labelElse), // jump if "<" fails (aka ">=")
-        asmNOP(),
-      ];
-    }
 
     return [
       ...opsLoad,

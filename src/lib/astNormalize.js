@@ -7,6 +7,7 @@ import {nextReg} from "./syntax/registers";
 import state from "./state.js";
 import {validateAnnotation} from "./syntax/annotations.js";
 import builtins from "./builtins/functions.js";
+import {astCalcNormalize} from "./astCalcNormalizer.js";
 
 /**
  * @param {ASTScopedBlock} block
@@ -136,45 +137,60 @@ function normalizeScopedBlock(block, astState, macros)
     }
   });
 
+  const newStm = [];
   for(const st of statements)
   {
     if(st.type === "varAssignCalc")
     {
+      if(st.calc.type === "calcMulti")
+      {
+        newStm.push({
+          type: 'nestedCalc',
+          line: st.line,
+          varName: st.varName,
+          swizzle: st.swizzle,
+          parts: astCalcNormalize(st, astState)
+        });
+        continue;
+      }
+
+      let isVarR = st.calc.type === "calcLR" || st.calc.type === "calcVar";
       // convert constants from seemingly being variables to immediate-values
       // this changes the calc. type, instructions need to handle both numbers and strings
-      if(["calcVar", "calcVarVar"].includes(st.calc.type)) {
-        const stateVar = astState.find(s => s.varName === st.calc.right);
+      if(isVarR) {
+        const stateVar = astState.find(s => s.varName === st.calc.right.value);
         if(stateVar) {
-          st.calc.type = st.calc.type === "calcVar" ? "calcNum" : "calcVarNum";
-          st.calc.right = `%lo(${st.calc.right})`;
+          st.calc.type = st.calc.type === "calcLR" ? "calcLR" : "calcNum";
+          st.calc.right = {type: 'num', value: `%lo(${st.calc.right.value})`};
+          isVarR = false;
         }
+      } else {
+        st.calc.right = {
+          type: typeof(st.calc.right) === 'number' ? 'num' : 'VarName',
+          value: st.calc.right
+        };
       }
 
       // Expand the short form of assignments/calculations (e.g: "a += b" -> "a = a + b")
       if(st.assignType !== "=") {
         const expOp = st.assignType.substring(0, st.assignType.length-1);
-        st.calc.type = st.calc.type === "calcVar" ? "calcVarVar" : "calcVarNum";
-        st.calc.left = st.varName;
+        st.calc.type = 'calcLR';
+        st.calc.left = {type: 'VarName', value: st.varName};
+
+        if(!st.calc.right.type) {
+          st.calc.right = isVarR
+            ? {type: 'VarName', value: st.calc.right}
+            : {type: 'num', value: st.calc.right};
+        }
         st.calc.swizzleLeft = undefined; // @TODO: handle this?
         st.calc.op = expOp;
         st.assignType = "=";
       }
-
-      // normalize cast-syntax, if the destination has a cast but the rest doesn't,
-      // assume the L and R variable use the same by default
-      /*if(['calcVarNum', 'calcVarVar'].includes(st.calc.type) && st.varName.includes(":"))
-      {
-        if(!st.calc.left.includes(":")) {
-          st.calc.left += ":" + st.varName.split(":")[1];
-        }
-        if(st.calc.type === 'calcVarVar' && !st.calc.right.includes(":")) {
-          st.calc.right += ":" + st.varName.split(":")[1];
-        }
-      }*/
     }
+    newStm.push(st);
   }
 
-  block.statements = statements;
+  block.statements = newStm;
 }
 
 /**
@@ -189,6 +205,15 @@ export function astNormalizeFunctions(ast, config)
   /** @type {ASTMacroMap} */
   const macros = {};
   let shaderCount = 0;
+
+  for(const block of astFunctions) {
+    if(["function", "command"].includes(block.type)) {
+      ast.state.push({
+        arraySize: [1], extern: true, varType: 'u16',
+        varName: block.name, align: 0, value: undefined
+      });
+    }
+  }
 
   for(const block of astFunctions) {
     if(!["function", "command", "macro", "shader"].includes(block.type) || !block.body)continue;
@@ -209,6 +234,9 @@ export function astNormalizeFunctions(ast, config)
     if(block.type === "macro") {
       if(block.resultType != null) {
         state.throwError("Macros must not specify a result-type (use 'macro' without `< >`)!", block);
+      }
+      if(builtins[block.name]) {
+        state.throwError(`Macro '${block.name}' shadows a builtin function! Please use another name.`);
       }
       macros[block.name] = block;
     }
@@ -238,7 +266,7 @@ export function astNormalizeFunctions(ast, config)
     if(block.type !== "macro" && block.body) {
       state.func = block.name || "";
       const uniformsState = ast.uniforms.flatMap(u => u.state);
-      normalizeScopedBlock(block.body, [...ast.state, ...ast.tempState, ...uniformsState], macros);
+      normalizeScopedBlock(block.body, [...ast.state, ...ast.stateData, ...ast.stateBss, ...uniformsState], macros);
     }
   }
 

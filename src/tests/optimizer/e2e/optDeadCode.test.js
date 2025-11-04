@@ -65,8 +65,8 @@ describe('Optimizer E2E - Dead Code', () =>
     expect(asm).toBe(`test:
   addiu $t0, $zero, 1
   bne $t0, $zero, test2
-  ori $ra, $zero, LABEL_0001
-  LABEL_0001:
+  ori $ra, $zero, LABEL_test_0001
+  LABEL_test_0001:
   jr $ra
   nop`);
   });

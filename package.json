@@ -5,10 +5,12 @@
   "license": "MIT",
   "type": "module",
   "devDependencies": {
+    "armips": "1.1.0",
     "jest": "^29.7.0",
-    "parcel": "2.10.3",
+    "parcel": "2.15.2",
     "posthtml-doctype": "^1.1.1",
     "posthtml-include": "^1.7.4",
+    "rsp-wasm": "1.0.3",
     "showdown": "^2.1.0"
   },
   "targets": {
@@ -27,7 +29,7 @@
   "scripts": {
     "start": "yarn parcel src/web/index.html",
     "build": "parcel build --public-url '/rspl'",
-    "build:cli": "parcel build --target cli src/cli.js && mv dist/cli.js dist/cli.mjs",
+    "build:cli": "parcel build --no-cache --target cli src/cli.js && mv dist/cli.js dist/cli.mjs",
     "build:lang": "nearleyc src/lib/grammar.ne -o src/lib/grammar.cjs",
     "clean": "rm -rf .parcel-cache && rm -rf dist",
     "test": "NODE_OPTIONS=--experimental-vm-modules yarn jest"

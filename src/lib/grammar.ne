@@ -67,8 +67,6 @@ const lexer = moo.compile({
 	KWElse    : "else",
 	KWBreak   : "break",
 	KWWhile   : "while",
-	KWTmpState: "temp_state",
-	KWState   : "state",
 	KWGoto    : "goto",
 	KWExtern  : "extern",
 	KWContinue: "continue",
@@ -134,22 +132,23 @@ const lexer = moo.compile({
 # Pass your lexer with @lexer:
 @lexer lexer
 
-main -> (_ SectionIncl):* (_ SectionState):? (_ SectionTmpState):? (_ Uniform):* (_ VertexAttribute):* (Function):* (_ SectionIncl):* _ {% d => ({
+main -> (_ SectionIncl):* (_ SectionState):* (_ Uniform):* (_ VertexAttribute):* (Function):* (_ SectionIncl):* _ {% d => ({
 	includes: MAP_TAKE(d[0], 1),
-	state: (d[1] && d[1][1]) || [],
-	tempState: (d[2] && d[2][1]) || [],
-	uniforms: MAP_TAKE(d[3], 1),
-	attributes: MAP_TAKE(d[4], 1),
-	functions: MAP_TAKE(d[5], 0),
-	postIncludes: MAP_TAKE(d[6], 1),
+	states: MAP_TAKE(d[1], 1),
+	uniforms: MAP_TAKE(d[2], 1),
+	attributes: MAP_TAKE(d[3], 1),
+	functions: MAP_TAKE(d[4], 0),
+	postIncludes: MAP_TAKE(d[5], 1),
 }) %}
 
 ######### Include-Section #########
 SectionIncl -> %KWInclude _ %String {% d => d[2].value %}
 
 ######### State-Section #########
-SectionState -> %KWState _ %BlockStart _ StateVarDef:* %BlockEnd {% d => d[4] %}
-SectionTmpState -> %KWTmpState _ %BlockStart _ StateVarDef:* %BlockEnd {% d => d[4] %}
+SectionState -> %VarName _ %BlockStart _ StateVarDef:* %BlockEnd {% d => ({
+	name: d[0].value,
+	vars: d[4]
+}) %}
 
 Uniform -> %KWUniform RegNumDef:? _ %VarName _ %BlockStart _ StateVarDef:* %BlockEnd {% d => ({
 	name: d[3],
@@ -325,28 +324,35 @@ ExprVarAssign -> ( %VarName %Swizzle:? _ (%Assignment | %OperatorSelfR) _ ExprCa
 })%}
 
 #### Calculations ####
-ExprCalcAll -> ExprCalcVarVar | ExprCalcVarNum | ExprCalcNum | ExprCalcVar | ExprCalcFunc | ExprCalcCompare
+ExprCalcAll -> ExprCalcMulti | ExprCalcNum | ExprCalcVar | ExprCalcFunc | ExprCalcCompare
 
 ExprCalcNum -> ValueNumeric {% d => ({type: "calcNum", right: d[0][0]}) %}
 
 ExprCalcVar -> %OperatorUnary:? %VarName %Swizzle:? {% d => ({
 	type: "calcVar",
 	op: SAFE_VAL(d[0]),
-	right: d[1].value, swizzleRight: SAFE_VAL(d[2])
+	right: {type: 'VarName', value: d[1].value},
+	swizzleRight: SAFE_VAL(d[2])
 })%}
 
-ExprCalcVarVar -> %VarName %Swizzle:? _ %OperatorLR _ %VarName %Swizzle:? {% d => ({
-	type: "calcVarVar",
-	left: d[0].value, swizzleLeft: SAFE_VAL(d[1]),
-	op: d[3].value,
-	right: d[5].value, swizzleRight: SAFE_VAL(d[6])
+ExprNum -> ValueNumeric {% d => ({type: "num", value: d[0][0]}) %}
+ExprVarName -> %VarName {% d => ({type: "VarName",value: d[0].value}) %}
+
+ExprCalcMultiPart -> %OperatorLR _ (%ArgsStart _):* (ExprVarName | ExprNum) %Swizzle:? (_ %ArgsEnd):* {% d => ({
+	type: "calcMultiPart",
+	op: d[0].value,
+	right: d[3][0],
+	swizzleRight: SAFE_VAL(d[4]),
+	groupStart: d[2].length,
+	groupEnd: d[5].length
 })%}
 
-ExprCalcVarNum -> %VarName %Swizzle:? _ %OperatorLR _ ValueNumeric {% d => ({
-	type: "calcVarNum",
-	left: d[0].value, swizzleLeft: SAFE_VAL(d[1]),
-	op: d[3].value,
-	right: d[5][0]
+ExprCalcMulti -> (%ArgsStart _):* (ExprVarName | ExprNum) %Swizzle:? (_ ExprCalcMultiPart):+ {% d => ({
+	type: "calcMulti",
+	left: d[1][0],
+	swizzleLeft: SAFE_VAL(d[2]),
+	parts: MAP_TAKE(d[3], 1),
+	groupStart: d[0].length
 })%}
 
 ExprCalcFunc -> %VarName %ArgsStart _ FuncArgs:* _ %ArgsEnd %Swizzle:? {% d => ({

@@ -25,7 +25,7 @@ describe('Optimizer E2E - Jump Dedupe', () =>
   bne $at, $zero, RSPQ_Loop
   nop
   addiu $s7, $s7, 1
-  LABEL_0001:
+  LABEL_test_0001:
   j RSPQ_Loop
   nop`);
   });
@@ -42,11 +42,11 @@ describe('Optimizer E2E - Jump Dedupe', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   addiu $s7, $zero, 1
-  LABEL_0001:
+  LABEL_test_0001:
   sltiu $at, $s7, 2
   beq $at, $zero, RSPQ_Loop
   nop
-  j LABEL_0001
+  j LABEL_test_0001
   addiu $s7, $s7, 65535`);
   });
 });

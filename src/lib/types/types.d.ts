@@ -62,5 +62,6 @@ declare global {
         fileLoader: (path: string) => string;
         defines: Record<string, string>;
         patchFunctions: string[];
+        debugInfo: boolean;
     };
 }

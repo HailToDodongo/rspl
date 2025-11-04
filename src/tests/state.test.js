@@ -173,4 +173,121 @@ describe('State', () =>
 
 `);
   });
+
+test('Data State', async () => {
+    const {asm, warn} = await transpileSource(`
+      data {
+        u32 BBB;
+        u32 CCC;
+      }
+      `, CONF);
+
+    expect(warn).toBe("");
+    expect(getDataSection(asm)).toBe(`.data
+  RSPQ_BeginOverlayHeader
+  RSPQ_EndOverlayHeader
+
+  RSPQ_EmptySavedState
+
+    .align 2
+    BBB: .ds.b 4
+    .align 2
+    CCC: .ds.b 4
+
+`);
+  });
+
+  test('BSS Only', async () => {
+    const {asm, warn} = await transpileSource(`
+      bss {
+        u32 DDD;
+      }
+      `, CONF);
+
+    expect(warn).toBe("");
+    expect(getDataSection(asm)).toBe(`.data
+  RSPQ_BeginOverlayHeader
+  RSPQ_EndOverlayHeader
+
+  RSPQ_EmptySavedState
+
+.bss
+  TEMP_STATE_MEM_START:
+    .align 2
+    DDD: .ds.b 4
+  TEMP_STATE_MEM_END:
+
+`);
+  });
+
+  test('Data + State', async () => {
+    const {asm, warn} = await transpileSource(`
+      state {
+        u32 AAA;
+      }
+      data {
+        u32 BBB;
+        u32 CCC;
+      }
+      `, CONF);
+
+    expect(warn).toBe("");
+    expect(getDataSection(asm)).toBe(`.data
+  RSPQ_BeginOverlayHeader
+  RSPQ_EndOverlayHeader
+
+  RSPQ_BeginSavedState
+    STATE_MEM_START:
+    .align 2
+    AAA: .ds.b 4
+    STATE_MEM_END:
+  RSPQ_EndSavedState
+
+    .align 2
+    BBB: .ds.b 4
+    .align 2
+    CCC: .ds.b 4
+
+`);
+  });
+
+  test('Data + State + BSS', async () => {
+    const {asm, warn} = await transpileSource(`
+      state {
+        u32 AAA;
+      }
+      data {
+        u32 BBB;
+        u32 CCC;
+      }
+      bss {
+        u32 DDD;
+      }
+      `, CONF);
+
+    expect(warn).toBe("");
+    expect(getDataSection(asm)).toBe(`.data
+  RSPQ_BeginOverlayHeader
+  RSPQ_EndOverlayHeader
+
+  RSPQ_BeginSavedState
+    STATE_MEM_START:
+    .align 2
+    AAA: .ds.b 4
+    STATE_MEM_END:
+  RSPQ_EndSavedState
+
+    .align 2
+    BBB: .ds.b 4
+    .align 2
+    CCC: .ds.b 4
+
+.bss
+  TEMP_STATE_MEM_START:
+    .align 2
+    DDD: .ds.b 4
+  TEMP_STATE_MEM_END:
+
+`);
+  });
 });

@@ -113,6 +113,15 @@ declare global
         aliasName: string;
     };
 
+    type ASTNestedCalcPart = string | ASTNestedCalcPart[] | Object;
+
+    type ASTNestedCalc = ASTStatementBase & {
+      type: 'nestedCalc';
+      varName: string;
+      swizzle?: Swizzle;
+      parts: ASTNestedCalcPart[];
+    };
+
     type ASTAssignCalc = ASTStatementBase & {
         type: 'varAssignCalc';
         calc: ASTCalc;
@@ -125,11 +134,6 @@ declare global
         type: 'funcCall';
         func: any;
         args: ASTFuncArg[];
-    };
-
-    type ASTComment = ASTStatementBase & {
-        type: 'comment';
-        comment: string;
     };
 
     type ASTLabelDecl = ASTStatementBase & {
@@ -169,13 +173,14 @@ declare global
     };
 
     type ASTStatement = ASTScopedBlock | ASTIf | ASTWhile | ASTLoop | ASTDeclAssign | ASTDeclMulti
-        | ASTDecl | ASTFuncCall | ASTComment | ASTDeclAlias | ASTAssignCalc
+        | ASTDecl | ASTFuncCall | ASTDeclAlias | ASTAssignCalc | ASTNestedCalc
         | ASTLabelDecl | ASTGoto | ASTBreak | ASTExit | ASTContinue | ASTVarUndef | ASTAnnotation;
 
     type AST = {
         includes: string[];
         state: ASTState[];
-        tempState: ASTState[];
+        stateData: ASTState[];
+        stateBss: ASTState[];
         uniforms: ASTUniform[];
         attributes: ASTAttribute[];
         functions: ASTFunc[];

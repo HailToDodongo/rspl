@@ -1,6 +1,11 @@
 import {evalFunctionCost} from "../../../lib/optimizer/eval/evalCost.js";
 import {asm, asmLabel, asmNOP} from "../../../lib/intsructions/asmWriter.js";
-import {asmInitDeps, asmScanDeps} from "../../../lib/optimizer/asmScanDeps.js";
+import {
+  asmInitDeps,
+  asmScanDeps, OP_FLAG_IS_BRANCH,
+  OP_FLAG_IS_LIKELY,
+  OP_FLAG_LIKELY_BRANCH
+} from "../../../lib/optimizer/asmScanDeps.js";
 
 function textToAsmLines(text)
 {
@@ -15,7 +20,13 @@ function textToAsmLines(text)
           if(arg.endsWith(","))args[i] = arg.slice(0, -1);
         });
         const res = op === "nop" ? asmNOP() : asm(op, args);
-        res.isLikely = !line.includes("unlikely");
+        if(res.opFlags & OP_FLAG_IS_BRANCH) {
+          if(line.includes("unlikely")) {
+            res.opFlags &= ~(OP_FLAG_LIKELY_BRANCH | OP_FLAG_IS_LIKELY);
+          } else {
+            res.opFlags |= (OP_FLAG_LIKELY_BRANCH | OP_FLAG_IS_LIKELY);
+          }
+        }
         return res;
       });
 }

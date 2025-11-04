@@ -24,10 +24,10 @@ describe('Macros', () =>
     expect(asm).toBe(`test_macro:
   addiu $t2, $t2, 42
   sltiu $at, $t2, 3
-  beq $at, $zero, LABEL_0001
+  beq $at, $zero, LABEL_test_macro_0001
   nop
   addiu $t2, $t2, 42
-  LABEL_0001:
+  LABEL_test_macro_0001:
   jr $ra
   nop`);
   });

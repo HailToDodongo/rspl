@@ -22,7 +22,7 @@ import {
   SWIZZLE_MAP_KEYS_STR,
   SWIZZLE_SCALAR_IDX
 } from "../syntax/swizzle";
-import {f32ToFP32, isTwoRegType} from "../dataTypes/dataTypes.js";
+import {f32ToFP32, isTwoRegType, isVecType} from "../dataTypes/dataTypes.js";
 import {asm, asmNOP} from "../intsructions/asmWriter.js";
 import opsScalar from "./scalar";
 import builtins from "../builtins/functions.js";
@@ -185,7 +185,7 @@ function opMove(varRes, varRight)
  * @param {boolean} isSigned
  * @returns {ASM[]}
  */
-function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSigned = true)
+function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSigned = true, isUnaligned = false)
 {
   const res = [];
 
@@ -229,6 +229,8 @@ function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSign
     destOffset /= 2;
   }
 
+  let alignLoadOp = (isUnaligned && loadInstr === 'lqv') ? "lrv" : undefined;
+
   srcOffset += varOffset.value;
 
   if(loadInstr === "lqv" && srcOffset % 16 !== 0) {
@@ -238,9 +240,19 @@ function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSign
   res.push(            asm(loadInstr, [varRes.reg, destOffset,   srcOffset, varLoc.reg]));
   if(dupeLoad)res.push(asm(loadInstr, [varRes.reg, destOffset+8, srcOffset, varLoc.reg]));
 
+  if(alignLoadOp) {
+    res.push(            asm(alignLoadOp, [varRes.reg, destOffset,   srcOffset+0x10, varLoc.reg]));
+    if(dupeLoad)res.push(asm(alignLoadOp, [varRes.reg, destOffset+8, srcOffset+0x10, varLoc.reg]));
+  }
+
   if(is32) {
     res.push(            asm(loadInstr, [nextVecReg(varRes.reg), destOffset,   srcOffset + accessLen, varLoc.reg]));
     if(dupeLoad)res.push(asm(loadInstr, [nextVecReg(varRes.reg), destOffset+8, srcOffset + accessLen, varLoc.reg]));
+
+    if(alignLoadOp) {
+      res.push(            asm(alignLoadOp, [nextVecReg(varRes.reg), destOffset,   srcOffset + accessLen+0x10, varLoc.reg]));
+      if(dupeLoad)res.push(asm(alignLoadOp, [nextVecReg(varRes.reg), destOffset+8, srcOffset + accessLen+0x10, varLoc.reg]));
+    }
   }
   return res;
 }
@@ -249,10 +261,13 @@ function opLoadBytes(varRes, varLoc, varOffset, swizzle, isSigned) {
   return opLoad(varRes, varLoc, varOffset, swizzle, true, isSigned);
 }
 
-function opStore(varRes, varOffsets, isPackedByte = false, isSigned = true)
+function opStore(varRes, varOffsets, isPackedByte = false, isSigned = true, isUnaligned = false)
 {
   if(varOffsets.length < 1)state.throwError("Vector stores need at least one offset / more than 1 argument!");
   const varLoc = state.getRequiredVarOrMem(varOffsets[0].value, "base");
+  if(isVecType(varLoc.type) && !varLoc.arraySize) {
+    state.throwError("store base-addresses must be in a scalar register!", varLoc);
+  }
 
   const opsLoad = [];
   if(!varLoc.reg) {
@@ -282,9 +297,14 @@ function opStore(varRes, varOffsets, isPackedByte = false, isSigned = true)
     srcOffset /= 2;
   }
 
+  const alignOp = (isUnaligned && storeInstr === 'sqv') ? "srv" : undefined;
+
   return [...opsLoad,
-          asm(storeInstr, [           varRes.reg,  srcOffset, baseOffset            , varLoc.reg]),
-   is32 ? asm(storeInstr, [nextVecReg(varRes.reg), srcOffset, baseOffset + accessLen, varLoc.reg]) : null
+             asm(storeInstr, [           varRes.reg,  srcOffset, baseOffset            , varLoc.reg]),
+   alignOp ? asm(alignOp,    [           varRes.reg,  srcOffset, baseOffset + 0x10     , varLoc.reg]) : null,
+   is32    ? asm(storeInstr, [nextVecReg(varRes.reg), srcOffset, baseOffset + accessLen, varLoc.reg]) : null,
+   is32 && alignOp
+           ? asm(alignOp,    [nextVecReg(varRes.reg), srcOffset, baseOffset + accessLen + 0x10, varLoc.reg]) : null,
   ];
 }
 
@@ -457,23 +477,35 @@ function opShiftLeft(varRes, varLeft, varRight) {
   const shiftReg = POW2_SWIZZLE_VAR[shiftVal];
   if(!shiftReg)state.throwError(`Invalid shift value (${varRight.value} -> V:${shiftVal})`, varRight);
 
-  if(varRes.type !== varLeft.type) {
-    state.throwError("Shift-Left requires all arguments to be of the same type!");
-  }
+  const regR = shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle];
 
   if(varRes.type === "vec32") {
     const regsRes = getVec32Regs(varRes);
     const regsL = getVec32Regs(varLeft);
 
+    const firstReg = (regsRes[0] === regsL[0]) ? REG.VTEMP0 : regsRes[0];
+
     return [
-      asm("vmudl", [regsRes[1], regsL[1], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
-      asm("vmadm", [regsRes[0], regsL[0], shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]]),
-      asm("vmadn", [regsRes[1], REGS.VZERO, REGS.VZERO]),
+      asm("vmudl", [firstReg,   regsL[1], regR]),
+      asm("vmadn", [regsRes[0], regsL[0], regR]),
+      asm("vmudn", [regsRes[1], regsL[1], regR])
     ];
   }
 
+  if(varRes.type === "vec16" && varLeft.type === 'vec32') {
+    const regsL = getVec32Regs(varLeft);
+    return [
+      asm("vmudl", [varRes.reg, regsL[1], regR]),
+      asm("vmadn", [varRes.reg, regsL[0], regR]),
+    ];
+  }
+
+  if(varRes.type !== varLeft.type) {
+    state.throwError("Cannot left-shift vec16 into vec32!");
+  }
+
   return [
-    asm("vmudn", [varRes.reg, varLeft.reg, shiftReg.reg + SWIZZLE_MAP[shiftReg.swizzle]])
+    asm("vmudn", [varRes.reg, varLeft.reg, regR])
   ];
 }
 

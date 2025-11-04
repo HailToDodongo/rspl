@@ -673,15 +673,59 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmudl $v05, $v03, $v30.e6
-  vmadm $v04, $v02, $v30.e6
-  vmadn $v05, $v00, $v00
-  vmudl $v05, $v03, $v30.e3
-  vmadm $v04, $v02, $v30.e3
-  vmadn $v05, $v00, $v00
-  vmudl $v05, $v03, $v31.e0
-  vmadm $v04, $v02, $v31.e0
-  vmadn $v05, $v00, $v00
+  vmudl $v04, $v03, $v30.e6
+  vmadn $v04, $v02, $v30.e6
+  vmudn $v05, $v03, $v30.e6
+  vmudl $v04, $v03, $v30.e3
+  vmadn $v04, $v02, $v30.e3
+  vmudn $v05, $v03, $v30.e3
+  vmudl $v04, $v03, $v31.e0
+  vmadn $v04, $v02, $v31.e0
+  vmudn $v05, $v03, $v31.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Shift Left (vec32 self-assign)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec32<$v02> a, b;
+      a = a << 1;
+      a = a << 4;
+      a = a << 15;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudl $v29, $v03, $v30.e6
+  vmadn $v02, $v02, $v30.e6
+  vmudn $v03, $v03, $v30.e6
+  vmudl $v29, $v03, $v30.e3
+  vmadn $v02, $v02, $v30.e3
+  vmudn $v03, $v03, $v30.e3
+  vmudl $v29, $v03, $v31.e0
+  vmadn $v02, $v02, $v31.e0
+  vmudn $v03, $v03, $v31.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Shift Left (vec16 = vec32 << X)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec32<$v02> b;
+      vec16<$v04> a;
+      a = b << 1;
+      a = b << 4;
+      a = b << 15;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudl $v04, $v03, $v30.e6
+  vmadn $v04, $v02, $v30.e6
+  vmudl $v04, $v03, $v30.e3
+  vmadn $v04, $v02, $v30.e3
+  vmudl $v04, $v03, $v31.e0
+  vmadn $v04, $v02, $v31.e0
   jr $ra
   nop`);
   });

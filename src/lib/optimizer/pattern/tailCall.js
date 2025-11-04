@@ -2,6 +2,7 @@
 * @copyright 2024 - Max Bebök
 * @license Apache-2.0
 */
+import {OP_FLAG_IS_NOP} from "../asmScanDeps.js";
 
 const KNOWN_END_JUMPS = ["RSPQ_Loop"];
 
@@ -27,10 +28,10 @@ export function tailCall(asmFunc)
     const asm = lines[i];
     if(asm.op === "jal")
     {
-      if(lines[i+1]?.isNOP &&
+      if((lines[i+1]?.opFlags & OP_FLAG_IS_NOP) &&
          lines[i+2]?.op === "j" &&
          KNOWN_END_JUMPS.includes(lines[i+2]?.args[0]) &&
-         lines[i+3]?.isNOP)
+        (lines[i+3]?.opFlags & OP_FLAG_IS_NOP))
       {
         asm.op = "j"; // turn into jump to let the return inside replace our next jump
         lines.splice(i+1, 2); // remove the jump and the nop
