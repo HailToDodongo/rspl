@@ -11,6 +11,7 @@ export const ANNOTATIONS = {
   NoReturn: "NoReturn",
   Unlikely: "Unlikely",
   NoRegAlloc: "NoRegAlloc",
+  Tag: "Tag"
 };
 
 export const KNOWN_ANNOTATIONS = Object.keys(ANNOTATIONS);
