@@ -297,7 +297,7 @@ As well as operations:
 ```c++
 vec32 a, b;
 a += b:sint; // only add an integer, leave fraction unchanged
-vec16 fA, fB; // assumed to be a 1.16 fixed-point
+vec16 fA, fB; // assumed to be a s0.15 fixed-point
 fA += fB:sfract; // only add fraction, forcing a singed addition
 ```
 While you can set a cast on all variables of an expression (if supported),<br/>
