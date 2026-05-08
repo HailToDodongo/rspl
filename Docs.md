@@ -88,18 +88,18 @@ For scalar types, this can be a single value, for vectors it must be a list of v
 Any value left-out will be initialized to `0`.<br>
 
 ### Temporary state
-The `state` section will be persist across overlay-switches, meaning it will be saved/restored.<br>
+The `state` section will persist across overlay-switches, meaning it will be saved/restored.<br>
 For data that doesn't need to be saved, you can use the `data`/`bss` section.<br>
 
 Values inside `data` can have an initial value that will get restored after a switch.<br>
 Modifying them is allowed, but may not persist across commands.<br>
 
-Similarly, `bss` is a section that will be NOT be initialized and is not saved/restored.<br>
+Similarly, `bss` is a section that will NOT be initialized and is not saved/restored.<br>
 Meaning for any given command you run, those values will be in an undefined state.<br>
 
 ## Variables
 To access registers, variables must be used.<br>
-You can think of them as just an alias for registers, they have no runtime overhead.<br>
+You can think of them as just aliases for registers, they have no runtime overhead.<br>
 Additionally they provide the ability to have transpile-time checks.
 
 You can declare a variable like that:
@@ -118,7 +118,7 @@ u32<$t0> myVar;
 undef myVar;
 myVar += 1; // <- ERROR: no longer in scope
 ```
-This is no runtime overhead.
+There is no runtime overhead to un-declaring variables.
 
 ### Scope
 RSPL has a concept of scopes which, similar to C, refers to a block of code inside curly-brackets.<br>
@@ -150,7 +150,7 @@ c += 10; // <- ERROR
 
 ## Statements
 Code consists of a collection of statements.<br>
-A Statement can be a variables declaration, function call, calculation or control-structure.<br>
+A Statement can be a variable declaration, function call, calculation or control-structure.<br>
 As an example:
 ```c++
 u32 a, b, address;
@@ -204,7 +204,7 @@ goto LabelA;
 ```
 
 For exiting commands specifically, there is the `exit` statement.<br>
-This can be used inside commands, functions and macros to stop the execution and return to libdragons code.<br>
+This can be used inside commands, functions and macros to stop the execution and return to libdragon's code.<br>
 ```c++
 function test() {
   exit; // returns to 
@@ -267,7 +267,7 @@ store(a:u16, address); // store back as 16-bit value
 Allowed cast types: `u8`, `s8`, `u16`, `s16`, `u32`, `s32`
 
 #### Vector
-For vector types, this allows you partially access the integer or fraction part of a `vec32`.<br>
+For vector types, this allows you to partially access the integer or fraction part of a `vec32`.<br>
 Using it on a `vec16` is also safe, and usually affects how it will be treated by 32-bit operations and assignments.<br> 
 
 Allowed cast types: `sint`, `uint`, `sfract`, `ufract`.
