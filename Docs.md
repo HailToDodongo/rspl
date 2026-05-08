@@ -298,7 +298,7 @@ As well as operations:
 vec32 a, b;
 a += b:sint; // only add an integer, leave fraction unchanged
 vec16 fA, fB; // assumed to be a s0.15 fixed-point
-fA += fB:sfract; // only add fraction, forcing a singed addition
+fA += fB:sfract; // only add fraction, forcing a signed addition
 ```
 While you can set a cast on all variables of an expression (if supported),<br/>
 the main deciding factor is the destination variable.<br/>
@@ -348,7 +348,7 @@ function RDPQ_Send(u32<$s4> buffStart, u32<$s3> buffEnd);
 
 ### `command`
 Commands are mostly identical to functions.<br>
-They do however cause the function to be registered as an command in the overlay.<br>
+They do however cause the function to be registered as a command in the overlay.<br>
 For that, you need to specify the command ID/index like so: `command<4> my_command() { ... }`. <br>
 The other difference is that the jump at the end will return to libdragons command queue.<br>
 
@@ -600,7 +600,7 @@ a = abs(a);
 
 ### `min(vec a, vec b)` & `max(vec a, vec b)`
 Min/Max value of a 16-bit vector.<br>
-This functions is an alias for `a < b` or `a >= b`.<br>
+These functions are aliases for `a < b` and `a >= b`.<br>
 Just like a compare, the comparison result can be used for further operations.<br>
 To fetch it use `get_vcc()` or use `select()` for further selections.<br>
 
@@ -677,7 +677,7 @@ Similar to the ones above, there are function to read/write to the MFC0 register
 - `set_dma_read(int value)`
 
 ### `get_ticks()`
-Returns the RCP clock (24bit) and stored it into a scalar variable.<br>
+Returns the RCP clock (24bit) and stores it into a scalar variable.<br>
 This can be used to measure performance of code in both emulators and on hardware.<br>
 
 ### `invert_half(vec a)` & `invert(vec a)`
@@ -692,7 +692,7 @@ posInv.w = invert_half(pos).w;
 ```
 
 ### `invert_half_sqrt(vec a)`
-Inverted square-root a (single component of a) vector (`1 / sqrt(x)`).<br>
+Inverted square-root of a (single component of a) vector (`1 / sqrt(x)`).<br>
 
 Example:
 ```c++
@@ -709,7 +709,7 @@ u32 v = load(SOME_STATE_LABEL); // load 32-bit scalar
 u8 v = load(SOME_STATE_LABEL); // load 8-bit scalar
 vec16 a = load(address, 0x10); // loads entire 16-bit vector from address + 0x10
 vec32 a = load(address); // loads a 32-bit vector
-vec16 b = load(address, 0x10).xyzwxyzw; // loads the first for lanes, repeating them
+vec16 b = load(address, 0x10).xyzwxyzw; // loads the first four lanes, repeating them
 
 vec32 c; // only load the first 4 lanes
 c.xyzw = load(address, 0x00).xyzw;
@@ -811,7 +811,7 @@ Make sure that buffer can hold 8 total registers worth of data.<br>
 For matrices with a size of 4x4 or smaller a faster version is used.<br> 
 Doing the transpose in-place (vecDst == vecSrc) is also faster.<br>
 
-Be aware that while you are forced to specific the start of a group of 8 registers as the source/target,
+Be aware that while you are forced to specify the start of a group of 8 registers as the source/target,
 the transpose will touch all 8 registers in the group.<br>
 
 Example:
@@ -845,7 +845,7 @@ asm("sll $a1, $s5, 5");
 ### `asm_op(opcode, args...)`
 Single raw asm instruction, with the opcode and arguments separated.<br>
 In contrast to `asm()`, this will allow for reordering.<br>
-However using an instruction or argument that is unknown to RSPL my result in an error.<br>
+However using an instruction or argument that is unknown to RSPL may result in an error.<br>
 
 ### `asm_include(filePath)`
 Includes a raw ASM file directly at the position of the call.<br>
