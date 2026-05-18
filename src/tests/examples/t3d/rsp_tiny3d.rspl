@@ -1,0 +1,913 @@
+/***************************************
+ *  _____ _             _____ ____     *
+ * |_   _(_)_ __  _   _|___ /|  _ \    *
+ *   | | | | '_ \| | | | |_ \| | | |   *
+ *   | | | | | | | |_| |___) | |_| |   *
+ *   |_| |_|_| |_|\__, |____/|____/    *
+ *                |___/                *
+ *      3D-microcode for libdragon     *
+ *                                     *
+ * @copyright Max Bebök 2023-2024      *
+ * @license MIT                        *
+ ***************************************/
+
+#define VERT_BUFFER_COUNT 70
+#define LIGHT_COUNT 7
+
+// with profiling enabled, manually place the data to avoid corruption
+#define RSPQ_PROFILE_MANUAL_SLOT 1
+
+// settings for RDPQ_Triangle
+#define RDPQ_TRIANGLE_CUSTOM_VTX 1
+#define VTX_ATTR_XY          0x00
+#define VTX_ATTR_Z           0x04
+#define VTX_ATTR_CLIPFLAGS   0x06
+#define VTX_ATTR_REJFLAGS    0x07
+#define VTX_ATTR_RGBA        0x08
+#define VTX_ATTR_ST          0x0C
+#define VTX_ATTR_CLIPPOSi    0x10
+#define VTX_ATTR_Wi          0x16
+#define VTX_ATTR_CLIPPOSf    0x18
+#define VTX_ATTR_Wf          0x1E
+#define VTX_ATTR_INVWi       0x20
+#define VTX_ATTR_INVWf       0x22
+
+#define RDPQ_TRIANGLE_VTX1 a0
+#define RDPQ_TRIANGLE_VTX2 a1
+#define RDPQ_TRIANGLE_VTX3 a2
+
+#define RDPQ_TRIANGLE_VTX1_DMEM 0,v1
+#define RDPQ_TRIANGLE_VTX2_DMEM 4,v1
+#define RDPQ_TRIANGLE_VTX3_DMEM 2,v1
+
+// Size of the internal triangle format
+// @TODO: add const expr. eval to RSPL
+#define TRI_SIZE   36
+#define TRI_SIZE_2 72
+#define TRI_SIZE_3 108
+
+#define RDP_CMD_MAX_SIZE 176
+
+// Single light packed into 16bytes, can be directional or point-light:
+// Directional: RGBA RGBA | XYZ- XYZ- (pos as packed s8)
+// Point      : RGBA RGBA | XXYX ZZSS (pos as s16, S=light size + ignore-normal flag in MSB)
+#define LIGHT_SIZE 16
+
+// Debug-Flag, used to measure performance excl. triangle draws
+#define DRAW_TRIS 1
+// Debug-Flag, enables metrics on how many tris are drawn & clipped
+//#define DEBUG_LOG_TRIS 1
+
+// RDPQ Stuff (@TODO: move RDPQ_Send back into libdragon)
+#define DP_STATUS_END_VALID 512
+#define RDPQ_DYNAMIC_BUFFER_SIZE 65536
+
+include "rsp_queue.inc"
+include "rdpq_macros.h"
+include "./rspq_triangle.inc"
+
+state
+{
+  // external libdragon labels
+  extern u32 RDPQ_OTHER_MODES;
+  extern u16 RSPQ_Loop;
+  extern u16 RSPQ_SCRATCH_MEM;
+  extern u16 CLIPPING_CODE_TARGET;
+  extern u16 T3DCmd_TriDraw_End;
+
+  alignas(8) vec16 MATRIX_PROJ[4];   // projection matrix
+  alignas(8) vec16 MATRIX_MVP[4];    // view * model * projection
+  alignas(8) vec16 MATRIX_MV[4];
+  alignas(8) u16 MATRIX_NORMAL[3][4]; // fractional normal matrix
+
+  // Fog settings: index 0/1 is the scale as a s16.16, index 3 the scale as a s16 int.
+  // The third value is used as a limiter to prevent overflows.
+  s16 FOG_SCALE_OFFSET[4] = {0, 0, 32767, 0};
+
+  vec16 SCREEN_SCALE_OFFSET = {
+    0, 0, 0,           0, // screen size scale (.xyzw)
+    0, 0, 0x3FFF, 0x00FF  // screen size offset (.XYZW), W is used for a fake clipping-code in 'triToScreenSpace'
+  };
+
+  vec16 NORMAL_MASK_SHIFT = {
+    // Mask to extract 5.6.5-bit values for normal vectors (.xyzw)
+    0b11111'000000'00000,
+    0b00000'111111'00000,
+    0b00000'000000'11111,
+    0,
+    // And the mul. factor to shift them into a fraction (.XYZW)
+    1, 32, 2048, 0
+  };
+
+  // Plane-normals for clipping, the guard value can be overwritten with a command.
+  alignas(8) s8 CLIPPING_PLANES[5][4] = {
+  // X  Y  Z | guard
+     1, 0, 0,   1,
+     0, 1, 0,   1,
+     0, 0, 1,   1,
+     1, 0, 0,  -1,
+     0, 1, 0,  -1
+  };
+
+  u16 RDPQ_TRI_BUFF_OFFSET = {0};
+  u16 SCREEN_UVGEN_SCALE = {0};
+
+  // scales clip-space W to be 1 in the middle of near to far
+  // the `0` are set at runtime to a fractional value
+  alignas(8) s16 NORM_SCALE_W[4] = {
+    0xFFFF, 0xFFFF, 0xFFFF, 0x0000
+  };
+
+  u16 CLIP_RA = {0}; // return address for the clipping code
+  u16 UV_GEN_PARAMS[2] = {0, 0}; // user defined args. for the UV function
+  u16 COLOR_EXPOSURE = {0x80}; // factor to scale final color up or down
+  // the next value must be zero to allow a single load for the UV params
+  // since the first entry of the segment table is guaranteed to be 0, place it here
+  u32 SEGMENT_TABLE[8] = {0};
+
+  // Lighting
+  u32 COLOR_AMBIENT[2];   // RGBA8 (duplicated) | <unused> (saved IMEM)
+  alignas(4) u8 LIGHT_DIR_COLOR[LIGHT_SIZE][LIGHT_COUNT]; // RGBA8 (duplicated) | Direction packed as s8 (duplicated)
+
+  // with profiling enabled, check assembly
+  // @TODO: add RSPL support for conditional DMEM layouts
+  // u32 _RSPQ_OVL_PROFILESLOT[4] = {0,0,0,0};
+
+  u32 TRI_COMMAND = {0}; // for RDPQ_Triangle
+  s32 MATRIX_STACK_PTR = {0}; // current matrix stack pointer in RDRAM, set once during init
+
+  u16 FOG_STORE_OFFSET  = {TRI_SIZE_2}; // offset (relative to current vertex) where to store fog, set to 72 for no fog
+  u8 FACE_CULLING = {0}; // 0=cull front, 1=cull back, 2=no-culling
+  u8 ACTIVE_LIGHT_SIZE = {0}; // light count * light size
+
+  u16 VERTEX_FX_FUNC = {0}; // points top the current 'VertexFX_' function in IMEM
+  u16 CLIP_CODE_SIZE = {0}; // size to copy
+
+    // address of the clipping code to load in RDRAM
+  // first byte (MSB) stores if th code is already loaded or not
+  u32 CLIP_CODE_ADDR = {0};
+  // address of the original code (this overlay here)
+  // first byte (MSB) stores a mask used for the alpha-to-tile feature
+  u32 CLIP_CODE_ORG_ADDR = {0};
+
+   /**
+   * Buffer format (RDPQ_Triangle compatible):
+   *
+   *   Type |     Name  | Offset
+   * -------+-----------+--------
+   * s16[2] | Pos-XY    | 0x00
+   * s16    | Depth     | 0x04
+   * u8     | Clip-Code | 0x06
+   * u8     | Rej. Code | 0x07
+   * u8[4]  | Color     | 0x08
+   * s16[2] | UV        | 0x0C
+   * s16[3] | Clip-Pos  | 0x10  (t3d specific)
+   * s16    | W         | 0x16
+   * f16[3] | Clip-Pos  | 0x18  (t3d specific)
+   * f16    | W         | 0x1E
+   * s16.16 | InvW      | 0x20
+   * -------+-----------+-0x24---
+   */
+  alignas(16)
+  u8 VERT_BUFFER[VERT_BUFFER_COUNT][TRI_SIZE];
+}
+
+temp_state {
+  // Temp. buffer for clipped extra vertices.
+  // This is also used as a temp. buffer for DMA'ing in new vertices.
+  // For clipping data, the format is the same as VERT_BUFFER.
+  alignas(16)
+  u8 CLIP_BUFFER_TMP[7][TRI_SIZE];
+
+  // Last buffer where final clipping triangles are stored.
+  // During clipping, vertices alternate between CLIP_BUFFER_TMP & B.
+  alignas(16)
+  u8 CLIP_BUFFER_RESULT[8][TRI_SIZE];
+}
+
+#include "inc/math.rspl"
+
+// Libdragon functions
+function RDPQ_Triangle_Send_Async(u16<$a0> ptrVert0, u16<$a1> ptrVert1, u16<$a2> ptrVert2, u8<$v0> cullFlag);
+function RDPQ_Triangle_Send_End();
+
+function DMAExec(u16<$t0> size, u32<$s0> rdramAddr, s16<$s4> dmemAddr);
+function DMAOut(u16<$t0> size, u32<$s0> rdramAddr, s16<$s4> dmemAddr);
+
+macro dmaInAsync(u32 addrRDRAM, u32 addrDMEM, u32 size)
+{
+  @Barrier("DMA") set_dma_addr_rsp(addrDMEM);
+  @Barrier("DMA") set_dma_addr_rdram(addrRDRAM);
+  @Barrier("DMA") set_dma_read(size);
+}
+
+// Packs +xyz & -xyz into a single byte
+macro packClipCode(u32 res, u32 clipCode)
+{
+  // Note: z-far is not clipped, only rejected
+  // instead the current tile is stored in the 3 MSB
+  res = clipCode & 0b0000'0011'0000'0111;
+  u32 tmp = res >> 5; //  -zyx      +xyx
+  res |= tmp;
+}
+
+// Same as packClipCode, inverts the clipcode to only use one operation later on
+macro packRejectCode(u32 res, u32 clipCode)
+{
+  res = clipCode & 0b0000'0111'0000'0111;
+  u32 tmp = res >> 5; //  -zyx      +xyx
+  res = res ~| tmp;
+}
+
+macro loadCurrentMVMat(vec32 mat0, vec32 mat1, vec32 mat2, vec32 mat3)
+{
+  mat0 = load(MATRIX_MV, 0x00).xyzwxyzw;
+  mat1 = load(MATRIX_MV, 0x10).xyzwxyzw;
+  mat2 = load(MATRIX_MV, 0x20).xyzwxyzw;
+  mat3 = load(MATRIX_MV, 0x30).xyzwxyzw;
+}
+
+// Loads currently active model matrix into registers
+// This already duplicates it for 2-vector operations.
+macro loadCurrentNormalMat(vec16 mat0, vec16 mat1, vec16 mat2)
+{
+  u16 address = MATRIX_NORMAL;
+  mat0 = load(address, 0x00).xyzwxyzw;
+  mat1 = load(address, 0x08).xyzwxyzw;
+  mat2 = load(address, 0x10).xyzwxyzw;
+}
+
+// resolves a (potentially) segmented RDRAM address into a physical one
+macro resolveSegmentAddr(u32 addrOut, u32 addrIn) {
+  u32 segment = addrIn >> 24;
+  segment = load(segment, SEGMENT_TABLE);
+  addrOut = addrIn + segment;
+}
+
+#ifdef OVERLAY_CLIPPING
+  #include "clipping.rspl"
+#else
+
+/*function VertexFX_Outline(
+  u32<$s4> prt3d, u32<$s7> ptr3dEnd,
+  vec16<$v04> uvOffsetFactor, vec16<$v05> posClipInt, vec16<$v12> screenOffset,
+  vec16<$v09> uvGenArgs, vec16<$v02> normal, vec16<$v03> uv,
+  u32<$s6> ptrBuffA, u32<$s5> ptrBuffB
+);*/
+
+// marks the place where the clipping code can be loaded in to
+// This section will overwrite itself via a DMA.
+// So if the clipping code was not loaded it will be executed and finishes by jumping to itself again.
+// If loaded it will contain the clipping code and will be executed.
+// This means the triangle function can just jump here without knowing what is loaded
+@Align(8) // DMA alignment
+@NoReturn
+function CLIPPING_CODE_TARGET()
+{
+  u32<$s4> targetImem;
+  u32<$s0> codeAddr = load(CLIP_CODE_ADDR);
+  u16<$t0> codeSize = load(CLIP_CODE_SIZE);
+
+  // mark as loaded, 'codeSize' is guaranteed to be non-zero in the LSB
+  store(codeSize:u8, CLIP_CODE_ADDR);
+
+  //RA = CLIPPING_CODE_TARGET; // <- @TODO: RSPL auto opt
+  //goto DMAExec;
+  dma_in(targetImem, codeAddr, codeSize);
+  goto CLIPPING_CODE_TARGET;
+}
+
+/**
+ * Loads & transforms 3D vertices into the internal buffer, later to be used by triangles.
+ * This fully prepares them to be used by RDPQ_Triangle, while still being able to
+ * be clipped and transformed into screen-space again if needed.
+ *
+ * @param bufferSize size in bytes to load (@TODO: add offset too)
+ * @param rdramVerts RDRAM address to load vertices from
+ * @param bufferSize 2 u16 DMEM addresses, MSBs set where to DMA the input to, LSBs set where to store the result
+ */
+@NoReturn // vertex FX function do return to RSPQ_Loop manually
+command<4> T3DCmd_VertLoad(u32 bufferSize, u32 rdramVerts, u32 addressInOut)
+{
+  // load all vertices in a single DMA, processing them as the loop goes.
+  // NOTE: the input vertex-size is smaller than the internal one, so we can't do it in place.
+  // Instead, offset the buffer enough to not cause an overlap with read/writes on the same vertex.
+  u32<$s4> prt3d = addressInOut >> 16;
+
+  u32<$t0> copySize = bufferSize & 0xFFFF;
+  u32 ptr3dEnd = prt3d + copySize;
+
+  u32<$s0> dmaAddrRDRAM;
+  resolveSegmentAddr(dmaAddrRDRAM, rdramVerts);
+  dma_in_async(prt3d, dmaAddrRDRAM, copySize);
+  undef copySize;
+
+  vec32 mat0, mat1, mat2, mat3;
+  vec16 matN0, matN1, matN2;
+
+  loadCurrentNormalMat(matN0, matN1, matN2);
+  loadCurrentMVPMat(mat0, mat1, mat2, mat3);
+
+  vec16 normMask = load(NORMAL_MASK_SHIFT, 0x00).xyzwxyzw;
+  vec16 normShift = load(NORMAL_MASK_SHIFT, 0x08).xyzwxyzw;
+
+  vec16 guardBandScale = load(CLIPPING_PLANES).xy;
+  guardBandScale = guardBandScale.y;
+
+  vec32 screenSize:sint = load(SCREEN_SCALE_OFFSET).xyzwxyzw;
+  screenSize:sfract = 0;
+  screenSize >>= 8;
+
+  vec16 screenOffset = load(SCREEN_SCALE_OFFSET, 0x08).xyzwxyzw;
+  vec16 fogScaleOffset = load(FOG_SCALE_OFFSET).xyzw;
+  fogScaleOffset.Z = fogScaleOffset.z;
+
+  vec16 normScaleW = load(NORM_SCALE_W).xyzwxyzw;
+
+  u32 ptrBuffA = addressInOut & 0xFFFF; // ptr to first output vertex
+  u32 ptrBuffB = ptrBuffA - TRI_SIZE; // ptr to second output vertex
+
+  u16 ptrLight;
+
+  u8 ptrLightEnd = load(ACTIVE_LIGHT_SIZE);
+  ptrLightEnd += LIGHT_DIR_COLOR;
+
+  // Note: also loads COLOR_EXPOSURE into .z, and 0 into .w
+  vec16 uvGenArgs;
+  uvGenArgs.XYZW = load(UV_GEN_PARAMS).xyzw;
+  uvGenArgs.W = load(SCREEN_UVGEN_SCALE).x;
+  uvGenArgs.xy = load(UV_GEN_PARAMS).xy;
+  uvGenArgs.zw = load(UV_GEN_PARAMS).xy;
+
+  u8 fogStoreOffset = load(FOG_STORE_OFFSET);
+  ptrBuffA -= TRI_SIZE_2; // move one back since it increments at the start of the loop
+
+  s16 fogA, fogB;
+
+  u16 vertexFxFunc;
+  u8 isUnlit = load(TRI_COMMAND);
+
+  undef dmaAddrRDRAM;
+  undef addressInOut;
+  u8<$s0> baseTileMask = load(CLIP_CODE_ORG_ADDR);
+  u8<$a2> baseTile;
+
+  // @TODO: racing the DMA is ~40us faster, doesn't work in ares, retest later again
+  dma_await();
+
+  // de-phased part of the loop to avoid stalls, this is also done at the end
+  vec16 pos = load(prt3d, 0x00);
+  vec16 norm = normMask & pos.wwwwWWWW;
+  norm *= normShift;
+
+  // Process all vertices and apply transformation & lighting.
+  // This always handles 2 vertices at once, most sitting in one register.
+  {
+    LOOP_START:
+    // asm("emux_trace_start");
+    // Position & Normals
+    vec32 posClip;
+    vec16 color;
+
+    // loads 1.0 to force full light by default (aka unlit)
+    // later the ambient light is loaded over this in case lighting is enabled
+    vec16 lightColor = fogScaleOffset.z;
+
+    // Load the alpha value from the first vertex, which *may* contain the base-tile...
+    baseTile = load(prt3d, 0x13);
+    baseTile &= baseTileMask; //...now mask it away it that feature isn't enabled
+
+    u8 mvMatrixLoaded = 0;
+    {
+      ptrBuffA += TRI_SIZE_2;
+      ptrBuffB += TRI_SIZE_2;
+      vertexFxFunc = load(VERTEX_FX_FUNC);
+
+      // load & transform normals, this in not needed when no directional light is present
+      // however, an if-statement + the lost ability for reordering is not worth it. (@TODO: do more tests)
+      VTEMP:sfract = matN0:sfract  * norm.xxxxXXXX; // (assign to dummy value)
+      VTEMP:sfract = matN1:sfract +* norm.yyyyYYYY;
+      norm         = matN2:sfract +* norm.zzzzZZZZ;
+
+      // object-space to clip-space
+      mulMat4Vec3(mat0, mat1, mat2, mat3, pos, posClip);
+
+      ptrLight = LIGHT_DIR_COLOR;
+
+      // directional
+      vec16 lightDirVec  = load_vec_s8(ptrLight, 8);
+      u8 isPointLight = load(ptrLight, 15); // W=0 for directional, W=scale for point lights
+      s32 lightSize;
+
+      if(isUnlit)goto LIGHT_LOOP_END;
+      lightColor = load_vec_u8(ptrLight, -8); // light color, accumulates directional lights
+
+      if(ptrLight != ptrLightEnd)
+      {
+        loop
+        {
+          vec16 lightDirScale = norm:sfract * lightDirVec:sfract;
+          color = load_vec_u8(ptrLight);
+
+          if(isPointLight) {
+            pointLight(ptrLight, mat0, mat1, mat2, mat3, pos, norm,
+              lightDirScale, color, mvMatrixLoaded, lightSize);
+          }
+
+          // usually we want "dot(normal, lightDir) * lighColor"
+          // to avoid stalls in the dot product, we do the multiplication only
+          // and then accumulate each scaled XYZ value directly instead of first summing them up
+          VTEMP = color:ufract  * lightDirScale:ufract.xxxxXXXX;
+          VTEMP = color:ufract +* lightDirScale:ufract.yyyyYYYY;
+          VTEMP = color:ufract +* lightDirScale:ufract.zzzzZZZZ;
+
+          lightColor:sint += VTEMP; // @TODO: pre-fill ACC with lightColor (didn't work as it got *0.99 each iter.)
+
+          ptrLight += LIGHT_SIZE;
+          lightDirVec = load_vec_s8(ptrLight, 8);
+          isPointLight =  load(ptrLight, 15);
+        } while(ptrLight != ptrLightEnd)
+      }
+      LIGHT_LOOP_END:
+    }
+
+    vec32 clipPlaneW = guardBandScale * posClip.wwwwWWWW;
+
+    color = load_vec_u8(prt3d, 0x10);
+    fogA = ptrBuffA + fogStoreOffset;
+
+    if(mvMatrixLoaded) {
+      loadCurrentMVPMat(mat0, mat1, mat2, mat3);
+    }
+
+
+    // calc. clipping codes (rejection & clip-prevention)
+    u32 clipCodeA, clipCodeB, rejCodesA, rejCodesB;
+    {
+      u32 rejCodes = clip(posClip, posClip.wwwwWWWW); // Clip-Code for rejection (no band-guard)
+      u32 clipCodes = clip(posClip, clipPlaneW); // Clip code for clipping (incl. band-guard)
+
+      clipCodeB = clipCodes >> 4;
+      clipCodeA = packClipCode(clipCodes);
+      clipCodeB = packClipCode(clipCodeB);
+
+      clipCodeA |= baseTile; // merge base-tile into the 3 unused bits of the clipping code
+      clipCodeB |= baseTile;
+
+      rejCodesB = rejCodes >> 4;
+      rejCodesA = packRejectCode(rejCodes);
+      rejCodesB = packRejectCode(rejCodesB);
+    }
+    undef clipPlaneW;
+
+    @Tag("LightMul")
+    color:sfract *= lightColor:ufract;
+
+    posClip *= normScaleW:ufract;
+
+    color >>= 7;
+    color:sint *= uvGenArgs:sint.Z;
+
+    @Barrier("color-fog") store_vec_u8(color.x, ptrBuffA, VTX_ATTR_RGBA);
+    @Barrier("color-fog") store_vec_u8(color.X, ptrBuffB, VTX_ATTR_RGBA);
+
+    //undef lightColor;
+
+    store(posClip.xyzw, ptrBuffA, VTX_ATTR_CLIPPOSi);
+    store(posClip.XYZW, ptrBuffB, VTX_ATTR_CLIPPOSi);
+
+    undef lightColor;
+
+    // calc. inverse W, this is stored in an unused slot in screenSize to avoid stalls
+    screenSize.w = invert_half(posClip).w;
+    screenSize.W = invert_half(posClip).W;
+
+    // backup clip-pos in case that clipping is required
+    // also store inv-W here (in place of W)
+    store(screenSize.w, ptrBuffA, VTX_ATTR_INVWi);
+    store(screenSize.W, ptrBuffB, VTX_ATTR_INVWi);
+
+    // Fog
+    {
+      vec32 fog;
+      // add offset, to avoid loads, int/fract are stored in the same vector
+      fog:ufract = posClip + fogScaleOffset:ufract.y;
+      fog:sint   = posClip + fogScaleOffset.x;
+
+      posClip *= screenSize.wwwwWWWW; // (contains inverse W)
+
+      fog:sint *= fogScaleOffset:sint.w;
+
+      posClip *= screenSize;
+
+      VTEMP:sint = fogScaleOffset - fog:sint.zzzzZZZZ;
+  }
+
+    fogB = ptrBuffB + fogStoreOffset;
+
+    // save fog here, to make this branch-less, fogStoreOffset contains the offset to save it to.
+    // if enabled this points to alpha of VTX_ATTR_RGBA, otherwise to UVs which get overwritten later
+    posClip:sint = screenOffset:sint +* 1;
+
+    VTEMP <<= 1;
+    @Barrier("color-fog") store(VTEMP:sint.z, fogA);
+    @Barrier("color-fog") store(VTEMP:sint.Z, fogB);
+
+    vec16 uv = load(prt3d, 0x18).xyzw;
+
+    @Barrier("pos-cc") store(posClip:sint.xyzw, ptrBuffA, VTX_ATTR_XY);
+    @Barrier("pos-cc") store(posClip:sint.XYZW, ptrBuffB, VTX_ATTR_XY);
+
+    // pack the first clip-code to get rid of one save + have more SUs
+    @Barrier("pos-cc") store(clipCodeA:u8, ptrBuffA, VTX_ATTR_CLIPFLAGS);
+    @Barrier("pos-cc") store(rejCodesA:u8, ptrBuffA, VTX_ATTR_REJFLAGS);
+
+    @Barrier("pos-cc") store(clipCodeB:u8, ptrBuffB, VTX_ATTR_CLIPFLAGS);
+    @Barrier("pos-cc") store(rejCodesB:u8, ptrBuffB, VTX_ATTR_REJFLAGS);
+
+    uv += uvGenArgs;
+
+    pos = load(prt3d, 0x20); // load next pos
+    vec16 oldNorm = norm;
+    norm = normMask & pos.wwwwWWWW;
+    norm *= normShift;
+
+    prt3d += 0x20;
+
+    vertexFxFunc(); // handles the loop condition internally
+
+    //VertexFX_Outline(prt3d, ptr3dEnd, color, posClip:sint, screenOffset,
+    //  uvGenArgs, oldNorm, uv, ptrBuffA, ptrBuffB);
+  }
+}
+
+#include "vertexFX.rspl"
+
+@NoRegAlloc
+function pointLight(
+  u16<$s3> ptrLight,
+  vec32<$v27> vertPos, vec32<$v25> mat1, vec32<$v23> ptPos, vec32<$v21> lightVertDot,
+  vec16<$v08> pos, vec16<$v07> norm,
+  vec16<$v01> lightRes, vec16<$v04> color,
+  u8<$t9> mvMatrixLoaded, s32<$t7> lightSize
+)
+{
+  lightSize:u16 = load(ptrLight, 14);
+  if(!mvMatrixLoaded) {
+    // point lights need to be done in eye-space
+    // since the usual matrix is MVP, we need to load the MV one
+    loadCurrentMVMat(vertPos, mat1, ptPos, lightVertDot);
+
+    mulMat4Vec3(vertPos, mat1, ptPos, lightVertDot, pos, vertPos);
+    vertPos >>= 4;
+    mvMatrixLoaded = 1;
+  }
+
+  lightSize &= 0x7FFF; // MSB is "use-normal" flag
+  lightSize <<= 16; // shift s16 into s16 range
+
+  // get light position
+  ptPos:sint.xyzw = load(ptrLight, 8).xyzw;
+  ptPos:sint.XYZW = load(ptrLight, 8).xyzw;
+
+  ptPos = ptPos:sint >> 6; // light position into 16.16
+  ptPos = ptPos - vertPos; // get distance from light to vertex
+
+  // calc. dot product and normalize distance vector
+  lightVertDot = ptPos * ptPos;
+  mat1         = lightVertDot + lightVertDot.yyyyYYYY;
+  lightVertDot = lightVertDot + mat1.zzzzZZZZ;
+
+  mat1.w = lightSize;
+
+  lightSize:u8 = load(ptrLight, 14); // extract "use-normal" flag
+  lightSize >>= 7;
+
+  // rest of normalization
+  lightVertDot.x = invert_half_sqrt(lightVertDot).x;
+  lightVertDot.X = invert_half_sqrt(lightVertDot).X;
+  lightRes = lightVertDot * mat1.w;
+
+  if(!lightSize) {
+    // adjust shift of sqrt() and make large enough to move the fractional part
+    // into the integer later in the mul. this avoids clamping issues
+    lightVertDot *= 256;
+
+    lightRes:sfract *= lightRes:sfract; // squared light fall-off
+
+    pos:sint = ptPos * lightVertDot.xxxxXXXX; // normalize vector...
+    pos:sfract *= lightRes:sfract.xxxxXXXX; // ...and scale by fall-off
+
+    // final dot with the vertex-normal, color + accumulate is handled in the light loop
+    lightRes = pos:sfract * norm:sfract;
+  } else {
+    // simplified point light, this just used a radius irrespective of vertex normals
+    lightRes:sfract *= lightRes:sfract; // squared light fall-off
+    lightRes.y = 0; lightRes.z = 0;
+    lightRes.Y = 0; lightRes.Z = 0;
+  }
+}
+
+// Loads currently active model matrix (premultiplied with proj. matrix) into registers
+// This already duplicates it for 2-vector operations.
+function loadCurrentMVPMat(vec32<$v27> mat0, vec32<$v25> mat1, vec32<$v23> mat2, vec32<$v21> mat3)
+{
+  mat0 = load(MATRIX_MVP, 0x00).xyzwxyzw;
+  mat1 = load(MATRIX_MVP, 0x10).xyzwxyzw;
+  mat2 = load(MATRIX_MVP, 0x20).xyzwxyzw;
+  mat3 = load(MATRIX_MVP, 0x30).xyzwxyzw;
+}
+
+/**
+ * Sets current screen-size in pixel.
+ * @param guardBandFactor u8 with the guard multiplier (should be 1-4)
+ * @param screenScale screen-size * 2
+ * @param depthAndWScale fractional 16bit scales to normalize W and depth
+ */
+command<1> T3DCmd_SetScreenSize(s8 guardBandFactor, u32 screenOffsetXY, u32 screenScaleXY, u32 depthAndWScale)
+{
+  store(depthAndWScale:u32, SCREEN_SCALE_OFFSET, 0x04); // (writes garbage into W, saves a shift)
+  store(screenScaleXY, SCREEN_SCALE_OFFSET, 0x00);
+  store(screenOffsetXY, SCREEN_SCALE_OFFSET, 0x08);
+
+  store(depthAndWScale:s16, NORM_SCALE_W, 6);
+
+  u16 uvgenScaleFactor = guardBandFactor >> 8;
+  store(uvgenScaleFactor, SCREEN_UVGEN_SCALE);
+
+  // guard-band multiplier (W value of the clipping plane, integer)
+  guardBandFactor &= 0xF;
+  s8 guardBandFactorNeg = ZERO - guardBandFactor;
+
+  store(guardBandFactor,    CLIPPING_PLANES, 3); // +X Plane
+  store(guardBandFactor,    CLIPPING_PLANES, 7); // +Y Plane
+  //store(guardBandFactor,    CLIPPING_PLANES, 11); // +Z Plane
+  store(guardBandFactorNeg, CLIPPING_PLANES, 15); // -X Plane
+  store(guardBandFactorNeg, CLIPPING_PLANES, 19); // -Y Plane
+}
+
+/**
+ * Enables or disables fog.
+ * @param enabled 1=enabled, 0=disabled
+ */
+command<9> T3DCmd_SetFogState(u8 enabled)
+{
+  store(enabled, FOG_STORE_OFFSET);
+}
+
+/**
+ * Sets a light (ambient or directional)
+ *
+ * @param address ambient or dir. light address (DMEM)
+ * @param rgba8 color RGBA8
+ * @param dirXYZ normalized packed direction, ignored if zero
+ */
+command<5> T3DCmd_LightSet(u32 addr, u32 rgba8, u32 dirXYZ0, u32 dirXYZ1)
+{
+  store(rgba8, addr, 0);
+
+  if(dirXYZ0) {
+    store(dirXYZ0, addr, 8);
+    store(dirXYZ1, addr, 12);
+  }
+
+  store(rgba8, addr, 4);
+}
+
+/**
+ * Sets various render-mode settings.
+ * @param culling for RDPQ_Triangle, 0=front, 1=back, >1=none
+ * @param triCommand for RDPQ_Triangle
+ */
+command<6> T3DCmd_RenderMode(u8 culling, u32 triCommand) {
+  store(culling, FACE_CULLING);
+
+  // Mipmap setting (pulled out from RDPQ_Triangle)
+  u8 mipmap = load(RDPQ_OTHER_MODES);
+  mipmap &= 0x38;
+  triCommand |= mipmap;
+
+  store(triCommand, TRI_COMMAND);
+}
+
+#define HAS_NORMAL_MATRIX 1
+#define MATRIX_TEMP_MUL CLIP_BUFFER_RESULT
+#include "inc/matrixStack.rspl"
+
+/**
+ * Sets a new projection matrix.
+ * @param addressMat RDRAM address to load matrix from
+ */
+command<7> T3DCmd_MatProjectionSet(u32 addressMat) {
+  u32<$s0> addrRDRAM = addressMat;
+  dma_in(MATRIX_PROJ, addrRDRAM, 0x40);
+}
+
+/**
+ * Stores a 32-bit or 16-bit word at an arbitrary address in DMEM.
+ * This can be used to set segment addresses.
+ * @param DMEM address in LSB 16 bits, MSB 1 bit for 16-bit mode
+ * @param value value to store
+ */
+command<3> T3DCmd_SetWord(u16 addrDMEM, u32 value) {
+  u32 is16bit = addrDMEM & 0x8000;
+  store(value:u16, addrDMEM);
+
+  if(is16bit)goto RSPQ_Loop;
+
+  store(value:u32, addrDMEM);
+}
+
+/**
+ * Draws a triangle to the screen, if necessary also performs clipping.
+ *
+ * @param vert0 16-LSB contain DMEM address for the first vertex
+ * @param vert1 LSB/MSB contain DMEM address for the second + third vertex
+ */
+@NoReturn
+command<0> T3DCmd_TriDraw_Cmd(u32 vert0, u32 vert1)
+{
+  goto T3DCmd_TriDraw;
+
+  // (NOTE: moved to 'T3DCmd_TriDraw')
+    // Note: vert1 & vert2 are switched, this avoids an additional instruction here.
+    // We can't switch them on the CPU, as RDPQ_Triangle loads them from DMEM, so the order is different
+    //u32<$a2> vert2 = vert1 >> 16;
+    u32<$a2> vert2;
+
+
+  // (NOTE: moved to 'T3DCmd_TriDraw')
+    //u32<$v1> vertAddr = get_cmd_address(2); // where to load the vertex pointers from
+    //u32<$sp> rejectDest = RSPQ_Loop; // jump-target for rejected/culled tris
+    //u8<$v0> = load(FACE_CULLING); // face culling flag
+  // (NOTE: moved to 'RDPQ_Triangle_Send_Async')
+    // if a triangle was generated, change the offset to swap output-buffers
+    // the DMA is still active at this point, so we can only re-use it after a next send or sync
+    //     u16 currOffset = load(RDPQ_TRI_BUFF_OFFSET);
+    //     currOffset ^= RDP_CMD_MAX_SIZE; // note: overflows into the next buffer
+
+  RDPQ_Triangle_Clip:
+  // we need to clip now, first wait for any triangle still in flight
+  // this is necessary as clipping uses both buffers used as outputs
+  // Used: t0, t1
+  u32<$s4> targetImem; // this still contains the DMEM addr. of vertex indices, backup here (tri. strips)
+  store(targetImem:u16, RSPQ_SCRATCH_MEM, 18);
+  store(RA:u16, CLIP_RA);
+  RDPQ_Triangle_Send_End(); // <- resets 'RDPQ_TRI_BUFF_OFFSET' to zero
+
+  // Now we need to perform clipping, the code for this is in a separate overlay.
+  // Check if already loaded, or load it in here otherwise.
+  // It will stay until the next tri-sync command (or if a different overlay is executed)
+  targetImem = CLIPPING_CODE_TARGET;
+  goto CLIPPING_CODE_TARGET;
+}
+
+@NoReturn
+command<11> T3DCmd_TriDraw_Strip(u32 rdramAddr, u32 countDmem)
+{
+  u32<$s0> dmaAddrRDRAM;
+  u16<$t0> copySize;
+  s16<$s4> prtDmem;
+  u16<$s2> prtDmemEnd;
+
+  //u16<$t2> dmaMode = 0;
+  //DMAExec(copySize, dmaAddrRDRAM, prtDmem);
+
+  loop { // wait for last DMA to be done
+    RA = get_dma_busy();
+    copySize = countDmem & 0xFFFF;
+    prtDmem = countDmem >> 16;
+    prtDmemEnd = prtDmem + copySize;
+  } while(RA != 0)
+
+  dmaInAsync(rdramAddr, prtDmem, copySize);
+  T3DCmd_TriDraw_Strip_PostDMA:
+
+  //asm("emux_trace_start");
+
+  undef rdramAddr;
+  undef countDmem;
+
+  u32<$v1> vertAddr;
+  u16<$sp> rejectDest;
+  u16<$s7> currOffset;
+
+  prtDmemEnd -= 3; // remove?
+
+  // load culling (persists across loop)
+  u8<$v0> faceCull;
+  u16<$a0> idx0, idx1, idx2;
+
+  prtDmem -= 2; // compensate for the first increment in the loop
+
+  loop { // Wait for DMA to be done
+    vertAddr = get_dma_busy();
+  } while(vertAddr != 0)
+
+  STRIP_LOOP_NEW:
+    faceCull = load(FACE_CULLING);
+    prtDmem += 2;
+  STRIP_LOOP_NEXT:
+    faceCull ^= 1; // strips alternate winding order each time
+    if(prtDmem == prtDmemEnd)goto STRIP_LOOP_END;
+
+    idx0     = load(prtDmem, 2);
+    idx1:s16 = load(prtDmem, 4); // sign bit marks the end of the strip
+    idx2     = load(prtDmem, 0);
+
+    prtDmem += 2;
+    if(idx1:s16 < 0)goto STRIP_LOOP_NEW;
+
+    //print(idx0, idx1, idx2);
+    RA = STRIP_LOOP_NEXT;
+    goto RDPQ_Triangle_Send_Async;
+    //RDPQ_Triangle_Send_Async(idx0, idx1, idx2, rejectDest, faceCull);
+
+  STRIP_LOOP_END:
+
+  RA = RSPQ_Loop; // T3DCmd_TriSync needs RA with that value
+
+  // if we need to sync the MSB of the DMEM address is set, causing it to be negative
+  if(prtDmemEnd >= 0)goto RSPQ_Loop;
+
+  // NOTE: code flows into 'T3DCmd_TriSync' here!
+}
+
+/**
+ * Syncs triangle calls, wrapper for 'RDPQ_Triangle_Send_Async'.
+ */
+command<10> T3DCmd_TriSync()
+{
+  u8 clipLoaded = load(CLIP_CODE_ADDR);
+  u32<$s4> targetImem = CLIPPING_CODE_TARGET; // (delay-slot filler)
+
+  // no clipping happened, just sync the triangle
+  if(!clipLoaded)goto RDPQ_Triangle_Send_End;
+
+  u32<$s0> codeAddr = load(CLIP_CODE_ORG_ADDR);
+  u16<$t0> codeSize = load(CLIP_CODE_SIZE);
+
+  //printf("main: %x, s:%x -> %x\n", codeAddr, codeSize, targetImem);
+  dma_in_async(targetImem, codeAddr, codeSize); // RDPQ_Triangle_Send_End waits for DMA
+
+  RA = RSPQ_Loop;
+  store(ZERO:u8, CLIP_CODE_ADDR); // mark as not loaded
+  goto RDPQ_Triangle_Send_End;
+}
+
+
+@NoReturn
+command<12> T3DCmd_TriDraw_Seq(u32 sizeAndIndex, u16 endIndex)
+{
+  // Note: $s1, $s4, $s2, $v0, $v1 are preserved across  RDPQ_Triangle calls
+  u8<$s4> baseVtxEnd = endIndex & 0xFFFF;
+  u16<$s2> baseVtx = sizeAndIndex & 0xFFFF;
+
+  u8<$v0> faceCull = load(FACE_CULLING);
+  u16<$s1> isQuad = endIndex >> 16;
+  u16<$v1> vtxIncr = isQuad + (TRI_SIZE * 3);
+
+  undef sizeAndIndex;
+  undef endIndex;
+  u16<$a0> idx0, idx1, idx2;
+
+  SEQ_LOOP_NEXT:
+    idx0 = baseVtx + (TRI_SIZE * 2);
+    if(baseVtx == baseVtxEnd)goto SEQ_LOOP_END;
+    idx1 = baseVtx + (TRI_SIZE * 1);
+    idx2 = baseVtx;
+    baseVtx += vtxIncr;
+
+    RA = SEQ_LOOP_NEXT;
+    goto RDPQ_Triangle_Send_Async;
+    //RDPQ_Triangle_Send_Async(idx0, idx1, idx2, rejectDest, faceCull);
+
+  SEQ_LOOP_END:
+    RA = RSPQ_Loop;
+    if(isQuad) {
+      isQuad = 0;
+      faceCull ^= 1;
+      baseVtx:u16 = load_arg(2);
+      baseVtx += TRI_SIZE;
+      baseVtxEnd += TRI_SIZE;
+      goto SEQ_LOOP_NEXT;
+    }
+
+    goto T3DCmd_TriSync;
+}
+
+command<13> T3DCmd_Patch(u32 rdramAddr_, u32 opcode0, u32 opcode1) {
+    u16<$t0> size = 8 - 1;
+    u32<$s0> rdramAddr = rdramAddr_;
+    s16<$s4> dmemAddr = RSPQ_SCRATCH_MEM;
+
+    store(opcode0, dmemAddr, 0);
+    store(opcode1, dmemAddr, 4);
+
+    DMAOut(size, rdramAddr, dmemAddr);
+}
+
+#endif
+
+
+
