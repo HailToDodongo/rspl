@@ -61,9 +61,7 @@ int runPipeline(const std::string &astJson, bool rspqWrapper,
       if (fn.asm_.empty()) continue;
       asmOptimizePattern(fn);
       asmInitDeps(fn);
-      asmScanDeps(fn);
       fillDelaySlots(fn);
-      asmOptimize(fn, 5000);
     }
   }
 
@@ -137,9 +135,7 @@ TranspileResult transpileSource(const std::string &source,
       if (fn.asm_.empty()) continue;
       asmOptimizePattern(fn);
       asmInitDeps(fn);
-      asmScanDeps(fn);
       fillDelaySlots(fn);
-      asmOptimize(fn, config.optimizeTime);
     }
   }
 

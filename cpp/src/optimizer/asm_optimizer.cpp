@@ -56,10 +56,7 @@ std::vector<int> asmGetReorderIndices(const std::vector<AsmInst> &asmList,
                                       int i);
 
 void fillDelaySlots(AsmFunc &func) {
-  // Process right-to-left so instructions closest to the NOP get first
-  // chance at filling it.  This matters when multiple instructions are
-  // candidates for the same delay slot.
-  for (int i = static_cast<int>(func.asm_.size()) - 1; i >= 0; --i) {
+  for (size_t i = 0; i < func.asm_.size(); ++i) {
     auto &inst = func.asm_[i];
     if (inst.type != AsmType::OP) continue;
     if (inst.opFlags &
@@ -67,11 +64,11 @@ void fillDelaySlots(AsmFunc &func) {
          OpFlag::OP_FLAG_IS_BRANCH))
       continue;
 
-    auto reorderRange = asmGetReorderIndices(func.asm_, i);
+    auto reorderRange = asmGetReorderIndices(func.asm_, static_cast<int>(i));
 
     int delaySlotIdx = -1;
     for (int idx : reorderRange) {
-      if (idx <= i) continue; // forward only
+      if (idx <= static_cast<int>(i)) continue; // forward only
       if (func.asm_[idx].opFlags & OpFlag::OP_FLAG_IS_NOP) {
         delaySlotIdx = idx;
         break;
@@ -80,7 +77,8 @@ void fillDelaySlots(AsmFunc &func) {
 
     if (delaySlotIdx >= 0) {
       func.asm_[delaySlotIdx] = std::move(inst);
-      func.asm_[i] = asmNOP();
+      func.asm_.erase(func.asm_.begin() + static_cast<long>(i));
+      --i; // reprocess
     }
   }
 }
