@@ -561,7 +561,7 @@ b_assert(const VarDef *varRes,
   if (varRes)
     state.throwError("Builtin assert() cannot have a left side!");
   int code = std::stoi(args[0].value);
-  return {asmOp("lui", {reg::Reg::AT, toHex(code)}),
+  return {asmOp("lui", {reg::Reg::AT, std::to_string(code)}),
           asmOp("j", {LABEL_ASSERT}), asmNOP()};
 }
 

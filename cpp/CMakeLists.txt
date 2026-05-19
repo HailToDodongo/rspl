@@ -102,6 +102,13 @@ set(TEST_SOURCES
   tests/test_store.cpp
   tests/test_swizzle.cpp
   tests/test_syntaxExpansion.cpp
+  tests/test_optAssert.cpp
+  tests/test_optBranchJump.cpp
+  tests/test_optDeadCode.cpp
+  tests/test_optDelaySlot.cpp
+  tests/test_optJumpDedupe.cpp
+  tests/test_optLabels.cpp
+  tests/test_optMergeSequence.cpp
   tests/test_vectorOps.cpp
   tests/test_syntaxNumbers.cpp
   tests/test_syntaxVar.cpp

@@ -142,12 +142,22 @@ std::vector<AsmInst> opMoveVec(const VarDef &varRes,
     auto sit = SWIZZLE_MAP.find(pIt->second.swizzle);
     std::string regPow = pIt->second.reg + sit->second;
     std::vector<AsmInst> res;
-    res.push_back(
-        asmOp("vxor", {intReg(varRes), reg::Reg::VZERO, regPow}));
-    if (isVec32)
+    auto regsDst = getVec32Regs(varRes);
+    bool hasCast =
+        !varRes.castType.empty() || !varRes.swizzle.empty();
+    if (hasCast) {
+      // For casts, only the relevant half gets the constant
+      if (regsDst.second != reg::Reg::VZERO)
+        res.push_back(
+            asmOp("vxor", {regsDst.second, reg::Reg::VZERO, regPow}));
+    } else {
       res.push_back(
-          asmOp("vxor", {fractReg(varRes), reg::Reg::VZERO,
-                          reg::Reg::VZERO}));
+          asmOp("vxor", {regsDst.first, reg::Reg::VZERO, regPow}));
+      if (isVec32 && regsDst.second != reg::Reg::VZERO)
+        res.push_back(
+            asmOp("vxor", {regsDst.second, reg::Reg::VZERO,
+                            reg::Reg::VZERO}));
+    }
     return res;
   }
 

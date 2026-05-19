@@ -912,6 +912,7 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
 
   for (const auto &fn : ast.functions) {
     if (fn.type == "macro") continue; // already registered
+    if (!fn.body) continue; // forward declaration only — no body to generate
 
     state.enterFunction(fn.name, fn.type, fn.resultType.value_or(0));
 
@@ -921,10 +922,14 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
 
     // Declare function arguments
     int argSize = 0;
+    static const char *argRegs[] = {reg::Reg::A0, reg::Reg::A1,
+                                    reg::Reg::A2, reg::Reg::A3};
     for (const auto &arg : fn.args) {
       std::string reg;
       if (!arg.reg.empty()) {
         reg = arg.reg;
+      } else if (argSize < 4) {
+        reg = argRegs[argSize];
       } else {
         reg = state.allocRegister(arg.type);
       }
