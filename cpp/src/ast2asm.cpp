@@ -14,6 +14,7 @@
 #include "types.h"
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <memory>
 #include <string>
@@ -104,10 +105,356 @@ static std::vector<AsmInst>
 calcToAsm(const ast::Calc &calc, const VarDef &varRes);
 
 // --- Group decomposition for CalcMulti ---------------------------------
+// Port of JS astCalcNormalizer + astCalcPartsToASM.
+// Flattens group markers, applies precedence, constant-folds, and
+// decomposes complex expressions into temp variables.
+
+// A single element in the expression tree.
+struct FlatElem {
+  enum Kind { VAL, OP };
+  Kind kind;
+  std::string opStr;        // for OP
+  double numVal = 0;        // for VAL when numeric
+  std::string varName;      // for VAL when variable
+  std::string swizzle;      // swizzle on the value
+  bool isNum = false;       // VAL is numeric
+  // Nested sub-expression (from brackets/precedence).  When non-empty,
+  // this VAL represents the result of the nested expression.
+  std::vector<FlatElem> nested;
+  bool isNested = false;    // true when this VAL wraps a sub-expression
+};
+
+// Nested part: either a flat element or a sub-vector of elements.
+using NestedPart = std::variant<FlatElem, std::vector<FlatElem>>;
+
+// Sentinel value to mark a FlatElem as containing a nested sub-expression.
+static const char NESTED_SENTINEL[] = "\x01";
+
+// Flatten calcMulti parts + group markers into a linear token vector.
+static std::vector<FlatElem> flattenCalcMulti(const ast::CalcMulti &cm) {
+  std::vector<FlatElem> out;
+  // Use a special OP-like sentinel for brackets so partsToTree can find them.
+  FlatElem lparen, rparen;
+  lparen.kind = FlatElem::OP;
+  lparen.opStr = "(";
+  rparen.kind = FlatElem::OP;
+  rparen.opStr = ")";
+
+  auto addBrackets = [&](int count, const FlatElem &b) {
+    for (int i = 0; i < count; ++i) out.push_back(b);
+  };
+  addBrackets(cm.groupStart, lparen);
+  if (cm.leftVal.has_value()) {
+    out.push_back({FlatElem::VAL, {}, cm.leftVal.value(), {},
+                   cm.swizzleLeft, true});
+  } else {
+    out.push_back({FlatElem::VAL, {}, 0, cm.left.value,
+                   cm.swizzleLeft, false});
+  }
+  for (const auto &p : cm.parts) {
+    out.push_back({FlatElem::OP, p.op});
+    addBrackets(p.groupStart, lparen);
+    if (p.rightVal.has_value()) {
+      out.push_back({FlatElem::VAL, {}, p.rightVal.value(), {},
+                     p.swizzleRight, true});
+    } else {
+      out.push_back({FlatElem::VAL, {}, 0, p.right.value,
+                     p.swizzleRight, false});
+    }
+    addBrackets(p.groupEnd, rparen);
+  }
+  return out;
+}
+
+// Convert bracket markers "(" / ")" into nested FlatElem vectors.
+static void partsToTree(std::vector<FlatElem> &parts) {
+  for (size_t i = 0; i < parts.size();) {
+    if (parts[i].kind == FlatElem::OP && parts[i].opStr == "(") {
+      int depth = 1;
+      size_t start = i;
+      size_t j = i + 1;
+      for (; j < parts.size() && depth > 0; ++j) {
+        if (parts[j].kind == FlatElem::OP && parts[j].opStr == "(") depth++;
+        else if (parts[j].kind == FlatElem::OP && parts[j].opStr == ")") depth--;
+      }
+      // Extract sub-expression between brackets
+      std::vector<FlatElem> sub(parts.begin() + start + 1,
+                                parts.begin() + j - 1);
+      partsToTree(sub); // recurse into sub-expression
+      // Replace the bracket group with a single nested FlatElem
+      parts.erase(parts.begin() + start, parts.begin() + j);
+      FlatElem nested;
+      nested.kind = FlatElem::VAL;
+      nested.varName = NESTED_SENTINEL;
+      nested.nested = std::move(sub);
+      nested.isNested = true;
+      parts.insert(parts.begin() + start, std::move(nested));
+      i = start + 1; // continue after the inserted element
+    } else {
+      ++i;
+    }
+  }
+}
+
+// Precedence-climbing constant evaluator.
+static int opPrecedence(const std::string &op) {
+  if (op == "*" || op == "/") return 2;
+  if (op == "+" || op == "-") return 1;
+  if (op == "<<" || op == ">>" || op == ">>>") return 0;
+  return -1;
+}
+
+static bool evalConstTreePrec(const std::vector<FlatElem> &parts,
+                              size_t &pos, int minPrec, double &result) {
+  if (pos >= parts.size()) return false;
+  // Primary value
+  double acc;
+  if (parts[pos].kind != FlatElem::VAL) return false;
+  if (parts[pos].isNested) {
+    if (!evalConstTreePrec(parts[pos].nested, pos, 0, acc)) return false;
+  } else if (parts[pos].isNum) {
+    acc = parts[pos].numVal;
+  } else {
+    return false;
+  }
+  ++pos;
+
+  while (pos < parts.size() && parts[pos].kind == FlatElem::OP) {
+    std::string op = parts[pos].opStr;
+    int prec = opPrecedence(op);
+    if (prec < minPrec) break;
+    ++pos;
+    double rhs;
+    if (!evalConstTreePrec(parts, pos, prec + 1, rhs)) return false;
+    if (op == "+") acc += rhs;
+    else if (op == "-") acc -= rhs;
+    else if (op == "*") acc *= rhs;
+    else if (op == "/" && rhs != 0) acc /= rhs;
+    else if (op == "<<") acc = static_cast<int64_t>(acc) << static_cast<int>(rhs);
+    else if (op == ">>") acc = static_cast<int64_t>(acc) >> static_cast<int>(rhs);
+    else if (op == ">>>") {
+      uint32_t u = static_cast<uint32_t>(acc);
+      u >>= static_cast<int>(rhs);
+      acc = static_cast<double>(u);
+    }
+    else if (op == "&") acc = static_cast<int64_t>(acc) & static_cast<int>(rhs);
+    else if (op == "|") acc = static_cast<int64_t>(acc) | static_cast<int>(rhs);
+    else if (op == "^") acc = static_cast<int64_t>(acc) ^ static_cast<int>(rhs);
+    else return false;
+  }
+  result = acc;
+  return true;
+}
+
+// Helper: evaluate a sub-expression tree as a constant (with precedence).
+// Returns true if the entire subtree is constants and could be folded.
+static bool evalConstTree(const std::vector<FlatElem> &parts,
+                          double &result) {
+  size_t pos = 0;
+  return evalConstTreePrec(parts, pos, 0, result) && pos >= parts.size();
+}
+
+// Try to constant-fold an entire parts tree.  Returns true if folded.
+static bool tryConstantFold(std::vector<FlatElem> &parts, double &result) {
+  // Fold nested sub-expressions first
+  for (auto &e : parts) {
+    if (e.isNested) {
+      double subResult;
+      if (tryConstantFold(e.nested, subResult)) {
+        // Replace nested group with the constant
+        e.isNested = false;
+        e.nested.clear();
+        e.isNum = true;
+        e.numVal = subResult;
+      }
+    }
+  }
+  // Now try to fold the whole expression
+  return evalConstTree(parts, result);
+}
+
+// Forward declaration for mutual recursion.
+static void decomposeParts(std::vector<FlatElem> &parts,
+                           const VarDef &varRes,
+                           std::vector<AsmInst> &out,
+                           int &tmpCounter);
+
+// Resolve a FlatElem value into a VarDef.  For nested sub-expressions,
+// recursively decompose into temp variables and return the temp var.
+static VarDef resolveFlatVal(FlatElem &elem,
+                             const VarDef &varRes,
+                             std::vector<AsmInst> &out,
+                             int &tmpCounter) {
+  if (elem.isNested) {
+    // Recursively decompose the nested sub-expression into a temp variable
+    std::string tmpName = "__tmp_" + std::to_string(tmpCounter++);
+    state.declareVar(tmpName, varRes.type,
+                     state.allocRegister(varRes.type));
+    VarDef tmpVar = state.getRequiredVarCopy(tmpName, "tmp");
+    decomposeParts(elem.nested, tmpVar, out, tmpCounter);
+    return tmpVar;
+  }
+  if (elem.isNum) {
+    VarDef v;
+    v.value = elem.numVal;
+    v.type = varRes.type;
+    return v;
+  }
+  VarDef v = state.getRequiredVarCopy(elem.varName, "val");
+  v.swizzle = elem.swizzle;
+  return v;
+}
+
+// Decompose a parts vector into ASM instructions, accumulating into
+// `varRes`.  Nested sub-expressions are emitted into temp variables.
+static void decomposeParts(std::vector<FlatElem> &parts,
+                           const VarDef &varRes,
+                           std::vector<AsmInst> &out,
+                           int &tmpCounter) {
+  if (parts.empty()) return;
+
+  // Resolve first value
+  size_t pos = 0;
+  VarDef accVar;
+  bool accIsConst = false;
+  double accConst = 0;
+
+  if (pos < parts.size() && parts[pos].kind == FlatElem::VAL) {
+    if (parts[pos].isNested) {
+      accVar = resolveFlatVal(parts[pos], varRes, out, tmpCounter);
+    } else if (parts[pos].isNum) {
+      accIsConst = true;
+      accConst = parts[pos].numVal;
+    } else {
+      accVar = state.getRequiredVarCopy(parts[pos].varName, "left");
+      accVar.swizzle = parts[pos].swizzle;
+    }
+    ++pos;
+  }
+
+  if (pos >= parts.size()) {
+    VarDef finalLeft;
+    if (accIsConst) {
+      finalLeft.value = accConst;
+      finalLeft.type = varRes.type;
+    } else {
+      finalLeft = accVar;
+    }
+    auto mv = isVecType(varRes.type) ? ops::opMoveVec(varRes, finalLeft)
+                                      : ops::opMove(varRes, finalLeft);
+    out.insert(out.end(), mv.begin(), mv.end());
+    return;
+  }
+
+  bool isFirst = true;
+  VarDef firstLeft;
+  if (!accIsConst) firstLeft = accVar;
+
+  while (pos + 1 <= parts.size() &&
+         (pos < parts.size() && parts[pos].kind == FlatElem::OP)) {
+    std::string op = parts[pos].opStr;
+    // Skip bracket sentinels (shouldn't appear after partsToTree)
+    if (op == "(" || op == ")") { ++pos; continue; }
+    ++pos;
+    VarDef right;
+    if (pos < parts.size() && parts[pos].kind == FlatElem::VAL) {
+      right = resolveFlatVal(parts[pos], varRes, out, tmpCounter);
+      ++pos;
+    }
+
+    if (isFirst) {
+      isFirst = false;
+      if (accIsConst) {
+        VarDef cl;
+        cl.value = accConst;
+        cl.type = varRes.type;
+        auto mv = isVecType(varRes.type) ? ops::opMoveVec(varRes, cl)
+                                          : ops::opMove(varRes, cl);
+        out.insert(out.end(), mv.begin(), mv.end());
+        accIsConst = false;
+        // Apply op to varRes
+        if (!isVecType(varRes.type)) {
+          if (op == "+") { auto a = ops::opAdd(varRes, varRes, right); out.insert(out.end(), a.begin(), a.end()); }
+          else if (op == "-") { auto s = ops::opSub(varRes, varRes, right); out.insert(out.end(), s.begin(), s.end()); }
+          else if (op == "*") { auto m = ops::opMul(varRes, varRes, right); out.insert(out.end(), m.begin(), m.end()); }
+        }
+      } else {
+        // Try to fuse move + first op by calling the appropriate op directly
+        if (!isVecType(varRes.type)) {
+          if (op == "+") {
+            auto a = ops::opAdd(varRes, firstLeft, right);
+            out.insert(out.end(), a.begin(), a.end());
+          } else if (op == "-") {
+            auto s = ops::opSub(varRes, firstLeft, right);
+            out.insert(out.end(), s.begin(), s.end());
+          } else if (op == "*") {
+            auto m = ops::opMul(varRes, firstLeft, right);
+            out.insert(out.end(), m.begin(), m.end());
+          } else if (op == "/") {
+            auto d = ops::opDiv(varRes, firstLeft, right);
+            out.insert(out.end(), d.begin(), d.end());
+          } else if (op == "&") {
+            auto a = ops::opAnd(varRes, firstLeft, right);
+            out.insert(out.end(), a.begin(), a.end());
+          } else if (op == "|") {
+            auto o = ops::opOr(varRes, firstLeft, right);
+            out.insert(out.end(), o.begin(), o.end());
+          } else if (op == "^") {
+            auto x = ops::opXOR(varRes, firstLeft, right);
+            out.insert(out.end(), x.begin(), x.end());
+          } else if (op == "<<") {
+            auto s = ops::opShiftLeft(varRes, firstLeft, right);
+            out.insert(out.end(), s.begin(), s.end());
+          } else if (op == ">>") {
+            auto s = ops::opShiftRight(varRes, firstLeft, right, false);
+            out.insert(out.end(), s.begin(), s.end());
+          } else if (op == ">>>") {
+            auto s = ops::opShiftRight(varRes, firstLeft, right, true);
+            out.insert(out.end(), s.begin(), s.end());
+          } else {
+            // Unknown op: move then apply
+            auto mv = ops::opMove(varRes, firstLeft);
+            out.insert(out.end(), mv.begin(), mv.end());
+          }
+        } else {
+          // Vec ops
+          if (op == "+") {
+            auto a = ops::opAddVec(varRes, firstLeft, right);
+            out.insert(out.end(), a.begin(), a.end());
+          } else if (op == "-") {
+            auto s = ops::opSubVec(varRes, firstLeft, right);
+            out.insert(out.end(), s.begin(), s.end());
+          } else if (op == "*") {
+            auto m = ops::opMulVec(varRes, firstLeft, right, true);
+            out.insert(out.end(), m.begin(), m.end());
+          } else {
+            auto mv = ops::opMoveVec(varRes, firstLeft);
+            out.insert(out.end(), mv.begin(), mv.end());
+          }
+        }
+      }
+    } else {
+      if (!isVecType(varRes.type)) {
+        if (op == "+") { auto a = ops::opAdd(varRes, varRes, right); out.insert(out.end(), a.begin(), a.end()); }
+        else if (op == "-") { auto s = ops::opSub(varRes, varRes, right); out.insert(out.end(), s.begin(), s.end()); }
+        else if (op == "*") { auto m = ops::opMul(varRes, varRes, right); out.insert(out.end(), m.begin(), m.end()); }
+        else if (op == "/") { auto d = ops::opDiv(varRes, varRes, right); out.insert(out.end(), d.begin(), d.end()); }
+        else if (op == "&") { auto a = ops::opAnd(varRes, varRes, right); out.insert(out.end(), a.begin(), a.end()); }
+        else if (op == "|") { auto o = ops::opOr(varRes, varRes, right); out.insert(out.end(), o.begin(), o.end()); }
+        else if (op == "^") { auto x = ops::opXOR(varRes, varRes, right); out.insert(out.end(), x.begin(), x.end()); }
+        else if (op == "<<") { auto s = ops::opShiftLeft(varRes, varRes, right); out.insert(out.end(), s.begin(), s.end()); }
+        else if (op == ">>") { auto s = ops::opShiftRight(varRes, varRes, right, false); out.insert(out.end(), s.begin(), s.end()); }
+        else if (op == ">>>") { auto s = ops::opShiftRight(varRes, varRes, right, true); out.insert(out.end(), s.begin(), s.end()); }
+      }
+    }
+    accIsConst = false;
+    accVar = varRes;
+  }
+}
 
 static std::vector<AsmInst>
 decomposeCalcMulti(const ast::CalcMulti &cm, const VarDef &varRes) {
-  // Fast path: single part with no groups -> treat as CalcLR
+  // Step 0: fast path — single part, no groups
   if (cm.parts.size() == 1 && cm.groupStart == 0 &&
       cm.parts[0].groupStart == 0 && cm.parts[0].groupEnd == 0) {
     ast::CalcLR lrCalc;
@@ -123,123 +470,66 @@ decomposeCalcMulti(const ast::CalcMulti &cm, const VarDef &varRes) {
     return calcToAsm(ast::Calc(lrCalc), varRes);
   }
 
-  // Fast path: all constants -> fold
-  if (cm.leftVal.has_value()) {
-    double acc = cm.leftVal.value();
-    bool allConst = true;
-    for (const auto &p : cm.parts) {
-      if (!p.rightVal.has_value()) { allConst = false; break; }
-      double r = p.rightVal.value();
-      if (p.op == "+") acc += r;
-      else if (p.op == "-") acc -= r;
-      else if (p.op == "*") acc *= r;
-      else if (p.op == "/" && r != 0) acc /= r;
-      else if (p.op == "<<") acc = static_cast<int64_t>(acc) << static_cast<int>(r);
-      else if (p.op == ">>") acc = static_cast<int64_t>(acc) >> static_cast<int>(r);
-      else { allConst = false; break; }
-    }
-    if (allConst) {
-      ast::CalcNum cn;
-      cn.right = ast::ExprNum{acc};
-      return calcToAsm(ast::Calc(cn), varRes);
-    }
+  // Step 1: flatten group markers into bracket tokens
+  auto parts = flattenCalcMulti(cm);
+
+  // Step 2: convert brackets to nested structure
+  partsToTree(parts);
+
+  // Step 3: try constant folding
+  double foldResult;
+  if (tryConstantFold(parts, foldResult)) {
+    VarDef v;
+    v.value = foldResult;
+    v.type = varRes.type;
+    return isVecType(varRes.type) ? ops::opMoveVec(varRes, v)
+                                   : ops::opMove(varRes, v);
   }
 
+  // Step 4: fold adjacent constant pairs in flat sequences
+  // (e.g. a = b + 4 + 4  ->  a = b + 8)
+  bool hasNesting = false;
+  for (const auto &e : parts)
+    if (e.isNested) hasNesting = true;
 
-  // Sequential handling for multi-part expressions without groups.
-  bool hasGroups = (cm.groupStart > 0);
-  for (const auto &p : cm.parts) {
-    if (p.groupStart > 0 || p.groupEnd > 0) hasGroups = true;
-  }
-  if (hasGroups) {
-    state.throwError(
-        "Grouped expressions not yet supported — use intermediate variables");
+  if (!hasNesting) {
+    bool changed;
+    do {
+      changed = false;
+      for (size_t i = 0; i + 2 < parts.size();) {
+        // Look for pattern: OP NUM OP NUM  or  NUM OP NUM
+        if (parts[i].kind == FlatElem::VAL && parts[i].isNum &&
+            parts[i + 1].kind == FlatElem::OP &&
+            parts[i + 2].kind == FlatElem::VAL && parts[i + 2].isNum) {
+          double lval = parts[i].numVal;
+          double rval = parts[i + 2].numVal;
+          std::string op = parts[i + 1].opStr;
+          double result;
+          bool ok = true;
+          if (op == "+") result = lval + rval;
+          else if (op == "-") result = lval - rval;
+          else if (op == "*") result = lval * rval;
+          else if (op == "/" && rval != 0) result = lval / rval;
+          else if (op == "<<") result = static_cast<int64_t>(lval) << static_cast<int>(rval);
+          else if (op == ">>") result = static_cast<int64_t>(lval) >> static_cast<int>(rval);
+          else ok = false;
+          if (ok) {
+            parts[i].numVal = result;
+            parts.erase(parts.begin() + i + 1,
+                        parts.begin() + i + 3);
+            changed = true;
+            break;
+          }
+        }
+        ++i;
+      }
+    } while (changed);
   }
 
+  // Step 5: decompose into temp variables
   std::vector<AsmInst> res;
-  VarDef vLeft;
-  if (cm.leftVal.has_value()) {
-    vLeft.value = cm.leftVal.value();
-    vLeft.type = varRes.type;
-  } else {
-    vLeft = state.getRequiredVarCopy(cm.left.value, "Left");
-    vLeft.swizzle = cm.swizzleLeft;
-  }
-
-  bool accIsConst = cm.leftVal.has_value();
-  int accConstVal = accIsConst ? static_cast<int>(cm.leftVal.value()) : 0;
-  bool isFirst = true;
-  for (const auto &part : cm.parts) {
-    VarDef vRight;
-    if (part.rightVal.has_value()) {
-      vRight.value = part.rightVal.value();
-      vRight.type = varRes.type;
-    } else {
-      vRight = state.getRequiredVarCopy(part.right.value, "right");
-      vRight.swizzle = part.swizzleRight;
-    }
-    bool rightIsConst = part.rightVal.has_value();
-
-    if (isFirst) {
-      isFirst = false;
-      if (accIsConst && rightIsConst) {
-        if (part.op == "+") accConstVal += static_cast<int>(vRight.value);
-        else if (part.op == "-") accConstVal -= static_cast<int>(vRight.value);
-        else if (part.op == "*") accConstVal *= static_cast<int>(vRight.value);
-        else if (part.op == "/") accConstVal /= static_cast<int>(vRight.value);
-        continue;
-      }
-      if (accIsConst) {
-        VarDef cl; cl.value = static_cast<double>(accConstVal);
-        cl.type = varRes.type;
-        auto mv = ops::opMove(varRes, cl);
-        res.insert(res.end(), mv.begin(), mv.end());
-        accIsConst = false;
-      } else if (part.op == "+" && !isVecType(varRes.type)) {
-        auto a = ops::opAdd(varRes, vLeft, vRight);
-        res.insert(res.end(), a.begin(), a.end());
-        continue;
-      } else if (part.op == "+" && isVecType(varRes.type)) {
-        auto a = ops::opAddVec(varRes, vLeft, vRight);
-        res.insert(res.end(), a.begin(), a.end());
-        continue;
-      } else {
-        auto mv = isVecType(varRes.type) ? ops::opMoveVec(varRes, vLeft)
-                                          : ops::opMove(varRes, vLeft);
-        res.insert(res.end(), mv.begin(), mv.end());
-      }
-    }
-
-    if (!accIsConst) {
-      bool isVec = isVecType(varRes.type);
-      std::string op = part.op;
-      if (isVec) {
-        if (op == "+") { auto a = ops::opAddVec(varRes, varRes, vRight); res.insert(res.end(), a.begin(), a.end()); }
-        else if (op == "-") { auto s = ops::opSubVec(varRes, varRes, vRight); res.insert(res.end(), s.begin(), s.end()); }
-        else if (op == "*") { auto m = ops::opMulVec(varRes, varRes, vRight, true); res.insert(res.end(), m.begin(), m.end()); }
-        else if (op == "&") { auto a = ops::opAndVec(varRes, varRes, vRight); res.insert(res.end(), a.begin(), a.end()); }
-        else if (op == "|") { auto o = ops::opOrVec(varRes, varRes, vRight); res.insert(res.end(), o.begin(), o.end()); }
-        else if (op == "^") { auto x = ops::opXORVec(varRes, varRes, vRight); res.insert(res.end(), x.begin(), x.end()); }
-      } else {
-        if (op == "+") { auto a = ops::opAdd(varRes, varRes, vRight); res.insert(res.end(), a.begin(), a.end()); }
-        else if (op == "-") { auto s = ops::opSub(varRes, varRes, vRight); res.insert(res.end(), s.begin(), s.end()); }
-        else if (op == "*") { auto m = ops::opMul(varRes, varRes, vRight); res.insert(res.end(), m.begin(), m.end()); }
-        else if (op == "/") { auto d = ops::opDiv(varRes, varRes, vRight); res.insert(res.end(), d.begin(), d.end()); }
-        else if (op == "&") { auto a = ops::opAnd(varRes, varRes, vRight); res.insert(res.end(), a.begin(), a.end()); }
-        else if (op == "|") { auto o = ops::opOr(varRes, varRes, vRight); res.insert(res.end(), o.begin(), o.end()); }
-        else if (op == "^") { auto x = ops::opXOR(varRes, varRes, vRight); res.insert(res.end(), x.begin(), x.end()); }
-        else if (op == "<<") { auto s = ops::opShiftLeft(varRes, varRes, vRight); res.insert(res.end(), s.begin(), s.end()); }
-        else if (op == ">>") { auto s = ops::opShiftRight(varRes, varRes, vRight, false); res.insert(res.end(), s.begin(), s.end()); }
-        else if (op == ">>>") { auto s = ops::opShiftRight(varRes, varRes, vRight, true); res.insert(res.end(), s.begin(), s.end()); }
-      }
-    }
-  }
-
-  if (accIsConst && cm.parts.empty()) {
-    VarDef cv; cv.value = static_cast<double>(accConstVal);
-    cv.type = varRes.type;
-    return isVecType(varRes.type) ? ops::opMoveVec(varRes, cv) : ops::opMove(varRes, cv);
-  }
+  int tmpCounter = 0;
+  decomposeParts(parts, varRes, res, tmpCounter);
   return res;
 }
 
