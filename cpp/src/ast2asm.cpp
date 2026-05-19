@@ -197,11 +197,16 @@ static void partsToTree(std::vector<FlatElem> &parts) {
 }
 
 // Precedence-climbing constant evaluator.
+// Higher return = higher precedence (evaluated first).
+// Modeled after JS applyPrecedence: earlier array entries bind tighter.
 static int opPrecedence(const std::string &op) {
-  if (op == "*" || op == "/") return 2;
-  if (op == "+" || op == "-") return 1;
-  if (op == "<<" || op == ">>" || op == ">>>") return 0;
-  return -1;
+  if (op == "*" || op == "/") return 5;
+  if (op == "+" || op == "-") return 4;
+  if (op == "<<" || op == ">>" || op == ">>>") return 3;
+  if (op == "&") return 2;
+  if (op == "^") return 1;
+  if (op == "|") return 0;
+  return -1; // unknown, break
 }
 
 static bool evalConstTreePrec(const std::vector<FlatElem> &parts,
@@ -211,7 +216,9 @@ static bool evalConstTreePrec(const std::vector<FlatElem> &parts,
   double acc;
   if (parts[pos].kind != FlatElem::VAL) return false;
   if (parts[pos].isNested) {
-    if (!evalConstTreePrec(parts[pos].nested, pos, 0, acc)) return false;
+    size_t nestedPos = 0;
+    if (!evalConstTreePrec(parts[pos].nested, nestedPos, 0, acc))
+      return false;
   } else if (parts[pos].isNum) {
     acc = parts[pos].numVal;
   } else {
@@ -454,9 +461,41 @@ static void decomposeParts(std::vector<FlatElem> &parts,
 
 static std::vector<AsmInst>
 decomposeCalcMulti(const ast::CalcMulti &cm, const VarDef &varRes) {
-  // Step 0: fast path — single part, no groups
+  // Step 0: fast path — all constants WITHOUT groups.
+  // Groups mean parenthesised sub-expressions that change evaluation
+  // order; fall through to partsToTree+tryConstantFold for those.
+  bool hasAnyGroups = (cm.groupStart > 0);
+  for (const auto &p : cm.parts) {
+    if (p.groupStart > 0 || p.groupEnd > 0) hasAnyGroups = true;
+  }
+
+  if (cm.leftVal.has_value() && !hasAnyGroups) {
+    double acc = cm.leftVal.value();
+    bool allConst = true;
+    for (const auto &p : cm.parts) {
+      if (!p.rightVal.has_value()) { allConst = false; break; }
+      double r = p.rightVal.value();
+      if (p.op == "+") acc += r;
+      else if (p.op == "-") acc -= r;
+      else if (p.op == "*") acc *= r;
+      else if (p.op == "/" && r != 0) acc /= r;
+      else if (p.op == "<<") acc = static_cast<int64_t>(acc) << static_cast<int>(r);
+      else if (p.op == ">>") acc = static_cast<int64_t>(acc) >> static_cast<int>(r);
+      else { allConst = false; break; }
+    }
+    if (allConst) {
+      VarDef v;
+      v.value = acc;
+      v.type = varRes.type;
+      return isVecType(varRes.type) ? ops::opMoveVec(varRes, v)
+                                     : ops::opMove(varRes, v);
+    }
+  }
+
+  // Step 0b: fast path — single part, no groups, variable left
   if (cm.parts.size() == 1 && cm.groupStart == 0 &&
-      cm.parts[0].groupStart == 0 && cm.parts[0].groupEnd == 0) {
+      cm.parts[0].groupStart == 0 && cm.parts[0].groupEnd == 0 &&
+      !cm.leftVal.has_value()) {
     ast::CalcLR lrCalc;
     lrCalc.left = cm.left;
     lrCalc.swizzleLeft = cm.swizzleLeft;
@@ -476,7 +515,7 @@ decomposeCalcMulti(const ast::CalcMulti &cm, const VarDef &varRes) {
   // Step 2: convert brackets to nested structure
   partsToTree(parts);
 
-  // Step 3: try constant folding
+  // Step 3: try constant folding (handles grouped all-constant expressions)
   double foldResult;
   if (tryConstantFold(parts, foldResult)) {
     VarDef v;
@@ -881,6 +920,27 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
                   lrCalc.rightVarName = cv->right.value;
                   lrCalc.swizzleRight = cv->swizzleRight;
                   auto calcAsm = calcToAsm(ast::Calc(lrCalc), vr);
+                  res.insert(res.end(), calcAsm.begin(), calcAsm.end());
+                } else if (auto *cm = std::get_if<ast::CalcMulti>(s.calc.get())) {
+                  // Wrap compound assign: a += expr  ->  a = a + (expr)
+                  // Structure: left=a, part0 opens group for expr.
+                  ast::CalcMulti wrapped;
+                  wrapped.left = ast::ExprVarName{s.varName};
+                  wrapped.swizzleLeft = s.swizzle;
+                  // First part: a + (expr) - open a bracket for expr
+                  ast::CalcMultiPart firstPart;
+                  firstPart.op = baseOp;
+                  firstPart.right = cm->left;
+                  firstPart.swizzleRight = cm->swizzleLeft;
+                  firstPart.groupStart = 1 + cm->groupStart; // open sub-expr
+                  firstPart.groupEnd = 0;
+                  wrapped.parts.push_back(std::move(firstPart));
+                  // Copy original parts, closing the bracket at the end
+                  for (auto &p : cm->parts) {
+                    wrapped.parts.push_back(p);
+                  }
+                  wrapped.parts.back().groupEnd += 1; // close sub-expr
+                  auto calcAsm = calcToAsm(ast::Calc(wrapped), vr);
                   res.insert(res.end(), calcAsm.begin(), calcAsm.end());
                 } else {
                   auto calcAsm = calcToAsm(*s.calc, vr);
