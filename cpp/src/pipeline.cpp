@@ -106,7 +106,7 @@ TranspileResult transpileSource(const std::string &source,
                                 const TranspileConfig &config) {
   // Preprocess in C++ to collect defines
   std::unordered_map<std::string, DefineEntry> defines;
-  std::string preprocessed = preprocFull(source, defines, ".");
+  std::string preprocessed = preprocFull(source, defines, config.sourceDir);
 
   // Write preprocessed source to temp file
   std::string tmpPath = "/tmp/rspl_test_source.rspl";

@@ -363,6 +363,11 @@ const MemVarDef *State::getRequiredMem(const std::string &name,
   return &it->second;
 }
 
+const MemVarDef *State::getMemVarOrNull(const std::string &name) const {
+  auto it = memVarMap.find(name);
+  return it != memVarMap.end() ? &it->second : nullptr;
+}
+
 VarOrMem State::getRequiredVarOrMem(const std::string &name,
                                        const std::string &contextName,
                                        const std::string &context) const {

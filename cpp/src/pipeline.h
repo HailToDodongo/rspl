@@ -9,6 +9,7 @@ struct TranspileConfig {
   bool optimize = false;
   bool debugInfo = false;
   int optimizeTime = 5000;
+  std::string sourceDir = ".";
 };
 
 struct TranspileResult {

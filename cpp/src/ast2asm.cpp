@@ -424,6 +424,19 @@ calcToAsm(const ast::Calc &calc, const VarDef &varRes) {
         }
 
         else if constexpr (std::is_same_v<T, ast::CalcVar>) {
+          // Check if the variable is actually a label / state memory
+          // (JS: astNormalize.js lines 161-166)
+          const auto *memVar = state.getMemVarOrNull(c.right.value);
+          if (memVar) {
+            // Convert label reference to %lo(NAME) immediate
+            VarDef vRight;
+            vRight.value = 0;
+            vRight.type = varRes.type;
+            vRight.reg = "%lo(" + c.right.value + ")";
+            if (isVecType(varRes.type))
+              return ops::opMoveVec(varRes, vRight);
+            return ops::opMove(varRes, vRight);
+          }
           VarDef vRight =
               state.getRequiredVarCopy(c.right.value, "right");
           vRight.swizzle = c.swizzleRight;
@@ -445,8 +458,16 @@ calcToAsm(const ast::Calc &calc, const VarDef &varRes) {
 
           VarDef vRight;
           if (!c.rightVarName.empty()) {
-            vRight =
-                state.getRequiredVarCopy(c.rightVarName, "right");
+            // Check for label / state-memory reference (JS: astNormalize.js:161-166)
+            const auto *memVar =
+                state.getMemVarOrNull(c.rightVarName);
+            if (memVar) {
+              vRight.value = 0;
+              vRight.type = varRes.type;
+              vRight.reg = "%lo(" + c.rightVarName + ")";
+            } else {
+              vRight = state.getRequiredVarCopy(c.rightVarName, "right");
+            }
           } else {
             vRight.value = c.rightNum.value;
             vRight.type = varRes.type;
@@ -642,8 +663,31 @@ static std::vector<AsmInst> loopToAsm(const ast::StmtLoop &st) {
 
 // --- Statement dispatch ------------------------------------------------
 
+// Pre-scan scoped blocks for label declarations and register them as
+// memory variables.  Ported from JS astNormalize.js lines 19-28.
+static void predeclareLabels(const ast::ScopedBlock &block) {
+  for (const auto &stmt : block.statements) {
+    if (std::holds_alternative<ast::StmtLabelDecl>(stmt)) {
+      auto &ld = std::get<ast::StmtLabelDecl>(stmt);
+      state.declareMemVar(ld.name, "u16", 1);
+    } else if (auto *sb = std::get_if<ast::StmtScopedBlock>(&stmt)) {
+      predeclareLabels(*sb->body);
+    } else if (auto *si = std::get_if<ast::StmtIf>(&stmt)) {
+      if (si->blockIf) predeclareLabels(*si->blockIf);
+      if (si->blockElse) predeclareLabels(*si->blockElse);
+    } else if (auto *sw = std::get_if<ast::StmtWhile>(&stmt)) {
+      if (sw->block) predeclareLabels(*sw->block);
+    } else if (auto *sl = std::get_if<ast::StmtLoop>(&stmt)) {
+      if (sl->block) predeclareLabels(*sl->block);
+    }
+  }
+}
+
 static std::vector<AsmInst>
 scopedBlockToAsm(const ast::ScopedBlock &block) {
+  // Pre-scan labels so forward references resolve (JS: astNormalize.js:19-28)
+  predeclareLabels(block);
+
   std::vector<AsmInst> res;
 
   for (const auto &stmt : block.statements) {
@@ -889,7 +933,6 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
   // Pre-declare memory variables from state/data/bss sections
   for (const auto &sec : ast.states) {
     for (const auto &sv : sec.vars) {
-      if (sv.isExtern) continue;
       int64_t arraySize = 1;
       for (auto dim : sv.arraySize)
         arraySize *= dim;

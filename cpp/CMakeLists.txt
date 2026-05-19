@@ -114,6 +114,8 @@ set(TEST_SOURCES
   tests/test_optMergeSequence.cpp
   tests/test_optRegScan.cpp
   tests/test_evalCost.cpp
+  tests/test_evalCostExample.cpp
+  tests/test_examples.cpp
   tests/test_vectorOps.cpp
   tests/test_syntaxNumbers.cpp
   tests/test_syntaxVar.cpp

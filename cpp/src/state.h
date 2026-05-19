@@ -129,6 +129,7 @@ public:
   const MemVarDef *getRequiredMem(const std::string &name,
                                    const std::string &contextName,
                                    const std::string &context = "{}") const;
+  const MemVarDef *getMemVarOrNull(const std::string &name) const;
   VarOrMem getRequiredVarOrMem(const std::string &name,
                                    const std::string &contextName,
                                    const std::string &context = "{}") const;
