@@ -40,13 +40,13 @@ for (let i = 2; i < process.argv.length; ++i) {
 }
 
 function parse(source) {
+  const defines = {};
   if (args.skipPreproc) {
     // Source already has comments stripped and defines expanded by C++
     source = stripComments(source); // strip comments again for safety
   } else {
     source = stripComments(source);
 
-    const defines = {};
     if (process.env.RSPL_DEFINES) {
       for (const def of process.env.RSPL_DEFINES.split(",")) {
         const [key, value] = def.split("=");
@@ -69,7 +69,11 @@ function parse(source) {
   }
 
   const ast = astList.results[0];
-  delete ast.defines;
+  if (process.env.RSPL_KEEP_DEFINES && !args.skipPreproc) {
+    ast.defines = defines;
+  } else {
+    delete ast.defines;
+  }
 
   return ast;
 }
