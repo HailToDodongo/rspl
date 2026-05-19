@@ -3,6 +3,7 @@
 #include "asm.h"
 #include "asm_normalize.h"
 #include "ast.h"
+#include "astCalcNormalizer.h"
 #include "builtins.h"
 #include "operations/branch.h"
 #include "operations/scalar.h"
@@ -106,29 +107,8 @@ calcToAsm(const ast::Calc &calc, const VarDef &varRes);
 
 // --- Group decomposition for CalcMulti ---------------------------------
 // Port of JS astCalcNormalizer + astCalcPartsToASM.
-// Flattens group markers, applies precedence, constant-folds, and
-// decomposes complex expressions into temp variables.
-
-// A single element in the expression tree.
-struct FlatElem {
-  enum Kind { VAL, OP };
-  Kind kind;
-  std::string opStr;        // for OP
-  double numVal = 0;        // for VAL when numeric
-  std::string varName;      // for VAL when variable
-  std::string swizzle;      // swizzle on the value
-  bool isNum = false;       // VAL is numeric
-  // Nested sub-expression (from brackets/precedence).  When non-empty,
-  // this VAL represents the result of the nested expression.
-  std::vector<FlatElem> nested;
-  bool isNested = false;    // true when this VAL wraps a sub-expression
-};
-
-// Nested part: either a flat element or a sub-vector of elements.
-using NestedPart = std::variant<FlatElem, std::vector<FlatElem>>;
-
-// Sentinel value to mark a FlatElem as containing a nested sub-expression.
-static const char NESTED_SENTINEL[] = "\x01";
+// Flattens group markers, applies precedence, constant-folds (via
+// partsEval), and decomposes complex expressions into temp variables.
 
 // Flatten calcMulti parts + group markers into a linear token vector.
 static std::vector<FlatElem> flattenCalcMulti(const ast::CalcMulti &cm) {
@@ -194,90 +174,6 @@ static void partsToTree(std::vector<FlatElem> &parts) {
       ++i;
     }
   }
-}
-
-// Precedence-climbing constant evaluator.
-// Higher return = higher precedence (evaluated first).
-// Modeled after JS applyPrecedence: earlier array entries bind tighter.
-static int opPrecedence(const std::string &op) {
-  if (op == "*" || op == "/") return 5;
-  if (op == "+" || op == "-") return 4;
-  if (op == "<<" || op == ">>" || op == ">>>") return 3;
-  if (op == "&") return 2;
-  if (op == "^") return 1;
-  if (op == "|") return 0;
-  return -1; // unknown, break
-}
-
-static bool evalConstTreePrec(const std::vector<FlatElem> &parts,
-                              size_t &pos, int minPrec, double &result) {
-  if (pos >= parts.size()) return false;
-  // Primary value
-  double acc;
-  if (parts[pos].kind != FlatElem::VAL) return false;
-  if (parts[pos].isNested) {
-    size_t nestedPos = 0;
-    if (!evalConstTreePrec(parts[pos].nested, nestedPos, 0, acc))
-      return false;
-  } else if (parts[pos].isNum) {
-    acc = parts[pos].numVal;
-  } else {
-    return false;
-  }
-  ++pos;
-
-  while (pos < parts.size() && parts[pos].kind == FlatElem::OP) {
-    std::string op = parts[pos].opStr;
-    int prec = opPrecedence(op);
-    if (prec < minPrec) break;
-    ++pos;
-    double rhs;
-    if (!evalConstTreePrec(parts, pos, prec + 1, rhs)) return false;
-    if (op == "+") acc += rhs;
-    else if (op == "-") acc -= rhs;
-    else if (op == "*") acc *= rhs;
-    else if (op == "/" && rhs != 0) acc /= rhs;
-    else if (op == "<<") acc = static_cast<int64_t>(acc) << static_cast<int>(rhs);
-    else if (op == ">>") acc = static_cast<int64_t>(acc) >> static_cast<int>(rhs);
-    else if (op == ">>>") {
-      uint32_t u = static_cast<uint32_t>(acc);
-      u >>= static_cast<int>(rhs);
-      acc = static_cast<double>(u);
-    }
-    else if (op == "&") acc = static_cast<int64_t>(acc) & static_cast<int>(rhs);
-    else if (op == "|") acc = static_cast<int64_t>(acc) | static_cast<int>(rhs);
-    else if (op == "^") acc = static_cast<int64_t>(acc) ^ static_cast<int>(rhs);
-    else return false;
-  }
-  result = acc;
-  return true;
-}
-
-// Helper: evaluate a sub-expression tree as a constant (with precedence).
-// Returns true if the entire subtree is constants and could be folded.
-static bool evalConstTree(const std::vector<FlatElem> &parts,
-                          double &result) {
-  size_t pos = 0;
-  return evalConstTreePrec(parts, pos, 0, result) && pos >= parts.size();
-}
-
-// Try to constant-fold an entire parts tree.  Returns true if folded.
-static bool tryConstantFold(std::vector<FlatElem> &parts, double &result) {
-  // Fold nested sub-expressions first
-  for (auto &e : parts) {
-    if (e.isNested) {
-      double subResult;
-      if (tryConstantFold(e.nested, subResult)) {
-        // Replace nested group with the constant
-        e.isNested = false;
-        e.nested.clear();
-        e.isNum = true;
-        e.numVal = subResult;
-      }
-    }
-  }
-  // Now try to fold the whole expression
-  return evalConstTree(parts, result);
 }
 
 // Forward declaration for mutual recursion.
@@ -461,38 +357,7 @@ static void decomposeParts(std::vector<FlatElem> &parts,
 
 static std::vector<AsmInst>
 decomposeCalcMulti(const ast::CalcMulti &cm, const VarDef &varRes) {
-  // Step 0: fast path — all constants WITHOUT groups.
-  // Groups mean parenthesised sub-expressions that change evaluation
-  // order; fall through to partsToTree+tryConstantFold for those.
-  bool hasAnyGroups = (cm.groupStart > 0);
-  for (const auto &p : cm.parts) {
-    if (p.groupStart > 0 || p.groupEnd > 0) hasAnyGroups = true;
-  }
-
-  if (cm.leftVal.has_value() && !hasAnyGroups) {
-    double acc = cm.leftVal.value();
-    bool allConst = true;
-    for (const auto &p : cm.parts) {
-      if (!p.rightVal.has_value()) { allConst = false; break; }
-      double r = p.rightVal.value();
-      if (p.op == "+") acc += r;
-      else if (p.op == "-") acc -= r;
-      else if (p.op == "*") acc *= r;
-      else if (p.op == "/" && r != 0) acc /= r;
-      else if (p.op == "<<") acc = static_cast<int64_t>(acc) << static_cast<int>(r);
-      else if (p.op == ">>") acc = static_cast<int64_t>(acc) >> static_cast<int>(r);
-      else { allConst = false; break; }
-    }
-    if (allConst) {
-      VarDef v;
-      v.value = acc;
-      v.type = varRes.type;
-      return isVecType(varRes.type) ? ops::opMoveVec(varRes, v)
-                                     : ops::opMove(varRes, v);
-    }
-  }
-
-  // Step 0b: fast path — single part, no groups, variable left
+  // Fast path: single part, no groups, variable left
   if (cm.parts.size() == 1 && cm.groupStart == 0 &&
       cm.parts[0].groupStart == 0 && cm.parts[0].groupEnd == 0 &&
       !cm.leftVal.has_value()) {
@@ -515,57 +380,26 @@ decomposeCalcMulti(const ast::CalcMulti &cm, const VarDef &varRes) {
   // Step 2: convert brackets to nested structure
   partsToTree(parts);
 
-  // Step 3: try constant folding (handles grouped all-constant expressions)
-  double foldResult;
-  if (tryConstantFold(parts, foldResult)) {
+  // Step 2.5: apply operator precedence within nested groups
+  for (auto &e : parts) {
+    if (e.isNested) applyPrecedence(e.nested);
+  }
+
+  // Step 3: evaluate constant sub-expressions (delegated to partsEval)
+  auto evalResult = partsEval(parts);
+  if (std::holds_alternative<FlatElem>(evalResult)) {
+    // Entire expression folded to a single constant
+    FlatElem &elem = std::get<FlatElem>(evalResult);
     VarDef v;
-    v.value = foldResult;
+    v.value = elem.numVal;
     v.type = varRes.type;
     return isVecType(varRes.type) ? ops::opMoveVec(varRes, v)
                                    : ops::opMove(varRes, v);
   }
+  // partsEval returned the (possibly modified) parts vector
+  parts = std::get<std::vector<FlatElem>>(std::move(evalResult));
 
-  // Step 4: fold adjacent constant pairs in flat sequences
-  // (e.g. a = b + 4 + 4  ->  a = b + 8)
-  bool hasNesting = false;
-  for (const auto &e : parts)
-    if (e.isNested) hasNesting = true;
-
-  if (!hasNesting) {
-    bool changed;
-    do {
-      changed = false;
-      for (size_t i = 0; i + 2 < parts.size();) {
-        // Look for pattern: OP NUM OP NUM  or  NUM OP NUM
-        if (parts[i].kind == FlatElem::VAL && parts[i].isNum &&
-            parts[i + 1].kind == FlatElem::OP &&
-            parts[i + 2].kind == FlatElem::VAL && parts[i + 2].isNum) {
-          double lval = parts[i].numVal;
-          double rval = parts[i + 2].numVal;
-          std::string op = parts[i + 1].opStr;
-          double result;
-          bool ok = true;
-          if (op == "+") result = lval + rval;
-          else if (op == "-") result = lval - rval;
-          else if (op == "*") result = lval * rval;
-          else if (op == "/" && rval != 0) result = lval / rval;
-          else if (op == "<<") result = static_cast<int64_t>(lval) << static_cast<int>(rval);
-          else if (op == ">>") result = static_cast<int64_t>(lval) >> static_cast<int>(rval);
-          else ok = false;
-          if (ok) {
-            parts[i].numVal = result;
-            parts.erase(parts.begin() + i + 1,
-                        parts.begin() + i + 3);
-            changed = true;
-            break;
-          }
-        }
-        ++i;
-      }
-    } while (changed);
-  }
-
-  // Step 5: decompose into temp variables
+  // Step 4: decompose into temp variables
   std::vector<AsmInst> res;
   int tmpCounter = 0;
   decomposeParts(parts, varRes, res, tmpCounter);

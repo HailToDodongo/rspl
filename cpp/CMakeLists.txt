@@ -35,6 +35,8 @@ set(RSPL_SOURCES
   src/ast.h
   src/ast2asm.cpp
   src/ast2asm.h
+  src/astCalcNormalizer.cpp
+  src/astCalcNormalizer.h
   src/builtins.cpp
   src/builtins.h
   src/operations/branch.cpp
