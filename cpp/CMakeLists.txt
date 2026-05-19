@@ -108,7 +108,12 @@ set(TEST_SOURCES
   tests/test_optDelaySlot.cpp
   tests/test_optJumpDedupe.cpp
   tests/test_optLabels.cpp
+  tests/test_optDepScanCtrl.cpp
+  tests/test_optDepScanMem.cpp
+  tests/test_optDepScanRegs.cpp
   tests/test_optMergeSequence.cpp
+  tests/test_optRegScan.cpp
+  tests/test_evalCost.cpp
   tests/test_vectorOps.cpp
   tests/test_syntaxNumbers.cpp
   tests/test_syntaxVar.cpp

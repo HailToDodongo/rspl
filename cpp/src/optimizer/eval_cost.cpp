@@ -8,10 +8,10 @@
 namespace rspl {
 
 int evalFunctionCost(AsmFunc &func) {
-  // Filter to only OP instructions
+  // Filter to only OP instructions (including NOPs)
   std::vector<AsmInst *> ops;
   for (auto &inst : func.asm_) {
-    if (inst.type == AsmType::OP && !(inst.opFlags & OpFlag::OP_FLAG_IS_NOP)) {
+    if (inst.type == AsmType::OP) {
       ops.push_back(&inst);
     }
   }
@@ -90,6 +90,18 @@ int evalFunctionCost(AsmFunc &func) {
         (op->depsStallTargetMask1 & opNext->depsStallSourceMask1) == 0 &&
         (op->depsStallTargetMask0 & opNext->depsStallTargetMask0) == 0 &&
         (op->depsStallTargetMask1 & opNext->depsStallTargetMask1) == 0;
+
+    // CFC2/CTC2: prevent dual-issue if the current instruction writes
+    // to any register that the CFC2/CTC2 reads or writes (incl. ctrl regs).
+    if (canDualIssue && (opNext->opFlags & OpFlag::OP_FLAG_CTC2_CFC2)) {
+      for (int i = 0; i < 5; ++i) {
+        if ((op->depsTargetMask[i] & opNext->depsSourceMask[i]) ||
+            (op->depsTargetMask[i] & opNext->depsTargetMask[i])) {
+          canDualIssue = false;
+          break;
+        }
+      }
+    }
 
     execCount = canDualIssue ? 2 : 1;
     ticks(1);

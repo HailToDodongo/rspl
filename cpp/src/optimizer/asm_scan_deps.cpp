@@ -472,16 +472,29 @@ static bool checkAsmBackwardDep(const AsmInst &asm_,
   return false;
 }
 
+static bool maskGetBit(const RegMask &m, int idx) {
+  return (m[idx / 64] >> (idx % 64)) & 1ULL;
+}
+
+static void maskSetBit(RegMask &m, int idx) {
+  m[idx / 64] |= (1ULL << (idx % 64));
+}
+
 std::vector<int> asmGetReorderIndices(const std::vector<AsmInst> &asmList,
                                       int i) {
   const AsmInst &asm_ = asmList[i];
   if (asm_.opFlags & OpFlag::OP_FLAG_IS_IMMOVABLE) return {i};
 
-  std::vector<int> res;
-  int pos = asmList.size();
+  int lastWrite[REG_INDEX_SIZE] = {};
+  RegMask lastWriteMask = {};
+  RegMask lastReadMask = {};
 
-  // Scan forward
-  for (int f = i + 1; f < (int)asmList.size(); ++f) {
+  int pos = static_cast<int>(asmList.size());
+
+  // --- Scan forward ---
+  bool isPastBranch = false;
+  int f;
+  for (f = i + 1; f < (int)asmList.size(); ++f) {
     const AsmInst &asmNext = asmList[f];
     const AsmInst *prevPrev =
         (f >= 2) ? &asmList[f - 2] : nullptr;
@@ -490,7 +503,7 @@ std::vector<int> asmGetReorderIndices(const std::vector<AsmInst> &asmList,
         (asmNext.opFlags & OpFlag::OP_FLAG_IS_BRANCH) &&
         !((f + 1 < (int)asmList.size()) &&
           (asmList[f + 1].opFlags & OpFlag::OP_FLAG_IS_NOP));
-    bool isPastBranch =
+    isPastBranch =
         prevPrev && (prevPrev->opFlags & OpFlag::OP_FLAG_IS_BRANCH);
 
     if (isFilledBranch || isPastBranch ||
@@ -498,16 +511,48 @@ std::vector<int> asmGetReorderIndices(const std::vector<AsmInst> &asmList,
       pos = f;
       break;
     }
+
+    // Track last writes for each register
+    for (int reg : asmNext.depsTargetIdx) {
+      lastWrite[reg] = f;
+      maskSetBit(lastWriteMask, reg);
+    }
   }
 
+  // --- Second pass: collect reads after stop point ---
+  int fRead = isPastBranch ? f - 2 : f;
+  for (; fRead < (int)asmList.size(); ++fRead) {
+    for (int idx = 0; idx < 5; ++idx)
+      lastReadMask[idx] |= asmList[fRead].depsSourceMask[idx];
+    if (asmList[fRead].opFlags & OpFlag::OP_FLAG_IS_BRANCH)
+      for (int idx = 0; idx < 5; ++idx)
+        lastReadMask[idx] |= asmList[fRead].depsArgMask[idx];
+  }
+
+  // --- Check read-after-write across the gap ---
+  for (int reg : asm_.depsTargetIdx) {
+    int lastWritePos = lastWrite[reg];
+    if (lastWritePos && maskGetBit(lastReadMask, reg)) {
+      pos = std::min(lastWritePos, pos);
+    }
+  }
+
+  // --- Build forward range ---
+  std::vector<int> res;
   for (int r = i; r <= pos - 1; ++r) res.push_back(r);
 
-  // Scan backward
+  // --- Collect registers not overwritten after us ---
+  RegMask writeCheckRegsMask = asm_.depsTargetMask;
+  for (int idx = 0; idx < 5; ++idx)
+    writeCheckRegsMask[idx] &= ~lastWriteMask[idx];
+
+  // --- Scan backward ---
   for (int b = i - 1; b >= 0; --b) {
     const AsmInst &asmPrev = asmList[b];
     bool stop = (b >= 1 && (asmList[b - 1].opFlags &
                             OpFlag::OP_FLAG_IS_BRANCH)) ||
-                checkAsmBackwardDep(asm_, asmPrev);
+                checkAsmBackwardDep(asm_, asmPrev) ||
+                maskAnd(asmPrev.depsTargetMask, writeCheckRegsMask);
     if (stop) break;
     res.push_back(b);
   }
