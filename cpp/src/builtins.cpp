@@ -567,11 +567,9 @@ b_invert_half(const VarDef *varRes,
   if (!varRes)
     state.throwError("Builtin invert_half() needs a left-side");
 
-  VarDef resSwiz = *varRes;
-  resSwiz.swizzle = swizzle;
   VarDef argSwiz = varArg;
   argSwiz.swizzle = swizzle;
-  return opInvertHalf(resSwiz, argSwiz);
+  return opInvertHalf(*varRes, argSwiz);
 }
 
 static std::vector<AsmInst>
@@ -606,11 +604,12 @@ b_invert_half_sqrt(const VarDef *varRes,
     state.throwError(
         "Builtin invert_half_sqrt() needs a left-side");
 
-  VarDef resSwiz = *varRes;
-  resSwiz.swizzle = swizzle;
+  // JS: varRes keeps its own swizzle (from the assignment target,
+  //     e.g. vLenInv.w), while the swizzle on the function call
+  //     (e.g. invert_half_sqrt(x).x) is applied only to the argument.
   VarDef argSwiz = varArg;
   argSwiz.swizzle = swizzle;
-  return opInvertSqrtHalf(resSwiz, argSwiz);
+  return opInvertSqrtHalf(*varRes, argSwiz);
 }
 
 // select()
