@@ -108,12 +108,19 @@ int runPipeline(const std::string &astJson, bool rspqWrapper,
 
 TranspileResult transpileSource(const std::string &source,
                                 const TranspileConfig &config) {
-  // Populate source lines for debug info
+  // Preprocess in C++ to collect defines (ordered by source appearance)
+  std::unordered_map<std::string, DefineEntry> defines;
+  std::vector<DefineEntry> defineOrder;
+  std::string preprocessed =
+      preprocFull(source, defines, config.sourceDir, &defineOrder);
+
+  // Populate source lines from the PREPROCESSED source for debug info.
+  // AST line numbers come from the preprocessed text (includes expanded,
+  // macros resolved), so the sourceLines must match.
   state.sourceLines.clear();
-  std::istringstream srcStream(source);
+  std::istringstream srcStream(preprocessed);
   std::string srcLine;
   while (std::getline(srcStream, srcLine)) {
-    // Trim leading/trailing whitespace like JS
     size_t start = srcLine.find_first_not_of(" \t\r");
     size_t end = srcLine.find_last_not_of(" \t\r");
     if (start != std::string::npos)
@@ -121,12 +128,6 @@ TranspileResult transpileSource(const std::string &source,
     else
       state.sourceLines.push_back("");
   }
-
-  // Preprocess in C++ to collect defines (ordered by source appearance)
-  std::unordered_map<std::string, DefineEntry> defines;
-  std::vector<DefineEntry> defineOrder;
-  std::string preprocessed =
-      preprocFull(source, defines, config.sourceDir, &defineOrder);
 
   // Write preprocessed source to temp file
   std::string tmpPath = "/tmp/rspl_test_source.rspl";
@@ -151,6 +152,16 @@ TranspileResult transpileSource(const std::string &source,
 
   // Generate ASM
   auto functions = ast2asm(prog);
+
+  // Match JS pipeline: writeASM runs before patterns to advance state.line
+  // so that optimizer-generated instructions (e.g. branchJump's ori $ra)
+  // pick up ASM output line numbers instead of stale source line numbers.
+  if (config.optimize || config.debugInfo) {
+    WriteConfig wCfg;
+    wCfg.rspqWrapper = config.rspqWrapper;
+    wCfg.debugInfo = config.debugInfo;
+    writeASM(prog, functions, wCfg);
+  }
 
   if (config.optimize) {
     for (auto &fn : functions) {
