@@ -108,6 +108,25 @@ TEST_CASE("State - Align", "[stateDataBss]") {
   REQUIRE(data.find("c: .ds.b 1") != std::string::npos);
 }
 
+TEST_CASE("State - Align lower", "[stateDataBss]") {
+  auto result = rspl::transpileSource(
+      R"(
+      state {
+        vec16 VEC_A;
+        alignas(8) vec16 VEC_A;
+      }
+      )",
+      {.rspqWrapper = true});
+
+  REQUIRE(result.warn.empty());
+  auto data = getDataSection(result.asm_);
+  REQUIRE(data.find("RSPQ_BeginSavedState") != std::string::npos);
+  REQUIRE(data.find("STATE_MEM_START:") != std::string::npos);
+  REQUIRE(data.find(".align 4") != std::string::npos);
+  REQUIRE(data.find("VEC_A: .ds.b 16") != std::string::npos);
+  REQUIRE(data.find("STATE_MEM_END:") != std::string::npos);
+}
+
 TEST_CASE("State - Data State", "[stateDataBss]") {
   auto result = rspl::transpileSource(
       R"(
