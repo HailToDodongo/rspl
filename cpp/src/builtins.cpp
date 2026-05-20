@@ -348,6 +348,8 @@ b_mtc0_write(const VarDef *varRes,
              const std::string &rdpReg) {
   if (varRes)
     state.throwError("Builtin must not have a left side!");
+  if (args.size() != 1)
+    state.throwError("Builtin requires 1 scalar argument!");
   std::string reg = reg::Reg::AT;
   std::vector<AsmInst> res;
   if (args[0].type == "num") {
@@ -355,6 +357,8 @@ b_mtc0_write(const VarDef *varRes,
     res.insert(res.end(), load.begin(), load.end());
   } else {
     VarDef varArg = resolveArg(args[0], "arg0");
+    if (isVecType(varArg.type))
+      state.throwError("Builtin requires a scalar argument!");
     reg = varArg.reg;
   }
   res.push_back(asmOp("mtc0", {reg, rdpReg}));
@@ -1030,21 +1034,148 @@ static BuiltinMap buildRegistry() {
   addDma("dma_in_async", "DMA_IN_ASYNC");
   addDma("dma_out_async", "DMA_OUT_ASYNC");
 
+  // print / printf
+  auto b_print = [](const VarDef *varRes,
+                    const std::vector<ast::FuncArg> &args,
+                    const std::string &) -> std::vector<AsmInst> {
+    if (varRes)
+      state.throwError("Builtin print() cannot have a left side!");
+    if (args.empty())
+      state.throwError(
+          "Builtin print() requires at least one argument!");
+
+    for (const auto &arg : args) {
+      if (arg.type == "num")
+        state.throwError("Builtin print() requires all arguments to "
+                         "be variables or strings!");
+    }
+
+    std::string mainType = args[0].type;
+    for (const auto &arg : args) {
+      if (arg.type != mainType)
+        state.throwError(
+            "Builtin print() requires all arguments to be of the "
+            "same type!");
+    }
+
+    std::vector<AsmInst> res;
+    res.push_back(asmInline(".set macro", {"# print"}));
+
+    if (mainType == "string") {
+      std::vector<std::string> strArgs;
+      for (const auto &arg : args)
+        strArgs.push_back("\"" + arg.value + "\"");
+      res.push_back(asmInline("emux_log_string", strArgs));
+    } else {
+      // Resolve first arg to determine scalar vs vector
+      VarDef arg0 = resolveArg(args[0], "arg0");
+      state.logInfo("Info: print() variable '" + arg0.name +
+                    "' is " + arg0.reg);
+      bool isVector = isVecType(arg0.type);
+
+      for (size_t i = 1; i < args.size(); ++i) {
+        VarDef argVar = resolveArg(args[i], "arg" + std::to_string(i));
+        state.logInfo("Info: print() variable '" + argVar.name +
+                      "' is " + argVar.reg);
+        if (isVecType(argVar.type) != isVector)
+          state.throwError(
+              "Builtin print() doesn't allow mixed scalar/vector "
+              "arguments!");
+      }
+
+      std::string op = isVector ? "emux_dump_vpr" : "emux_dump_gpr";
+      std::vector<std::string> regArgs;
+      for (const auto &arg : args) {
+        VarDef argVar = resolveArg(arg, "arg");
+        regArgs.push_back(argVar.reg);
+      }
+      res.push_back(asmInline(op, regArgs));
+    }
+
+    res.push_back(asmInline(".set noat", {"# print"}));
+    res.push_back(asmInline(".set nomacro", {"# print"}));
+    return res;
+  };
+
+  auto b_printf = [](const VarDef *varRes,
+                     const std::vector<ast::FuncArg> &args,
+                     const std::string &) -> std::vector<AsmInst> {
+    if (varRes)
+      state.throwError("Builtin printf() cannot have a left side!");
+    if (args.empty())
+      state.throwError(
+          "Builtin printf() requires at least one argument!");
+    if (args[0].type != "string")
+      state.throwError(
+          "Builtin printf() requires first argument to be a string!");
+
+    std::vector<AsmInst> res;
+    res.push_back(asmInline(".set macro", {"# print"}));
+
+    std::string fmt = args[0].value;
+    std::string fmtString;
+    size_t argIdx = 1;
+
+    // Parse format string for %v/%d/%u/%x/%f specifiers (matching JS
+    // regex: /(%[vduxf])/)
+    size_t pos = 0;
+    while (pos < fmt.size()) {
+      size_t pct = fmt.find('%', pos);
+      if (pct == std::string::npos) {
+        fmtString += fmt.substr(pos);
+        break;
+      }
+      fmtString += fmt.substr(pos, pct - pos);
+      if (pct + 1 < fmt.size()) {
+        char specChar = fmt[pct + 1];
+        if (specChar == 'v' || specChar == 'd' || specChar == 'u' ||
+            specChar == 'x' || specChar == 'f') {
+          std::string spec = fmt.substr(pct, 2);
+          if (argIdx < args.size()) {
+            const auto &val = args[argIdx++];
+            if (val.type == "var") {
+              VarDef refVar = resolveArg(val, "arg" +
+                                              std::to_string(argIdx));
+              if (reg::isVecReg(refVar.reg)) {
+                auto it = SWIZZLE_MAP.find(val.swizzle);
+                std::string sw =
+                    it != SWIZZLE_MAP.end() ? it->second : "";
+                if (refVar.type == "vec32") {
+                  fmtString += "%f" + refVar.reg.substr(1) + sw;
+                } else {
+                  fmtString += "%d" + refVar.reg.substr(1) + sw;
+                }
+              } else {
+                fmtString += spec + refVar.reg.substr(1);
+              }
+            }
+          }
+          pos = pct + 2;
+        } else {
+          fmtString += fmt[pct];
+          pos = pct + 1;
+        }
+      } else {
+        fmtString += fmt[pct];
+        pos = pct + 1;
+      }
+    }
+
+    res.push_back(
+        asmInline("emux_printf", {"\"" + fmtString + "\""}));
+    res.push_back(asmInline(".set noat", {"# print"}));
+    res.push_back(asmInline(".set nomacro", {"# print"}));
+    return res;
+  };
+
   // invert
   m["invert_half"] = b_invert_half;
   m["invert"] = b_invert;
   m["invert_half_sqrt"] = b_invert_half_sqrt;
 
-  auto noop = []() -> BuiltinFn {
-    return [](const VarDef *,
-              const std::vector<ast::FuncArg> &,
-              const std::string &) -> std::vector<AsmInst> {
-      return {};
-    };
-  };
-  m["set_rsp_status"] = noop();
-  m["print"] = noop();
-  m["printf"] = noop();
+  addMtc0Write("set_rsp_status", reg::RegCop0::SP_STATUS);
+  m["print"] = b_print;
+  m["printf"] = b_printf;
   m["min"] = [](const VarDef *vr,
                 const std::vector<ast::FuncArg> &a,
                 const std::string &s) { return b_minmax(vr, a, s, "<"); };
