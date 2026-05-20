@@ -84,6 +84,13 @@ static std::string inferCalcResultType(const ast::Calc &calc,
           if (l && isVecType(l->type)) return l->type;
           return declType;
         } else if constexpr (std::is_same_v<T, ast::CalcMulti>) {
+          // If the declared type is already a vector type, trust it.
+          // This matters for mixed-type expressions like vec16 * vec32
+          // whose result should be vec32 if the variable is declared as
+          // vec32. Without this the left operand's type (vec16) wins and
+          // later type-sensitive operations (e.g. clip()) receive wrong
+          // types.
+          if (isVecType(declType)) return declType;
           const VarDef *l = state.getVar(c.left.value);
           if (l && isVecType(l->type)) return l->type;
           for (const auto &p : c.parts) {
@@ -329,6 +336,9 @@ static void decomposeParts(std::vector<FlatElem> &parts,
             out.insert(out.end(), s.begin(), s.end());
           } else if (op == "*") {
             auto m = ops::opMulVec(varRes, firstLeft, right, true);
+            out.insert(out.end(), m.begin(), m.end());
+          } else if (op == "+*") {
+            auto m = ops::opMulVec(varRes, firstLeft, right, false);
             out.insert(out.end(), m.begin(), m.end());
           } else {
             auto mv = ops::opMoveVec(varRes, firstLeft);
@@ -649,6 +659,31 @@ static std::vector<AsmInst> loopToAsm(const ast::StmtLoop &st) {
   std::string labelStart = state.generateLabel();
   std::string labelEnd = state.generateLabel();
 
+  // loop { body } while(cond) — emit conditional branch at the tail
+  if (st.compare.has_value()) {
+    if (st.compare->left.type == "num") {
+      state.throwError(
+          "Loop-Statements with numeric left-hand-side not implemented!");
+    }
+    const VarDef *varLeft =
+        state.getRequiredVar(st.compare->left.value, "left");
+    if (reg::isVecReg(varLeft->reg))
+      state.throwError("Loop-Statements must use scalar-registers!");
+
+    std::vector<AsmInst> res;
+    res.push_back(asmLabel(labelStart));
+    state.pushScope(labelStart, labelEnd);
+    auto body = scopedBlockToAsm(*st.block);
+    res.insert(res.end(), body.begin(), body.end());
+    auto branchOps =
+        ops::opBranch(*st.compare, labelStart, /*invert=*/true);
+    res.insert(res.end(), branchOps.begin(), branchOps.end());
+    state.popScope();
+    res.push_back(asmLabel(labelEnd));
+    return res;
+  }
+
+  // Infinite loop: j back to start
   std::vector<AsmInst> res;
   res.push_back(asmLabel(labelStart));
   state.pushScope(labelStart, labelEnd);
@@ -685,12 +720,16 @@ static void predeclareLabels(const ast::ScopedBlock &block) {
 
 static std::vector<AsmInst>
 scopedBlockToAsm(const ast::ScopedBlock &block) {
+  state.line = block.line;
   // Pre-scan labels so forward references resolve (JS: astNormalize.js:19-28)
   predeclareLabels(block);
 
   std::vector<AsmInst> res;
 
   for (const auto &stmt : block.statements) {
+    // Update state.line from the statement's line number (for debug info)
+    std::visit([&](const auto &s) { state.line = s.line; }, stmt);
+
     std::visit(
         [&](const auto &s) {
           using T = std::decay_t<decltype(s)>;
@@ -911,6 +950,12 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
           }
         },
         stmt);
+
+    // Clear per-statement annotations (matching JS ast2asm.js:394-395)
+    // Annotation statements themselves are exempt so their annotations
+    // apply to the next real statement.
+    if (!std::holds_alternative<ast::StmtAnnotation>(stmt))
+      state.clearAnnotations();
   }
 
   return res;
@@ -957,7 +1002,12 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
     if (fn.type == "macro") continue; // already registered
     if (!fn.body) continue; // forward declaration only — no body to generate
 
-    state.enterFunction(fn.name, fn.type, fn.resultType.value_or(0));
+    // argSize in bytes, matching JS getArgSize() = max(args.length * 4, 4)
+    int byteArgSize =
+        std::max(static_cast<int>(fn.args.size()) * 4, 4);
+    state.enterFunction(fn.name, fn.type,
+                        fn.type == "command" ? byteArgSize
+                                             : fn.resultType.value_or(0));
 
     bool isCommand = (fn.type == "command");
     // Built-in registers (ZERO, VZERO, RA, etc.) are already
@@ -983,6 +1033,9 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
     std::vector<AsmInst> funcAsm;
     auto body = scopedBlockToAsm(*fn.body);
     funcAsm.insert(funcAsm.end(), body.begin(), body.end());
+
+    // Advance past the closing brace (matching JS ast2asm.js:443)
+    ++state.line;
 
     if (isCommand) {
       funcAsm.push_back(asmOp("j", {LABEL_CMD_LOOP}));

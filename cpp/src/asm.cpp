@@ -90,11 +90,11 @@ static void applyOpInfo(AsmInst &inst, const std::string &op,
   inst.type = type;
   inst.opFlags = getOpFlags(op);
   inst.stallLatency = getStallLatency(op);
-  // Copy current annotations from state
+  // Copy current annotations from state (but don't clear —
+  // clearing is done per-statement in scopedBlockToAsm to match JS)
   for (const auto &ann : state.getAnnotations()) {
     inst.annotations.push_back({ann.name, ann.value});
   }
-  state.clearAnnotations();
 }
 
 // --- Factory functions ------------------------------------------------

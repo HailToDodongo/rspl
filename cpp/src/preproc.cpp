@@ -21,26 +21,33 @@ std::string stripComments(const std::string &source) {
     result += line + "\n";
   }
 
-  // Remove /* */ block comments, preserving newline count
-  std::regex blockRe("/\\*[\\s\\S]*?\\*/");
+  // Remove /* */ block comments using a simple state machine
+  // (std::regex [\s\S] is not portable in C++)
   std::string tmp;
-  auto it = std::sregex_iterator(result.begin(), result.end(), blockRe);
-  auto end = std::sregex_iterator();
-  size_t prevPos = 0;
-  for (auto i = it; i != end; ++i) {
-    tmp += result.substr(prevPos, i->position() - prevPos);
-    std::string match = i->str();
-    for (char c : match)
-      if (c == '\n') tmp += '\n';
-    prevPos = i->position() + i->length();
+  bool inBlock = false;
+  for (size_t i = 0; i < result.size(); ++i) {
+    if (!inBlock && i + 1 < result.size() && result[i] == '/' &&
+        result[i + 1] == '*') {
+      inBlock = true;
+      ++i; // skip *
+      continue;
+    }
+    if (inBlock && i + 1 < result.size() && result[i] == '*' &&
+        result[i + 1] == '/') {
+      inBlock = false;
+      ++i; // skip /
+      continue;
+    }
+    if (!inBlock) tmp += result[i];
+    else if (result[i] == '\n') tmp += '\n'; // preserve newlines
   }
-  tmp += result.substr(prevPos);
   return tmp;
 }
 
 std::string preprocess(const std::string &src,
                        std::unordered_map<std::string, DefineEntry> &defines,
-                       const std::string &sourceDir) {
+                       const std::string &sourceDir,
+                       std::vector<DefineEntry> *defineOrder) {
   std::istringstream iss(src);
   std::string line;
   std::string result;
@@ -79,6 +86,7 @@ std::string preprocess(const std::string &src,
       std::string name = m[1].str();
       std::string value = replaceDefines(m[2].str());
       defines[name] = {name, value};
+      if (defineOrder) defineOrder->push_back({name, value});
     } else if (!ignoreLine && trimmed.starts_with("#undef")) {
       std::regex undefRe("#undef\\s+([a-zA-Z0-9_]+)");
       std::smatch m;
@@ -133,7 +141,7 @@ std::string preprocess(const std::string &src,
         ss << incFile.rdbuf();
         incSrc = ss.str();
       }
-      result += preprocess(stripComments(incSrc), defines, sourceDir);
+      result += preprocess(stripComments(incSrc), defines, sourceDir, defineOrder);
     } else if (!ignoreLine) {
       newLine = replaceDefines(line);
     }
@@ -146,8 +154,9 @@ std::string preprocess(const std::string &src,
 
 std::string preprocFull(const std::string &src,
                         std::unordered_map<std::string, DefineEntry> &defines,
-                        const std::string &sourceDir) {
-  return preprocess(stripComments(src), defines, sourceDir);
+                        const std::string &sourceDir,
+                        std::vector<DefineEntry> *defineOrder) {
+  return preprocess(stripComments(src), defines, sourceDir, defineOrder);
 }
 
 } // namespace rspl

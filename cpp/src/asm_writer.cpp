@@ -102,7 +102,7 @@ AsmWriteResult writeASM(const ast::Program &ast,
           fn.nameOverride.empty() ? fn.name : fn.nameOverride;
       commandList[fn.resultType.value()] =
           "    RSPQ_DefineCommand " + name + ", " +
-          std::to_string(fn.argSize);
+          std::to_string(std::max(fn.argSize * 4, 4));
     }
   }
   writeLines(commandList);
@@ -120,7 +120,7 @@ AsmWriteResult writeASM(const ast::Program &ast,
         stateVars.push_back(v);
       else if (sec.name == "data")
         dataVars.push_back(v);
-      else if (sec.name == "bss")
+      else if (sec.name == "bss" || sec.name == "temp_state")
         bssVars.push_back(v);
       else
         stateVars.push_back(v); // default to state
@@ -192,15 +192,32 @@ AsmWriteResult writeASM(const ast::Program &ast,
     writeLine("  RSPQ_EmptySavedState");
   }
 
+  // Helper to emit a single state var (with alignment and size)
+  auto emitStateVar = [&](const ast::StateVarDef &sv) {
+    int arraySize = 1;
+    for (auto dim : sv.arraySize) arraySize *= dim;
+    if (arraySize < 1) arraySize = 1;
+    int byteSize = (TYPE_SIZE.count(sv.varType)
+                        ? TYPE_SIZE.at(sv.varType)
+                        : 4) *
+                   arraySize;
+    int align = TYPE_ALIGNMENT.count(sv.varType)
+                    ? TYPE_ALIGNMENT.at(sv.varType)
+                    : 0;
+    if (sv.align != 0)
+      align = static_cast<int>(std::log2(sv.align));
+    if (align > 0)
+      writeLine("    .align " + std::to_string(align));
+    writeLine("    " + sv.varName + ": .ds.b " +
+              std::to_string(byteSize));
+  };
+
   // Data section
   if (!dataVars.empty()) {
     writeLine("");
     for (const auto &dv : dataVars) {
       if (dv.isExtern) continue;
-      writeLine("    " + dv.varName + ": .ds.b " +
-                std::to_string(TYPE_SIZE.count(dv.varType)
-                                   ? TYPE_SIZE.at(dv.varType)
-                                   : 4));
+      emitStateVar(dv);
     }
   }
 
@@ -211,10 +228,7 @@ AsmWriteResult writeASM(const ast::Program &ast,
     writeLine("  TEMP_STATE_MEM_START:");
     for (const auto &bv : bssVars) {
       if (bv.isExtern) continue;
-      writeLine("    " + bv.varName + ": .ds.b " +
-                std::to_string(TYPE_SIZE.count(bv.varType)
-                                   ? TYPE_SIZE.at(bv.varType)
-                                   : 4));
+      emitStateVar(bv);
     }
     writeLine("  TEMP_STATE_MEM_END:");
   }

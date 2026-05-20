@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include "diff_util.h"
 #include "pipeline.h"
 
 #include <fstream>
@@ -48,21 +49,21 @@ TEST_CASE("Examples - 3D", "[examples]") {
   auto path = examplesPath("3d.rspl");
   auto expected = readFile(examplesPath("3d.S"));
   auto asm_ = transpileFile(path, true);
-  REQUIRE(asm_ == expected);
+  REQUIRE_ASM_EQ(expected, asm_);
 }
 
 TEST_CASE("Examples - Tiny3D", "[examples]") {
   auto path = examplesPath("t3d/rsp_tiny3d.rspl");
   auto expected = readFile(examplesPath("t3d/rsp_tiny3d.S"));
   auto asm_ = transpileFile(path, true, true);
-  REQUIRE(asm_ == expected);
+  REQUIRE_ASM_EQ(expected, asm_);
 }
 
 TEST_CASE("Examples - TinyPX", "[examples]") {
   auto path = examplesPath("t3d/rsp_tinypx.rspl");
   auto expected = readFile(examplesPath("t3d/rsp_tinypx.S"));
   auto asm_ = transpileFile(path, true, true);
-  REQUIRE(asm_ == expected);
+  REQUIRE_ASM_EQ(expected, asm_);
 }
 
 TEST_CASE("Examples - Mandelbrot", "[examples]") {
@@ -112,7 +113,7 @@ include "rsp_rdpq.inc"
   while (!asm_.empty() && (asm_.back() == '\n' || asm_.back() == ' '))
     asm_.pop_back();
   // Golden output from JS test
-  REQUIRE(asm_ == R"(## Auto-generated file, transpiled with RSPL
+  REQUIRE_ASM_EQ(R"(## Auto-generated file, transpiled with RSPL
 #include <rsp_queue.inc>
 
 .set noreorder
@@ -285,5 +286,5 @@ OVERLAY_CODE_END:
 
 .set at
 .set macro
-#include <rsp_rdpq.inc>)");
+#include <rsp_rdpq.inc>)", asm_);
 }

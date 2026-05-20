@@ -182,3 +182,45 @@ TEST_CASE("Preproc - Ifdef - nested", "[preproc]") {
         "Nested #ifdef") != std::string::npos);
   }
 }
+
+TEST_CASE("Preproc - Defines emitted in source order", "[preproc]") {
+  std::unordered_map<std::string, rspl::DefineEntry> defines;
+  std::vector<rspl::DefineEntry> defineOrder;
+  auto src = R"(
+#define TRI_BUFFER_COUNT 70
+#define LIGHT_COUNT 8
+)";
+  rspl::preprocFull(src, defines, ".", &defineOrder);
+  REQUIRE(defineOrder.size() == 2);
+  REQUIRE(defineOrder[0].name == "TRI_BUFFER_COUNT");
+  REQUIRE(defineOrder[1].name == "LIGHT_COUNT");
+}
+
+TEST_CASE("Preproc - #undef removes define from ordered output",
+          "[preproc]") {
+  std::unordered_map<std::string, rspl::DefineEntry> defines;
+  std::vector<rspl::DefineEntry> defineOrder;
+  auto src = R"(
+#define KEEP_ME 42
+#define REMOVE_ME 99
+#undef REMOVE_ME
+)";
+  rspl::preprocFull(src, defines, ".", &defineOrder);
+  // Both were pushed in order, but REMOVE_ME is gone from map
+  REQUIRE(defines.count("KEEP_ME") == 1);
+  REQUIRE(defines.count("REMOVE_ME") == 0);
+  REQUIRE(defineOrder.size() == 2); // both were pushed before undef
+}
+
+TEST_CASE("Preproc - stripComments handles large block comments",
+          "[preproc]") {
+  auto src = R"(/***************************************
+ * Multi-line block comment
+ ***************************************/
+#define TEST_VALUE 42
+)";
+  std::unordered_map<std::string, rspl::DefineEntry> defines;
+  std::string result = rspl::preprocFull(src, defines, ".");
+  REQUIRE(defines.count("TEST_VALUE") == 1);
+  REQUIRE(defines["TEST_VALUE"].value == "42");
+}

@@ -319,6 +319,7 @@ static ScopedBlock parseScopedBlock(const json &j) {
       } else if (stType == "scopedBlock") {
         // Keep as nested scoped block — scope boundaries matter for registers
         StmtScopedBlock sb;
+        sb.line = optLine(st);
         sb.body = std::make_unique<ScopedBlock>(parseScopedBlock(st));
         block.statements.push_back(std::move(sb));
       } else if (stType == "nestedCalc") {
@@ -329,6 +330,7 @@ static ScopedBlock parseScopedBlock(const json &j) {
         }
       } else if (stType == "varDeclAlias") {
         StmtVarDeclAlias s;
+        s.line = optLine(st);
         s.aliasName = st.value("aliasName", "");
         s.varName = st.value("varName", "");
         block.statements.push_back(std::move(s));

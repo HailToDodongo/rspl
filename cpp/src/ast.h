@@ -152,6 +152,7 @@ struct StmtVarDeclAssign {
 struct StmtVarDeclAlias {
   std::string aliasName;
   std::string varName;
+  uint32_t line = 0;
 };
 
 struct StmtVarUndef {
@@ -225,6 +226,7 @@ struct StmtAnnotation {
 // Nested scoped block — carries its own scope
 struct StmtScopedBlock {
   std::unique_ptr<struct ScopedBlock> body;
+  uint32_t line = 0;
 };
 
 using Stmt = std::variant<

@@ -241,6 +241,47 @@ std::vector<AsmInst> opMoveVec(const VarDef &varRes,
       return broadcastRes;
     }
 
+    // Half-vector move: 4-lane swizzle on both sides requires
+    // storing through scratch memory since vmov only moves single lanes
+    // and sdv/ldv can move 8 bytes (4 lanes) at once.
+    // Examples: res.xyzw = a.XYZW (upper→lower),
+    //           res.XYZW = a.xyzw (lower→upper)
+    bool isHalfMove =
+        !varRes.swizzle.empty() && varRes.swizzle.size() == 4 &&
+        !varRight.swizzle.empty() && varRight.swizzle.size() == 4;
+    if (isHalfMove) {
+      auto sitSrc = SWIZZLE_SCALAR_IDX.find(varRight.swizzle[0]);
+      auto sitDst = SWIZZLE_SCALAR_IDX.find(varRes.swizzle[0]);
+      if (sitSrc != SWIZZLE_SCALAR_IDX.end() &&
+          sitDst != SWIZZLE_SCALAR_IDX.end()) {
+        int srcOffset = sitSrc->second * 2; // byte offset into source reg
+        int dstOffset = sitDst->second * 2; // byte offset into dest reg
+        int accessLen = 8; // 4 lanes × 2 bytes = 8 bytes
+
+        state.addAnnotation("Barrier", "__SCRATCH_MEM__");
+
+        std::vector<AsmInst> halfRes;
+        halfRes.push_back(
+            asmOp("ori", {reg::Reg::AT, reg::Reg::ZERO,
+                          "%lo(RSPQ_SCRATCH_MEM)"}));
+        halfRes.push_back(
+            asmOp("sdv", {regsR.first, std::to_string(srcOffset), "0",
+                          reg::Reg::AT}));
+        if (regsR.second != reg::Reg::VZERO)
+          halfRes.push_back(
+              asmOp("sdv", {regsR.second, std::to_string(srcOffset),
+                            std::to_string(accessLen), reg::Reg::AT}));
+        halfRes.push_back(
+            asmOp("ldv", {regsDst.first, std::to_string(dstOffset), "0",
+                          reg::Reg::AT}));
+        if (regsDst.second != reg::Reg::VZERO)
+          halfRes.push_back(
+              asmOp("ldv", {regsDst.second, std::to_string(dstOffset),
+                            std::to_string(accessLen), reg::Reg::AT}));
+        return halfRes;
+      }
+    }
+
     // Single lane move
     auto sitRes = SWIZZLE_MAP.find(varRes.swizzle);
     auto sitRight = SWIZZLE_MAP.find(varRight.swizzle);
@@ -560,14 +601,15 @@ std::vector<AsmInst> opStoreBytes(const VarDef &varRes,
 
 std::vector<AsmInst> opAddVec(const VarDef &varRes,
                               const VarDef &varLeft,
-                              const VarDef &varRight) {
-  if (!varRight.reg.empty()) {
-  } else {
+                              VarDef varRight) {
+  if (varRight.reg.empty()) {
     auto pIt = POW2_SWIZZLE_VAR.find(varRight.value);
     if (pIt == POW2_SWIZZLE_VAR.end()) {
       state.throwError("Addition by a constant can only be done with "
                        "powers of two!");
     }
+    varRight.reg = pIt->second.reg;
+    varRight.swizzle = pIt->second.swizzle;
   }
   if (!varRes.swizzle.empty() || !varLeft.swizzle.empty()) {
     state.throwError("Addition only allows swizzle on the right side!");
@@ -600,7 +642,7 @@ std::vector<AsmInst> opAddVec(const VarDef &varRes,
 
 std::vector<AsmInst> opSubVec(const VarDef &varRes,
                               const VarDef &varLeft,
-                              const VarDef &varRight) {
+                              VarDef varRight) {
   if (varRight.reg.empty()) {
     auto pIt = POW2_SWIZZLE_VAR.find(varRight.value);
     if (pIt == POW2_SWIZZLE_VAR.end()) {
@@ -608,6 +650,8 @@ std::vector<AsmInst> opSubVec(const VarDef &varRes,
           "Subtraction by a constant can only be done with powers of "
           "two!");
     }
+    varRight.reg = pIt->second.reg;
+    varRight.swizzle = pIt->second.swizzle;
   }
   assertVectorVars(varLeft, &varRight);
   auto sit = SWIZZLE_MAP.find(varRight.swizzle);
@@ -653,6 +697,18 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
 
   // 16-bit multiply with cast
   if (varRes.type == "vec16") {
+    // Special case: vec16(sfract/ufract) * vec32(sfract/ufract)
+    // → vmudm/vmadm (JS opMul:603-608)
+    if (varLeft.type == "vec16" &&
+        (varLeft.castType == "sfract" || varLeft.castType == "ufract")) {
+      if (varRight.originalType == "vec32" &&
+          (varRight.castType == "sfract" || varRight.castType == "ufract")) {
+        std::string opMid = clearAccum ? "vmudm" : "vmadm";
+        return {asmOp(opMid, {varRes.reg, varLeft.reg,
+                              varRight.reg + swSuffix})};
+      }
+    }
+
     std::string caseRef =
         !varLeft.castType.empty()   ? varLeft.castType :
         !varRight.castType.empty()  ? varRight.castType :
@@ -668,6 +724,32 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
     }
     return {asmOp(intOp, {varRes.reg, varLeft.reg,
                           varRight.reg + swSuffix})};
+  }
+
+  // vec32 sfract result from vec32 * vec32 (JS opMul:612-619)
+  if (varRes.originalType == "vec32" && varRes.castType == "sfract" &&
+      varLeft.type == "vec32" && varRight.type == "vec32") {
+    return {
+        asmOp("vmudl", {reg::Reg::VTEMP0, fractReg(varLeft),
+                         fractReg(varRight) + swSuffix}),
+        asmOp("vmadm", {reg::Reg::VTEMP0, intReg(varLeft),
+                         fractReg(varRight) + swSuffix}),
+        asmOp("vmadn", {varRes.reg, fractReg(varLeft),
+                         intReg(varRight) + swSuffix}),
+    };
+  }
+
+  // 16bit * 32bit multiply (JS opMul:643-649)
+  if (right32Bit && varRes.type == "vec32" && varLeft.type == "vec16" &&
+      !(varLeft.castType == "sfract" || varLeft.castType == "ufract")) {
+    auto regsDst = getVec32Regs(varRes);
+    return {
+        asmOp("vmudm", {regsDst.second, varLeft.reg,
+                         fractReg(varRight) + swSuffix}),
+        asmOp("vmadh", {intReg(varRes), varLeft.reg,
+                         intReg(varRight) + swSuffix}),
+        asmOp("vmadn", {regsDst.second, reg::Reg::VZERO, reg::Reg::VZERO}),
+    };
   }
 
   // Full 32-bit multiplication
@@ -691,6 +773,21 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
         asmOp("vmadh", {intReg(varRes), intReg(varLeft),
                          intReg(varRight) + swSuffix}));
     return res;
+  }
+
+  // Partial multiplication: s16.16 * 0.16 (fractional part of original s16.16)
+  // JS opMul:662-668
+  bool rightSideIsFraction =
+      (varRight.castType == "sfract" || varRight.castType == "ufract");
+  if (rightSideIsFraction &&
+      (varRight.originalType == "vec32" || varRes.type == "vec32")) {
+    const std::string *nextReg = reg::nextVecReg(varRes.reg);
+    return {
+        asmOp(fractOp,
+              {*nextReg, fractReg(varLeft), varRight.reg + swSuffix}),
+        asmOp("vmadm", {varRes.reg, varLeft.reg, varRight.reg + swSuffix}),
+        asmOp("vmadn", {*nextReg, reg::Reg::VZERO, reg::Reg::VZERO}),
+    };
   }
 
   // Vec32 result from any source — general path

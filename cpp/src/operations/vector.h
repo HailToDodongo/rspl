@@ -42,9 +42,9 @@ std::vector<AsmInst> opStoreBytes(const VarDef &varRes,
 
 // Arithmetic
 std::vector<AsmInst> opAddVec(const VarDef &varRes, const VarDef &varLeft,
-                              const VarDef &varRight);
+                              VarDef varRight);
 std::vector<AsmInst> opSubVec(const VarDef &varRes, const VarDef &varLeft,
-                              const VarDef &varRight);
+                              VarDef varRight);
 std::vector<AsmInst> opMulVec(const VarDef &varRes, const VarDef &varLeft,
                               VarDef varRight,
                               bool clearAccum = true);

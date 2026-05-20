@@ -88,6 +88,7 @@ set(TEST_SOURCES
   tests/test_compare.cpp
   tests/test_const.cpp
   tests/test_control.cpp
+  tests/test_debugInfo.cpp
   tests/test_defineAsm.cpp
   tests/test_immediateScalar.cpp
   tests/test_labels.cpp
@@ -105,6 +106,7 @@ set(TEST_SOURCES
   tests/test_optAssert.cpp
   tests/test_optBranchJump.cpp
   tests/test_optDeadCode.cpp
+  tests/test_optDedupeImm.cpp
   tests/test_optDelaySlot.cpp
   tests/test_optJumpDedupe.cpp
   tests/test_optLabels.cpp

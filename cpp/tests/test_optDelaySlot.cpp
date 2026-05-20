@@ -47,3 +47,24 @@ TEST_CASE("Optimizer E2E - Delay-Slots - Fill - Complex", "[optDelaySlot]") {
   jr $ra
   nop)");
 }
+
+TEST_CASE("Optimizer E2E - Delay-Slots - Fill across jal (scalar)",
+          "[optDelaySlot]") {
+  auto res = optTranspile(R"(
+function DMAWaitIdle();
+function test()
+{
+  u32 a = 1;
+  u32 b = 2;
+  DMAWaitIdle();
+  u32 c = 3;
+}
+)");
+  REQUIRE(res.warn.empty());
+  REQUIRE(res.asm_ == R"(test:
+  addiu $t1, $zero, 2
+  jal DMAWaitIdle
+  addiu $t0, $zero, 1
+  jr $ra
+  addiu $t2, $zero, 3)");
+}

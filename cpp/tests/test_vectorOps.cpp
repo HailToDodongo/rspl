@@ -855,3 +855,102 @@ TEST_CASE("Vector - Ops - Shift right Logical (vec32)", "[vectorOps]") {
   jr $ra
   nop)");
 }
+
+TEST_CASE("VectorOps - Multiply-accumulate +* - vec32",
+          "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+        vec32<$v01> a;
+        vec32<$v03> b;
+        vec32<$v05> res;
+        res = a +* b;
+      })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmadl $v29, $v02, $v04.v
+  vmadm $v29, $v01, $v04.v
+  vmadn $v06, $v02, $v03.v
+  vmadh $v05, $v01, $v03.v
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("VectorOps - Multiply vec16 * vec32 -> vec32",
+          "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+        vec16<$v01> a;
+        vec32<$v03> b;
+        vec32<$v05> res;
+        res = a * b;
+      })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmudm $v06, $v01, $v04.v
+  vmadh $v05, $v01, $v03.v
+  vmadn $v06, $v00, $v00
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("VectorOps - Half-move vec32 xyzw=XYZW (upper to lower)",
+          "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+        vec32<$v01> res, a;
+        res.xyzw = a.XYZW;
+      })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  ori $at, $zero, %lo(RSPQ_SCRATCH_MEM)
+  sdv $v03, 8, 0, $at
+  sdv $v04, 8, 8, $at
+  ldv $v01, 0, 0, $at
+  ldv $v02, 0, 8, $at
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("VectorOps - Half-move vec32 XYZW=xyzw (lower to upper)",
+          "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+        vec32<$v01> res, a;
+        res.XYZW = a.xyzw;
+      })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  ori $at, $zero, %lo(RSPQ_SCRATCH_MEM)
+  sdv $v03, 0, 0, $at
+  sdv $v04, 0, 8, $at
+  ldv $v01, 8, 0, $at
+  ldv $v02, 8, 8, $at
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("VectorOps - Half-move vec16 xyzw=XYZW (upper to lower)",
+          "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+        vec16<$v01> res, a;
+        res.xyzw = a.XYZW;
+      })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  ori $at, $zero, %lo(RSPQ_SCRATCH_MEM)
+  sdv $v02, 8, 0, $at
+  ldv $v01, 0, 0, $at
+  jr $ra
+  nop)");
+}

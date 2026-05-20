@@ -48,3 +48,18 @@ function test_label()
   jr $ra
   nop)");
 }
+
+TEST_CASE("Labels - Label used as value resolves to %lo", "[labels]") {
+  // Forward label references in expressions must produce %lo(LABEL)
+  auto res = rspl::transpileSource(R"(
+function test()
+{
+  u32 x;
+  x = MY_TARGET;
+  MY_TARGET:
+}
+)",
+                                   {.rspqWrapper = false});
+  REQUIRE(res.warn.empty());
+  REQUIRE(res.asm_.find("%lo(MY_TARGET)") != std::string::npos);
+}

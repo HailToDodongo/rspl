@@ -183,3 +183,23 @@ TEST_CASE("State - Data + State + BSS", "[stateDataBss]") {
   REQUIRE(result.asm_.find(".bss") != std::string::npos);
   REQUIRE(result.asm_.find("DDD: .ds.b 4") != std::string::npos);
 }
+
+TEST_CASE("State - Extern variables are registered for lookup",
+          "[stateDataBss]") {
+  std::string src = R"(
+state {
+  extern u32 RDPQ_CMD_STAGING;
+  extern u16 RSPQ_Loop;
+  vec16 MY_VAR;
+}
+function test(u32 dummy)
+{
+  u32 x = RDPQ_CMD_STAGING;
+  u32 y = RSPQ_Loop;
+}
+)";
+  auto result = rspl::transpileSource(src, {.rspqWrapper = false});
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_.find("%lo(RDPQ_CMD_STAGING)") != std::string::npos);
+  REQUIRE(result.asm_.find("%lo(RSPQ_Loop)") != std::string::npos);
+}

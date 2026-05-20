@@ -21,6 +21,21 @@ inline void mergeSequence(AsmFunc &func) {
       continue;
     }
 
+    // Merge consecutive sqrt/reciprocal: first step against VZERO can be
+    // combined with the start of the next sequence (JS mergeSequence.js:23-41)
+    if (i + 2 < func.asm_.size() &&
+        ((a.op == "vrsqh" || a.op == "vrcph") &&
+         a.args.size() >= 2 &&
+         a.args[1].starts_with(reg::Reg::VZERO) &&
+         func.asm_[i + 1].op == a.op &&
+         func.asm_[i + 2].op ==
+             (a.op == "vrsqh" ? "vrsql" : "vrcpl"))) {
+      func.asm_[i + 1].args[0] = a.args[0];
+      func.asm_.erase(func.asm_.begin() + i);
+      --i;
+      continue;
+    }
+
     // Indirect multiply by zero.
     // vxor $reg, $v00, $v00.?? -> ... -> vmudl $reg, $reg, ...
     // Replace $reg source in vmudl with $v00 and remove the vxor.

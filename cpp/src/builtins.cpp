@@ -211,6 +211,58 @@ b_get_vcc(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
   return {asmOp("cfc2", {varRes->reg, reg::RegCop2::VCC})};
 }
 
+// clip(pos, planeW) -> u32 (clipping flags in VCC)
+static std::vector<AsmInst>
+b_clip(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
+       const std::string &swizzle) {
+  if (!swizzle.empty())
+    state.throwError(
+        "To use swizzle in clip(), apply it to the second argument instead!");
+  if (!varRes)
+    state.throwError("Builtin clip() must have a left side!");
+  if (reg::isVecReg(varRes->reg))
+    state.throwError("Builtin clip() must be assigned to a scalar variable!");
+  if (args.size() != 2)
+    state.throwError("Builtin clip() requires exactly two arguments!");
+
+  VarDef varArg0 = resolveArg(args[0], "arg0");
+  VarDef varArg1 = resolveArg(args[1], "arg1");
+
+  std::string swizzleRight;
+  if (!args[1].swizzle.empty()) {
+    auto sit = SWIZZLE_MAP.find(args[1].swizzle);
+    if (sit != SWIZZLE_MAP.end())
+      swizzleRight = sit->second;
+  }
+
+  if (!isVecType(varArg0.type))
+    state.throwError("Builtin clip() requires first argument to be a vector!");
+  if (!isVecType(varArg1.type))
+    state.throwError("Builtin clip() requires second argument to be a vector!");
+  bool is32BitA = (varArg0.type == "vec32");
+  bool is32BitB = (varArg1.type == "vec32");
+  if (is32BitA != is32BitB)
+    state.throwError(
+        "Builtin clip() requires both arguments to be of the same type!");
+
+  if (is32BitA) {
+    const std::string *nextReg0 = reg::nextVecReg(varArg0.reg);
+    const std::string *nextReg1 = reg::nextVecReg(varArg1.reg);
+    return {
+        asmOp("vch",
+              {reg::Reg::VTEMP0, varArg0.reg, varArg1.reg + swizzleRight}),
+        asmOp("vcl",
+              {reg::Reg::VTEMP0, *nextReg0, *nextReg1 + swizzleRight}),
+        asmOp("cfc2", {varRes->reg, reg::RegCop2::VCC}),
+    };
+  }
+  return {
+      asmOp("vch",
+            {reg::Reg::VTEMP0, varArg0.reg, varArg1.reg + swizzleRight}),
+      asmOp("cfc2", {varRes->reg, reg::RegCop2::VCC}),
+  };
+}
+
 // set_vcc()
 static std::vector<AsmInst>
 b_set_vcc(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
@@ -307,9 +359,10 @@ b_get_cmd_address(const VarDef *varRes,
         "Builtin get_cmd_address() must have a left side!");
   int offset = args.empty() ? 0 : std::stoi(args[0].value);
   offset -= state.argSize;
+  // Match JS format: "NAME ${sign} ${abs(offset)}" where sign is empty for negative
   std::string offStr = "%lo(RSPQ_DMEM_BUFFER)";
-  if (offset < 0) offStr += " - " + std::to_string(-offset);
-  else if (offset > 0) offStr += " + " + std::to_string(offset);
+  offStr += " " + std::string(offset < 0 ? "" : "+") + " " +
+            std::to_string(offset);
   return {asmOp("addiu", {varRes->reg, reg::Reg::GP, offStr})};
 }
 
@@ -327,9 +380,11 @@ b_load_arg(const VarDef *varRes,
   VarOrMem loc;
   loc.reg = reg::Reg::GP;
   VarOrMem off;
-  off.reg = std::string("RSPQ_DMEM_BUFFER") +
-            (offset < 0 ? " - " : " + ") +
-            std::to_string(std::abs(offset));
+  // Match JS format: "%lo(NAME ${sign} ${abs(offset)})"
+  // where sign is empty for negative
+  off.reg = std::string("%lo(RSPQ_DMEM_BUFFER") + " " +
+            std::string(offset < 0 ? "" : "+") + " " +
+            std::to_string(offset) + ")";
   return opLoad(*varRes, loc, off);
 }
 
@@ -350,15 +405,59 @@ b_dma(const VarDef *varRes,
   auto targetMem = state.getRequiredVarOrMem(args[0].value, "dest");
   VarDef varRDRAM = resolveArg(args[1], "RDRAM");
 
-  // Build the DMA call — simplified: emit DMAExec call
+  // Require size argument when dest is a register variable
+  if (targetMem.reg.empty() == false && args.size() != 3) {
+    state.throwError("Builtin " + builtinName +
+                     "() requires size-argument when using a variable as destination!");
+  }
+
   std::vector<AsmInst> res;
   if (varRDRAM.reg != reg::Reg::S0) {
     res.push_back(asmOp("or",
                         {reg::Reg::S0, reg::Reg::ZERO, varRDRAM.reg}));
   }
-  auto load =
-      loadImmediate(reg::Reg::S4, "%lo(" + targetMem.name + ")");
-  res.insert(res.end(), load.begin(), load.end());
+
+  std::vector<AsmInst> sizeLoadOps;
+  // Explicit size (3-arg form)
+  if (args.size() == 3) {
+    const auto &sizeArg = args[2];
+    if (sizeArg.type == "num") {
+      int dmaSize = (std::stoi(sizeArg.value) - 1) | 0xFF8;
+      sizeLoadOps.push_back(
+          asmOp("ori", {reg::Reg::T0, reg::Reg::ZERO,
+                        std::to_string(dmaSize)}));
+    } else {
+      VarDef sizeVar = state.getRequiredVarCopy(sizeArg.value, "size");
+      if (sizeVar.reg != reg::Reg::T0)
+        state.throwError("Builtin " + builtinName +
+                         "() requires size-argument to be in $t0!");
+      sizeLoadOps.push_back(
+          asmOp("addiu", {reg::Reg::T0, reg::Reg::T0, "-1"}));
+    }
+
+    if (!targetMem.reg.empty()) {
+      if (targetMem.reg != reg::Reg::S4)
+        state.throwError("Builtin " + builtinName +
+                         "() requires dest. var to be in $s4!");
+    } else {
+      sizeLoadOps.push_back(
+          asmOp("ori", {reg::Reg::S4, reg::Reg::ZERO,
+                        "%lo(" + targetMem.name + ")"}));
+    }
+  } else {
+    // No explicit size: use declared state size
+    int targetSize = TYPE_SIZE.at(targetMem.type) * targetMem.arraySize;
+    int dmaSize = (targetSize - 1) | 0xFF8;
+    sizeLoadOps.push_back(
+        asmOp("ori", {reg::Reg::T0, reg::Reg::ZERO,
+                      std::to_string(dmaSize)}));
+    sizeLoadOps.push_back(
+        asmOp("ori", {reg::Reg::S4, reg::Reg::ZERO,
+                      "%lo(" + targetMem.name + ")"}));
+  }
+
+  res.insert(res.end(), sizeLoadOps.begin(), sizeLoadOps.end());
+
   auto flagsIt = DMA_FLAGS.find(dmaName);
   auto loadflags = loadImmediate(reg::Reg::T2,
       std::to_string(flagsIt != DMA_FLAGS.end() ? flagsIt->second
@@ -635,6 +734,9 @@ b_transpose(const VarDef *varRes,
   bool isInPlace = (varSrc.reg == varRes->reg);
   bool is8x8 = (dimX > 4 || dimY > 4);
 
+  // Barrier to prevent reordering across the transpose (matching JS)
+  state.addAnnotation("Barrier", state.generateLabel());
+
   std::string bufReg = buffVar.reg;
 
   std::vector<AsmInst> res;
@@ -767,6 +869,7 @@ static BuiltinMap buildRegistry() {
   m["clear_vcc"] = b_clear_vcc;
   m["get_vcc"] = b_get_vcc;
   m["set_vcc"] = b_set_vcc;
+  m["clip"] = b_clip;
   m["get_acc"] = b_get_acc;
   m["swap"] = b_swap;
   m["select"] = b_select;
@@ -922,7 +1025,6 @@ static BuiltinMap buildRegistry() {
     };
   };
   m["set_rsp_status"] = noop();
-  m["clip"] = noop();
   m["print"] = noop();
   m["printf"] = noop();
   m["min"] = [](const VarDef *vr,

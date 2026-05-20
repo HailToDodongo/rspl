@@ -283,6 +283,41 @@ TEST_CASE("Builtins - abs() - 16bit", "[builtins]") {
   nop)");
 }
 
+TEST_CASE("Builtins - clip() - vec32", "[builtins]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+        vec32<$v01> a;
+        u32<$t0> res;
+        res = clip(a, a);
+      })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vch $v29, $v01, $v01
+  vcl $v29, $v02, $v02
+  cfc2 $t0, $vcc
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Builtins - clip() - vec16", "[builtins]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+        vec16<$v01> a;
+        u32<$t0> res;
+        res = clip(a, a);
+      })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vch $v29, $v01, $v01
+  cfc2 $t0, $vcc
+  jr $ra
+  nop)");
+}
+
 TEST_CASE("Builtins - get_ticks()", "[builtins]") {
   auto result = rspl::transpileSource(
       R"(function test() {
