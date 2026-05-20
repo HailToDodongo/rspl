@@ -545,6 +545,10 @@ b_minmax(const VarDef *varRes,
 
   VarDef varA = resolveArg(args[0], "arg0");
   VarDef varB = resolveArg(args[1], "arg1");
+  // JS max()/min() do not propagate swizzle from the function arguments
+  // to the comparison operation (max is element-wise, not swizzled).
+  varA.swizzle.clear();
+  varB.swizzle.clear();
   if (!varRes)
     state.throwError("Builtin min/max() needs a left-side");
 

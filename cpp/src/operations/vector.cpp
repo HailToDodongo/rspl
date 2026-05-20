@@ -998,7 +998,7 @@ std::vector<AsmInst> opInvertSqrtHalf(const VarDef &varRes,
             {fractReg(varRes) + sRes, fractReg(varLeft) + sArg}),
       asmOp("vrsqh",
             {intReg(varRes) + sRes, std::string(reg::Reg::VZERO) +
-                                        sArg})};
+                                        ".e0"})};
 }
 
 std::vector<AsmInst> opDivVec(const VarDef &varRes,
