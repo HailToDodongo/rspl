@@ -235,6 +235,14 @@ AsmWriteResult writeASM(const ast::Program &ast,
 
   writeLines({"", ".text", "OVERLAY_CODE_START:", ""});
 
+  // For non-wrapper output, reset here — the headers above were only
+  // needed for state.line to advance correctly (matching JS asmWriter.js:184-186)
+  if (!config.rspqWrapper) {
+    state.line = 1;
+    out.str("");
+    out.clear();
+  }
+
   // Function bodies
   for (const auto &fn : functions) {
     if (fn.asm_.empty()) continue;
@@ -252,36 +260,92 @@ AsmWriteResult writeASM(const ast::Program &ast,
 
     writeLine(fn.name + ":");
 
-    AsmInst lastInst;
-    bool hasLast = false;
+    // Track last cycle for debug info (matching JS asmWriter.js)
+    int lastCycle = fn.asm_.empty() ? 0 : fn.asm_[0].debug.cycle;
 
     for (const auto &inst : fn.asm_) {
-      // Assign line numbers for debug info
-      // (we don't have mutable AsmInst in this const ref,
-      //  so skip the line number tracking for now)
-
       if (inst.type == AsmType::LABEL) {
-        writeLine("  " + inst.label + ":");
-      } else {
-        std::string instr = "  " + stringifyInstr(inst);
-        // Pad to 50 chars for alignment
-        if (config.debugInfo) {
-          instr += makePadding(instr.size(), 50);
+        std::string tag;
+        for (const auto &ann : inst.annotations) {
+          if (ann.name == "Tag")
+            tag = "TAG_" + ann.value + ": ";
         }
-        writeLine(instr);
-        totalTextSize += 4; // each MIPS instruction = 4 bytes
-      }
+        writeLine("  " + tag + inst.label + ":");
+      } else {
+        // Build raw instruction string (matching JS stringifyInstr)
+        std::string rawInstr = stringifyInstr(inst);
 
-      if (inst.type == AsmType::OP) {
-        lastInst = inst;
-        hasLast = true;
+        // Determine tag prefix
+        std::string tag;
+        for (const auto &ann : inst.annotations) {
+          if (ann.name == "Tag")
+            tag = "TAG_" + ann.value + ": ";
+        }
+
+        std::string instr;
+        if (config.debugInfo) {
+          // Pad instruction to 51 chars, then prepend prefix + tag
+          std::string padded = rawInstr;
+          if (padded.size() < 51)
+            padded.append(51 - padded.size(), ' ');
+          instr = "  " + tag + padded;
+
+          // Build debug info string
+          std::ostringstream di;
+          if (inst.debug.lineRSPL) {
+            std::string cycleStr = "     ^";
+            int cycleDiff = inst.debug.cycle - lastCycle;
+            if (cycleDiff != 0) {
+              std::string stars;
+              if (cycleDiff > 1)
+                stars.append(cycleDiff - 1, '*');
+              cycleStr = stars + std::to_string(inst.debug.cycle);
+              if (cycleStr.size() < 6)
+                cycleStr.insert(0, 6 - cycleStr.size(), ' ');
+            }
+            std::string lineStr = std::to_string(inst.debug.lineRSPL);
+            if (lineStr.size() < 4)
+              lineStr.append(4 - lineStr.size(), ' ');
+            di << "## L:" << lineStr << " | " << cycleStr << " | ";
+            if (inst.debug.lineRSPL > 0 &&
+                inst.debug.lineRSPL <=
+                    static_cast<int>(state.sourceLines.size())) {
+              di << state.sourceLines[inst.debug.lineRSPL - 1];
+            }
+          }
+
+          if (!inst.funcArgs.empty()) {
+            di << " ## Args: ";
+            for (size_t i = 0; i < inst.funcArgs.size(); ++i) {
+              if (i) di << ", ";
+              di << inst.funcArgs[i];
+            }
+          }
+
+          if (inst.barrierMask) {
+            std::ostringstream bs;
+            bs << std::hex << std::uppercase << inst.barrierMask;
+            di << " ## Barrier: 0x" << bs.str();
+          }
+
+          instr += di.str();
+        } else {
+          instr = "  " + tag + rawInstr;
+        }
+
+        writeLine(instr);
+        totalTextSize += 4;
+        lastCycle = inst.debug.cycle;
       }
     }
   }
 
   writeLine("");
 
-  if (!config.rspqWrapper) return res;
+  if (!config.rspqWrapper) {
+    res.asm_ = out.str();
+    return res;
+  }
 
   writeLine("OVERLAY_CODE_END:");
   writeLine("");
