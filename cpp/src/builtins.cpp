@@ -17,30 +17,45 @@ using namespace rspl::ops;
 
 static const std::string LABEL_ASSERT = "assertion_failed";
 
+namespace SP_STATUS {
+  constexpr int64_t HALTED     = 1<<0;
+  constexpr int64_t BROKE      = 1<<1;
+  constexpr int64_t DMA_BUSY   = 1<<2;
+  constexpr int64_t DMA_FULL   = 1<<3;
+  constexpr int64_t IO_FULL    = 1<<4;
+  constexpr int64_t SSTEP      = 1<<5;
+  constexpr int64_t INTR_BREAK = 1<<6;
+  constexpr int64_t SIG0       = 1<<7;
+  constexpr int64_t SIG1       = 1<<8;
+  constexpr int64_t SIG2       = 1<<9;
+  constexpr int64_t SIG3       = 1<<10;
+  constexpr int64_t SIG4       = 1<<11;
+  constexpr int64_t SIG5       = 1<<12;
+  constexpr int64_t SIG6       = 1<<13;
+  constexpr int64_t SIG7       = 1<<14;
+}
+
 static const std::unordered_map<std::string, int64_t> DMA_FLAGS = {
-    {"DMA_IN_ASYNC", 0x00000000},
+    {"DMA_IN_ASYNC",  0x00000000},
     {"DMA_OUT_ASYNC", 0xFFFF8000},
-    {"DMA_IN", 0x00000000},       // + busy/full flags in real code
-    {"DMA_OUT", 0xFFFF8000},
+    {"DMA_IN",        0x00000000 | SP_STATUS::DMA_BUSY | SP_STATUS::DMA_FULL},
+    {"DMA_OUT",       0xFFFF8000 | SP_STATUS::DMA_BUSY | SP_STATUS::DMA_FULL},
 };
 
 // --- Helpers ----------------------------------------------------------
 
-static void assertArgsNoSwizzle(const std::vector<ast::FuncArg> &args,
-                                int offset = 0) {
+static void assertArgsNoSwizzle(const std::vector<ast::FuncArg> &args, int offset = 0) {
   for (size_t i = offset; i < args.size(); ++i) {
     if (!args[i].swizzle.empty()) {
-      state.throwError(
-          offset > 0
-              ? "Only the first " + std::to_string(offset) +
-                    " argument(s) can use swizzling!"
-              : "Arguments with swizzle not allowed in this function!");
+      state.throwError(offset > 0
+        ? "Only the first " + std::to_string(offset) + " argument(s) can use swizzling!"
+        : "Arguments with swizzle not allowed in this function!");
     }
   }
 }
 
-static VarDef resolveArg(const ast::FuncArg &arg,
-                         const std::string &ctx) {
+static VarDef resolveArg(const ast::FuncArg &arg, const std::string &ctx) 
+{
   if (arg.type == "num") {
     VarDef v;
     v.value = std::stoll(arg.value);
@@ -422,7 +437,7 @@ b_dma(const VarDef *varRes,
   if (args.size() == 3) {
     const auto &sizeArg = args[2];
     if (sizeArg.type == "num") {
-      int dmaSize = (std::stoi(sizeArg.value) - 1) | 0xFF8;
+      int dmaSize = (std::stoi(sizeArg.value) - 1);
       sizeLoadOps.push_back(
           asmOp("ori", {reg::Reg::T0, reg::Reg::ZERO,
                         std::to_string(dmaSize)}));
@@ -447,7 +462,7 @@ b_dma(const VarDef *varRes,
   } else {
     // No explicit size: use declared state size
     int targetSize = TYPE_SIZE.at(targetMem.type) * targetMem.arraySize;
-    int dmaSize = (targetSize - 1) | 0xFF8;
+    int dmaSize = (targetSize - 1);
     sizeLoadOps.push_back(
         asmOp("ori", {reg::Reg::T0, reg::Reg::ZERO,
                       std::to_string(dmaSize)}));
