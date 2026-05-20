@@ -53,6 +53,15 @@ describe('Examples', () =>
     expect(asm).toEqual(expectedASM);
   });
 
+  test('Example code - HDR/Bloom', async () => {
+    const code = readFileSync("./src/tests/examples/rsp_fx.rspl", "utf8");
+    const expectedASM = readFileSync("./src/tests/examples/rsp_fx.S", "utf8");
+
+    const {asm, warn} = await transpileSource(code, {rspqWrapper: true, optimize: true, fileLoader, debugInfo: true});
+    expect(warn.toLowerCase()).not.toContain("error");
+    expect(asm).toEqual(expectedASM);
+  });
+
   test('Example code - Mandelbrot', async () => {
     const code = readFileSync("./src/tests/examples/mandelbrot.rspl", "utf8");
     const {asm, warn} = await transpileSource(code, CONF);
