@@ -661,7 +661,7 @@ static std::vector<AsmInst> loopToAsm(const ast::StmtLoop &st) {
 
   // loop { body } while(cond) — emit conditional branch at the tail
   if (st.compare.has_value()) {
-    if (st.compare->left.type == "num") {
+        if (st.compare->left.type == "num") {
       state.throwError(
           "Loop-Statements with numeric left-hand-side not implemented!");
     }
@@ -1037,12 +1037,19 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
     // Advance past the closing brace (matching JS ast2asm.js:443)
     ++state.line;
 
-    if (isCommand) {
-      funcAsm.push_back(asmOp("j", {LABEL_CMD_LOOP}));
-      funcAsm.push_back(asmNOP());
-    } else {
-      funcAsm.push_back(asmOp("jr", {reg::Reg::RA}));
-      funcAsm.push_back(asmNOP());
+    // Check @NoReturn annotation (matching JS ast2asm.js:445)
+    bool needsReturn = true;
+    for (const auto &ann : fn.annotations) {
+      if (ann.name == "NoReturn") needsReturn = false;
+    }
+    if (needsReturn) {
+      if (isCommand) {
+        funcAsm.push_back(asmOp("j", {LABEL_CMD_LOOP}));
+        funcAsm.push_back(asmNOP());
+      } else {
+        funcAsm.push_back(asmOp("jr", {reg::Reg::RA}));
+        funcAsm.push_back(asmNOP());
+      }
     }
 
     AsmFunc af;
