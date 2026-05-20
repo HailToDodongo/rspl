@@ -525,7 +525,6 @@ std::vector<AsmInst> opStoreVec(const VarDef &varRes,
   if (varOffsets.empty())
     state.throwError("Vector stores need at least one offset!");
   const auto &varLoc = varOffsets[0];
-  const auto &varOff = varOffsets.size() > 1 ? varOffsets[1] : VarOrMem{};
 
   bool is32 = (varRes.type == "vec32");
   int accessLen = varRes.swizzle.empty()
@@ -567,8 +566,12 @@ std::vector<AsmInst> opStoreVec(const VarDef &varRes,
     baseReg = reg::Reg::AT;
   }
 
+  // Sum all offset arguments (matching JS opStore.js:280-284)
   int baseOffset = 0;
-  if (!varOff.reg.empty()) baseOffset += std::stoi(varOff.reg);
+  for (size_t i = 1; i < varOffsets.size(); ++i) {
+    if (!varOffsets[i].reg.empty())
+      baseOffset += std::stoi(varOffsets[i].reg);
+  }
 
   auto emit = [&](const std::string &reg, int sOff, int bOff) {
     res.push_back(asmOp(storeInstr, {reg, std::to_string(sOff), std::to_string(bOff), baseReg}));
@@ -696,33 +699,16 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
   std::string intOp = clearAccum ? "vmudn" : "vmadn";
 
   // 16-bit multiply with cast
-  if (varRes.type == "vec16") {
-    // Special case: vec16(sfract/ufract) * vec32(sfract/ufract)
-    // → vmudm/vmadm (JS opMul:603-608)
-    if (varLeft.type == "vec16" &&
-        (varLeft.castType == "sfract" || varLeft.castType == "ufract")) {
-      if (varRight.originalType == "vec32" &&
-          (varRight.castType == "sfract" || varRight.castType == "ufract")) {
-        std::string opMid = clearAccum ? "vmudm" : "vmadm";
-        return {asmOp(opMid, {varRes.reg, varLeft.reg,
-                              varRight.reg + swSuffix})};
-      }
-    }
-
-    std::string caseRef =
-        !varLeft.castType.empty()   ? varLeft.castType :
-        !varRight.castType.empty()  ? varRight.castType :
-                                      varRes.castType;
-    if (caseRef == "ufract" || caseRef == "sfract") {
-      std::string op = clearAccum ? "vmul" : "vmac";
-      op += (caseRef == "ufract") ? "u" : "f";
-      return {asmOp(op, {varRes.reg, varLeft.reg,
-                         varRight.reg + swSuffix})};
-    }
-    if (varLeft.castType == "sint" || varRight.castType == "sint") {
-      intOp = clearAccum ? "vmudh" : "vmadh";
-    }
-    return {asmOp(intOp, {varRes.reg, varLeft.reg,
+  // JS opMul:603-608 — vec16 result special case for sfract/ufract.
+  // Unlike C++ this does NOT contain caseRef/sint/default paths;
+  // non-matching cases fall through to the general multiply paths below.
+  if (varRes.type == "vec16" &&
+      varLeft.type == "vec16" &&
+      (varLeft.castType == "sfract" || varLeft.castType == "ufract") &&
+      varRight.originalType == "vec32" &&
+      (varRight.castType == "sfract" || varRight.castType == "ufract")) {
+    std::string opMid = clearAccum ? "vmudm" : "vmadm";
+    return {asmOp(opMid, {varRes.reg, varLeft.reg,
                           varRight.reg + swSuffix})};
   }
 
@@ -790,7 +776,26 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
     };
   }
 
-  // Vec32 result from any source — general path
+  // JS opMul:671-686 — vec16 result default path
+  if (varRes.type == "vec16") {
+    std::string caseRef =
+        !varLeft.castType.empty()   ? varLeft.castType :
+        !varRight.castType.empty()  ? varRight.castType :
+                                      varRes.castType;
+    if (caseRef == "ufract" || caseRef == "sfract") {
+      std::string op = clearAccum ? "vmul" : "vmac";
+      op += (caseRef == "ufract") ? "u" : "f";
+      return {asmOp(op, {varRes.reg, varLeft.reg,
+                         varRight.reg + swSuffix})};
+    }
+    if (varLeft.castType == "sint" || varRight.castType == "sint") {
+      intOp = clearAccum ? "vmudh" : "vmadh";
+    }
+    return {asmOp(intOp, {varRes.reg, varLeft.reg,
+                          varRight.reg + swSuffix})};
+  }
+
+  // JS opMul:688-692 — general vec32 path
   if (varRes.type == "vec32" || varRes.originalType == "vec32") {
     auto regsDst = getVec32Regs(varRes);
     std::string regResFract =
@@ -803,7 +808,7 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
                          intReg(varRight) + swSuffix})};
   }
 
-  // 16-bit multiply (default)
+  // 16-bit multiply (default — scalar or unhandled)
   return {asmOp(intOp, {varRes.reg, varLeft.reg,
                         varRight.reg + swSuffix})};
 }
