@@ -211,6 +211,9 @@ b_clear_vcc(const VarDef *varRes,
     state.throwError("Builtin clear_vcc() cannot use swizzle!");
   if (varRes)
     state.throwError("Builtin clear_vcc() must not have a left side!");
+  if (!args.empty())
+    state.throwError(
+        "Builtin clear_vcc() requires no arguments!");
   return {asmOp("vsubc", {reg::Reg::VTEMP0, reg::Reg::VZERO,
                           reg::Reg::VZERO})};
 }
@@ -223,6 +226,12 @@ b_get_vcc(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
     state.throwError("Builtin get_vcc() cannot use swizzle!");
   if (!varRes)
     state.throwError("Builtin get_vcc() must have a left side!");
+  if (!args.empty())
+    state.throwError(
+        "Builtin get_vcc() requires no arguments!");
+  if (reg::isVecReg(varRes->reg))
+    state.throwError(
+        "Builtin get_vcc() must be assigned to a scalar variable!");
   return {asmOp("cfc2", {varRes->reg, reg::RegCop2::VCC})};
 }
 
@@ -313,9 +322,16 @@ b_get_acc(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
     state.throwError("Builtin get_acc() cannot use swizzle!");
   if (!varRes)
     state.throwError("Builtin get_acc() must have a left side!");
+  if (!args.empty())
+    state.throwError(
+        "Builtin get_acc() requires no arguments!");
   if (!reg::isVecReg(varRes->reg))
     state.throwError(
         "Builtin get_acc() must be assigned to a vector variable!");
+  if (varRes->type != "vec32")
+    state.throwError(
+        "Builtin get_acc() must be assigned to a vec32 variable!\n"
+        "Use get_acc_high/mid/low.");
   return {asmOp("vsar", {varRes->reg, reg::RegCop2::ACC_HI}),
           asmOp("vsar",
                  {*reg::nextVecReg(varRes->reg), reg::RegCop2::ACC_MD})};
@@ -330,14 +346,28 @@ b_get_acc_part(const VarDef *varRes,
     state.throwError("Builtin get_acc_*() cannot use swizzle!");
   if (!varRes)
     state.throwError("Builtin get_acc_*() must have a left side!");
+  if (!args.empty())
+    state.throwError(
+        "Builtin get_acc_*() requires no arguments!");
+  if (!reg::isVecReg(varRes->reg))
+    state.throwError(
+        "Builtin get_acc_*() must be assigned to a vector variable!");
+  if (varRes->type != "vec16")
+    state.throwError(
+        "Builtin get_acc_*() must be assigned to a vec16 variable!\n"
+        "Use get_acc().");
   return {asmOp("vsar", {varRes->reg, part})};
 }
 
 // mfc0 reads (generic)
 static std::vector<AsmInst>
-b_mfc0_read(const VarDef *varRes, const std::string &rdpReg) {
+b_mfc0_read(const VarDef *varRes, const std::string &rdpReg,
+            const std::string &name) {
   if (!varRes)
-    state.throwError("Builtin requires a left side!");
+    state.throwError("Builtin " + name + "() must have a left side!");
+  if (reg::isVecReg(varRes->reg))
+    state.throwError("Builtin " + name +
+                     "() must be assigned to a scalar variable!");
   return {asmOp("mfc0", {varRes->reg, rdpReg})};
 }
 
@@ -376,6 +406,15 @@ b_get_cmd_address(const VarDef *varRes,
   if (!varRes)
     state.throwError(
         "Builtin get_cmd_address() must have a left side!");
+  if (args.size() > 1)
+    state.throwError(
+        "Builtin get_cmd_address() requires zero or one argument!");
+  if (args.size() == 1 && args[0].type != "num")
+    state.throwError(
+        "Builtin get_cmd_address() requires the argument to be a number!");
+  if (reg::isVecReg(varRes->reg))
+    state.throwError(
+        "Builtin get_cmd_address() must be assigned to a scalar variable!");
   int offset = args.empty() ? 0 : std::stoi(args[0].value);
   offset -= state.argSize;
   // Match JS format: "NAME ${sign} ${abs(offset)}" where sign is empty for negative
@@ -394,6 +433,15 @@ b_load_arg(const VarDef *varRes,
     state.throwError("Builtin load_arg() cannot use swizzle!");
   if (!varRes)
     state.throwError("Builtin load_arg() must have a left side!");
+  if (args.size() > 1)
+    state.throwError(
+        "Builtin load_arg() requires zero or one argument!");
+  if (args.size() == 1 && args[0].type != "num")
+    state.throwError(
+        "Builtin load_arg() requires the argument to be a number!");
+  if (reg::isVecReg(varRes->reg))
+    state.throwError(
+        "Builtin load_arg() must be assigned to a scalar variable!");
   int offset = args.empty() ? 0 : std::stoi(args[0].value);
   offset -= state.argSize;
   VarOrMem loc;
@@ -495,9 +543,15 @@ static std::vector<AsmInst>
 b_dma_await(const VarDef *varRes,
             const std::vector<ast::FuncArg> &args,
             const std::string &swizzle) {
+  if (!swizzle.empty())
+    state.throwError(
+        "Builtin dma_await() cannot use swizzle!");
   if (varRes)
     state.throwError(
         "Builtin dma_await() cannot have a left side!");
+  if (!args.empty())
+    state.throwError(
+        "Builtin dma_await() requires no arguments!");
   return {asmFunction("DMAWaitIdle", {}), asmNOP()};
 }
 
@@ -681,6 +735,11 @@ b_assert(const VarDef *varRes,
     state.throwError("Builtin assert() cannot use swizzle!");
   if (varRes)
     state.throwError("Builtin assert() cannot have a left side!");
+  if (args.size() != 1)
+    state.throwError("Builtin assert() requires exactly one argument!");
+  if (args[0].type != "num")
+    state.throwError(
+        "Builtin assert() requires the argument to be a number!");
   int code = std::stoi(args[0].value);
   return {asmOp("lui", {reg::Reg::AT, std::to_string(code)}),
           asmOp("j", {LABEL_ASSERT}), asmNOP()};
@@ -698,7 +757,26 @@ b_asm(const VarDef *varRes,
   if (args.empty() || args[0].type != "string")
     state.throwError(
         "Builtin asm() requires the first argument to be a string!");
-  return {asmInline(args[0].value, {"# inline-ASM"})};
+
+  std::string str = args[0].value;
+  for (size_t i = 1; i < args.size(); ++i) {
+    const auto &arg = args[i];
+    std::string replacement;
+    if (arg.type == "num") {
+      replacement = arg.value;
+    } else {
+      const VarDef *varArg = state.getRequiredVar(arg.value, "arg" +
+                                                        std::to_string(i));
+      replacement = varArg->reg;
+    }
+    std::string placeholder = "%" + std::to_string(i - 1);
+    size_t pos = 0;
+    while ((pos = str.find(placeholder, pos)) != std::string::npos) {
+      str.replace(pos, placeholder.length(), replacement);
+      pos += replacement.length();
+    }
+  }
+  return {asmInline(str, {"# inline-ASM"})};
 }
 
 // transpose()
@@ -804,15 +882,18 @@ b_asm_op(const VarDef *varRes,
     state.throwError(
         "Builtin asm_op() requires the first argument to be a opcode!");
 
-  std::vector<std::string> asmArgs = {args[0].value};
+  std::vector<std::string> asmArgs;
   for (size_t i = 1; i < args.size(); ++i) {
     if (args[i].type == "num") {
       asmArgs.push_back(args[i].value);
     } else {
       const VarDef *v = state.getRequiredVar(args[i].value, "arg");
-      auto sit = SWIZZLE_MAP.find(args[i].swizzle);
-      asmArgs.push_back(v->reg +
-                        (sit != SWIZZLE_MAP.end() ? sit->second : ""));
+      std::string sw;
+      if (isVecType(v->type)) {
+        auto sit = SWIZZLE_MAP.find(args[i].swizzle);
+        sw = sit != SWIZZLE_MAP.end() ? sit->second : "";
+      }
+      asmArgs.push_back(v->reg + sw);
     }
   }
   return {AsmInst{args[0].value, asmArgs}};
@@ -993,7 +1074,10 @@ static BuiltinMap buildRegistry() {
       if (!s.empty())
         state.throwError(std::string("Builtin ") + name +
                          "() cannot use swizzle!");
-      return b_mfc0_read(vr, rdpReg);
+      if (!a.empty())
+        state.throwError(std::string("Builtin ") + name +
+                         "() requires no arguments!");
+      return b_mfc0_read(vr, rdpReg, name);
     };
   };
   addMfc0Read("get_dma_busy", reg::RegCop0::DMA_BUSY);

@@ -84,6 +84,7 @@ set(TEST_SOURCES
   tests/test_branchConst.cpp
   tests/test_builtins.cpp
   tests/test_builtinsDebug.cpp
+  tests/test_builtinsAll.cpp
   tests/test_branchVar.cpp
   tests/test_branchZero.cpp
   tests/test_compare.cpp
