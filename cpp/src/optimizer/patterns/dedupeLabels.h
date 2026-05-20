@@ -6,19 +6,22 @@ namespace rspl {
 
 inline void dedupeLabels(AsmFunc &func) {
   for (size_t i = 0; i + 1 < func.asm_.size(); ++i) {
-    if (func.asm_[i].type == AsmType::LABEL &&
-        func.asm_[i + 1].type == AsmType::LABEL) {
-      std::string from = func.asm_[i].label;
-      std::string to = func.asm_[i + 1].label;
-      for (auto &inst : func.asm_) {
-        if (inst.labelEnd == from) inst.labelEnd = to;
-        for (auto &arg : inst.args) {
-          if (arg == from) arg = to;
-        }
+    auto &a = func.asm_[i];
+    auto &b = func.asm_[i + 1];
+    // Skip __-prefixed labels — these are compiler-internal and should
+    // never be deduplicated (matching JS dedupeLabels.js:22).
+    if (a.type != AsmType::LABEL || b.type != AsmType::LABEL) continue;
+    if (a.label.starts_with("__") || b.label.starts_with("__")) continue;
+    std::string from = a.label;
+    std::string to = b.label;
+    for (auto &inst : func.asm_) {
+      if (inst.labelEnd == from) inst.labelEnd = to;
+      for (auto &arg : inst.args) {
+        if (arg == from) arg = to;
       }
-      func.asm_.erase(func.asm_.begin() + i);
-      --i;
     }
+    func.asm_.erase(func.asm_.begin() + i);
+    --i;
   }
 }
 
