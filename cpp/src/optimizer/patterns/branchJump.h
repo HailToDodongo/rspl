@@ -33,13 +33,8 @@ inline void branchJump(AsmFunc &func) {
 
     b.labelEnd = realTarget;
     b.args.back() = realTarget;
-    if (b.op == "beq") b.op = "bne";
-    else if (b.op == "bne") b.op = "beq";
-    else if (b.op == "bgez") b.op = "bltz";
-    else if (b.op == "bltz") b.op = "bgez";
-    else if (b.op == "blez") b.op = "bgtz";
-    else if (b.op == "bgtz") b.op = "blez";
-    else continue;
+    std::string newOp = ops::invertBranchOp(b.op);
+    b.op = newOp;
 
     if (jumpOp == "jal") {
       func.asm_.erase(func.asm_.begin() + i + 2,
