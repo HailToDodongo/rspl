@@ -47,4 +47,17 @@ describe('Labels', () =>
   jr $ra
   nop`);
   });
+
+  test('Label used as value resolves to %lo', async () => {
+    const {asm, warn} = await transpileSource(`
+function test()
+{
+  u32 x;
+  x = MY_TARGET;
+  MY_TARGET:
+}
+`, CONF);
+    expect(warn).toBe("");
+    expect(asm).toContain("%lo(MY_TARGET)");
+  });
 });

@@ -1,5 +1,7 @@
 import {preprocess} from "../../lib/preproc/preprocess";
+import {transpileSource} from "../../lib/transpiler";
 const CONF = {rspqWrapper: false};
+const CONF_WRAP = {rspqWrapper: true};
 
 describe('Preproc - Base', () =>
 {
@@ -194,5 +196,46 @@ describe('Preproc - Base', () =>
     `;
     expect(() => preprocess(src, CONF))
       .toThrowError("Line 3: Nested #ifdef statements are not allowed!");
+  });
+
+  test('Defines preserved in source order', async () => {
+    const {asm} = await transpileSource(`
+#define TRI_BUFFER_COUNT 70
+#define LIGHT_COUNT 8
+function test(u32 dummy)
+{
+  u32 x = TRI_BUFFER_COUNT;
+  x += LIGHT_COUNT;
+}
+`, CONF_WRAP);
+    expect(asm).toContain("#define TRI_BUFFER_COUNT 70");
+    expect(asm).toContain("#define LIGHT_COUNT 8");
+    const p1 = asm.indexOf("TRI_BUFFER_COUNT");
+    const p2 = asm.indexOf("LIGHT_COUNT");
+    expect(p1).toBeLessThan(p2);
+  });
+
+  test('#undef removes define from output', async () => {
+    const {asm} = await transpileSource(`
+#define KEEP_ME 42
+#define REMOVE_ME 99
+#undef REMOVE_ME
+function test(u32 dummy)
+{
+  u32 x = KEEP_ME;
+}
+`, CONF_WRAP);
+    expect(asm).toContain("#define KEEP_ME 42");
+    expect(asm).not.toContain("REMOVE_ME");
+  });
+
+  test('Large block comments do not break define collection', async () => {
+    const {asm} = await transpileSource(`/***************************************
+ * Multi-line block comment
+ ***************************************/
+#define TEST_VALUE 42
+function test(u32 dummy) {}
+`, CONF_WRAP);
+    expect(asm).toContain("#define TEST_VALUE 42");
   });
 });

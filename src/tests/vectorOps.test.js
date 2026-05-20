@@ -776,4 +776,87 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
+  test('Multiply-accumulate +* - vec32', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+        vec32<$v01> a;
+        vec32<$v03> b;
+        vec32<$v05> res;
+        res = a +* b;
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmadl $v29, $v02, $v04.v
+  vmadm $v29, $v01, $v04.v
+  vmadn $v06, $v02, $v03.v
+  vmadh $v05, $v01, $v03.v
+  jr $ra
+  nop`);
+  });
+
+  test('Multiply vec16 * vec32 -> vec32', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+        vec16<$v01> a;
+        vec32<$v03> b;
+        vec32<$v05> res;
+        res = a * b;
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudm $v06, $v01, $v04.v
+  vmadh $v05, $v01, $v03.v
+  vmadn $v06, $v00, $v00
+  jr $ra
+  nop`);
+  });
+
+  test('Half-move vec32 xyzw=XYZW (upper to lower)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+        vec32<$v01> res, a;
+        res.xyzw = a.XYZW;
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  ori $at, $zero, %lo(RSPQ_SCRATCH_MEM)
+  sdv $v03, 8, 0, $at
+  sdv $v04, 8, 8, $at
+  ldv $v01, 0, 0, $at
+  ldv $v02, 0, 8, $at
+  jr $ra
+  nop`);
+  });
+
+  test('Half-move vec32 XYZW=xyzw (lower to upper)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+        vec32<$v01> res, a;
+        res.XYZW = a.xyzw;
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  ori $at, $zero, %lo(RSPQ_SCRATCH_MEM)
+  sdv $v03, 0, 0, $at
+  sdv $v04, 0, 8, $at
+  ldv $v01, 8, 0, $at
+  ldv $v02, 8, 8, $at
+  jr $ra
+  nop`);
+  });
+
+  test('Half-move vec16 xyzw=XYZW (upper to lower)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+        vec16<$v01> res, a;
+        res.xyzw = a.XYZW;
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  ori $at, $zero, %lo(RSPQ_SCRATCH_MEM)
+  sdv $v02, 8, 0, $at
+  ldv $v01, 0, 0, $at
+  jr $ra
+  nop`);
+  });
 });

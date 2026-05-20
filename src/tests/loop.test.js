@@ -149,4 +149,140 @@ describe('Loops', () =>
   jr $ra
   nop`);
   });
+
+  test('Do-While-Loop !=', async () => {
+    const {asm, warn} = await transpileSource(`function test()
+    {
+      u32 a = 0;
+      u32 b = 10;
+      loop {
+        a += 1;
+      } while(a != b)
+    }`, CONF);
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  or $t0, $zero, $zero
+  addiu $t1, $zero, 10
+  LABEL_test_0001:
+  addiu $t0, $t0, 1
+  bne $t0, $t1, LABEL_test_0001
+  nop
+  LABEL_test_0002:
+  jr $ra
+  nop`);
+  });
+
+  test('Do-While-Loop ==', async () => {
+    const {asm, warn} = await transpileSource(`function test()
+    {
+      u32 a = 0;
+      u32 b = 10;
+      loop {
+        a += 1;
+      } while(a == b)
+    }`, CONF);
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  or $t0, $zero, $zero
+  addiu $t1, $zero, 10
+  LABEL_test_0001:
+  addiu $t0, $t0, 1
+  beq $t0, $t1, LABEL_test_0001
+  nop
+  LABEL_test_0002:
+  jr $ra
+  nop`);
+  });
+
+  test('Do-While-Loop <', async () => {
+    const {asm, warn} = await transpileSource(`function test()
+    {
+      u32 a = 0;
+      u32 b = 10;
+      loop {
+        a += 1;
+      } while(a < b)
+    }`, CONF);
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  or $t0, $zero, $zero
+  addiu $t1, $zero, 10
+  LABEL_test_0001:
+  addiu $t0, $t0, 1
+  sltu $at, $t0, $t1
+  bne $at, $zero, LABEL_test_0001
+  nop
+  LABEL_test_0002:
+  jr $ra
+  nop`);
+  });
+
+  test('Do-While-Loop >', async () => {
+    const {asm, warn} = await transpileSource(`function test()
+    {
+      u32 a = 10;
+      u32 b = 0;
+      loop {
+        a -= 1;
+      } while(a > b)
+    }`, CONF);
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  addiu $t0, $zero, 10
+  or $t1, $zero, $zero
+  LABEL_test_0001:
+  addiu $t0, $t0, 65535
+  sltu $at, $t1, $t0
+  bne $at, $zero, LABEL_test_0001
+  nop
+  LABEL_test_0002:
+  jr $ra
+  nop`);
+  });
+
+  test('Do-While-Loop <=', async () => {
+    const {asm, warn} = await transpileSource(`function test()
+    {
+      u32 a = 10;
+      u32 b = 0;
+      loop {
+        a -= 1;
+      } while(a <= b)
+    }`, CONF);
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  addiu $t0, $zero, 10
+  or $t1, $zero, $zero
+  LABEL_test_0001:
+  addiu $t0, $t0, 65535
+  sltu $at, $t1, $t0
+  beq $at, $zero, LABEL_test_0001
+  nop
+  LABEL_test_0002:
+  jr $ra
+  nop`);
+  });
+
+  test('Do-While-Loop >=', async () => {
+    const {asm, warn} = await transpileSource(`function test()
+    {
+      u32 a = 0;
+      u32 b = 10;
+      loop {
+        a += 1;
+      } while(a >= b)
+    }`, CONF);
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  or $t0, $zero, $zero
+  addiu $t1, $zero, 10
+  LABEL_test_0001:
+  addiu $t0, $t0, 1
+  sltu $at, $t0, $t1
+  beq $at, $zero, LABEL_test_0001
+  nop
+  LABEL_test_0002:
+  jr $ra
+  nop`);
+  });
 });
