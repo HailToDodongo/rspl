@@ -847,7 +847,11 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
                   // First part: a + (expr) - open a bracket for expr
                   ast::CalcMultiPart firstPart;
                   firstPart.op = baseOp;
-                  firstPart.right = cm->left;
+                  if (cm->leftVal.has_value()) {
+                    firstPart.rightVal = cm->leftVal;
+                  } else {
+                    firstPart.right = cm->left;
+                  }
                   firstPart.swizzleRight = cm->swizzleLeft;
                   firstPart.groupStart = 1 + cm->groupStart; // open sub-expr
                   firstPart.groupEnd = 0;

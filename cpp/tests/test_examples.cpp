@@ -66,6 +66,11 @@ TEST_CASE("Examples - TinyPX", "[examples]") {
   REQUIRE_ASM_EQ(expected, asm_);
 }
 
+TEST_CASE("Examples - HDR/Bloom", "[examples]") {
+  auto path = examplesPath("rsp_fx.rspl");
+  REQUIRE_NOTHROW(transpileFile(path, true, true));
+}
+
 TEST_CASE("Examples - Mandelbrot", "[examples]") {
   auto code = readFile(examplesPath("mandelbrot.rspl"));
   REQUIRE_NOTHROW(transpile(code, false));
