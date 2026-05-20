@@ -53,55 +53,44 @@ static std::string execJsParser(const std::string &rsplPath,
 
 // --- runPipeline (CLI path) -----------------------------------------
 
-int runPipeline(const std::string &astJson, bool rspqWrapper,
-                bool optimize) {
+TranspileResult runPipeline(const std::string &astJson,
+                            const TranspileConfig &config) {
   auto prog = ast::parseJson(astJson);
 
   auto functions = ast2asm(prog);
 
-  if (optimize) {
+  if (config.optimize) {
     for (auto &fn : functions) {
       if (fn.asm_.empty()) continue;
       asmOptimizePattern(fn);
       asmInitDeps(fn);
-      fillDelaySlots(fn);
       evalFunctionCost(fn);
     }
-  }
-
-  if (!rspqWrapper) {
-    std::cout << "## Raw RSP assembly (no wrapper)\n";
-    for (const auto &fn : functions) {
-      if (fn.asm_.empty()) continue;
-      std::cout << fn.name << ":\n";
-      for (const auto &inst : fn.asm_) {
-        if (inst.type == AsmType::LABEL) {
-          std::cout << inst.label << ":\n";
-        } else {
-          std::cout << "  " << inst.op;
-          for (size_t i = 0; i < inst.args.size(); ++i) {
-            std::cout << (i == 0 ? " " : ", ") << inst.args[i];
-          }
-          std::cout << "\n";
-        }
+    if (config.reorder) {
+      for (auto &fn : functions) {
+        if (fn.asm_.empty()) continue;
+        asmOptimize(fn, config.optimizeTime);
       }
-      std::cout << "\n";
+    } else {
+      for (auto &fn : functions) {
+        if (fn.asm_.empty()) continue;
+        fillDelaySlots(fn);
+        evalFunctionCost(fn);
+      }
     }
-    return 0;
   }
 
-  WriteConfig config;
-  config.rspqWrapper = true;
-  config.debugInfo = true;
+  WriteConfig wConfig;
+  wConfig.rspqWrapper = config.rspqWrapper;
+  wConfig.debugInfo = true;
 
-  auto result = writeASM(prog, functions, config);
+  auto result = writeASM(prog, functions, wConfig);
 
-  std::cout << result.asm_ << std::flush;
-
-  std::cerr << "// DMEM: " << result.sizeDMEM
-            << " bytes, IMEM: " << result.sizeIMEM << " bytes\n";
-
-  return 0;
+  TranspileResult out;
+  out.asm_ = result.asm_;
+  out.sizeDMEM = result.sizeDMEM;
+  out.sizeIMEM = result.sizeIMEM;
+  return out;
 }
 
 // --- transpileSource (test / library path) --------------------------
@@ -168,8 +157,19 @@ TranspileResult transpileSource(const std::string &source,
       if (fn.asm_.empty()) continue;
       asmOptimizePattern(fn);
       asmInitDeps(fn);
-      fillDelaySlots(fn);
       evalFunctionCost(fn);
+    }
+    if (config.reorder) {
+      for (auto &fn : functions) {
+        if (fn.asm_.empty()) continue;
+        asmOptimize(fn, config.optimizeTime);
+      }
+    } else {
+      for (auto &fn : functions) {
+        if (fn.asm_.empty()) continue;
+        fillDelaySlots(fn);
+        evalFunctionCost(fn);
+      }
     }
   } else if (config.debugInfo) {
     // When debugInfo is on but optimize is off, still run pattern
@@ -191,6 +191,8 @@ TranspileResult transpileSource(const std::string &source,
 
   auto writeResult = writeASM(prog, functions, wConfig);
   result.asm_ = writeResult.asm_;
+  result.sizeDMEM = writeResult.sizeDMEM;
+  result.sizeIMEM = writeResult.sizeIMEM;
   while (!result.asm_.empty() && result.asm_.back() == '\n')
     result.asm_.pop_back();
 

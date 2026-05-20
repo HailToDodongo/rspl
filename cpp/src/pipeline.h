@@ -8,19 +8,23 @@ struct TranspileConfig {
   bool rspqWrapper = true;
   bool optimize = false;
   bool debugInfo = false;
-  int optimizeTime = 5000;
+  bool reorder = false;
+  int optimizeTime = 30000; // ms, default 30s matching CLI
   std::string sourceDir = ".";
 };
 
 struct TranspileResult {
   std::string asm_;
   std::string warn;
+  std::string info;
+  int sizeDMEM = 0;
+  int sizeIMEM = 0;
 };
 
 /// Run the full transpile pipeline on a JSON AST from the JS parser.
-/// Returns 0 on success, non-zero on error.
-int runPipeline(const std::string &astJson, bool rspqWrapper = true,
-                bool optimize = false);
+/// Returns the transpile result. Throws std::runtime_error on errors.
+TranspileResult runPipeline(const std::string &astJson,
+                            const TranspileConfig &config = {});
 
 /// Transpile an RSPL source string to assembly.
 /// Handles the JS parser subprocess internally.

@@ -136,5 +136,35 @@ int main(int argc, char **argv) {
 
   if (args.astDump) { std::cout << astJson; return 0; }
 
-  return rspl::runPipeline(astJson, args.rspqWrapper, args.optimize);
+  rspl::TranspileConfig cfg;
+  cfg.rspqWrapper = args.rspqWrapper;
+  cfg.optimize = args.optimize;
+  cfg.reorder = args.reorder;
+  cfg.optimizeTime = args.optimizeTime;
+  cfg.sourceDir = sourceDir;
+
+  auto result = rspl::runPipeline(astJson, cfg);
+
+  // Determine output path: explicit -o flag, or derive from input
+  std::string outPath = args.outputFile;
+  if (outPath.empty() && !args.inputFile.empty()) {
+    outPath = args.inputFile;
+    // Replace .rspl extension with .S
+    if (outPath.ends_with(".rspl"))
+      outPath = outPath.substr(0, outPath.size() - 5) + ".S";
+    else
+      outPath += ".S";
+  }
+
+  if (!outPath.empty()) {
+    writeFile(outPath, result.asm_);
+  }
+
+  std::cerr << "// DMEM: " << result.sizeDMEM
+            << " bytes, IMEM: " << result.sizeIMEM << " bytes\n";
+
+  if (!result.warn.empty())
+    std::cerr << result.warn;
+
+  return 0;
 }

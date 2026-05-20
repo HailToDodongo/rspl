@@ -9,7 +9,13 @@ Requirements: **CMake 3.20+**, **g++ 13+** (or clang++ with C++20), **Node.js 20
 
 ```sh
 cd cpp
-cmake -B build
+
+# Debug build (no optimizations, asserts enabled, debug symbols)
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+
+# Production build (-O3, no asserts, stripped)
+cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
