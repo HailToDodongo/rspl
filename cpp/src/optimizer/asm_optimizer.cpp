@@ -13,21 +13,26 @@
 #include "patterns/tailCall.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
+#include <condition_variable>
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
+#include <mutex>
 #include <random>
 #include <sstream>
+#include <thread>
+#include <vector>
 
 namespace rspl {
 
-// --- PRNG (matches JS LCG) --------------------------------------------
+// --- PRNG (matches JS LCG, thread-local for worker parallelism) ----------
 
-static uint32_t seed_ = 0x41C64E6D;
+static thread_local uint32_t seed_ = 0x41C64E6D;
 
-static void setSeed(uint32_t s) { seed_ = s; }
+void setSeed(uint32_t s) { seed_ = s; }
 
 static double rand01() {
   seed_ = (seed_ * 0x41C64E6D + 0x3039) & 0xFFFFFFFF;
@@ -250,7 +255,130 @@ static std::string formatTimeMs(int ms) {
   return ss.str();
 }
 
+// --- Parallel variant execution -------------------------------------------
+
+// Spawn worker threads once and reuse them across iterations.
+// Each batch of variants is dispatched via runParallel: all threads
+// (including the caller) pull tasks from a shared index, run reorderRound
+// outside the lock, and push results back under the lock.
+
+class WorkerPool {
+public:
+  explicit WorkerPool(int numWorkers) {
+    for (int i = 0; i < numWorkers; ++i)
+      threads_.emplace_back(&WorkerPool::run, this, i);
+  }
+
+  ~WorkerPool() {
+    {
+      std::lock_guard lk(mtx_);
+      stop_ = true;
+    }
+    cv_.notify_all();
+    for (auto &t : threads_)
+      if (t.joinable()) t.join();
+  }
+
+  // Dispatch a batch of tasks. Blocks until all complete. Returns results.
+  std::vector<RoundResult> runParallel(std::vector<AsmFunc> tasks) {
+    size_t total = tasks.size();
+    tasks_ = std::move(tasks);
+    results_.resize(total);
+    nextIdx_.store(0, std::memory_order_release);
+    doneCount_.store(0, std::memory_order_release);
+
+    // Wake workers
+    {
+      std::lock_guard lk(mtx_);
+      batchTotal_ = total;
+      batchActive_ = true;
+    }
+    cv_.notify_all();
+
+    // Caller participates
+    workBatch();
+
+    // Spin-wait for stragglers (workers finish quickly since caller did
+    // most of the heavy work; this avoids a CV roundtrip)
+    while (doneCount_.load(std::memory_order_acquire) < total) {
+      // help out if any tasks remain
+      workBatch();
+    }
+
+    // Signal batch done
+    {
+      std::lock_guard lk(mtx_);
+      batchActive_ = false;
+      batchTotal_ = 0;
+    }
+
+    std::vector<RoundResult> out;
+    out.reserve(total);
+    for (auto &r : results_)
+      out.push_back(std::move(r));
+    results_.clear();
+    return out;
+  }
+
+private:
+  std::vector<std::thread> threads_;
+  std::vector<AsmFunc> tasks_;
+  std::vector<RoundResult> results_;
+  std::atomic<size_t> nextIdx_{0};
+  std::atomic<size_t> doneCount_{0};
+  size_t batchTotal_ = 0;
+  bool batchActive_ = false;
+  bool stop_ = false;
+  std::mutex mtx_;
+  std::condition_variable cv_;
+
+  void workBatch() {
+    size_t total = batchTotal_;
+    while (true) {
+      size_t idx = nextIdx_.fetch_add(1, std::memory_order_acq_rel);
+      if (idx >= total) break;
+      AsmFunc task = std::move(tasks_[idx]);
+      RoundResult r = reorderRound(task);
+      results_[idx] = std::move(r);
+      doneCount_.fetch_add(1, std::memory_order_release);
+    }
+  }
+
+  void run(int id) {
+    // Unique seed per worker
+    std::random_device rd;
+    setSeed(rd() ^ (static_cast<uint32_t>(id) * 0x9E3779B9));
+
+    while (true) {
+      {
+        std::unique_lock lk(mtx_);
+        cv_.wait(lk, [&] { return stop_ || batchActive_; });
+        if (stop_) return;
+      }
+      workBatch();
+    }
+  }
+};
+
 // --- asmOptimize (matches JS asmOptimize) ----------------------------------
+
+// --- Cumulative perf counters -------------------------------------------
+
+static int64_t g_totalIterations = 0;
+static double g_totalElapsedMs = 0.0;
+
+void printCumulativeStats() {
+  if (g_totalIterations == 0) return;
+  double avgIps = g_totalElapsedMs > 0.0
+                      ? g_totalIterations / (g_totalElapsedMs / 1000.0)
+                      : 0.0;
+  std::cerr << "\n=== Reorder Summary =======================" << std::endl;
+  std::cerr << "  Total iterations: " << g_totalIterations << std::endl;
+  std::cerr << "  Total time: " << std::fixed << std::setprecision(1)
+            << g_totalElapsedMs << " ms" << std::endl;
+  std::cerr << "  Average IPS: " << std::setprecision(0) << avgIps
+            << std::endl;
+}
 
 void asmOptimize(AsmFunc &func, int maxTimeMs) {
   const std::string &funcName =
@@ -261,12 +389,19 @@ void asmOptimize(AsmFunc &func, int maxTimeMs) {
   func.cyclesBefore = costBest;
   int costInit = costBest;
 
-  std::cerr << "Starting optimization with max. time: "
-            << formatTimeMs(maxTimeMs) << std::endl;
+  std::cerr << "Starting optimization of '" << funcName
+            << "' with max. time: " << formatTimeMs(maxTimeMs) << std::endl;
 
   // Initialize random seed from system entropy (JS uses Math.random)
   std::random_device rd;
   setSeed(rd());
+
+  // Create worker pool (one thread per hardware core, minus calling thread)
+  unsigned hwThreads = std::thread::hardware_concurrency();
+  int numWorkers = std::max(1, static_cast<int>(hwThreads) - 1);
+  WorkerPool pool(numWorkers);
+  std::cerr << "[" << funcName << "] Worker pool: " << numWorkers
+            << " threads" << std::endl;
 
   AsmFunc lastRandPick = cloneFunction(func);
 
@@ -282,22 +417,36 @@ void asmOptimize(AsmFunc &func, int maxTimeMs) {
   while (totalTime < maxTimeMs) {
     auto now = std::chrono::steady_clock::now();
 
-    // Progress logging every 1000 iterations
-    if (i != 0 && (i % 1000) == 0) {
+    // Progress logging (first 10 individually, then every 1000)
+    if (i < 10 || (i % 1000) == 0) {
       auto dur = std::chrono::duration<double, std::milli>(now - iterStart)
                      .count();
       totalTime += dur;
+      double elapsedSec = totalTime / 1000.0;
+      double ips = elapsedSec > 0.0 ? i / elapsedSec : 0.0;
       double left = maxTimeMs - totalTime;
       std::cerr << "[" << funcName << "] Step: " << i
-                << ", Left: " << std::fixed << std::setprecision(4) << left
-                << "ms | Time: " << dur << "ms" << std::endl;
+                << ", Left: " << std::fixed << std::setprecision(1) << left
+                << "ms | Cost: " << costBest
+                << " | ips: " << std::setprecision(0) << ips << std::endl;
       iterStart = now;
     }
 
     // Check timeout
     if (now > deadline) {
+      double funcElapsedMs =
+          std::chrono::duration<double, std::milli>(now - startTime).count();
+      double funcIps =
+          funcElapsedMs > 0.0 ? i / (funcElapsedMs / 1000.0) : 0.0;
+      g_totalIterations += i;
+      g_totalElapsedMs += funcElapsedMs;
+      double cumIps = g_totalElapsedMs > 0.0
+                          ? g_totalIterations / (g_totalElapsedMs / 1000.0)
+                          : 0.0;
       std::cerr << "[" << funcName << "] Timeout after " << i
-                << " iterations." << std::endl;
+                << " iterations (" << std::fixed << std::setprecision(0)
+                << funcIps << " ips func, "
+                << cumIps << " ips cum)." << std::endl;
       break;
     }
 
@@ -312,7 +461,10 @@ void asmOptimize(AsmFunc &func, int maxTimeMs) {
                 << " steps since last improvement, generate new versions ("
                 << stepsBack << " steps backward)" << std::endl;
 
-      // Escape local minimum: generate worse variants then improve them
+      // Escape local minimum: generate worse variants (sequential, each
+      // uses many reorderRound calls internally), then finalize in parallel.
+      std::vector<AsmFunc> escapeTasks;
+      escapeTasks.reserve(POOL_SIZE);
       for (int s = 0; s < SEARCH_VARIANT_SEARCH; ++s) {
         auto [worseCopy, maxCost] =
             generateWorseFunction(funcCopy, stepsBack);
@@ -326,18 +478,22 @@ void asmOptimize(AsmFunc &func, int maxTimeMs) {
             maxCost = cost;
           }
         }
-        results.push_back(reorderRound(worseCopy));
+        escapeTasks.push_back(cloneFunction(worseCopy));
       }
       for (int s = SEARCH_VARIANT_SEARCH; s < POOL_SIZE; ++s) {
-        results.push_back(
-            reorderRound(rand01() < 0.1 ? lastRandPick : funcCopy));
+        escapeTasks.push_back(
+            cloneFunction(rand01() < 0.1 ? lastRandPick : funcCopy));
       }
+      results = pool.runParallel(std::move(escapeTasks));
       stepsSinceLastOpt = 0;
     } else {
+      std::vector<AsmFunc> tasks;
+      tasks.reserve(POOL_SIZE);
       for (int s = 0; s < POOL_SIZE; ++s) {
-        results.push_back(
-            reorderRound(rand01() < 0.1 ? lastRandPick : funcCopy));
+        tasks.push_back(
+            cloneFunction(rand01() < 0.1 ? lastRandPick : funcCopy));
       }
+      results = pool.runParallel(std::move(tasks));
     }
 
     for (int s = 0; s < (int)results.size(); ++s) {

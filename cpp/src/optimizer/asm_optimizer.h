@@ -11,8 +11,14 @@ void asmOptimizePattern(AsmFunc &func);
 /// Must be called after asmScanDeps.
 void fillDelaySlots(AsmFunc &func);
 
+/// Set the PRNG seed for reproducible reorder results (used by tests).
+void setSeed(uint32_t s);
+
 /// Run reorder optimization (stochastic annealing) on a single function.
-/// updateCb is called whenever a better result is found.
 void asmOptimize(AsmFunc &func, int maxTimeMs = 30'000);
+
+/// Print cumulative reorder stats (total iterations, average IPS)
+/// across all asmOptimize calls since program start.
+void printCumulativeStats();
 
 } // namespace rspl

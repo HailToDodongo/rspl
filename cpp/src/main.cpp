@@ -161,10 +161,10 @@ int main(int argc, char **argv) {
   }
 
   std::cerr << "// DMEM: " << result.sizeDMEM
-            << " bytes, IMEM: " << result.sizeIMEM << " bytes\n";
+            << " bytes, IMEM: " << result.sizeIMEM << " bytes" << std::endl;
 
   if (!result.warn.empty())
-    std::cerr << result.warn;
+    std::cerr << result.warn << std::flush;
 
   return 0;
 }

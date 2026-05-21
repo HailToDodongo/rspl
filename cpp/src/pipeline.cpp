@@ -71,6 +71,7 @@ TranspileResult runPipeline(const std::string &astJson,
         if (fn.asm_.empty()) continue;
         asmOptimize(fn, config.optimizeTime);
       }
+      printCumulativeStats();
     } else {
       for (auto &fn : functions) {
         if (fn.asm_.empty()) continue;
@@ -164,6 +165,7 @@ TranspileResult transpileSource(const std::string &source,
         if (fn.asm_.empty()) continue;
         asmOptimize(fn, config.optimizeTime);
       }
+      printCumulativeStats();
     } else {
       for (auto &fn : functions) {
         if (fn.asm_.empty()) continue;
