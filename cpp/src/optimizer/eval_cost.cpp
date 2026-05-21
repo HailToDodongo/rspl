@@ -17,41 +17,48 @@ int evalFunctionCost(AsmFunc &func) {
   }
   if (ops.empty()) return 0;
 
-  int regCycleMap[64] = {};
+  // regStallExpiry[r] = cycle when register r's stall expires.
+  // 0 means no active stall (cycle starts at 0, so expiry > 0 means active).
+  // Replaces the old regCycleMap[64] which stored remaining cycles and
+  // was fully decremented on every tick (O(64*cycles) → O(active_stalls)).
+  int regStallExpiry[64] = {};
   int cycle = 0;
   int pc = 0;
   uint64_t lastLoadPosMask = 0;
   int execCount = 0;
-
-  auto ticks = [&](int count) {
-    for (int i = 0; i < 64; ++i) regCycleMap[i] -= count;
-    lastLoadPosMask >>= count;
-    cycle += count;
-  };
 
   // Branch state: 0=none, 2=branch, 1=delay
   int branchStep = 0;
   bool didJump = false;
 
   while (pc < (int)ops.size()) {
-    // Resolve stalls for to-be-executed instructions
-    int lastCycle;
+    // Resolve stalls for to-be-executed instructions.
+    // Find the max expiry among all source stall registers and advance
+    // cycle there directly — no need to loop or decrement all 64 entries.
+    bool resolved;
     do {
-      lastCycle = cycle;
+      resolved = true;
       for (int i = 0; i < execCount && pc + i < (int)ops.size(); ++i) {
         AsmInst *execOp = ops[pc + i];
         execOp->debug.paired = (execCount == 2);
 
         for (int src : execOp->depsStallSourceIdx) {
-          if (regCycleMap[src] > 0) ticks(regCycleMap[src]);
+          if (regStallExpiry[src] > cycle) {
+            int advance = regStallExpiry[src] - cycle;
+            cycle += advance;
+            lastLoadPosMask >>= advance;
+            resolved = false;
+          }
         }
         if ((lastLoadPosMask & 0b001) &&
             (execOp->opFlags & OpFlag::OP_FLAG_IS_MEM_STALL_STORE)) {
           execOp->debug.stall++;
-          ticks(1);
+          cycle += 1;
+          lastLoadPosMask >>= 1;
+          resolved = false;
         }
       }
-    } while (lastCycle != cycle);
+    } while (!resolved);
 
     // Execute
     for (int i = 0; i < execCount && pc + i < (int)ops.size(); ++i) {
@@ -65,13 +72,14 @@ int evalFunctionCost(AsmFunc &func) {
         branchStep = 2; // BRANCH_STEP_BRANCH
 
       if (didJump && branchStep == 1) { // BRANCH_STEP_DELAY
-        ticks(1);
+        cycle += 1;
+        lastLoadPosMask >>= 1;
         didJump = false;
       }
 
       execOp->debug.cycle = cycle;
       for (int dst : execOp->depsStallTargetIdx) {
-        regCycleMap[dst] = execOp->stallLatency;
+        regStallExpiry[dst] = cycle + execOp->stallLatency;
       }
     }
 
@@ -104,7 +112,8 @@ int evalFunctionCost(AsmFunc &func) {
     }
 
     execCount = canDualIssue ? 2 : 1;
-    ticks(1);
+    cycle += 1;
+    lastLoadPosMask >>= 1;
   }
   return cycle;
 }

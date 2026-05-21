@@ -107,8 +107,10 @@ constexpr int REORDER_MAX_OPS = 15;
 // --- Helper functions -----------------------------------------------------
 
 static AsmFunc cloneFunction(const AsmFunc &func) {
-  AsmFunc copy = func;
-  copy.asm_ = func.asm_; // vector copy
+  // Only asm_ is needed by reorderRound / evalFunctionCost / asmInitDeps.
+  // Skip copying name, type, argSize, annotations, etc.
+  AsmFunc copy;
+  copy.asm_ = func.asm_;
   return copy;
 }
 
