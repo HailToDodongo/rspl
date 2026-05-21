@@ -13,12 +13,12 @@ namespace rspl {
 // 295-bit register mask: 5 × 64-bit words
 using RegMask = std::array<uint64_t, 5>;
 
-// Register index map: register name -> index (0–294)
-extern const std::unordered_map<std::string, int> REG_INDEX_MAP;
+// Fast register index lookup: register name -> index (0–294), -1 if unknown
+int getRegIndex(const std::string &name);
 constexpr int REG_INDEX_SIZE = 295;
 
-// Compact stall index map: register name -> index (0–63)
-extern const std::unordered_map<std::string, int> REG_STALL_INDEX_MAP;
+// Compact stall index lookup: register name -> index (0–63), -1 if unknown
+int getRegStallIndex(const std::string &name);
 
 // Hidden registers (read/written implicitly by certain ops)
 extern const std::unordered_map<std::string, std::vector<std::string>>

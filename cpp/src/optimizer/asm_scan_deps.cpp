@@ -11,67 +11,81 @@
 
 namespace rspl {
 
-// --- Register index map (295 entries) ---------------------------------
+// --- Register index lookup (295 entries, O(1) without hashing) ---------
 
-const std::unordered_map<std::string, int> REG_INDEX_MAP = []() {
-  std::unordered_map<std::string, int> m;
-  // Vector registers with lanes: $vXX -> start index, $vXX_N -> start+N
-  const char *vNames[] = {
-      "$v00", "$v01", "$v02", "$v03", "$v04", "$v05", "$v06", "$v07",
-      "$v08", "$v09", "$v10", "$v11", "$v12", "$v13", "$v14", "$v15",
-      "$v16", "$v17", "$v18", "$v19", "$v20", "$v21", "$v22", "$v23",
-      "$v24", "$v25", "$v26", "$v27", "$v28", "$v29", "$v30", "$v31",
-  };
-  for (int i = 0; i < 32; ++i) {
-    int base = i * 8;
-    m[vNames[i]] = base;
-    for (int lane = 0; lane < 8; ++lane) {
-      m[std::string(vNames[i]) + "_" + std::to_string(lane)] =
-          base + lane;
-    }
+// Scalar register order: $zero..$ra (standard MIPS ABI, $at excluded)
+// Must match the order in the REG_INDEX_MAP (256..287).
+static int scalarRegIdx(const char *s) {
+  if (s[0] == '$') ++s; else return -1;
+  if (s[0] == 'z' && s[1] == 'e') return 0;   // $zero
+  if (s[0] == 'a' && s[1] == 't') return 1;   // $at
+  if (s[0] == 'v' && s[1] >= '0' && s[1] <= '1') return 2 + (s[1]-'0'); // $v0-1
+  if (s[0] == 'a' && s[1] >= '0' && s[1] <= '3') return 4 + (s[1]-'0'); // $a0-3
+  if (s[0] == 't' && s[1] >= '0' && s[1] <= '7') return 8 + (s[1]-'0'); // $t0-7
+  if (s[0] == 's' && s[1] >= '0' && s[1] <= '7') return 16 + (s[1]-'0'); // $s0-7
+  if (s[0] == 't' && s[1] == '8') return 24;  // $t8
+  if (s[0] == 't' && s[1] == '9') return 25;  // $t9
+  if (s[0] == 'k' && s[1] == '0') return 26;  // $k0
+  if (s[0] == 'k' && s[1] == '1') return 27;  // $k1
+  if (s[0] == 'g' && s[1] == 'p') return 28;  // $gp
+  if (s[0] == 's' && s[1] == 'p') return 29;  // $sp
+  if (s[0] == 'f' && s[1] == 'p') return 30;  // $fp
+  if (s[0] == 'r' && s[1] == 'a') return 31;  // $ra
+  return -1;
+}
+
+// Fast register → index lookup. Returns -1 if not found.
+int getRegIndex(const std::string &name) {
+  if (name.size() < 3 || name[0] != '$') return -1;
+
+  // Vector register: $vNN or $vNN_L (must have two digits after 'v',
+  // distinguishing from scalar $v0/$v1 which have only one digit).
+  if (name[1] == 'v' && name.size() >= 4 && name[2] >= '0' && name[2] <= '9' &&
+      name[3] >= '0' && name[3] <= '9') {
+    int vnum = (name[2] - '0') * 10 + (name[3] - '0');
+    if (vnum >= 32) return -1;
+    int base = vnum * 8;
+    auto uscore = name.find('_', 4);
+    if (uscore == std::string::npos) return base;
+    int lane = name[uscore + 1] - '0';
+    if (lane >= 0 && lane < 8) return base + lane;
+    return base;
   }
 
-  // Scalar registers: $zero–$ra -> 256–287
-  const char *sNames[] = {
-      "$zero", "$at", "$v0", "$v1", "$a0", "$a1", "$a2", "$a3",
-      "$t0", "$t1", "$t2", "$t3", "$t4", "$t5", "$t6", "$t7",
-      "$s0", "$s1", "$s2", "$s3", "$s4", "$s5", "$s6", "$s7",
-      "$t8", "$t9", "$k0", "$k1", "$gp", "$sp", "$fp", "$ra",
-  };
-  for (int i = 0; i < 32; ++i) m[sNames[i]] = 256 + i;
+  // Scalar: $zero..$ra
+  int si = scalarRegIdx(name.c_str());
+  if (si >= 0) return 256 + si;
 
-  // Special registers: 288–294
-  m["$vco"] = 288;
-  m["$vcc"] = 289;
-  m["$acc"] = 290;
-  m["$divOut"] = 291;
-  m["$divIn"] = 292;
-  m["$divDP"] = 293;
-  m["$vce"] = 294;
+  // Special registers
+  if (name == "$vco") return 288;
+  if (name == "$vcc") return 289;
+  if (name == "$acc") return 290;
+  if (name == "$divOut") return 291;
+  if (name == "$divIn") return 292;
+  if (name == "$divDP") return 293;
+  if (name == "$vce") return 294;
 
-  return m;
-}();
+  return -1;
+}
 
-// --- Stall index map (64 entries) -------------------------------------
+// --- Stall index lookup (64 entries) -----------------------------------
 
-const std::unordered_map<std::string, int> REG_STALL_INDEX_MAP = []() {
-  std::unordered_map<std::string, int> m;
-  const char *scalars[] = {
-      "$zero", "$at", "$v0", "$v1", "$a0", "$a1", "$a2", "$a3",
-      "$t0", "$t1", "$t2", "$t3", "$t4", "$t5", "$t6", "$t7",
-      "$s0", "$s1", "$s2", "$s3", "$s4", "$s5", "$s6", "$s7",
-      "$t8", "$t9", "$k0", "$k1", "$gp", "$sp", "$fp", "$ra",
-  };
-  for (int i = 0; i < 32; ++i) m[scalars[i]] = i;
-  const char *vecs[] = {
-      "$v00", "$v01", "$v02", "$v03", "$v04", "$v05", "$v06", "$v07",
-      "$v08", "$v09", "$v10", "$v11", "$v12", "$v13", "$v14", "$v15",
-      "$v16", "$v17", "$v18", "$v19", "$v20", "$v21", "$v22", "$v23",
-      "$v24", "$v25", "$v26", "$v27", "$v28", "$v29", "$v30", "$v31",
-  };
-  for (int i = 0; i < 32; ++i) m[vecs[i]] = 32 + i;
-  return m;
-}();
+int getRegStallIndex(const std::string &name) {
+  if (name.size() < 3 || name[0] != '$') return -1;
+
+  // Vector register: $vNN (two digits after 'v')
+  if (name[1] == 'v' && name.size() >= 4 && name[2] >= '0' && name[2] <= '9' &&
+      name[3] >= '0' && name[3] <= '9') {
+    int vnum = (name[2] - '0') * 10 + (name[3] - '0');
+    if (vnum >= 32) return -1;
+    return 32 + vnum;
+  }
+
+  // Scalar
+  int si = scalarRegIdx(name.c_str());
+  if (si >= 0) return si;
+  return -1;
+}
 
 // --- Hidden registers -------------------------------------------------
 
@@ -173,19 +187,6 @@ static const std::unordered_map<std::string, std::vector<std::string>>
 };
 
 // --- Mask utilities ---------------------------------------------------
-
-static RegMask makeMask(const std::vector<std::string> &regs) {
-  RegMask m = {};
-  for (const auto &r : regs) {
-    auto it = REG_INDEX_MAP.find(r);
-    if (it == REG_INDEX_MAP.end()) {
-      state.throwError("Unknown register: " + r);
-    }
-    int idx = it->second;
-    m[idx / 64] |= (1ULL << (idx % 64));
-  }
-  return m;
-}
 
 static bool maskIsZero(const RegMask &m) {
   return m[0] == 0 && m[1] == 0 && m[2] == 0 && m[3] == 0 && m[4] == 0;
@@ -342,120 +343,115 @@ std::vector<std::string> getTargetRegs(const AsmInst &inst) {
 // --- Dependency initialization ----------------------------------------
 
 void asmInitDep(AsmInst &inst) {
-  if (inst.type != AsmType::OP || (inst.opFlags & OpFlag::OP_FLAG_IS_NOP)) {
-    inst.depsSourceIdx.clear();
-    inst.depsTargetIdx.clear();
-    inst.depsStallSourceIdx.clear();
-    inst.depsStallTargetIdx.clear();
-    std::fill(std::begin(inst.depsSourceMask),
-              std::end(inst.depsSourceMask), 0);
-    std::fill(std::begin(inst.depsTargetMask),
-              std::end(inst.depsTargetMask), 0);
-    std::fill(std::begin(inst.depsBlockSourceMask),
-              std::end(inst.depsBlockSourceMask), 0);
-    std::fill(std::begin(inst.depsBlockTargetMask),
-              std::end(inst.depsBlockTargetMask), 0);
-    inst.depsStallSourceMask0 = 0;
-    inst.depsStallSourceMask1 = 0;
-    inst.depsStallTargetMask0 = 0;
-    inst.depsStallTargetMask1 = 0;
-    inst.barrierMask = 0;
-    return;
-  }
-
-  // In JS: depsStallSource = getSourceRegs (what we READ)
-  //        depsStallTarget = getTargetRegs (what we WRITE)
-  auto rawSrc = getSourceRegs(inst);
-  // Filter to only $regs
-  std::vector<std::string> depsStallSource;
-  for (auto &r : rawSrc) {
-    std::string ext = extractRegFromArg(r);
-    if (!ext.empty() && ext[0] == '$') depsStallSource.push_back(ext);
-  }
-  // Deduplicate
-  std::unordered_set<std::string> seenSrc(depsStallSource.begin(),
-                                          depsStallSource.end());
-  depsStallSource.assign(seenSrc.begin(), seenSrc.end());
-
-  auto rawTgt = getTargetRegs(inst);
-  std::vector<std::string> depsStallTarget(rawTgt.begin(), rawTgt.end());
-
-  // Expand to lanes
-  std::vector<std::string> depsSource;
-  for (auto &r : depsStallSource) {
-    auto expanded = expandRegister(r);
-    depsSource.insert(depsSource.end(), expanded.begin(),
-                      expanded.end());
-  }
-  std::vector<std::string> depsTarget;
-  for (auto &r : depsStallTarget) {
-    auto expanded = expandRegister(r);
-    depsTarget.insert(depsTarget.end(), expanded.begin(),
-                      expanded.end());
-  }
-
-  inst.depsSourceMask = makeMask(depsSource);
-  inst.depsTargetMask = makeMask(depsTarget);
-
-  // Build indices (reserve to avoid repeated reallocations)
+  // Clear all dependency data
   inst.depsSourceIdx.clear();
   inst.depsTargetIdx.clear();
   inst.depsStallSourceIdx.clear();
   inst.depsStallTargetIdx.clear();
-  inst.depsSourceIdx.reserve(depsSource.size());
-  inst.depsTargetIdx.reserve(depsTarget.size());
-  for (auto &r : depsSource) {
-    auto it = REG_INDEX_MAP.find(r);
-    if (it != REG_INDEX_MAP.end()) inst.depsSourceIdx.push_back(it->second);
-  }
-  for (auto &r : depsTarget) {
-    auto it = REG_INDEX_MAP.find(r);
-    if (it != REG_INDEX_MAP.end()) inst.depsTargetIdx.push_back(it->second);
+  inst.depsSourceMask = {};
+  inst.depsTargetMask = {};
+  inst.depsBlockSourceMask = {};
+  inst.depsBlockTargetMask = {};
+  inst.depsStallSourceMask0 = 0;
+  inst.depsStallSourceMask1 = 0;
+  inst.depsStallTargetMask0 = 0;
+  inst.depsStallTargetMask1 = 0;
+  inst.barrierMask = 0;
+
+  if (inst.type != AsmType::OP || (inst.opFlags & OpFlag::OP_FLAG_IS_NOP))
+    return;
+
+  // Scratch dedup: up to 16 unique raw regs before expansion, ≤ 24 after.
+  // Using a stack-allocated bool array indexed by register number instead
+  // of unordered_set<string> avoids all intermediate heap allocations.
+  bool seenBase[64] = {}; // for raw base reg dedup (max 64 stall indices)
+
+  // --- Source registers: expand → mask + idx, track bases for stalls ----
+
+  auto rawSrc = getSourceRegs(inst);
+  for (auto &r : rawSrc) {
+    std::string ext = extractRegFromArg(r);
+    if (ext.empty() || ext[0] != '$') continue;
+
+    // Track base register for stall info (deduplicated)
+    auto dotPos = ext.find('.');
+    int baseLen = (dotPos != std::string::npos) ? (int)dotPos : (int)ext.size();
+    // Use a cheap inline comparison for STALL_IGNORE_REGS
+    bool isStallIgnored =
+        (baseLen == 4 && ext[1] == 'v' && ext[2] == 'c' && ext[3] == 'c') ||
+        (baseLen == 4 && ext[1] == 'v' && ext[2] == 'c' && ext[3] == 'o') ||
+        (baseLen == 4 && ext[1] == 'v' && ext[2] == 'c' && ext[3] == 'e') ||
+        (baseLen == 4 && ext[1] == 'a' && ext[2] == 'c' && ext[3] == 'c') ||
+        (baseLen == 6 && ext == "$divOut") ||
+        (baseLen == 5 && ext == "$divIn") ||
+        (baseLen == 5 && ext == "$divDP");
+    if (!isStallIgnored) {
+      int stallIdx = getRegStallIndex(
+          std::string(ext.c_str(), baseLen));
+      if (stallIdx >= 0 && !seenBase[stallIdx]) {
+        seenBase[stallIdx] = true;
+        inst.depsStallSourceIdx.push_back(stallIdx);
+      }
+    }
+
+    // Expand raw reg to lanes, set mask + index for each
+    auto expanded = expandRegister(ext);
+    for (auto &e : expanded) {
+      int idx = getRegIndex(e);
+      if (idx >= 0) {
+        inst.depsSourceMask[idx / 64] |= (1ULL << (idx % 64));
+        inst.depsSourceIdx.push_back(idx);
+      }
+    }
   }
 
-  // Stall-wise: strip lane and filter special regs
-  std::vector<std::string> stallSrc, stallTgt;
-  for (auto &r : depsStallSource) {
+  // --- Target registers: expand → mask + idx, track bases for stalls ---
+
+  // Reuse seenBase for target stall dedup — clear first
+  for (int &s : inst.depsStallSourceIdx) seenBase[s] = false;
+
+  auto rawTgt = getTargetRegs(inst);
+  for (auto &r : rawTgt) {
     auto dotPos = r.find('.');
-    std::string base = (dotPos != std::string::npos)
-                           ? r.substr(0, dotPos)
-                           : r;
-    if (!STALL_IGNORE_REGS.count(base)) stallSrc.push_back(base);
-  }
-  for (auto &r : depsStallTarget) {
-    auto dotPos = r.find('.');
-    std::string base = (dotPos != std::string::npos)
-                           ? r.substr(0, dotPos)
-                           : r;
-    if (!STALL_IGNORE_REGS.count(base)) stallTgt.push_back(base);
+    int baseLen = (dotPos != std::string::npos) ? (int)dotPos : (int)r.size();
+    bool isStallIgnored =
+        (baseLen == 4 && r[1] == 'v' && r[2] == 'c' && r[3] == 'c') ||
+        (baseLen == 4 && r[1] == 'v' && r[2] == 'c' && r[3] == 'o') ||
+        (baseLen == 4 && r[1] == 'v' && r[2] == 'c' && r[3] == 'e') ||
+        (baseLen == 4 && r[1] == 'a' && r[2] == 'c' && r[3] == 'c') ||
+        (baseLen == 6 && r == "$divOut") ||
+        (baseLen == 5 && r == "$divIn") ||
+        (baseLen == 5 && r == "$divDP");
+    if (!isStallIgnored) {
+      int stallIdx = getRegStallIndex(
+          std::string(r.c_str(), baseLen));
+      if (stallIdx >= 0 && !seenBase[stallIdx]) {
+        seenBase[stallIdx] = true;
+        inst.depsStallTargetIdx.push_back(stallIdx);
+      }
+    }
+
+    auto expanded = expandRegister(r);
+    for (auto &e : expanded) {
+      int idx = getRegIndex(e);
+      if (idx >= 0) {
+        inst.depsTargetMask[idx / 64] |= (1ULL << (idx % 64));
+        inst.depsTargetIdx.push_back(idx);
+      }
+    }
   }
 
-  inst.depsStallSourceIdx.reserve(stallSrc.size());
-  inst.depsStallTargetIdx.reserve(stallTgt.size());
-  for (auto &r : stallSrc) {
-    auto it = REG_STALL_INDEX_MAP.find(r);
-    if (it != REG_STALL_INDEX_MAP.end())
-      inst.depsStallSourceIdx.push_back(it->second);
-  }
-  for (auto &r : stallTgt) {
-    auto it = REG_STALL_INDEX_MAP.find(r);
-    if (it != REG_STALL_INDEX_MAP.end())
-      inst.depsStallTargetIdx.push_back(it->second);
-  }
+  // --- Stall masks from the idx vectors (already built inline above) ------
 
-  // Stall masks as 2×uint32
-  uint64_t srcMask = 0, tgtMask = 0;
-  for (int idx : inst.depsStallSourceIdx)
-    srcMask |= (1ULL << idx);
-  for (int idx : inst.depsStallTargetIdx)
-    tgtMask |= (1ULL << idx);
-  inst.depsStallSourceMask0 = static_cast<uint32_t>(srcMask);
-  inst.depsStallSourceMask1 = static_cast<uint32_t>(srcMask >> 32);
-  inst.depsStallTargetMask0 = static_cast<uint32_t>(tgtMask);
-  inst.depsStallTargetMask1 = static_cast<uint32_t>(tgtMask >> 32);
+  uint64_t srcStallMask = 0, tgtStallMask = 0;
+  for (int idx : inst.depsStallSourceIdx) srcStallMask |= (1ULL << idx);
+  for (int idx : inst.depsStallTargetIdx) tgtStallMask |= (1ULL << idx);
+  inst.depsStallSourceMask0 = static_cast<uint32_t>(srcStallMask);
+  inst.depsStallSourceMask1 = static_cast<uint32_t>(srcStallMask >> 32);
+  inst.depsStallTargetMask0 = static_cast<uint32_t>(tgtStallMask);
+  inst.depsStallTargetMask1 = static_cast<uint32_t>(tgtStallMask >> 32);
 
   // Barrier mask from annotations
-  inst.barrierMask = 0;
   for (auto &ann : inst.annotations) {
     if (ann.name == "Barrier") {
       inst.barrierMask |= state.getBarrierMask(ann.value);

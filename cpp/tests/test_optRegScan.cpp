@@ -51,20 +51,16 @@ static auto sorted(std::vector<int> v) {
   return v;
 }
 
-template <typename Map>
-static std::vector<int> mapRegs(const std::vector<std::string> &regs,
-                                const Map &m) {
+static std::vector<int> idxs(const std::vector<std::string> &regs) {
   std::vector<int> r;
-  for (const auto &s : regs) r.push_back(m.at(s));
+  for (const auto &s : regs) r.push_back(getRegIndex(s));
   return r;
 }
 
-static std::vector<int> idxs(const std::vector<std::string> &regs) {
-  return mapRegs(regs, REG_INDEX_MAP);
-}
-
 static std::vector<int> stallIdxs(const std::vector<std::string> &regs) {
-  return mapRegs(regs, REG_STALL_INDEX_MAP);
+  std::vector<int> r;
+  for (const auto &s : regs) r.push_back(getRegStallIndex(s));
+  return r;
 }
 
 #define VEC(n) "$v" #n
@@ -73,19 +69,19 @@ TEST_CASE("Optimizer - Register Scanner", "[optRegScan]") {
   // Logic
   {
     auto a = makeAsm("or", {"$t0", "$a1", "$a0"});
-    REQUIRE(sorted(a.depsSourceIdx) == sorted({REG_INDEX_MAP.at("$a1"), REG_INDEX_MAP.at("$a0")}));
-    REQUIRE(sorted(a.depsTargetIdx) == sorted({REG_INDEX_MAP.at("$t0")}));
-    REQUIRE(sorted(a.depsStallSourceIdx) == sorted({REG_STALL_INDEX_MAP.at("$a1"), REG_STALL_INDEX_MAP.at("$a0")}));
-    REQUIRE(sorted(a.depsStallTargetIdx) == sorted({REG_STALL_INDEX_MAP.at("$t0")}));
+    REQUIRE(sorted(a.depsSourceIdx) == sorted({getRegIndex("$a1"), getRegIndex("$a0")}));
+    REQUIRE(sorted(a.depsTargetIdx) == sorted({getRegIndex("$t0")}));
+    REQUIRE(sorted(a.depsStallSourceIdx) == sorted({getRegStallIndex("$a1"), getRegStallIndex("$a0")}));
+    REQUIRE(sorted(a.depsStallTargetIdx) == sorted({getRegStallIndex("$t0")}));
   }
 
   // Arith
   {
     auto a = makeAsm("addiu", {"$t0", "$t1", "4"});
-    REQUIRE(sorted(a.depsSourceIdx) == sorted({REG_INDEX_MAP.at("$t1")}));
-    REQUIRE(sorted(a.depsTargetIdx) == sorted({REG_INDEX_MAP.at("$t0")}));
-    REQUIRE(sorted(a.depsStallSourceIdx) == sorted({REG_STALL_INDEX_MAP.at("$t1")}));
-    REQUIRE(sorted(a.depsStallTargetIdx) == sorted({REG_STALL_INDEX_MAP.at("$t0")}));
+    REQUIRE(sorted(a.depsSourceIdx) == sorted({getRegIndex("$t1")}));
+    REQUIRE(sorted(a.depsTargetIdx) == sorted({getRegIndex("$t0")}));
+    REQUIRE(sorted(a.depsStallSourceIdx) == sorted({getRegStallIndex("$t1")}));
+    REQUIRE(sorted(a.depsStallTargetIdx) == sorted({getRegStallIndex("$t0")}));
   }
 
   // Vec Store
@@ -95,13 +91,13 @@ TEST_CASE("Optimizer - Register Scanner", "[optRegScan]") {
     expSrc.push_back("$s6");
     auto expSrcIdx = sorted([&]() {
       std::vector<int> r;
-      for (auto &s : expSrc) r.push_back(REG_INDEX_MAP.at(s));
+      for (auto &s : expSrc) r.push_back(getRegIndex(s));
       return r;
     }());
     auto expStall = std::vector<std::string>{"$v08", "$s6"};
     auto expStallIdx = sorted([&]() {
       std::vector<int> r;
-      for (auto &s : expStall) r.push_back(REG_STALL_INDEX_MAP.at(s));
+      for (auto &s : expStall) r.push_back(getRegStallIndex(s));
       return r;
     }());
     REQUIRE(sorted(a.depsSourceIdx) == expSrcIdx);
@@ -117,13 +113,13 @@ TEST_CASE("Optimizer - Register Scanner", "[optRegScan]") {
     expSrc.push_back("$s6");
     auto expSrcIdx = sorted([&]() {
       std::vector<int> r;
-      for (auto &s : expSrc) r.push_back(REG_INDEX_MAP.at(s));
+      for (auto &s : expSrc) r.push_back(getRegIndex(s));
       return r;
     }());
     auto expStall = std::vector<std::string>{"$v08", "$s6"};
     auto expStallIdx = sorted([&]() {
       std::vector<int> r;
-      for (auto &s : expStall) r.push_back(REG_STALL_INDEX_MAP.at(s));
+      for (auto &s : expStall) r.push_back(getRegStallIndex(s));
       return r;
     }());
     REQUIRE(sorted(a.depsSourceIdx) == expSrcIdx);
@@ -135,10 +131,10 @@ TEST_CASE("Optimizer - Register Scanner", "[optRegScan]") {
   // Lanes - Vec move
   {
     auto a = makeAsm("vmov", {"$v07.e3", "$v05.e2"});
-    REQUIRE(sorted(a.depsSourceIdx) == sorted({REG_INDEX_MAP.at("$v05_2")}));
-    REQUIRE(sorted(a.depsTargetIdx) == sorted({REG_INDEX_MAP.at("$v07_3"), REG_INDEX_MAP.at("$acc")}));
-    REQUIRE(sorted(a.depsStallSourceIdx) == sorted({REG_STALL_INDEX_MAP.at("$v05")}));
-    REQUIRE(sorted(a.depsStallTargetIdx) == sorted({REG_STALL_INDEX_MAP.at("$v07")}));
+    REQUIRE(sorted(a.depsSourceIdx) == sorted({getRegIndex("$v05_2")}));
+    REQUIRE(sorted(a.depsTargetIdx) == sorted({getRegIndex("$v07_3"), getRegIndex("$acc")}));
+    REQUIRE(sorted(a.depsStallSourceIdx) == sorted({getRegStallIndex("$v05")}));
+    REQUIRE(sorted(a.depsStallTargetIdx) == sorted({getRegStallIndex("$v07")}));
   }
 
   // Lanes - STV - base: $v16_0..$v23_7
@@ -151,7 +147,7 @@ TEST_CASE("Optimizer - Register Scanner", "[optRegScan]") {
     REQUIRE(sorted(a.depsTargetIdx) == sorted({}));
     auto expStall = vecRange("$v16", 16, 8);
     expStall.push_back("$t0");
-    REQUIRE(sorted(a.depsStallSourceIdx) == sorted(mapRegs(expStall, REG_STALL_INDEX_MAP)));
+    REQUIRE(sorted(a.depsStallSourceIdx) == sorted(stallIdxs(expStall)));
     REQUIRE(sorted(a.depsStallTargetIdx) == sorted({}));
   }
 
@@ -164,7 +160,7 @@ TEST_CASE("Optimizer - Register Scanner", "[optRegScan]") {
     REQUIRE(sorted(a.depsTargetIdx) == sorted({}));
     auto expStall = vecRange("$v08", 8, 8);
     expStall.push_back("$t0");
-    REQUIRE(sorted(a.depsStallSourceIdx) == sorted(mapRegs(expStall, REG_STALL_INDEX_MAP)));
+    REQUIRE(sorted(a.depsStallSourceIdx) == sorted(stallIdxs(expStall)));
     REQUIRE(sorted(a.depsStallTargetIdx) == sorted({}));
   }
 
@@ -177,43 +173,43 @@ TEST_CASE("Optimizer - Register Scanner", "[optRegScan]") {
     REQUIRE(sorted(a.depsTargetIdx) == sorted({}));
     auto expStall = vecRange("$v08", 8, 8);
     expStall.push_back("$t0");
-    REQUIRE(sorted(a.depsStallSourceIdx) == sorted(mapRegs(expStall, REG_STALL_INDEX_MAP)));
+    REQUIRE(sorted(a.depsStallSourceIdx) == sorted(stallIdxs(expStall)));
     REQUIRE(sorted(a.depsStallTargetIdx) == sorted({}));
   }
 
   // Lanes - LTV - base: $v16_0..$v23_7
   {
     auto a = makeAsm("ltv", {"$v16", "0", "0", "$t0"});
-    REQUIRE(sorted(a.depsSourceIdx) == sorted({REG_INDEX_MAP.at("$t0")}));
-    REQUIRE(sorted(a.depsTargetIdx) == sorted(mapRegs(stvLanes(16, 0), REG_INDEX_MAP)));
-    REQUIRE(sorted(a.depsStallSourceIdx) == sorted({REG_STALL_INDEX_MAP.at("$t0")}));
-    REQUIRE(sorted(a.depsStallTargetIdx) == sorted(mapRegs(vecRange("$v16", 16, 8), REG_STALL_INDEX_MAP)));
+    REQUIRE(sorted(a.depsSourceIdx) == sorted({getRegIndex("$t0")}));
+    REQUIRE(sorted(a.depsTargetIdx) == sorted(idxs(stvLanes(16, 0))));
+    REQUIRE(sorted(a.depsStallSourceIdx) == sorted({getRegStallIndex("$t0")}));
+    REQUIRE(sorted(a.depsStallTargetIdx) == sorted(stallIdxs(vecRange("$v16", 16, 8))));
   }
 
   // Lanes - LTV - offset 2: $v08_7, $v09_0..$v15_6
   {
     auto a = makeAsm("ltv", {"$v08", "2", "0x10", "$t0"});
-    REQUIRE(sorted(a.depsSourceIdx) == sorted({REG_INDEX_MAP.at("$t0")}));
-    REQUIRE(sorted(a.depsTargetIdx) == sorted(mapRegs(stvLanes(8, 2), REG_INDEX_MAP)));
-    REQUIRE(sorted(a.depsStallSourceIdx) == sorted({REG_STALL_INDEX_MAP.at("$t0")}));
-    REQUIRE(sorted(a.depsStallTargetIdx) == sorted(mapRegs(vecRange("$v08", 8, 8), REG_STALL_INDEX_MAP)));
+    REQUIRE(sorted(a.depsSourceIdx) == sorted({getRegIndex("$t0")}));
+    REQUIRE(sorted(a.depsTargetIdx) == sorted(idxs(stvLanes(8, 2))));
+    REQUIRE(sorted(a.depsStallSourceIdx) == sorted({getRegStallIndex("$t0")}));
+    REQUIRE(sorted(a.depsStallTargetIdx) == sorted(stallIdxs(vecRange("$v08", 8, 8))));
   }
 
   // Lanes - LTV - offset 8: $v00_4..$v07_3
   {
     auto a = makeAsm("ltv", {"$v00", "8", "0x20", "$t0"});
-    REQUIRE(sorted(a.depsSourceIdx) == sorted({REG_INDEX_MAP.at("$t0")}));
-    REQUIRE(sorted(a.depsTargetIdx) == sorted(mapRegs(stvLanes(0, 8), REG_INDEX_MAP)));
-    REQUIRE(sorted(a.depsStallSourceIdx) == sorted({REG_STALL_INDEX_MAP.at("$t0")}));
-    REQUIRE(sorted(a.depsStallTargetIdx) == sorted(mapRegs(vecRange("$v00", 0, 8), REG_STALL_INDEX_MAP)));
+    REQUIRE(sorted(a.depsSourceIdx) == sorted({getRegIndex("$t0")}));
+    REQUIRE(sorted(a.depsTargetIdx) == sorted(idxs(stvLanes(0, 8))));
+    REQUIRE(sorted(a.depsStallSourceIdx) == sorted({getRegStallIndex("$t0")}));
+    REQUIRE(sorted(a.depsStallTargetIdx) == sorted(stallIdxs(vecRange("$v00", 0, 8))));
   }
 
   // ctc2 - VCC
   {
     auto a = makeAsm("ctc2", {"$at", "$vcc"});
-    REQUIRE(sorted(a.depsSourceIdx) == sorted({REG_INDEX_MAP.at("$at")}));
-    REQUIRE(sorted(a.depsTargetIdx) == sorted({REG_INDEX_MAP.at("$vcc")}));
-    REQUIRE(sorted(a.depsStallSourceIdx) == sorted({REG_STALL_INDEX_MAP.at("$at")}));
+    REQUIRE(sorted(a.depsSourceIdx) == sorted({getRegIndex("$at")}));
+    REQUIRE(sorted(a.depsTargetIdx) == sorted({getRegIndex("$vcc")}));
+    REQUIRE(sorted(a.depsStallSourceIdx) == sorted({getRegStallIndex("$at")}));
     REQUIRE(sorted(a.depsStallTargetIdx) == sorted({}));
   }
 }
