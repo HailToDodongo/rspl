@@ -397,7 +397,13 @@ void asmInitDep(AsmInst &inst) {
   inst.depsSourceMask = makeMask(depsSource);
   inst.depsTargetMask = makeMask(depsTarget);
 
-  // Build indices
+  // Build indices (reserve to avoid repeated reallocations)
+  inst.depsSourceIdx.clear();
+  inst.depsTargetIdx.clear();
+  inst.depsStallSourceIdx.clear();
+  inst.depsStallTargetIdx.clear();
+  inst.depsSourceIdx.reserve(depsSource.size());
+  inst.depsTargetIdx.reserve(depsTarget.size());
   for (auto &r : depsSource) {
     auto it = REG_INDEX_MAP.find(r);
     if (it != REG_INDEX_MAP.end()) inst.depsSourceIdx.push_back(it->second);
@@ -424,6 +430,8 @@ void asmInitDep(AsmInst &inst) {
     if (!STALL_IGNORE_REGS.count(base)) stallTgt.push_back(base);
   }
 
+  inst.depsStallSourceIdx.reserve(stallSrc.size());
+  inst.depsStallTargetIdx.reserve(stallTgt.size());
   for (auto &r : stallSrc) {
     auto it = REG_STALL_INDEX_MAP.find(r);
     if (it != REG_STALL_INDEX_MAP.end())
