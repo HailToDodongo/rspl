@@ -32,18 +32,18 @@ std::vector<AsmInst> callUserFunction(
   for (size_t i = 0; i < args.size(); ++i) {
     const auto &argUser = args[i];
     const auto &argDef = userFunc->args[i];
-    if (argUser.type == "num") {
+    if (argUser.type == ArgType::Num) {
       auto load =
           loadImmediate(argDef.reg, argUser.value);
       res.insert(res.end(), load.begin(), load.end());
     } else {
       const VarDef *argVar =
           state.getRequiredVar(argUser.value, "arg" + std::to_string(i));
-      if (argVar->type != argDef.type) {
+      if (toString(argVar->type) != toString(argDef.type)) {
         state.throwError("Function " + name +
                          " expects argument " + std::to_string(i) +
-                         " to be of type " + argDef.type +
-                         ", got " + argVar->type + "!");
+                         " to be of type " + toString(argDef.type) +
+                         ", got " + toString(argVar->type) + "!");
       }
       if (argVar->reg != argDef.reg) {
         state.throwError("Function " + name +

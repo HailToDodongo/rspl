@@ -1,5 +1,7 @@
 #pragma once
 
+#include "types.h"
+
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -8,6 +10,10 @@
 #include <vector>
 
 namespace rspl::ast {
+
+using rspl::ArgType;
+using rspl::FuncType;
+using rspl::TypeClass;
 
 // --- Leaf / argument types --------------------------------------------
 
@@ -22,7 +28,7 @@ struct ExprVarName {
 // --- Function arguments -----------------------------------------------
 
 struct FuncArg {
-  std::string type;   // "var", "num", or "string"
+  ArgType type = ArgType::Var; // var, num, or string
   std::string value;
   std::string swizzle; // optional, empty if absent
 };
@@ -30,7 +36,7 @@ struct FuncArg {
 // --- Function definition argument -------------------------------------
 
 struct FuncDefArg {
-  std::string type; // data type e.g. "u32", "vec16"
+  TypeClass type = TypeClass::Unknown; // data type e.g. u32, vec16
   std::string reg;  // optional register constraint, e.g. "$t0"
   std::string name;
 };
@@ -276,7 +282,7 @@ struct StateSection {
 
 struct Function {
   std::vector<Annotation> annotations;
-  std::string type;           // "function", "command", "macro"
+  FuncType type = FuncType::Function; // function, command, macro
   std::optional<int64_t> resultType; // command index
   std::string name;
   std::vector<FuncDefArg> args;

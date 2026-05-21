@@ -167,7 +167,7 @@ void State::declareVar(const std::string &name, const std::string &type,
   };
 
   checkReg(reg);
-  scope.varMap[name] = VarDef{reg, type, {}, {}, {}, {}, 0, isConst, 0};
+  scope.varMap[name] = VarDef{reg, toTypeClass(type), {}, {}, {}, {}, 0, isConst, 0};
   scope.regVarMap[reg] = name;
 
   if (isTwoRegType(type)) {
@@ -246,7 +246,7 @@ const VarDef *State::getRequiredVar(const std::string &name,
     if (memIt != memVarMap.end()) {
       static thread_local VarDef memVar;
       memVar = VarDef{};
-      memVar.type = memIt->second.type;
+      memVar.type = toTypeClass(memIt->second.type);
       memVar.name = memIt->second.name;
       memVar.reg = "%lo(" + memIt->second.name + ")"; // Use as label ref
       return &memVar;
@@ -268,32 +268,32 @@ VarDef State::getRequiredVarCopy(const std::string &name,
   // Handle cast suffix
   auto colonPos = name.find(':');
   if (colonPos != std::string::npos) {
-    std::string castType = name.substr(colonPos + 1);
+    std::string castStr = name.substr(colonPos + 1);
     copy.originalType = copy.type;
-    copy.castType = castType;
+    copy.castType = toCastType(castStr);
 
     if (isVecType(copy.type)) {
-      if (std::find(VEC_CASTS.begin(), VEC_CASTS.end(), castType) ==
+      if (std::find(VEC_CASTS.begin(), VEC_CASTS.end(), castStr) ==
           VEC_CASTS.end()) {
-        throwError("Invalid cast type '" + castType + "' for variable " +
+        throwError("Invalid cast type '" + castStr + "' for variable " +
                        name + ", expected: uint,sint,ufract,sfract!",
                    context);
       }
-      if (copy.type == "vec32" &&
-          (castType == "sfract" || castType == "ufract")) {
+      if (copy.type == TypeClass::Vec32 &&
+          (toCastType(castStr) == CastType::Sfract || toCastType(castStr) == CastType::Ufract)) {
         const std::string *nextV = reg::nextVecReg(copy.reg);
         if (nextV) copy.reg = *nextV;
       }
-      copy.type = "vec16";
+      copy.type = TypeClass::Vec16;
     } else {
-      if (std::find(SCALAR_TYPES.begin(), SCALAR_TYPES.end(), castType) ==
+      if (std::find(SCALAR_TYPES.begin(), SCALAR_TYPES.end(), castStr) ==
           SCALAR_TYPES.end()) {
         throwError(
-            "Invalid cast type '" + castType + "' for variable " + name +
+            "Invalid cast type '" + castStr + "' for variable " + name +
                 ", expected: s8,u8,s16,u16,s32,u32",
             context);
       }
-      copy.type = castType;
+      copy.type = toTypeClass(castStr);
     }
   }
   return copy;
@@ -388,7 +388,7 @@ VarOrMem State::getRequiredVarOrMem(const std::string &name,
   }
   auto varIt = scope.varMap.find(nameNorm);
   if (varIt != scope.varMap.end()) {
-    return {varIt->first, varIt->second.type, varIt->second.reg, 1};
+    return {varIt->first, toString(varIt->second.type), varIt->second.reg, 1};
   }
 
   throwError(contextName + " Variable/Memory " + name + " not known!",

@@ -82,7 +82,7 @@ std::vector<AsmInst> opMove(const VarDef &varRes,
       auto sit = SWIZZLE_MAP.find(varRight.swizzle);
       if (sit == SWIZZLE_MAP.end())
         state.throwError("Unknown swizzle: " + varRight.swizzle);
-      if (varRight.type == "vec16") {
+      if (varRight.type == TypeClass::Vec16) {
         return {asmOp("mfc2",
                       {varRes.reg, varRight.reg + sit->second})};
       }
@@ -111,7 +111,7 @@ std::vector<AsmInst> opLoad(const VarDef &varRes, const VarOrMem &varLoc,
       {"u8", "lbu"}, {"s8", "lb"},  {"u16", "lhu"},
       {"s16", "lh"}, {"u32", "lw"}, {"s32", "lw"},
   };
-  auto it = loadMap.find(varRes.type);
+  auto it = loadMap.find(toString(varRes.type));
   std::string opName = it != loadMap.end() ? it->second : "lw";
 
   // Build the offset string
@@ -146,7 +146,7 @@ std::vector<AsmInst> opStore(const VarDef &varRes,
       {"u8", "sb"},  {"s8", "sb"},  {"u16", "sh"},
       {"s16", "sh"}, {"u32", "sw"}, {"s32", "sw"},
   };
-  auto it = storeMap.find(varRes.type);
+  auto it = storeMap.find(toString(varRes.type));
   std::string opName = it != storeMap.end() ? it->second : "sw";
 
   std::string baseReg = varLoc.reg.empty() ? "$zero" : varLoc.reg;
@@ -258,7 +258,7 @@ std::vector<AsmInst> opDiv(const VarDef &varRes, const VarDef &varLeft,
   }
   VarDef shiftVar = varRight;
   shiftVar.value = shift;
-  bool logical = !varLeft.type.empty() && varLeft.type[0] == 'u';
+  bool logical = varLeft.type != TypeClass::Unknown && (varLeft.type == TypeClass::U32 || varLeft.type == TypeClass::U16 || varLeft.type == TypeClass::U8);
   return opShiftRight(varRes, varLeft, shiftVar, logical);
 }
 

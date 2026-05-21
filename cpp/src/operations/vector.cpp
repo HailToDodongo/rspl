@@ -21,11 +21,11 @@ static const std::string *nextVecReg(const std::string &regName) {
 static std::string intReg(const VarDef &v) { return v.reg; }
 
 static std::string fractReg(const VarDef &v) {
-  if (v.type == "vec32" || v.originalType == "vec32") {
+  if (v.type == TypeClass::Vec32 || v.originalType == TypeClass::Vec32) {
     const auto *next = reg::nextVecReg(v.reg);
     return next ? *next : reg::Reg::VZERO;
   }
-  if (v.castType == "ufract" || v.castType == "sfract") {
+  if (v.castType == CastType::Ufract || v.castType == CastType::Sfract) {
     return v.reg;
   }
   return reg::Reg::VZERO;
@@ -36,11 +36,11 @@ static std::string fractReg(const VarDef &v) {
 // For destinations, callers should use getVec32DstRegs() to always get the
 // original register pair.
 std::pair<std::string, std::string> getVec32Regs(const VarDef &v) {
-  if (v.type == "vec32") {
+  if (v.type == TypeClass::Vec32) {
     const auto *next = reg::nextVecReg(v.reg);
     return {v.reg, next ? *next : reg::Reg::VZERO};
   }
-  if (v.castType == "ufract" || v.castType == "sfract") {
+  if (v.castType == CastType::Ufract || v.castType == CastType::Sfract) {
     return {reg::Reg::VZERO, v.reg};
   }
   return {v.reg, reg::Reg::VZERO};
@@ -62,12 +62,12 @@ static void adjustRegsForResType(const VarDef &varRes, const VarDef &varLeft,
 // Returns the actual register pair of the original vec32, regardless of cast.
 static std::pair<std::string, std::string>
 getVec32DstRegs(const VarDef &v) {
-  if (v.type == "vec32") {
+  if (v.type == TypeClass::Vec32) {
     const auto *next = reg::nextVecReg(v.reg);
     return {v.reg, next ? *next : reg::Reg::VZERO};
   }
-  if (v.originalType == "vec32") {
-    if (v.castType == "ufract" || v.castType == "sfract") {
+  if (v.originalType == TypeClass::Vec32) {
+    if (v.castType == CastType::Ufract || v.castType == CastType::Sfract) {
       // v.reg is the fract register; the int reg is the previous one
       const auto *prev = reg::nextReg(v.reg, -1);
       std::string intReg = prev ? *prev : reg::Reg::VZERO;
@@ -110,7 +110,7 @@ genericLogicOp(const VarDef &varRes, const VarDef &varLeft,
   if (sit == SWIZZLE_MAP.end())
     state.throwError("Unsupported swizzle: " + varRight.swizzle);
 
-  bool is32 = (varRes.type == "vec32");
+  bool is32 = (varRes.type == TypeClass::Vec32);
   std::string swSuffix = sit->second;
   std::string regR = varRight.reg + swSuffix;
 
@@ -128,8 +128,8 @@ genericLogicOp(const VarDef &varRes, const VarDef &varLeft,
 
 std::vector<AsmInst> opMoveVec(const VarDef &varRes,
                                const VarDef &varRight) {
-  bool isVec32 = (varRes.type == "vec32" ||
-                   varRes.originalType == "vec32");
+  bool isVec32 = (varRes.type == TypeClass::Vec32 ||
+                   varRes.originalType == TypeClass::Vec32);
 
   // Constant assignment to full vector
   if (varRight.reg.empty() && varRes.swizzle.empty()) {
@@ -144,7 +144,7 @@ std::vector<AsmInst> opMoveVec(const VarDef &varRes,
     std::vector<AsmInst> res;
     auto regsDst = getVec32Regs(varRes);
     bool hasCast =
-        !varRes.castType.empty() || !varRes.swizzle.empty();
+        varRes.castType != CastType::None || !varRes.swizzle.empty();
     if (hasCast) {
       // For casts, only the relevant half gets the constant
       if (regsDst.second != reg::Reg::VZERO)
@@ -173,7 +173,7 @@ std::vector<AsmInst> opMoveVec(const VarDef &varRes,
       sRes = ".e0";
 
     std::vector<AsmInst> scalarRes;
-    if (isVec32 || varRes.originalType == "vec32") {
+    if (isVec32 || varRes.originalType == TypeClass::Vec32) {
       auto regsDst = getVec32DstRegs(varRes);
       scalarRes.push_back(
           asmOp("mtc2", {varRight.reg, regsDst.second + sRes}));
@@ -208,7 +208,7 @@ std::vector<AsmInst> opMoveVec(const VarDef &varRes,
 
     // When both sides have casts, only use the base register of each
     // (the paired register is VZERO, whose writes are filtered as NOPs).
-    if (!varRes.castType.empty() && !varRight.castType.empty()) {
+    if (varRes.castType != CastType::None && varRight.castType != CastType::None) {
       regsDst = {varRes.reg, reg::Reg::VZERO};
       regsR = {varRight.reg, reg::Reg::VZERO};
     }
@@ -349,13 +349,13 @@ std::vector<AsmInst> opMoveVec(const VarDef &varRes,
     double dVal = varRight.value;
     if (dVal != static_cast<int64_t>(dVal)) {
       bool isFractCast =
-          varRes.castType == "ufract" || varRes.castType == "sfract";
-      double scale = (varRes.castType == "sfract") ? 0.5 : 1.0;
+          varRes.castType == CastType::Ufract || varRes.castType == CastType::Sfract;
+      double scale = (varRes.castType == CastType::Sfract) ? 0.5 : 1.0;
       auto valueFP32 =
           static_cast<int64_t>(dVal * scale * 65536.0);
       int64_t valInt = (valueFP32 >> 16) & 0xFFFF;
       int64_t valFract = valueFP32 & 0xFFFF;
-      if (varRes.castType == "sfract" && dVal >= 0) {
+      if (varRes.castType == CastType::Sfract && dVal >= 0) {
         valFract = std::min(valFract, int64_t(0x7FFF));
       }
       if (isFractCast) valInt = valFract;
@@ -369,7 +369,7 @@ std::vector<AsmInst> opMoveVec(const VarDef &varRes,
       fload.push_back(
           asmOp("mtc2", {valInt == 0 ? reg::Reg::ZERO : reg::Reg::AT,
                           regsDst.first + sRes}));
-      if (isVec32 || varRes.originalType == "vec32") {
+      if (isVec32 || varRes.originalType == TypeClass::Vec32) {
         if (valFract != 0) {
           auto li =
               loadImmediate(reg::Reg::AT, std::to_string(valFract));
@@ -429,7 +429,7 @@ std::vector<AsmInst> opLoadVec(const VarDef &varRes,
     if (sit != SWIZZLE_SCALAR_IDX.end()) destOffset = sit->second * 2;
   }
 
-  bool is32 = (varRes.type == "vec32");
+  bool is32 = (varRes.type == TypeClass::Vec32);
 
   // Detect dupeLoad and normalize swizzle (matches JS behavior)
   std::string swiz = swizzle;
@@ -526,7 +526,7 @@ std::vector<AsmInst> opStoreVec(const VarDef &varRes,
     state.throwError("Vector stores need at least one offset!");
   const auto &varLoc = varOffsets[0];
 
-  bool is32 = (varRes.type == "vec32");
+  bool is32 = (varRes.type == TypeClass::Vec32);
   int accessLen = varRes.swizzle.empty()
                       ? 16
                       : static_cast<int>(varRes.swizzle.size()) * 2;
@@ -629,12 +629,12 @@ std::vector<AsmInst> opAddVec(const VarDef &varRes,
 
   std::string fractOp = "vaddc";
   std::string intOp = "vaddc";
-  if (varRes.type == "vec32") {
+  if (varRes.type == TypeClass::Vec32) {
     fractOp = "vaddc";
     intOp = "vadd";
-  } else if (!varRes.castType.empty()) {
-    if (varRes.castType == "sfract") fractOp = "vadd";
-    if (varRes.castType == "sint") intOp = "vadd";
+  } else if (varRes.castType != CastType::None) {
+    if (varRes.castType == CastType::Sfract) fractOp = "vadd";
+    if (varRes.castType == CastType::Sint) intOp = "vadd";
   }
 
   return {asmOp(fractOp, {regsDst.second, regsL.second,
@@ -661,7 +661,7 @@ std::vector<AsmInst> opSubVec(const VarDef &varRes,
   if (sit == SWIZZLE_MAP.end())
     state.throwError("Unsupported swizzle: " + varRight.swizzle);
 
-  if (varRes.type == "vec32") {
+  if (varRes.type == TypeClass::Vec32) {
     return {asmOp("vsubc", {*reg::nextReg(varRes.reg),
                             fractReg(varLeft),
                             fractReg(varRight) + sit->second}),
@@ -669,7 +669,7 @@ std::vector<AsmInst> opSubVec(const VarDef &varRes,
                            varRight.reg + sit->second})};
   }
   bool isSigned =
-      !varRes.castType.empty() && varRes.castType[0] == 's';
+      varRes.castType != CastType::None && (varRes.castType == CastType::Sfract || varRes.castType == CastType::Sint);
   return {asmOp(isSigned ? "vsub" : "vsubc",
                 {varRes.reg, varLeft.reg,
                  varRight.reg + sit->second})};
@@ -686,7 +686,7 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
     }
     varRight.reg = pIt->second.reg;
     varRight.swizzle = pIt->second.swizzle;
-    varRight.type = "vec16";
+    varRight.type = TypeClass::Vec16;
   }
   assertVectorVars(varLeft, &varRight);
   auto sit = SWIZZLE_MAP.find(varRight.swizzle);
@@ -694,7 +694,7 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
     state.throwError("Unsupported swizzle: " + varRight.swizzle);
 
   std::string swSuffix = sit->second;
-  bool right32Bit = (varRight.type == "vec32");
+  bool right32Bit = (varRight.type == TypeClass::Vec32);
   std::string fractOp = clearAccum ? "vmudl" : "vmadl";
   std::string intOp = clearAccum ? "vmudn" : "vmadn";
 
@@ -702,19 +702,19 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
   // JS opMul:603-608 — vec16 result special case for sfract/ufract.
   // Unlike C++ this does NOT contain caseRef/sint/default paths;
   // non-matching cases fall through to the general multiply paths below.
-  if (varRes.type == "vec16" &&
-      varLeft.type == "vec16" &&
-      (varLeft.castType == "sfract" || varLeft.castType == "ufract") &&
-      varRight.originalType == "vec32" &&
-      (varRight.castType == "sfract" || varRight.castType == "ufract")) {
+  if (varRes.type == TypeClass::Vec16 &&
+      varLeft.type == TypeClass::Vec16 &&
+      (varLeft.castType == CastType::Sfract || varLeft.castType == CastType::Ufract) &&
+      varRight.originalType == TypeClass::Vec32 &&
+      (varRight.castType == CastType::Sfract || varRight.castType == CastType::Ufract)) {
     std::string opMid = clearAccum ? "vmudm" : "vmadm";
     return {asmOp(opMid, {varRes.reg, varLeft.reg,
                           varRight.reg + swSuffix})};
   }
 
   // vec32 sfract result from vec32 * vec32 (JS opMul:612-619)
-  if (varRes.originalType == "vec32" && varRes.castType == "sfract" &&
-      varLeft.type == "vec32" && varRight.type == "vec32") {
+  if (varRes.originalType == TypeClass::Vec32 && varRes.castType == CastType::Sfract &&
+      varLeft.type == TypeClass::Vec32 && varRight.type == TypeClass::Vec32) {
     return {
         asmOp("vmudl", {reg::Reg::VTEMP0, fractReg(varLeft),
                          fractReg(varRight) + swSuffix}),
@@ -726,8 +726,8 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
   }
 
   // 16bit * 32bit multiply (JS opMul:643-649)
-  if (right32Bit && varRes.type == "vec32" && varLeft.type == "vec16" &&
-      !(varLeft.castType == "sfract" || varLeft.castType == "ufract")) {
+  if (right32Bit && varRes.type == TypeClass::Vec32 && varLeft.type == TypeClass::Vec16 &&
+      !(varLeft.castType == CastType::Sfract || varLeft.castType == CastType::Ufract)) {
     auto regsDst = getVec32Regs(varRes);
     return {
         asmOp("vmudm", {regsDst.second, varLeft.reg,
@@ -764,9 +764,9 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
   // Partial multiplication: s16.16 * 0.16 (fractional part of original s16.16)
   // JS opMul:662-668
   bool rightSideIsFraction =
-      (varRight.castType == "sfract" || varRight.castType == "ufract");
+      (varRight.castType == CastType::Sfract || varRight.castType == CastType::Ufract);
   if (rightSideIsFraction &&
-      (varRight.originalType == "vec32" || varRes.type == "vec32")) {
+      (varRight.originalType == TypeClass::Vec32 || varRes.type == TypeClass::Vec32)) {
     const std::string *nextReg = reg::nextVecReg(varRes.reg);
     return {
         asmOp(fractOp,
@@ -777,18 +777,18 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
   }
 
   // JS opMul:671-686 — vec16 result default path
-  if (varRes.type == "vec16") {
-    std::string caseRef =
-        !varLeft.castType.empty()   ? varLeft.castType :
-        !varRight.castType.empty()  ? varRight.castType :
+  if (varRes.type == TypeClass::Vec16) {
+    CastType caseRef =
+        varLeft.castType != CastType::None   ? varLeft.castType :
+        varRight.castType != CastType::None  ? varRight.castType :
                                       varRes.castType;
-    if (caseRef == "ufract" || caseRef == "sfract") {
+    if (caseRef == CastType::Ufract || caseRef == CastType::Sfract) {
       std::string op = clearAccum ? "vmul" : "vmac";
-      op += (caseRef == "ufract") ? "u" : "f";
+      op += (caseRef == CastType::Ufract) ? "u" : "f";
       return {asmOp(op, {varRes.reg, varLeft.reg,
                          varRight.reg + swSuffix})};
     }
-    if (varLeft.castType == "sint" || varRight.castType == "sint") {
+    if (varLeft.castType == CastType::Sint || varRight.castType == CastType::Sint) {
       intOp = clearAccum ? "vmudh" : "vmadh";
     }
     return {asmOp(intOp, {varRes.reg, varLeft.reg,
@@ -796,7 +796,7 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
   }
 
   // JS opMul:688-692 — general vec32 path
-  if (varRes.type == "vec32" || varRes.originalType == "vec32") {
+  if (varRes.type == TypeClass::Vec32 || varRes.originalType == TypeClass::Vec32) {
     auto regsDst = getVec32Regs(varRes);
     std::string regResFract =
         (regsDst.second == reg::Reg::VZERO) ? reg::Reg::VTEMP0
@@ -832,7 +832,7 @@ std::vector<AsmInst> opShiftLeftVec(const VarDef &varRes,
   std::string regR = pIt->second.reg + sit->second;
 
   // Vec32 shift
-  if (varRes.type == "vec32") {
+  if (varRes.type == TypeClass::Vec32) {
     auto regsDst = getVec32Regs(varRes);
     auto regsL = getVec32Regs(varLeft);
     std::string firstReg =
@@ -844,7 +844,7 @@ std::vector<AsmInst> opShiftLeftVec(const VarDef &varRes,
   }
 
   // Vec16 result from vec32 source
-  if (varRes.type == "vec16" && varLeft.type == "vec32") {
+  if (varRes.type == TypeClass::Vec16 && varLeft.type == TypeClass::Vec32) {
     auto regsL = getVec32Regs(varLeft);
     return {
         asmOp("vmudl", {varRes.reg, regsL.second, regR}),
@@ -874,7 +874,7 @@ std::vector<AsmInst> opShiftRightVec(const VarDef &varRes,
   std::string regR = pIt->second.reg + sit->second;
 
   // Vec32 shift
-  if (varRes.type == "vec32") {
+  if (varRes.type == TypeClass::Vec32) {
     auto regsDst = getVec32Regs(varRes);
     auto regsL = getVec32Regs(varLeft);
 
@@ -929,7 +929,7 @@ std::vector<AsmInst> opBitFlipVec(const VarDef &varRes,
         "NOT operator is only supported for variables!");
   VarDef zero = varRes;
   zero.reg = reg::Reg::VZERO;
-  zero.type = "vec16";
+  zero.type = TypeClass::Vec16;
   return genericLogicOp(varRes, varRight, zero, "vnor");
 }
 
@@ -959,7 +959,7 @@ std::vector<AsmInst> opInvertHalf(const VarDef &varRes,
   std::string sArg =
       sitArg != SWIZZLE_MAP.end() ? sitArg->second : "";
 
-  if (varRes.type == "vec32" && varLeft.type == "vec16") {
+  if (varRes.type == TypeClass::Vec32 && varLeft.type == TypeClass::Vec16) {
     return {
         asmOp("vrcp", {fractReg(varRes) + sRes, varLeft.reg + sArg}),
         asmOp("vrcph", {intReg(varRes) + sRes, varLeft.reg + sArg})};
@@ -1024,9 +1024,9 @@ std::vector<AsmInst> opCompareVec(const VarDef &varRes,
                                   const ast::TernaryPart *ternary) {
   if (!ternary && isTwoRegType(varRes.type))
     state.throwError("Vector comparison can only use vec16!");
-  if (varLeft.type != "vec16")
+  if (varLeft.type != TypeClass::Vec16)
     state.throwError("Vector comparison can only use vec16!");
-  if (varRight.type != "vec16" && !varRight.reg.empty())
+  if (varRight.type != TypeClass::Vec16 && !varRight.reg.empty())
     state.throwError("Vector comparison can only use vec16!");
   if (!varRes.swizzle.empty())
     state.throwError(
@@ -1057,7 +1057,7 @@ std::vector<AsmInst> opCompareVec(const VarDef &varRes,
     VarDef vLeft, vRight;
     if (ternary->left == "VZERO") {
       vLeft.reg = reg::Reg::VZERO;
-      vLeft.type = "vec16";
+      vLeft.type = TypeClass::Vec16;
     } else {
       vLeft = state.getRequiredVarCopy(ternary->left, "ternary-left");
     }
@@ -1066,7 +1066,7 @@ std::vector<AsmInst> opCompareVec(const VarDef &varRes,
       if (pIt != POW2_SWIZZLE_VAR.end()) {
         vRight.reg = pIt->second.reg;
         vRight.swizzle = pIt->second.swizzle;
-        vRight.type = "vec16";
+        vRight.type = TypeClass::Vec16;
       }
     } else if (!ternary->right.empty()) {
       vRight = state.getRequiredVarCopy(ternary->right, "ternary-right");

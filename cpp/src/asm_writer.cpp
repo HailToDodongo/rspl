@@ -87,7 +87,7 @@ AsmWriteResult writeASM(const ast::Program &ast,
   // Command list
   int maxResultType = -1;
   for (const auto &fn : functions) {
-    if (fn.type == "command") {
+    if (fn.type == FuncType::Command) {
       int rt = fn.resultType.value_or(-1);
       if (rt > maxResultType) maxResultType = rt;
     }
@@ -97,7 +97,7 @@ AsmWriteResult writeASM(const ast::Program &ast,
   std::vector<std::string> commandList(maxResultType + 1,
                                        "    RSPQ_DefineCommand RSPQ_Loop, 4");
   for (const auto &fn : functions) {
-    if (fn.type == "command" && fn.resultType.has_value()) {
+    if (fn.type == FuncType::Command && fn.resultType.has_value()) {
       std::string name =
           fn.nameOverride.empty() ? fn.name : fn.nameOverride;
       commandList[fn.resultType.value()] =

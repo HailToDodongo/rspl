@@ -65,15 +65,15 @@ static const std::string LABEL_CMD_LOOP = "RSPQ_Loop";
 
 // --- Type inference for declarations ----------------------------------
 
-static std::string inferCalcResultType(const ast::Calc &calc,
+static TypeClass inferCalcResultType(const ast::Calc &calc,
                                         const std::string &declType) {
   return std::visit(
-      [&](const auto &c) -> std::string {
+      [&](const auto &c) -> TypeClass {
         using T = std::decay_t<decltype(c)>;
         if constexpr (std::is_same_v<T, ast::CalcNum>) {
-          return declType;
+          return toTypeClass(declType);
         } else if constexpr (std::is_same_v<T, ast::CalcVar>) {
-          return declType;
+          return toTypeClass(declType);
         } else if constexpr (std::is_same_v<T, ast::CalcLR>) {
           const VarDef *l = state.getVar(c.left.value);
           if (!c.rightVarName.empty()) {
@@ -82,7 +82,7 @@ static std::string inferCalcResultType(const ast::Calc &calc,
               return isVecType(l->type) ? l->type : r->type;
           }
           if (l && isVecType(l->type)) return l->type;
-          return declType;
+          return toTypeClass(declType);
         } else if constexpr (std::is_same_v<T, ast::CalcMulti>) {
           // If the declared type is already a vector type, trust it.
           // This matters for mixed-type expressions like vec16 * vec32
@@ -90,7 +90,7 @@ static std::string inferCalcResultType(const ast::Calc &calc,
           // vec32. Without this the left operand's type (vec16) wins and
           // later type-sensitive operations (e.g. clip()) receive wrong
           // types.
-          if (isVecType(declType)) return declType;
+          if (isVecType(declType)) return toTypeClass(declType);
           const VarDef *l = state.getVar(c.left.value);
           if (l && isVecType(l->type)) return l->type;
           for (const auto &p : c.parts) {
@@ -99,9 +99,9 @@ static std::string inferCalcResultType(const ast::Calc &calc,
               if (r && isVecType(r->type)) return r->type;
             }
           }
-          return declType;
+          return toTypeClass(declType);
         } else {
-          return declType;
+          return toTypeClass(declType);
         }
       },
       calc);
@@ -198,8 +198,8 @@ static VarDef resolveFlatVal(FlatElem &elem,
   if (elem.isNested) {
     // Recursively decompose the nested sub-expression into a temp variable
     std::string tmpName = "__tmp_" + std::to_string(tmpCounter++);
-    state.declareVar(tmpName, varRes.type,
-                     state.allocRegister(varRes.type));
+    state.declareVar(tmpName, toString(varRes.type),
+                     state.allocRegister(toString(varRes.type)));
     VarDef tmpVar = state.getRequiredVarCopy(tmpName, "tmp");
     decomposeParts(elem.nested, tmpVar, out, tmpCounter);
     return tmpVar;
@@ -540,7 +540,7 @@ calcToAsm(const ast::Calc &calc, const VarDef &varRes) {
           if (macros.count(c.funcName)) {
             std::vector<ast::FuncArg> callArgs;
             callArgs.push_back(
-                {.type = "var", .value = varRes.name, .swizzle = ""});
+                {.type = ArgType::Var, .value = varRes.name, .swizzle = ""});
             for (auto &a : c.args) callArgs.push_back(a);
             return inlineMacroCall(c.funcName, callArgs);
           }
@@ -564,7 +564,7 @@ calcToAsm(const ast::Calc &calc, const VarDef &varRes) {
                 state.throwError("Constant must be a power of two!");
               vRight.reg = pIt->second.reg;
               vRight.swizzle = pIt->second.swizzle;
-              vRight.type = "vec16";
+              vRight.type = TypeClass::Vec16;
             } else {
               vRight = state.getRequiredVarCopy(c.right, "right");
               vRight.swizzle = c.swizzleRight;
@@ -661,7 +661,7 @@ static std::vector<AsmInst> loopToAsm(const ast::StmtLoop &st) {
 
   // loop { body } while(cond) — emit conditional branch at the tail
   if (st.compare.has_value()) {
-        if (st.compare->left.type == "num") {
+        if (st.compare->left.type == ArgType::Num) {
       state.throwError(
           "Loop-Statements with numeric left-hand-side not implemented!");
     }
@@ -763,7 +763,7 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
                 s.varName.substr(0, s.varName.find(':'));
             std::string effectiveType = s.varType;
             if (s.calc) {
-              effectiveType = inferCalcResultType(*s.calc, s.varType);
+              effectiveType = toString(inferCalcResultType(*s.calc, s.varType));
             }
             state.declareVar(baseName, effectiveType,
                              s.reg.empty()
@@ -797,7 +797,7 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
               if (!builtins::lookup(cf->funcName)) {
                 std::vector<ast::FuncArg> callArgs;
                 callArgs.push_back(
-                    {.type = "var", .value = s.varName, .swizzle = s.swizzle});
+                    {.type = ArgType::Var, .value = s.varName, .swizzle = s.swizzle});
                 for (auto &a : cf->args) callArgs.push_back(a);
                 if (macros.count(cf->funcName)) {
                   auto inlineRes = inlineMacroCall(cf->funcName, callArgs);
@@ -974,7 +974,7 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
   // Register macros
   macros.clear();
   for (const auto &fn : ast.functions) {
-    if (fn.type == "macro") {
+    if (fn.type == FuncType::Macro) {
       macros[fn.name] = &fn;
     }
   }
@@ -993,7 +993,7 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
 
   // Pre-declare all functions so they can reference each other
   for (const auto &fn : ast.functions) {
-    if (fn.type == "function" || fn.type == "command") {
+    if (fn.type == FuncType::Function || fn.type == FuncType::Command) {
       bool isRelative = false;
       for (const auto &ann : fn.annotations) {
         if (ann.name == "Relative") isRelative = true;
@@ -1003,17 +1003,17 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
   }
 
   for (const auto &fn : ast.functions) {
-    if (fn.type == "macro") continue; // already registered
+    if (fn.type == FuncType::Macro) continue; // already registered
     if (!fn.body) continue; // forward declaration only — no body to generate
 
     // argSize in bytes, matching JS getArgSize() = max(args.length * 4, 4)
     int byteArgSize =
         std::max(static_cast<int>(fn.args.size()) * 4, 4);
-    state.enterFunction(fn.name, fn.type,
-                        fn.type == "command" ? byteArgSize
+    state.enterFunction(fn.name, toString(fn.type),
+                        fn.type == FuncType::Command ? byteArgSize
                                              : fn.resultType.value_or(0));
 
-    bool isCommand = (fn.type == "command");
+    bool isCommand = (fn.type == FuncType::Command);
     // Built-in registers (ZERO, VZERO, RA, etc.) are already
     // declared by enterFunction().
 
@@ -1028,9 +1028,9 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
       } else if (argSize < 4) {
         reg = argRegs[argSize];
       } else {
-        reg = state.allocRegister(arg.type);
+        reg = state.allocRegister(toString(arg.type));
       }
-      state.declareVar(arg.name, arg.type, reg);
+      state.declareVar(arg.name, toString(arg.type), reg);
       argSize++;
     }
 

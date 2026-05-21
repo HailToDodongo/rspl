@@ -31,7 +31,7 @@ TEST_CASE("parse minimal function", "[ast]") {
 
   REQUIRE(prog.functions.size() == 1);
   REQUIRE(prog.functions[0].name == "test");
-  REQUIRE(prog.functions[0].type == "function");
+  REQUIRE(toString(prog.functions[0].type) == "function");
   REQUIRE(prog.functions[0].body != nullptr);
   REQUIRE(prog.functions[0].body->statements.size() == 1);
 }

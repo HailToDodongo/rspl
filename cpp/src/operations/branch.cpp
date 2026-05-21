@@ -36,7 +36,7 @@ std::string invertBranchOp(const std::string &op) {
 std::vector<AsmInst> opBranch(const ast::CompareExpr &compare,
                               const std::string &labelElse,
                               bool invert) {
-  bool isImmediate = (compare.right.type == "num");
+  bool isImmediate = (compare.right.type == ArgType::Num);
   std::string regTestRes;
   if (isImmediate) {
     regTestRes = reg::Reg::AT;
@@ -55,7 +55,6 @@ std::vector<AsmInst> opBranch(const ast::CompareExpr &compare,
   VarDef varLeft =
       state.getRequiredVarCopy(compare.left.value, "left");
   std::string regLeft = varLeft.reg;
-  std::string baseType = varLeft.type;
 
   // == and != are simple
   if (compare.op == "==" || compare.op == "!=") {
@@ -110,7 +109,7 @@ std::vector<AsmInst> opBranch(const ast::CompareExpr &compare,
   // For </>= comparisons, use slt + branch
   std::string opLessThan =
       "slt" + (isImmediate ? std::string("i") : "") +
-      (isSigned(baseType) ? "" : "u");
+      (isSigned(varLeft.type) ? "" : "u");
 
   if (op == "<" || op == ">=") {
     std::string brOp = op == "<" ? "beq" : "bne";

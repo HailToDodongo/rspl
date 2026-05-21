@@ -4,7 +4,7 @@
 namespace rspl {
 
 inline void commandAlias(AsmFunc &func) {
-  if (func.asm_.size() < 2 || func.type != "command") return;
+  if (func.asm_.size() < 2 || func.type != FuncType::Command) return;
 
   auto &inst = func.asm_;
   std::string op0 = inst[0].op;

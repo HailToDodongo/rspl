@@ -56,7 +56,7 @@ static void assertArgsNoSwizzle(const std::vector<ast::FuncArg> &args, int offse
 
 static VarDef resolveArg(const ast::FuncArg &arg, const std::string &ctx) 
 {
-  if (arg.type == "num") {
+  if (arg.type == ArgType::Num) {
     VarDef v;
     v.value = std::stoll(arg.value);
     return v;
@@ -69,7 +69,7 @@ static VarDef resolveArg(const ast::FuncArg &arg, const std::string &ctx)
   }
   auto memVar = state.getRequiredVarOrMem(arg.value, ctx);
   VarDef v;
-  v.type = memVar.type;
+  v.type = toTypeClass(memVar.type);
   v.reg = ""; // no register — it's a memory label
   v.swizzle = arg.swizzle;
   v.value = 0;
@@ -91,7 +91,7 @@ b_load(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
 
   auto argVar = state.getRequiredVarOrMem(args[0].value, "arg0");
   VarOrMem argOffset;
-  if (args.size() >= 2 && args[1].type == "num")
+  if (args.size() >= 2 && args[1].type == ArgType::Num)
     argOffset.reg = args[1].value;
   else if (args.size() >= 2)
     argOffset = state.getRequiredVarOrMem(args[1].value, "arg1");
@@ -116,7 +116,7 @@ b_load_ex(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
   if (args.empty()) state.throwError("Builtin load() requires at least 1 argument!");
   auto argVar = state.getRequiredVarOrMem(args[0].value, "arg0");
   VarOrMem argOffset;
-  if (args.size() >= 2 && args[1].type == "num")
+  if (args.size() >= 2 && args[1].type == ArgType::Num)
     argOffset.reg = args[1].value;
   else if (args.size() >= 2)
     argOffset = state.getRequiredVarOrMem(args[1].value, "arg1");
@@ -134,7 +134,7 @@ b_store(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
   assertArgsNoSwizzle(args, 1);
   if (varRes)
     state.throwError("Builtin store() cannot have a left side!");
-  if (args.empty() || args[0].type != "var")
+  if (args.empty() || args[0].type != ArgType::Var)
     state.throwError("Builtin store() requires first argument to be a variable!");
 
   VarDef varSrc = resolveArg(args[0], "arg0");
@@ -142,7 +142,7 @@ b_store(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
 
   std::vector<VarOrMem> offsets;
   for (size_t i = 1; i < args.size(); ++i) {
-    if (args[i].type == "num") {
+    if (args[i].type == ArgType::Num) {
       VarOrMem v;
       v.reg = args[i].value;
       offsets.push_back(v);
@@ -166,13 +166,13 @@ b_store_ex(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
            bool isPackedByte, bool isSigned, bool isUnaligned) {
   assertArgsNoSwizzle(args, 1);
   if (varRes) state.throwError("Builtin store() cannot have a left side!");
-  if (args.empty() || args[0].type != "var")
+  if (args.empty() || args[0].type != ArgType::Var)
     state.throwError("Builtin store() requires first argument to be a variable!");
   VarDef varSrc = resolveArg(args[0], "arg0");
   varSrc.swizzle = args[0].swizzle;
   std::vector<VarOrMem> offsets;
   for (size_t i = 1; i < args.size(); ++i) {
-    if (args[i].type == "num") {
+    if (args[i].type == ArgType::Num) {
       VarOrMem v; v.reg = args[i].value; offsets.push_back(v);
     } else {
       offsets.push_back(state.getRequiredVarOrMem(args[i].value, "store_offset"));
@@ -263,8 +263,8 @@ b_clip(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
     state.throwError("Builtin clip() requires first argument to be a vector!");
   if (!isVecType(varArg1.type))
     state.throwError("Builtin clip() requires second argument to be a vector!");
-  bool is32BitA = (varArg0.type == "vec32");
-  bool is32BitB = (varArg1.type == "vec32");
+  bool is32BitA = (varArg0.type == TypeClass::Vec32);
+  bool is32BitB = (varArg1.type == TypeClass::Vec32);
   if (is32BitA != is32BitB)
     state.throwError(
         "Builtin clip() requires both arguments to be of the same type!");
@@ -300,7 +300,7 @@ b_set_vcc(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
 
   std::string reg = reg::Reg::AT;
   std::vector<AsmInst> res;
-  if (args[0].type == "num") {
+  if (args[0].type == ArgType::Num) {
     auto load = loadImmediate(reg, args[0].value);
     res.insert(res.end(), load.begin(), load.end());
   } else {
@@ -328,7 +328,7 @@ b_get_acc(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
   if (!reg::isVecReg(varRes->reg))
     state.throwError(
         "Builtin get_acc() must be assigned to a vector variable!");
-  if (varRes->type != "vec32")
+  if (varRes->type != TypeClass::Vec32)
     state.throwError(
         "Builtin get_acc() must be assigned to a vec32 variable!\n"
         "Use get_acc_high/mid/low.");
@@ -352,7 +352,7 @@ b_get_acc_part(const VarDef *varRes,
   if (!reg::isVecReg(varRes->reg))
     state.throwError(
         "Builtin get_acc_*() must be assigned to a vector variable!");
-  if (varRes->type != "vec16")
+  if (varRes->type != TypeClass::Vec16)
     state.throwError(
         "Builtin get_acc_*() must be assigned to a vec16 variable!\n"
         "Use get_acc().");
@@ -382,7 +382,7 @@ b_mtc0_write(const VarDef *varRes,
     state.throwError("Builtin requires 1 scalar argument!");
   std::string reg = reg::Reg::AT;
   std::vector<AsmInst> res;
-  if (args[0].type == "num") {
+  if (args[0].type == ArgType::Num) {
     auto load = loadImmediate(reg, args[0].value);
     res.insert(res.end(), load.begin(), load.end());
   } else {
@@ -409,7 +409,7 @@ b_get_cmd_address(const VarDef *varRes,
   if (args.size() > 1)
     state.throwError(
         "Builtin get_cmd_address() requires zero or one argument!");
-  if (args.size() == 1 && args[0].type != "num")
+  if (args.size() == 1 && args[0].type != ArgType::Num)
     state.throwError(
         "Builtin get_cmd_address() requires the argument to be a number!");
   if (reg::isVecReg(varRes->reg))
@@ -436,7 +436,7 @@ b_load_arg(const VarDef *varRes,
   if (args.size() > 1)
     state.throwError(
         "Builtin load_arg() requires zero or one argument!");
-  if (args.size() == 1 && args[0].type != "num")
+  if (args.size() == 1 && args[0].type != ArgType::Num)
     state.throwError(
         "Builtin load_arg() requires the argument to be a number!");
   if (reg::isVecReg(varRes->reg))
@@ -488,7 +488,7 @@ b_dma(const VarDef *varRes,
   // Explicit size (3-arg form)
   if (args.size() == 3) {
     const auto &sizeArg = args[2];
-    if (sizeArg.type == "num") {
+    if (sizeArg.type == ArgType::Num) {
       int dmaSize = (std::stoi(sizeArg.value) - 1);
       sizeLoadOps.push_back(
           asmOp("ori", {reg::Reg::T0, reg::Reg::ZERO,
@@ -687,20 +687,20 @@ b_select(const VarDef *varRes,
         "Builtin select() requires exactly two arguments!");
 
   VarDef varLeft, varRight;
-  if (args[0].type == "num") {
+  if (args[0].type == ArgType::Num) {
     varLeft.reg = reg::Reg::VZERO;
-    varLeft.type = "vec16";
+    varLeft.type = TypeClass::Vec16;
   } else {
     varLeft = resolveArg(args[0], "arg0");
   }
-  if (args[1].type == "num") {
+  if (args[1].type == ArgType::Num) {
     auto pIt = POW2_SWIZZLE_VAR.find(std::stoll(args[1].value));
     if (pIt == POW2_SWIZZLE_VAR.end())
       state.throwError(
           "Second arg must be a variable or power-of-two constant!");
     varRight.reg = pIt->second.reg;
     varRight.swizzle = pIt->second.swizzle;
-    varRight.type = "vec16";
+    varRight.type = TypeClass::Vec16;
   } else {
     varRight = resolveArg(args[1], "arg1");
   }
@@ -737,7 +737,7 @@ b_assert(const VarDef *varRes,
     state.throwError("Builtin assert() cannot have a left side!");
   if (args.size() != 1)
     state.throwError("Builtin assert() requires exactly one argument!");
-  if (args[0].type != "num")
+  if (args[0].type != ArgType::Num)
     state.throwError(
         "Builtin assert() requires the argument to be a number!");
   int code = std::stoi(args[0].value);
@@ -754,7 +754,7 @@ b_asm(const VarDef *varRes,
     state.throwError("Builtin asm() cannot use swizzle!");
   if (varRes)
     state.throwError("Builtin asm() cannot have a left side!");
-  if (args.empty() || args[0].type != "string")
+  if (args.empty() || args[0].type != ArgType::String)
     state.throwError(
         "Builtin asm() requires the first argument to be a string!");
 
@@ -762,7 +762,7 @@ b_asm(const VarDef *varRes,
   for (size_t i = 1; i < args.size(); ++i) {
     const auto &arg = args[i];
     std::string replacement;
-    if (arg.type == "num") {
+    if (arg.type == ArgType::Num) {
       replacement = arg.value;
     } else {
       const VarDef *varArg = state.getRequiredVar(arg.value, "arg" +
@@ -806,10 +806,10 @@ b_transpose(const VarDef *varRes,
   if (isVecType(buffVar.type))
     state.throwError(
         "Builtin transpose() requires second argument to be a scalar!");
-  if (args[2].type != "num")
+  if (args[2].type != ArgType::Num)
     state.throwError(
         "Builtin transpose() requires third argument to be a number!");
-  if (args[3].type != "num")
+  if (args[3].type != ArgType::Num)
     state.throwError(
         "Builtin transpose() requires fourth argument to be a number!");
 
@@ -878,13 +878,13 @@ b_asm_op(const VarDef *varRes,
     state.throwError("Builtin asm_op() cannot use swizzle!");
   if (varRes)
     state.throwError("Builtin asm_op() cannot have a left side!");
-  if (args.empty() || args[0].type != "string")
+  if (args.empty() || args[0].type != ArgType::String)
     state.throwError(
         "Builtin asm_op() requires the first argument to be a opcode!");
 
   std::vector<std::string> asmArgs;
   for (size_t i = 1; i < args.size(); ++i) {
-    if (args[i].type == "num") {
+    if (args[i].type == ArgType::Num) {
       asmArgs.push_back(args[i].value);
     } else {
       const VarDef *v = state.getRequiredVar(args[i].value, "arg");
@@ -904,7 +904,7 @@ static std::vector<AsmInst>
 b_asm_include(const VarDef *varRes,
               const std::vector<ast::FuncArg> &args,
               const std::string &swizzle) {
-  if (args.empty() || args[0].type != "string")
+  if (args.empty() || args[0].type != ArgType::String)
     state.throwError("Builtin asm_include() requires a path argument!");
 
   std::vector<AsmInst> res;
@@ -990,12 +990,12 @@ static BuiltinMap buildRegistry() {
     if (!vr) state.throwError("Builtin load_transposed() needs a left-side");
     if (!reg::isVecReg(vr->reg)) state.throwError("Builtin load_transposed() must store the result into a vector!");
     if (args.size() < 2 || args.size() > 3) state.throwError("Builtin load_transposed() requires 2 or 3 arguments!");
-    if (args[0].type != "num") state.throwError("Builtin load_transposed() requires first argument to be a number (row offset 0-7)!");
+    if (args[0].type != ArgType::Num) state.throwError("Builtin load_transposed() requires first argument to be a number (row offset 0-7)!");
     int row = std::stoi(args[0].value);
     if (row < 0 || row > 7) state.throwError("Builtin load_transposed() requires first argument (row) to be a number between 0 and 7!");
     int offset = 0;
     if (args.size() >= 3) {
-      if (args[2].type != "num") state.throwError("Builtin load_transposed() requires third argument to be a number (offset in steps of 0x10)!");
+      if (args[2].type != ArgType::Num) state.throwError("Builtin load_transposed() requires third argument to be a number (offset in steps of 0x10)!");
       offset = std::stoi(args[2].value);
       if (offset % 16 != 0) state.throwError("Builtin load_transposed() requires offset to be multiple of 16!");
     }
@@ -1023,12 +1023,12 @@ static BuiltinMap buildRegistry() {
     // args[0] = value to store, args[1] = row, args[2] = addr, args[3] = offset (optional)
     const VarDef *valVar = state.getRequiredVar(args[0].value, "arg0");
     if (!reg::isVecReg(valVar->reg)) state.throwError("Builtin store_transposed() must target a vector register!");
-    if (args[1].type != "num") state.throwError("Builtin store_transposed() requires second argument to be a number (row offset 0-7)!");
+    if (args[1].type != ArgType::Num) state.throwError("Builtin store_transposed() requires second argument to be a number (row offset 0-7)!");
     int row = std::stoi(args[1].value);
     if (row < 0 || row > 7) state.throwError("Builtin store_transposed() requires second argument (row) to be a number between 0 and 7!");
     int offset = 0;
     if (args.size() >= 4) {
-      if (args[3].type != "num") state.throwError("Builtin store_transposed() requires fourth argument to be a number (offset in steps of 0x10)!");
+      if (args[3].type != ArgType::Num) state.throwError("Builtin store_transposed() requires fourth argument to be a number (offset in steps of 0x10)!");
       offset = std::stoi(args[3].value);
       if (offset % 16 != 0) state.throwError("Builtin store_transposed() requires offset to be multiple of 16!");
     }
@@ -1129,12 +1129,12 @@ static BuiltinMap buildRegistry() {
           "Builtin print() requires at least one argument!");
 
     for (const auto &arg : args) {
-      if (arg.type == "num")
+      if (arg.type == ArgType::Num)
         state.throwError("Builtin print() requires all arguments to "
                          "be variables or strings!");
     }
 
-    std::string mainType = args[0].type;
+    auto mainType = args[0].type;
     for (const auto &arg : args) {
       if (arg.type != mainType)
         state.throwError(
@@ -1145,7 +1145,7 @@ static BuiltinMap buildRegistry() {
     std::vector<AsmInst> res;
     res.push_back(asmInline(".set macro", {"# print"}));
 
-    if (mainType == "string") {
+    if (mainType == ArgType::String) {
       std::vector<std::string> strArgs;
       for (const auto &arg : args)
         strArgs.push_back("\"" + arg.value + "\"");
@@ -1189,7 +1189,7 @@ static BuiltinMap buildRegistry() {
     if (args.empty())
       state.throwError(
           "Builtin printf() requires at least one argument!");
-    if (args[0].type != "string")
+    if (args[0].type != ArgType::String)
       state.throwError(
           "Builtin printf() requires first argument to be a string!");
 
@@ -1217,14 +1217,14 @@ static BuiltinMap buildRegistry() {
           std::string spec = fmt.substr(pct, 2);
           if (argIdx < args.size()) {
             const auto &val = args[argIdx++];
-            if (val.type == "var") {
+            if (val.type == ArgType::Var) {
               VarDef refVar = resolveArg(val, "arg" +
                                               std::to_string(argIdx));
               if (reg::isVecReg(refVar.reg)) {
                 auto it = SWIZZLE_MAP.find(val.swizzle);
                 std::string sw =
                     it != SWIZZLE_MAP.end() ? it->second : "";
-                if (refVar.type == "vec32") {
+                if (refVar.type == TypeClass::Vec32) {
                   fmtString += "%f" + refVar.reg.substr(1) + sw;
                 } else {
                   fmtString += "%d" + refVar.reg.substr(1) + sw;

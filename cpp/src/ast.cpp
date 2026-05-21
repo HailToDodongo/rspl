@@ -52,7 +52,7 @@ static ExprVarName parseExprVarName(const json &j) {
 
 static FuncArg parseFuncArg(const json &j) {
   return FuncArg{
-      .type = j.value("type", ""),
+      .type = toArgType(j.value("type", "")),
       .value = jsonAsStr(j["value"]),
       .swizzle = optStr(j, "swizzle"),
   };
@@ -71,7 +71,7 @@ static Annotation parseAnnotation(const json &j) {
 
 static FuncDefArg parseFuncDefArg(const json &j) {
   return FuncDefArg{
-      .type = j.value("type", ""),
+      .type = toTypeClass(j.value("type", "")),
       .reg = optStr(j, "reg"),
       .name = j.value("name", ""),
   };
@@ -392,7 +392,7 @@ static Function parseFunction(const json &j) {
       func.annotations.push_back(parseAnnotation(a));
     }
   }
-  func.type = j.value("type", "function");
+  func.type = toFuncType(j.value("type", "function"));
   if (j.contains("resultType") && !j["resultType"].is_null()) {
     func.resultType = j["resultType"].get<int64_t>();
   }

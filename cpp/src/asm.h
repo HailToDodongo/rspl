@@ -1,5 +1,7 @@
 #pragma once
 
+#include "types.h"
+
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -91,7 +93,7 @@ struct AsmInst {
 
 struct AsmFunc {
   std::string name;
-  std::string type; // "function" or "command"
+  FuncType type = FuncType::Function; // function, command, or macro
   std::vector<AsmInst> asm_;
   int argSize = 0;
   int cyclesBefore = 0;

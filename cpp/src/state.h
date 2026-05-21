@@ -13,14 +13,19 @@ namespace rspl {
 
 struct VarDef {
   std::string reg;
-  std::string type;
+  TypeClass type = TypeClass::Unknown;
   std::string name;         // for memory label references
-  std::string originalType; // before cast
-  std::string castType;     // e.g. "ufract", "sfract", "s8"
+  TypeClass originalType = TypeClass::Unknown; // before cast
+  CastType castType = CastType::None;         // e.g. ufract, sfract, s8
   std::string swizzle;      // optional swizzle suffix
   double value = 0.0;        // numeric value when reg is empty
   bool isConst = false;
   int modifyCount = 0;
+
+  // Backward-compat accessors for code that still uses strings
+  std::string typeStr() const { return toString(type); }
+  std::string originalTypeStr() const { return toString(originalType); }
+  std::string castTypeStr() const { return toString(castType); }
 };
 
 struct MemVarDef {

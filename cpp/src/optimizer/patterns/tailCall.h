@@ -6,7 +6,7 @@ namespace rspl {
 inline void tailCall(AsmFunc &func) {
   // Only applies to commands (JS tailCall.js:24). Match JS behaviour:
   // scan for the first jal that can be converted and stop.
-  if (func.type != "command") return;
+  if (func.type != FuncType::Command) return;
 
   for (size_t i = 0; i + 3 < func.asm_.size(); ++i) {
     bool matched = false;
