@@ -19,6 +19,7 @@ constexpr int REG_INDEX_SIZE = 295;
 
 // Compact stall index lookup: register name -> index (0–63), -1 if unknown
 int getRegStallIndex(const std::string &name);
+int getRegStallIndex(const char *name, size_t len);
 
 // Hidden registers (read/written implicitly by certain ops)
 extern const std::unordered_map<std::string, std::vector<std::string>>
@@ -27,7 +28,7 @@ extern const std::unordered_map<std::string, std::vector<std::string>>
     HIDDEN_REGS_WRITE;
 
 // Lane expansion for vector registers
-std::vector<std::string> expandRegister(const std::string &regName);
+const std::vector<std::string> &expandRegister(const std::string &regName);
 
 // Get source/target register names for an instruction
 std::vector<std::string> getSourceRegs(const AsmInst &inst);

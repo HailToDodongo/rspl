@@ -8,8 +8,10 @@
 namespace rspl {
 
 int evalFunctionCost(AsmFunc &func) {
-  // Filter to only OP instructions (including NOPs)
-  std::vector<AsmInst *> ops;
+  // Filter to only OP instructions (including NOPs).
+  // Thread-local to reuse allocation across evaluations.
+  static thread_local std::vector<AsmInst *> ops;
+  ops.clear();
   for (auto &inst : func.asm_) {
     if (inst.type == AsmType::OP) {
       ops.push_back(&inst);

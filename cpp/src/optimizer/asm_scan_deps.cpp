@@ -71,10 +71,14 @@ int getRegIndex(const std::string &name) {
 // --- Stall index lookup (64 entries) -----------------------------------
 
 int getRegStallIndex(const std::string &name) {
-  if (name.size() < 3 || name[0] != '$') return -1;
+  return getRegStallIndex(name.c_str(), name.size());
+}
+
+int getRegStallIndex(const char *name, size_t len) {
+  if (len < 3 || name[0] != '$') return -1;
 
   // Vector register: $vNN (two digits after 'v')
-  if (name[1] == 'v' && name.size() >= 4 && name[2] >= '0' && name[2] <= '9' &&
+  if (name[1] == 'v' && len >= 4 && name[2] >= '0' && name[2] <= '9' &&
       name[3] >= '0' && name[3] <= '9') {
     int vnum = (name[2] - '0') * 10 + (name[3] - '0');
     if (vnum >= 32) return -1;
@@ -82,7 +86,7 @@ int getRegStallIndex(const std::string &name) {
   }
 
   // Scalar
-  int si = scalarRegIdx(name.c_str());
+  int si = scalarRegIdx(name);
   if (si >= 0) return si;
   return -1;
 }
@@ -248,7 +252,7 @@ struct ExpandCache {
 };
 } // namespace
 
-std::vector<std::string> expandRegister(const std::string &regName) {
+const std::vector<std::string> &expandRegister(const std::string &regName) {
   static const ExpandCache cache;
   auto it = cache.map.find(regName);
   if (it != cache.map.end()) return it->second;
@@ -265,7 +269,10 @@ std::vector<std::string> expandRegister(const std::string &regName) {
       }
     }
   }
-  return {regName};
+  static thread_local std::vector<std::string> t_fallback;
+  t_fallback.clear();
+  t_fallback.push_back(regName);
+  return t_fallback;
 }
 
 // --- Source/target register extraction --------------------------------
@@ -396,8 +403,7 @@ void asmInitDep(AsmInst &inst) {
         (baseLen == 5 && ext == "$divIn") ||
         (baseLen == 5 && ext == "$divDP");
     if (!isStallIgnored) {
-      int stallIdx = getRegStallIndex(
-          std::string(ext.c_str(), baseLen));
+      int stallIdx = getRegStallIndex(ext.c_str(), baseLen);
       if (stallIdx >= 0 && !seenBase[stallIdx]) {
         seenBase[stallIdx] = true;
         inst.depsStallSourceIdx.push_back(stallIdx);
@@ -405,8 +411,8 @@ void asmInitDep(AsmInst &inst) {
     }
 
     // Expand raw reg to lanes, set mask + index for each
-    auto expanded = expandRegister(ext);
-    for (auto &e : expanded) {
+    const auto &expanded = expandRegister(ext);
+    for (const auto &e : expanded) {
       int idx = getRegIndex(e);
       if (idx >= 0) {
         inst.depsSourceMask[idx / 64] |= (1ULL << (idx % 64));
@@ -433,16 +439,15 @@ void asmInitDep(AsmInst &inst) {
         (baseLen == 5 && r == "$divIn") ||
         (baseLen == 5 && r == "$divDP");
     if (!isStallIgnored) {
-      int stallIdx = getRegStallIndex(
-          std::string(r.c_str(), baseLen));
+      int stallIdx = getRegStallIndex(r.c_str(), baseLen);
       if (stallIdx >= 0 && !seenBase[stallIdx]) {
         seenBase[stallIdx] = true;
         inst.depsStallTargetIdx.push_back(stallIdx);
       }
     }
 
-    auto expanded = expandRegister(r);
-    for (auto &e : expanded) {
+    const auto &expanded = expandRegister(r);
+    for (const auto &e : expanded) {
       int idx = getRegIndex(e);
       if (idx >= 0) {
         inst.depsTargetMask[idx / 64] |= (1ULL << (idx % 64));
