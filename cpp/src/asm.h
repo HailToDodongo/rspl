@@ -77,6 +77,14 @@ template <typename T, size_t N> struct SmallVec {
   bool empty() const { return size_ == 0; }
   void push_back(const T &v) { data_[size_++] = v; }
   void clear() { size_ = 0; }
+  T &back() { return data_[size_ - 1]; }
+  const T &back() const { return data_[size_ - 1]; }
+  void pop_back() { --size_; }
+  SmallVec &operator=(const std::vector<T> &v) {
+    size_ = 0;
+    for (const auto &e : v) push_back(e);
+    return *this;
+  }
 };
 
 // --- ASM instruction --------------------------------------------------
