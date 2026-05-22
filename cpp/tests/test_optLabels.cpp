@@ -11,7 +11,7 @@ static rspl::TranspileResult optTranspile(const std::string &src) {
 static rspl::AsmInst L(const std::string &name) {
   rspl::AsmInst inst;
   inst.type = rspl::AsmType::LABEL;
-  inst.label = name;
+  inst.cold->label = name;
   return inst;
 }
 static rspl::AsmInst O(const std::string &op,
@@ -26,7 +26,7 @@ static rspl::AsmInst B(const std::string &op,
                        std::vector<std::string> args,
                        const std::string &labelEnd) {
   rspl::AsmInst inst = O(op, std::move(args));
-  inst.labelEnd = labelEnd;
+  inst.cold->labelEnd = labelEnd;
   return inst;
 }
 
@@ -53,8 +53,8 @@ TEST_CASE("Optimizer - dedupeLabels - consecutive labels deduped to last",
   rspl::dedupeLabels(func);
   REQUIRE(func.asm_.size() == 4);
   REQUIRE(func.asm_[0].args[0] == "LABEL_B");
-  REQUIRE(func.asm_[0].labelEnd == "LABEL_B");
-  REQUIRE(func.asm_[2].label == "LABEL_B");
+  REQUIRE(func.asm_[0].cold->labelEnd == "LABEL_B");
+  REQUIRE(func.asm_[2].cold->label == "LABEL_B");
 }
 
 TEST_CASE("Optimizer - dedupeLabels - __ labels are never deduplicated",
@@ -77,7 +77,7 @@ TEST_CASE("Optimizer - dedupeLabels - __ label breaks dedup chain",
   rspl::dedupeLabels(func);
   bool hasDunderB = false;
   for (auto &inst : func.asm_)
-    if (inst.label == "__B") hasDunderB = true;
+    if (inst.cold->label == "__B") hasDunderB = true;
   REQUIRE(hasDunderB);
 }
 

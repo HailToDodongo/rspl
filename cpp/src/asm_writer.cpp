@@ -12,7 +12,7 @@
 namespace rspl {
 
 std::string stringifyInstr(const AsmInst &inst) {
-  if (inst.op.empty()) return inst.label + ":";
+  if (inst.op.empty()) return inst.cold->label + ":";
   if (inst.args.empty()) return inst.op;
   std::ostringstream ss;
   ss << inst.op;
@@ -266,18 +266,18 @@ AsmWriteResult writeASM(const ast::Program &ast,
     for (const auto &inst : fn.asm_) {
       if (inst.type == AsmType::LABEL) {
         std::string tag;
-        for (const auto &ann : inst.annotations) {
+        for (const auto &ann : inst.cold->annotations) {
           if (ann.name == "Tag")
             tag = "TAG_" + ann.value + ": ";
         }
-        writeLine("  " + tag + inst.label + ":");
+        writeLine("  " + tag + inst.cold->label + ":");
       } else {
         // Build raw instruction string (matching JS stringifyInstr)
         std::string rawInstr = stringifyInstr(inst);
 
         // Determine tag prefix
         std::string tag;
-        for (const auto &ann : inst.annotations) {
+        for (const auto &ann : inst.cold->annotations) {
           if (ann.name == "Tag")
             tag = "TAG_" + ann.value + ": ";
         }
@@ -314,11 +314,11 @@ AsmWriteResult writeASM(const ast::Program &ast,
             }
           }
 
-          if (!inst.funcArgs.empty()) {
+          if (!inst.cold->funcArgs.empty()) {
             di << " ## Args: ";
-            for (size_t i = 0; i < inst.funcArgs.size(); ++i) {
+            for (size_t i = 0; i < inst.cold->funcArgs.size(); ++i) {
               if (i) di << ", ";
-              di << inst.funcArgs[i];
+              di << inst.cold->funcArgs[i];
             }
           }
 

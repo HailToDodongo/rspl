@@ -11,11 +11,11 @@ inline void dedupeLabels(AsmFunc &func) {
     // Skip __-prefixed labels — these are compiler-internal and should
     // never be deduplicated (matching JS dedupeLabels.js:22).
     if (a.type != AsmType::LABEL || b.type != AsmType::LABEL) continue;
-    if (a.label.starts_with("__") || b.label.starts_with("__")) continue;
-    std::string from = a.label;
-    std::string to = b.label;
+    if (a.cold->label.starts_with("__") || b.cold->label.starts_with("__")) continue;
+    std::string from = a.cold->label;
+    std::string to = b.cold->label;
     for (auto &inst : func.asm_) {
-      if (inst.labelEnd == from) inst.labelEnd = to;
+      if (inst.cold->labelEnd == from) inst.cold->labelEnd = to;
       for (auto &arg : inst.args) {
         if (arg == from) arg = to;
       }

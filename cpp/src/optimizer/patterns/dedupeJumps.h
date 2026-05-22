@@ -12,7 +12,7 @@ inline void dedupeJumps(AsmFunc &func) {
     if (func.asm_[i].type == AsmType::LABEL) {
       if (i + 1 < func.asm_.size() && func.asm_[i + 1].op == "j") {
         labelReplace.push_back(
-            {func.asm_[i].label, func.asm_[i + 1].args[0]});
+            {func.asm_[i].cold->label, func.asm_[i + 1].args[0]});
         if (i >= 2 && func.asm_[i - 2].op == "j" &&
             func.asm_[i - 1].type == AsmType::OP &&
             func.asm_[i - 1].op == "nop") {
@@ -32,9 +32,9 @@ inline void dedupeJumps(AsmFunc &func) {
       for (const auto &[oldL, newL] : labelReplace) {
         if (label == oldL) label = newL;
       }
-      if (inst.labelEnd.empty()) continue;
+      if (inst.cold->labelEnd.empty()) continue;
       for (const auto &[oldL, newL] : labelReplace) {
-        if (inst.labelEnd == oldL) inst.labelEnd = newL;
+        if (inst.cold->labelEnd == oldL) inst.cold->labelEnd = newL;
       }
     }
   }

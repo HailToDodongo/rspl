@@ -23,11 +23,11 @@ inline void assertCompare(AsmFunc &func) {
       continue;
     if (!(func.asm_[i + 4].opFlags & OpFlag::OP_FLAG_IS_NOP)) continue;
     if (func.asm_[i + 5].type != AsmType::LABEL) continue;
-    if (func.asm_[i + 5].label != b.args.back()) continue;
+    if (func.asm_[i + 5].cold->label != b.args.back()) continue;
 
     b.op = ops::invertBranchOp(b.op);
     b.args.back() = LABEL_ASSERT;
-    b.labelEnd = LABEL_ASSERT;
+    b.cold->labelEnd = LABEL_ASSERT;
 
     AsmInst luiOp = std::move(func.asm_[i + 2]);
     func.asm_.insert(func.asm_.begin() + static_cast<long>(i) + 1,

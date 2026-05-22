@@ -61,8 +61,8 @@ TEST_CASE("Optimizer - Dependency Scanner - Memory - Read vs Write Barrier",
       asmOp("or", {"$t3", "$zero", "$zero"}),
   };
   // Annotate with Barrier
-  lines[0].annotations.push_back({"Barrier", "some barrier"});
-  lines[2].annotations.push_back({"Barrier", "some barrier"});
+  lines[0].cold->annotations.push_back({"Barrier", "some barrier"});
+  lines[2].cold->annotations.push_back({"Barrier", "some barrier"});
 
   state.reset();
   state.enterFunction("test", "command", 0);

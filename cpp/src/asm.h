@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -51,6 +52,16 @@ struct AsmDebug {
   bool paired = false;
 };
 
+// --- Cold metadata — shared between clones via shared_ptr to avoid ---------
+// deep-copying label/annotations during optimization cloning.
+
+struct AsmInstCold {
+  std::string label;
+  std::string labelEnd;
+  std::vector<std::string> funcArgs;
+  std::vector<AsmAnnotation> annotations;
+};
+
 // --- ASM instruction --------------------------------------------------
 
 struct AsmInst {
@@ -61,13 +72,7 @@ struct AsmInst {
   uint32_t opFlags = 0;               // bitfield of OpFlag
   int stallLatency = 0;
 
-  // Label / branch specific
-  std::string label;                  // for LABEL nodes
-  std::string labelEnd;               // for branch nodes
-  std::vector<std::string> funcArgs;  // for function calls
-
   AsmDebug debug;
-  std::vector<AsmAnnotation> annotations;
   uint32_t barrierMask = 0;
 
   // -- Dependency tracking (filled by optimizer) -----------------------
@@ -79,14 +84,14 @@ struct AsmInst {
   // 295-bit register masks stored as 5 x uint64_t
   std::array<uint64_t, 5> depsSourceMask = {};
   std::array<uint64_t, 5> depsTargetMask = {};
-  std::array<uint64_t, 5> depsBlockSourceMask = {};
-  std::array<uint64_t, 5> depsBlockTargetMask = {};
 
   uint32_t depsStallSourceMask0 = 0;
   uint32_t depsStallSourceMask1 = 0;
   uint32_t depsStallTargetMask0 = 0;
   uint32_t depsStallTargetMask1 = 0;
-  std::array<uint64_t, 5> depsArgMask = {};
+
+  // Cold metadata — shallow-copied during clone (shared_ptr refcount bump)
+  std::shared_ptr<AsmInstCold> cold = std::make_shared<AsmInstCold>();
 };
 
 // --- Function-level ASM -----------------------------------------------

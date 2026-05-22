@@ -227,31 +227,19 @@ struct PhaseTiming {
 };
 PhaseTiming g_phaseTiming;
 
-static RoundResult reorderRound(const AsmFunc &baseFunc) {
-  auto t0 = std::chrono::steady_clock::now();
-  AsmFunc func = cloneFunction(baseFunc);
-  auto t1 = std::chrono::steady_clock::now();
-
+// Mutable variant: takes ownership, avoids double-clone from WorkerPool.
+static RoundResult reorderRoundImpl(AsmFunc func) {
   int opCount = randIndex(REORDER_MAX_OPS - REORDER_MIN_OPS) + REORDER_MIN_OPS;
-  for (int o = 0; o < opCount; ++o) {
+  for (int o = 0; o < opCount; ++o)
     optimizeStep(func);
-  }
-  auto t2 = std::chrono::steady_clock::now();
-
-  asmInitDeps(func);
-  auto t3 = std::chrono::steady_clock::now();
-
+  // optimizeStep already keeps dep data current via asmInitDep calls inside
+  // relocateElement. Bulk rescan is redundant — deps are position-independent.
   int cost = evalFunctionCost(func);
-  auto t4 = std::chrono::steady_clock::now();
-
-  using Dur = std::chrono::duration<double, std::milli>;
-  g_phaseTiming.cloneMs += Dur(t1 - t0).count();
-  g_phaseTiming.reorderMs += Dur(t2 - t1).count();
-  g_phaseTiming.depsMs += Dur(t3 - t2).count();
-  g_phaseTiming.evalMs += Dur(t4 - t3).count();
-  g_phaseTiming.samples++;
-
   return {cost, std::move(func.asm_)};
+}
+
+static RoundResult reorderRound(const AsmFunc &baseFunc) {
+  return reorderRoundImpl(cloneFunction(baseFunc));
 }
 
 // --- generateWorseFunction (matches JS generateWorseFunction) ---------------
@@ -325,10 +313,10 @@ public:
     }
     cv_.notify_all();
 
-    // Caller participates
-    workBatch(count);
+    // Give workers a head start before caller joins
+    std::this_thread::yield();
 
-    // Wait until all tasks are completed
+    // Wait until all tasks are completed (caller helps if any remain)
     while (doneCount_.load(std::memory_order_acquire) < (size_t)count) {
       workBatch(count);
     }
@@ -368,7 +356,7 @@ private:
       size_t idx = nextIdx_.fetch_add(1, std::memory_order_acq_rel);
       if ((int)idx >= count) break;
       AsmFunc variant = cloneFunction(*base_);
-      results_[idx] = reorderRound(variant);
+      results_[idx] = reorderRoundImpl(std::move(variant));
       doneCount_.fetch_add(1, std::memory_order_release);
     }
   }

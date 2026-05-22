@@ -362,8 +362,6 @@ void asmInitDep(AsmInst &inst) {
   inst.depsStallTargetIdx.clear();
   inst.depsSourceMask = {};
   inst.depsTargetMask = {};
-  inst.depsBlockSourceMask = {};
-  inst.depsBlockTargetMask = {};
   inst.depsStallSourceMask0 = 0;
   inst.depsStallSourceMask1 = 0;
   inst.depsStallTargetMask0 = 0;
@@ -464,7 +462,7 @@ void asmInitDep(AsmInst &inst) {
   inst.depsStallTargetMask1 = static_cast<uint32_t>(tgtStallMask >> 32);
 
   // Barrier mask from annotations
-  for (auto &ann : inst.annotations) {
+  for (auto &ann : inst.cold->annotations) {
     if (ann.name == "Barrier") {
       inst.barrierMask |= state.getBarrierMask(ann.value);
     }
@@ -540,9 +538,7 @@ std::vector<int> asmGetReorderIndices(const std::vector<AsmInst> &asmList,
   for (; fRead < (int)asmList.size(); ++fRead) {
     for (int idx = 0; idx < 5; ++idx)
       lastReadMask[idx] |= asmList[fRead].depsSourceMask[idx];
-    if (asmList[fRead].opFlags & OpFlag::OP_FLAG_IS_BRANCH)
-      for (int idx = 0; idx < 5; ++idx)
-        lastReadMask[idx] |= asmList[fRead].depsArgMask[idx];
+    if (asmList[fRead].opFlags & OpFlag::OP_FLAG_IS_BRANCH) break;
   }
 
   // --- Check read-after-write across the gap ---

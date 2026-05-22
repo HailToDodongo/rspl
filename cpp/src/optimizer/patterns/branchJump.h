@@ -10,7 +10,7 @@ namespace rspl {
 inline void branchJump(AsmFunc &func) {
   for (size_t i = 0; i + 4 < func.asm_.size(); ++i) {
     auto &b = func.asm_[i];
-    if (!(b.opFlags & OpFlag::OP_FLAG_IS_BRANCH) || b.labelEnd.empty())
+    if (!(b.opFlags & OpFlag::OP_FLAG_IS_BRANCH) || b.cold->labelEnd.empty())
       continue;
     if (b.op.starts_with("j")) continue;
     if (func.asm_[i + 1].op != "nop") continue;
@@ -19,19 +19,19 @@ inline void branchJump(AsmFunc &func) {
     std::string realTarget = func.asm_[i + 2].args[0];
     if (func.asm_[i + 3].op != "nop") continue;
     if (func.asm_[i + 4].type != AsmType::LABEL) continue;
-    if (func.asm_[i + 4].label != b.labelEnd) continue;
+    if (func.asm_[i + 4].cold->label != b.cold->labelEnd) continue;
 
-    std::string tempLabel = b.labelEnd;
+    std::string tempLabel = b.cold->labelEnd;
     bool labelUsed = false;
     for (const auto &inst : func.asm_) {
       if (&inst == &b) continue;
-      if (inst.labelEnd == tempLabel) { labelUsed = true; break; }
+      if (inst.cold->labelEnd == tempLabel) { labelUsed = true; break; }
       for (const auto &arg : inst.args)
         if (arg == tempLabel) { labelUsed = true; break; }
       if (labelUsed) break;
     }
 
-    b.labelEnd = realTarget;
+    b.cold->labelEnd = realTarget;
     b.args.back() = realTarget;
     std::string newOp = ops::invertBranchOp(b.op);
     b.op = newOp;

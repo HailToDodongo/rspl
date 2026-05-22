@@ -26,7 +26,7 @@ asmLinesToDeps(std::vector<AsmInst> &lines) {
 static AsmInst makeLabel(const std::string &name) {
   AsmInst inst;
   inst.type = AsmType::LABEL;
-  inst.label = name;
+  inst.cold->label = name;
   return inst;
 }
 

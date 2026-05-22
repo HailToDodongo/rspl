@@ -88,7 +88,7 @@ static void applyOpInfo(AsmInst &inst, const std::string &op,
   // Copy current annotations from state (but don't clear —
   // clearing is done per-statement in scopedBlockToAsm to match JS)
   for (const auto &ann : state.getAnnotations()) {
-    inst.annotations.push_back({ann.name, ann.value});
+    inst.cold->annotations.push_back({ann.name, ann.value});
   }
 }
 
@@ -114,7 +114,7 @@ AsmInst asmNOP() {
 
 AsmInst asmLabel(const std::string &label) {
   AsmInst inst;
-  inst.label = label;
+  inst.cold->label = label;
   inst.op = "";
   inst.debug = currentDebug();
   applyOpInfo(inst, "", AsmType::LABEL);
@@ -125,7 +125,7 @@ AsmInst asmBranch(const std::string &op,
                   const std::vector<std::string> &args,
                   const std::string &labelEnd) {
   AsmInst inst = asmOp(op, args);
-  inst.labelEnd = labelEnd;
+  inst.cold->labelEnd = labelEnd;
   return inst;
 }
 
@@ -144,11 +144,11 @@ AsmInst asmFunction(const std::string &target,
                     bool relative) {
   if (relative) {
     AsmInst inst = asmOp("bgezal", {"$zero", target});
-    inst.funcArgs = argRegs;
+    inst.cold->funcArgs = argRegs;
     return inst;
   }
   AsmInst inst = asmOp("jal", {target});
-  inst.funcArgs = argRegs;
+  inst.cold->funcArgs = argRegs;
   return inst;
 }
 
