@@ -212,46 +212,58 @@ static RegMask maskAll() {
 
 // --- Expand vector registers to lanes ---------------------------------
 
-std::vector<std::string> expandRegister(const std::string &regName) {
-  auto dotPos = regName.find('.');
-  std::string reg = (dotPos != std::string::npos)
-                        ? regName.substr(0, dotPos)
-                        : regName;
-  if (reg::isVecReg(reg)) {
-    std::string lane =
-        (dotPos != std::string::npos) ? regName.substr(dotPos + 1) : "v";
-    // Look up lane name directly (with dot if present in original)
-    static const std::unordered_map<std::string, std::vector<int>>
-        laneMap = {
-            {"v",  {0, 1, 2, 3, 4, 5, 6, 7}},
-            {".q0", {0, 2, 4, 6}},        {".q1", {1, 3, 5, 7}},
-            {".h0", {0, 4}},              {".h1", {1, 5}},
-            {".h2", {2, 6}},              {".h3", {3, 7}},
-            {".e0", {0}},                 {".e1", {1}},
-            {".e2", {2}},                 {".e3", {3}},
-            {".e4", {4}},                 {".e5", {5}},
-            {".e6", {6}},                 {".e7", {7}},
+// --- Precomputed register expansion cache ------------------------------
+
+namespace {
+struct ExpandCache {
+  std::unordered_map<std::string, std::vector<std::string>> map;
+  ExpandCache() {
+    static const std::unordered_map<std::string, std::vector<int>> laneMap = {
+        {"v",{0,1,2,3,4,5,6,7}},{".q0",{0,2,4,6}},{".q1",{1,3,5,7}},
+        {".h0",{0,4}},{".h1",{1,5}},{".h2",{2,6}},{".h3",{3,7}},
+        {".e0",{0}},{".e1",{1}},{".e2",{2}},{".e3",{3}},
+        {".e4",{4}},{".e5",{5}},{".e6",{6}},{".e7",{7}},
     };
-    // The lane name from the register already includes the dot for
-    // .h0/.e1/etc patterns (since split on first '.').
-    // For "v" (no dot in original), look it up directly.
-    std::string lookupKey = (dotPos != std::string::npos && lane != "v")
-                                ? "." + lane
-                                : lane;
-    auto it = laneMap.find(lookupKey);
-    if (it == laneMap.end()) {
-      // Try SWIZZLE_MAP lookup for swizzle patterns
-      auto sit = SWIZZLE_MAP.find(lane);
-      if (sit != SWIZZLE_MAP.end()) {
-        it = laneMap.find(sit->second);
+    const char *vecs[] = {"$v00","$v01","$v02","$v03","$v04","$v05","$v06",
+      "$v07","$v08","$v09","$v10","$v11","$v12","$v13","$v14","$v15",
+      "$v16","$v17","$v18","$v19","$v20","$v21","$v22","$v23",
+      "$v24","$v25","$v26","$v27","$v28","$v29","$v30","$v31"};
+    for (auto *v : vecs) {
+      std::string reg(v);
+      auto &full = map[reg];
+      for (int l = 0; l < 8; ++l) full.push_back(reg + "_" + std::to_string(l));
+      for (auto &[ln, lanes] : laneMap) {
+        std::string key = reg + (ln[0] == '.' ? ln : "");
+        if (ln == "v") { map[key] = full; continue; }
+        for (int l : lanes) map[key].push_back(reg + "_" + std::to_string(l));
       }
     }
-    if (it == laneMap.end()) return {regName};
-    std::vector<std::string> result;
-    for (int l : it->second) {
-      result.push_back(reg + "_" + std::to_string(l));
+    const char *scalars[] = {"$zero","$at","$v0","$v1","$a0","$a1","$a2","$a3",
+      "$t0","$t1","$t2","$t3","$t4","$t5","$t6","$t7",
+      "$s0","$s1","$s2","$s3","$s4","$s5","$s6","$s7",
+      "$t8","$t9","$k0","$k1","$gp","$sp","$fp","$ra",
+      "$vcc","$vco","$vce","$acc","$divOut","$divIn","$divDP"};
+    for (auto *s : scalars) map[s] = {s};
+  }
+};
+} // namespace
+
+std::vector<std::string> expandRegister(const std::string &regName) {
+  static const ExpandCache cache;
+  auto it = cache.map.find(regName);
+  if (it != cache.map.end()) return it->second;
+
+  // Fallback: swizzle patterns not in cache (e.g. $v01.xyzwXYZW → .v)
+  auto dotPos = regName.find('.');
+  if (dotPos != std::string::npos) {
+    std::string reg = regName.substr(0, dotPos);
+    if (reg::isVecReg(reg)) {
+      auto sit = SWIZZLE_MAP.find(regName.substr(dotPos + 1));
+      if (sit != SWIZZLE_MAP.end()) {
+        auto rit = cache.map.find(reg + sit->second);
+        if (rit != cache.map.end()) return rit->second;
+      }
     }
-    return result;
   }
   return {regName};
 }

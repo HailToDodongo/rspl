@@ -22,6 +22,7 @@ struct CliArgs {
   bool optimize = true;
   bool reorder = false;
   int optimizeTime = 30'000;
+  int optWorkers = 0; // 0 = auto (hw threads - 1)
   bool rspqWrapper = true;
   bool help = false;
   std::vector<std::string> defines; // "KEY=VALUE" pairs
@@ -34,6 +35,7 @@ Options:
   -o <file>        Output .S file (default: input base + .S)
   -D KEY=VALUE     Define a preprocessor constant
   --opt-time=N     Optimizer time budget in seconds (default: 30)
+  --opt-workers=N  Number of reorder worker threads (default: auto)
   --no-optimize    Disable optimization
   --reorder        Enable instruction reordering
   --no-rspq        Disable RSPQ wrapper
@@ -55,6 +57,7 @@ CliArgs parseArgs(int argc, char **argv) {
     else if (arg == "-D" && i + 1 < argc) { args.defines.push_back(argv[++i]); }
     else if (arg.starts_with("-D")) { args.defines.push_back(arg.substr(2)); }
     else if (arg.starts_with("--opt-time=")) { args.optimizeTime = std::stoi(arg.substr(11)) * 1000; }
+    else if (arg.starts_with("--opt-workers=")) { args.optWorkers = std::stoi(arg.substr(14)); }
     else if (!arg.starts_with("-")) { args.inputFile = arg; }
   }
   return args;
@@ -141,6 +144,7 @@ int main(int argc, char **argv) {
   cfg.optimize = args.optimize;
   cfg.reorder = args.reorder;
   cfg.optimizeTime = args.optimizeTime;
+  cfg.optWorkers = args.optWorkers;
   cfg.sourceDir = sourceDir;
 
   auto result = rspl::runPipeline(astJson, cfg);

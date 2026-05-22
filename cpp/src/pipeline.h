@@ -10,6 +10,7 @@ struct TranspileConfig {
   bool debugInfo = false;
   bool reorder = false;
   int optimizeTime = 30000; // ms, default 30s matching CLI
+  int optWorkers = 0;       // 0 = auto (hw threads - 1)
   std::string sourceDir = ".";
 };
 

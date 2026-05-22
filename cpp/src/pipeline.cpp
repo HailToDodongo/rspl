@@ -69,7 +69,7 @@ TranspileResult runPipeline(const std::string &astJson,
     if (config.reorder) {
       for (auto &fn : functions) {
         if (fn.asm_.empty()) continue;
-        asmOptimize(fn, config.optimizeTime);
+        asmOptimize(fn, config.optimizeTime, config.optWorkers);
       }
       printCumulativeStats();
     } else {
@@ -163,7 +163,7 @@ TranspileResult transpileSource(const std::string &source,
     if (config.reorder) {
       for (auto &fn : functions) {
         if (fn.asm_.empty()) continue;
-        asmOptimize(fn, config.optimizeTime);
+        asmOptimize(fn, config.optimizeTime, config.optWorkers);
       }
       printCumulativeStats();
     } else {

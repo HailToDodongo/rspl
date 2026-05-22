@@ -15,7 +15,8 @@ void fillDelaySlots(AsmFunc &func);
 void setSeed(uint32_t s);
 
 /// Run reorder optimization (stochastic annealing) on a single function.
-void asmOptimize(AsmFunc &func, int maxTimeMs = 30'000);
+/// optWorkers: 0 = auto-detect, otherwise that many threads.
+void asmOptimize(AsmFunc &func, int maxTimeMs = 30'000, int optWorkers = 0);
 
 /// Print cumulative reorder stats (total iterations, average IPS)
 /// across all asmOptimize calls since program start.

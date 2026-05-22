@@ -213,14 +213,44 @@ struct RoundResult {
   std::vector<AsmInst> asm_;
 };
 
+// --- Phase-level timing (printed every N iterations) --------------------
+
+struct PhaseTiming {
+  double cloneMs = 0;
+  double reorderMs = 0;
+  double depsMs = 0;
+  double evalMs = 0;
+  double dispatchMs = 0;
+  double resultsMs = 0;
+  int samples = 0;
+  void reset() { *this = {}; }
+};
+PhaseTiming g_phaseTiming;
+
 static RoundResult reorderRound(const AsmFunc &baseFunc) {
+  auto t0 = std::chrono::steady_clock::now();
   AsmFunc func = cloneFunction(baseFunc);
+  auto t1 = std::chrono::steady_clock::now();
+
   int opCount = randIndex(REORDER_MAX_OPS - REORDER_MIN_OPS) + REORDER_MIN_OPS;
   for (int o = 0; o < opCount; ++o) {
     optimizeStep(func);
   }
+  auto t2 = std::chrono::steady_clock::now();
+
   asmInitDeps(func);
+  auto t3 = std::chrono::steady_clock::now();
+
   int cost = evalFunctionCost(func);
+  auto t4 = std::chrono::steady_clock::now();
+
+  using Dur = std::chrono::duration<double, std::milli>;
+  g_phaseTiming.cloneMs += Dur(t1 - t0).count();
+  g_phaseTiming.reorderMs += Dur(t2 - t1).count();
+  g_phaseTiming.depsMs += Dur(t3 - t2).count();
+  g_phaseTiming.evalMs += Dur(t4 - t3).count();
+  g_phaseTiming.samples++;
+
   return {cost, std::move(func.asm_)};
 }
 
@@ -259,10 +289,10 @@ static std::string formatTimeMs(int ms) {
 
 // --- Parallel variant execution -------------------------------------------
 
-// Spawn worker threads once and reuse them across iterations.
-// Each batch of variants is dispatched via runParallel: all threads
-// (including the caller) pull tasks from a shared index, run reorderRound
-// outside the lock, and push results back under the lock.
+// Each worker runs a full variant (clone → reorderRound) independently.
+// The caller dispatches a batch of N variants; all threads (including caller)
+// pull from a shared index. Results go into a freshly-allocated vector so
+// there's no reuse of moved-from state between calls.
 
 class WorkerPool {
 public:
@@ -281,83 +311,84 @@ public:
       if (t.joinable()) t.join();
   }
 
-  // Dispatch a batch of tasks. Blocks until all complete. Returns results.
-  std::vector<RoundResult> runParallel(std::vector<AsmFunc> tasks) {
-    size_t total = tasks.size();
-    tasks_ = std::move(tasks);
-    results_.resize(total);
+  // Run `count` variants of `base` in parallel. Returns results.
+  std::vector<RoundResult> runParallel(const AsmFunc &base, int count) {
+    results_.resize(count);
     nextIdx_.store(0, std::memory_order_release);
     doneCount_.store(0, std::memory_order_release);
 
-    // Wake workers
     {
       std::lock_guard lk(mtx_);
-      batchTotal_ = total;
+      base_ = &base;
+      batchCount_ = count;
       batchActive_ = true;
     }
     cv_.notify_all();
 
     // Caller participates
-    workBatch();
+    workBatch(count);
 
-    // Spin-wait for stragglers (workers finish quickly since caller did
-    // most of the heavy work; this avoids a CV roundtrip)
-    while (doneCount_.load(std::memory_order_acquire) < total) {
-      // help out if any tasks remain
-      workBatch();
+    // Wait until all tasks are completed
+    while (doneCount_.load(std::memory_order_acquire) < (size_t)count) {
+      workBatch(count);
     }
 
-    // Signal batch done
+    // Barrier: wait for all workers to exit workBatch, then cleanup
+    threadsDone_.store(1, std::memory_order_release);
     {
-      std::lock_guard lk(mtx_);
+      std::unique_lock lk(mtx_);
+      cv_.wait(lk, [&] {
+        return (size_t)threadsDone_.load(std::memory_order_acquire) >
+               threads_.size();
+      });
       batchActive_ = false;
-      batchTotal_ = 0;
+      base_ = nullptr;
     }
 
     std::vector<RoundResult> out;
-    out.reserve(total);
-    for (auto &r : results_)
-      out.push_back(std::move(r));
-    results_.clear();
+    results_.swap(out);
     return out;
   }
 
 private:
   std::vector<std::thread> threads_;
-  std::vector<AsmFunc> tasks_;
   std::vector<RoundResult> results_;
   std::atomic<size_t> nextIdx_{0};
   std::atomic<size_t> doneCount_{0};
-  size_t batchTotal_ = 0;
+  std::atomic<int> threadsDone_{0};
+  const AsmFunc *base_ = nullptr;
+  int batchCount_ = 0;
   bool batchActive_ = false;
   bool stop_ = false;
   std::mutex mtx_;
   std::condition_variable cv_;
 
-  void workBatch() {
-    size_t total = batchTotal_;
+  void workBatch(int count) {
     while (true) {
       size_t idx = nextIdx_.fetch_add(1, std::memory_order_acq_rel);
-      if (idx >= total) break;
-      AsmFunc task = std::move(tasks_[idx]);
-      RoundResult r = reorderRound(task);
-      results_[idx] = std::move(r);
+      if ((int)idx >= count) break;
+      AsmFunc variant = cloneFunction(*base_);
+      results_[idx] = reorderRound(variant);
       doneCount_.fetch_add(1, std::memory_order_release);
     }
   }
 
   void run(int id) {
-    // Unique seed per worker
     std::random_device rd;
     setSeed(rd() ^ (static_cast<uint32_t>(id) * 0x9E3779B9));
 
     while (true) {
+      int count;
       {
         std::unique_lock lk(mtx_);
         cv_.wait(lk, [&] { return stop_ || batchActive_; });
         if (stop_) return;
+        count = batchCount_;
       }
-      workBatch();
+      workBatch(count);
+      // Signal worker finished this pass, wake caller for barrier
+      threadsDone_.fetch_add(1, std::memory_order_release);
+      cv_.notify_one();
     }
   }
 };
@@ -382,7 +413,7 @@ void printCumulativeStats() {
             << std::endl;
 }
 
-void asmOptimize(AsmFunc &func, int maxTimeMs) {
+void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
   const std::string &funcName =
       func.name.empty() ? "(???)" : func.name;
 
@@ -399,8 +430,9 @@ void asmOptimize(AsmFunc &func, int maxTimeMs) {
   setSeed(rd());
 
   // Create worker pool (one thread per hardware core, minus calling thread)
-  unsigned hwThreads = std::thread::hardware_concurrency();
-  int numWorkers = std::max(1, static_cast<int>(hwThreads) - 1);
+  int numWorkers = optWorkers > 0
+      ? optWorkers
+      : std::max(1, static_cast<int>(std::thread::hardware_concurrency()) - 1);
   WorkerPool pool(numWorkers);
   std::cerr << "[" << funcName << "] Worker pool: " << numWorkers
             << " threads" << std::endl;
@@ -430,7 +462,23 @@ void asmOptimize(AsmFunc &func, int maxTimeMs) {
       std::cerr << "[" << funcName << "] Step: " << i
                 << ", Left: " << std::fixed << std::setprecision(1) << left
                 << "ms | Cost: " << costBest
-                << " | ips: " << std::setprecision(0) << ips << std::endl;
+                << " | ips: " << std::setprecision(0) << ips;
+
+      // Phase breakdown (every 1000 iterations)
+      if (i > 0 && (i % 1000) == 0 && g_phaseTiming.samples > 0) {
+        double total = g_phaseTiming.cloneMs + g_phaseTiming.reorderMs +
+                       g_phaseTiming.depsMs + g_phaseTiming.evalMs +
+                       g_phaseTiming.dispatchMs + g_phaseTiming.resultsMs;
+        auto pct = [&](double v) { return (int)(v / total * 100); };
+        std::cerr << "\n  [profile] clone:" << pct(g_phaseTiming.cloneMs)
+                  << "% reorder:" << pct(g_phaseTiming.reorderMs)
+                  << "% deps:" << pct(g_phaseTiming.depsMs)
+                  << "% eval:" << pct(g_phaseTiming.evalMs)
+                  << "% dispatch:" << pct(g_phaseTiming.dispatchMs)
+                  << "% results:" << pct(g_phaseTiming.resultsMs)
+                  << "  (samples:" << g_phaseTiming.samples << ")";
+      }
+      std::cerr << std::endl;
       iterStart = now;
     }
 
@@ -465,8 +513,6 @@ void asmOptimize(AsmFunc &func, int maxTimeMs) {
 
       // Escape local minimum: generate worse variants (sequential, each
       // uses many reorderRound calls internally), then finalize in parallel.
-      std::vector<AsmFunc> escapeTasks;
-      escapeTasks.reserve(POOL_SIZE);
       for (int s = 0; s < SEARCH_VARIANT_SEARCH; ++s) {
         auto [worseCopy, maxCost] =
             generateWorseFunction(funcCopy, stepsBack);
@@ -480,26 +526,41 @@ void asmOptimize(AsmFunc &func, int maxTimeMs) {
             maxCost = cost;
           }
         }
-        escapeTasks.push_back(cloneFunction(worseCopy));
+        // Finalize escape variant via reorderRound
+        AsmFunc variant = cloneFunction(worseCopy);
+        results.push_back(reorderRound(variant));
       }
-      for (int s = SEARCH_VARIANT_SEARCH; s < POOL_SIZE; ++s) {
-        escapeTasks.push_back(
-            cloneFunction(rand01() < 0.1 ? lastRandPick : funcCopy));
+      // Remaining pool slots: if any left, run in parallel.
+      int remaining = POOL_SIZE - SEARCH_VARIANT_SEARCH;
+      if (remaining > 0) {
+        const AsmFunc &pickBase =
+            rand01() < 0.1 ? lastRandPick : funcCopy;
+        auto tD0 = std::chrono::steady_clock::now();
+        auto extraResults = pool.runParallel(pickBase, remaining);
+        g_phaseTiming.dispatchMs +=
+            std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - tD0).count();
+        results.insert(results.end(),
+                       std::make_move_iterator(extraResults.begin()),
+                       std::make_move_iterator(extraResults.end()));
       }
-      results = pool.runParallel(std::move(escapeTasks));
       stepsSinceLastOpt = 0;
     } else {
-      std::vector<AsmFunc> tasks;
-      tasks.reserve(POOL_SIZE);
-      for (int s = 0; s < POOL_SIZE; ++s) {
-        tasks.push_back(
-            cloneFunction(rand01() < 0.1 ? lastRandPick : funcCopy));
-      }
-      results = pool.runParallel(std::move(tasks));
+      const AsmFunc &pickBase =
+          rand01() < 0.1 ? lastRandPick : funcCopy;
+      auto tD0 = std::chrono::steady_clock::now();
+      results = pool.runParallel(pickBase, POOL_SIZE);
+      g_phaseTiming.dispatchMs +=
+          std::chrono::duration<double, std::milli>(
+              std::chrono::steady_clock::now() - tD0).count();
     }
 
+    auto tR0 = std::chrono::steady_clock::now();
     for (int s = 0; s < (int)results.size(); ++s) {
       const auto &[cost, asm_] = results[s];
+      // Safety: a cost of 0 means the variant is broken (no instructions or
+      // dependency corruption). Reject it to prevent poisoning func.asm_.
+      if (cost == 0) continue;
       bool isBetter = cost < costBest;
       bool isSame = cost == costBest;
       bool canUseTheSame = s < ((int)results.size() / 4);
@@ -518,6 +579,10 @@ void asmOptimize(AsmFunc &func, int maxTimeMs) {
         }
       }
     }
+
+    g_phaseTiming.resultsMs +=
+        std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - tR0).count();
 
     if (i % 3 == 0) lastRandPick = funcCopy;
     ++i;

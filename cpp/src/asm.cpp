@@ -2,82 +2,77 @@
 #include "state.h"
 
 #include <algorithm>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace rspl {
 
-// --- Op classification sets -------------------------------------------
+// --- Precomputed opcode → (flags, latency) map --------------------------
+// Replaces the 8 separate unordered_set lookups with a single map lookup.
 
-static const std::unordered_set<std::string> STORE_OPS = {
-    "sw", "sh",  "sb",  "sbv", "ssv", "slv", "sdv",
-    "sqv", "spv", "suv", "shv", "sfv", "stv", "swv", "srv",
-};
+struct OpInfoEntry { uint32_t flags; int latency; };
 
-static const std::unordered_set<std::string> LOAD_OPS_SCALAR = {
-    "lw", "lh", "lhu", "lb", "lbu",
-};
+static const std::unordered_map<std::string, OpInfoEntry> OP_INFO_MAP = []() {
+  std::unordered_map<std::string, OpInfoEntry> m;
 
-static const std::unordered_set<std::string> LOAD_OPS_VECTOR = {
-    "lbv", "lsv", "llv", "ldv", "lqv",
-    "lpv", "luv", "lhv", "lfv", "ltv", "lrv",
-};
+  // For the few ops that need to be in the map even with flags=0
+  auto add = [&](const char *op, uint32_t flags, int latency) {
+    m[op] = {flags, latency};
+  };
 
-static const std::unordered_set<std::string> BRANCH_OPS = {
-    "beq", "bne", "bgezal", "bltzal", "bgez",
-    "bltz", "blez", "bgtz", "j", "jr", "jal",
-};
+  // Branches
+  for (auto *op : {"beq","bne","bgezal","bltzal","bgez","bltz","blez","bgtz",
+                   "j","jr","jal"})
+    add(op, OP_FLAG_IS_BRANCH | OP_FLAG_IS_IMMOVABLE, 0);
 
-static const std::unordered_set<std::string> IMMOVABLE_OPS = {
-    "beq", "bne", "bgezal", "bltzal", "bgez",
-    "bltz", "blez", "bgtz", "j", "jr", "jal", "nop",
-};
+  // Stores (also get MEM_STALL_STORE)
+  for (auto *op : {"sw","sh","sb","sbv","ssv","slv","sdv","sqv","spv","suv",
+                   "shv","sfv","stv","swv","srv"})
+    add(op, OP_FLAG_IS_STORE | OP_FLAG_IS_MEM_STALL_STORE, 0);
 
-static const std::unordered_set<std::string> LOAD_OPS = []() {
-  std::unordered_set<std::string> s;
-  s.insert(LOAD_OPS_SCALAR.begin(), LOAD_OPS_SCALAR.end());
-  s.insert(LOAD_OPS_VECTOR.begin(), LOAD_OPS_VECTOR.end());
-  return s;
+  // Vector loads
+  for (auto *op : {"lbv","lsv","llv","ldv","lqv","lpv","luv","lhv","lfv",
+                   "ltv","lrv"})
+    add(op, OP_FLAG_IS_LOAD | OP_FLAG_IS_MEM_STALL_LOAD, 4);
+
+  // Scalar loads
+  for (auto *op : {"lw","lh","lhu","lb","lbu"})
+    add(op, OP_FLAG_IS_LOAD | OP_FLAG_IS_MEM_STALL_LOAD, 3);
+
+  // Stall ops (both load and store stalls)
+  for (auto *op : {"mfc0","mtc0","mfc2","mtc2","cfc2","ctc2"}) {
+    uint32_t f = OP_FLAG_IS_MEM_STALL_LOAD | OP_FLAG_IS_MEM_STALL_STORE;
+    int lat = 3;
+    if (op[2] == 'c') { // cfc2/ctc2
+      f |= OP_FLAG_CTC2_CFC2;
+    }
+    if (op[1] == 't' && op[2] == 'c' && op[3] == '2') lat = 4; // mtc2
+    add(op, f, lat);
+  }
+
+  // Special
+  add("nop", OP_FLAG_IS_NOP | OP_FLAG_IS_IMMOVABLE, 0);
+  add("catch", OP_FLAG_IS_MEM_STALL_LOAD | OP_FLAG_IS_MEM_STALL_STORE, 0);
+
+  return m;
 }();
-
-static const std::unordered_set<std::string> MEM_STALL_LOAD_OPS = []() {
-  auto s = LOAD_OPS;
-  s.insert({"mfc0", "mtc0", "mfc2", "mtc2", "cfc2", "ctc2", "catch"});
-  return s;
-}();
-
-static const std::unordered_set<std::string> MEM_STALL_STORE_OPS = []() {
-  auto s = STORE_OPS;
-  s.insert({"mfc0", "mtc0", "mfc2", "mtc2", "cfc2", "ctc2", "catch"});
-  return s;
-}();
-
-// --- Helpers ----------------------------------------------------------
 
 int getStallLatency(const std::string &op) {
   if (!op.empty() && op[0] == 'v') return 4;
-  if (op == "mtc2") return 4;
-  if (LOAD_OPS_VECTOR.count(op)) return 4;
-  if (LOAD_OPS_SCALAR.count(op)) return 3;
-  if (op == "mfc0" || op == "mfc2" || op == "cfc2" || op == "ctc2")
-    return 3;
-  return 0;
+  auto it = OP_INFO_MAP.find(op);
+  return it != OP_INFO_MAP.end() ? it->second.latency : 0;
 }
 
 uint32_t getOpFlags(const std::string &op) {
-  uint32_t flags = 0;
-  if (LOAD_OPS.count(op)) flags |= OP_FLAG_IS_LOAD;
-  if (STORE_OPS.count(op)) flags |= OP_FLAG_IS_STORE;
-  if (BRANCH_OPS.count(op)) flags |= OP_FLAG_IS_BRANCH;
-  if (IMMOVABLE_OPS.count(op)) flags |= OP_FLAG_IS_IMMOVABLE;
-  if (MEM_STALL_LOAD_OPS.count(op)) flags |= OP_FLAG_IS_MEM_STALL_LOAD;
-  if (MEM_STALL_STORE_OPS.count(op)) flags |= OP_FLAG_IS_MEM_STALL_STORE;
+  uint32_t flags = OP_FLAG_IS_LIKELY;
   if (!op.empty() && op[0] == 'v') flags |= OP_FLAG_IS_VECTOR;
   if (op == "nop") flags |= OP_FLAG_IS_NOP;
-  flags |= OP_FLAG_IS_LIKELY; // default true unless @Unlikely annotation
-  if (op == "cfc2" || op == "ctc2") flags |= OP_FLAG_CTC2_CFC2;
-  if ((flags & OP_FLAG_IS_BRANCH) && (flags & OP_FLAG_IS_LIKELY)) {
+
+  auto it = OP_INFO_MAP.find(op);
+  if (it != OP_INFO_MAP.end()) flags |= it->second.flags;
+
+  if ((flags & OP_FLAG_IS_BRANCH) && (flags & OP_FLAG_IS_LIKELY))
     flags |= OP_FLAG_LIKELY_BRANCH;
-  }
   return flags;
 }
 
