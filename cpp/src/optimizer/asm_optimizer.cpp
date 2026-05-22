@@ -103,6 +103,7 @@ constexpr int SEARCH_BACK_STEPS_FACTOR = 10;
 constexpr int SEARCH_FWD_STEPS_FACTOR = 5;
 constexpr int REORDER_MIN_OPS = 3;
 constexpr int REORDER_MAX_OPS = 15;
+constexpr int PROGRESS_LOG_INTERVAL = 500; // meta-iterations between logs
 
 // --- Helper functions -----------------------------------------------------
 
@@ -386,19 +387,18 @@ private:
 // --- Cumulative perf counters -------------------------------------------
 
 static int64_t g_totalIterations = 0;
-static double g_totalElapsedMs = 0.0;
+static double g_totalWallMs = 0.0;
 
 void printCumulativeStats() {
   if (g_totalIterations == 0) return;
-  double avgIps = g_totalElapsedMs > 0.0
-                      ? g_totalIterations / (g_totalElapsedMs / 1000.0)
-                      : 0.0;
+  double ips = g_totalWallMs > 0.0
+                   ? g_totalIterations / (g_totalWallMs / 1000.0)
+                   : 0.0;
   std::cerr << "\n=== Reorder Summary =======================" << std::endl;
   std::cerr << "  Total iterations: " << g_totalIterations << std::endl;
-  std::cerr << "  Total time: " << std::fixed << std::setprecision(1)
-            << g_totalElapsedMs << " ms" << std::endl;
-  std::cerr << "  Average IPS: " << std::setprecision(0) << avgIps
-            << std::endl;
+  std::cerr << "  Total wall time: " << std::fixed << std::setprecision(1)
+            << g_totalWallMs << " ms" << std::endl;
+  std::cerr << "  IPS: " << std::setprecision(0) << ips << std::endl;
 }
 
 void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
@@ -431,6 +431,7 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
   auto deadline = startTime + std::chrono::milliseconds(maxTimeMs);
 
   int i = 0;
+  int metaIter = 0;
   int stepsSinceLastOpt = 0;
   int consecutiveSame = 0;
   double totalTime = 0.0;
@@ -439,21 +440,23 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
   while (totalTime < maxTimeMs) {
     auto now = std::chrono::steady_clock::now();
 
-    // Progress logging (first 10 individually, then every 1000)
-    if (i < 10 || (i % 1000) == 0) {
+    // Progress logging
+    if (metaIter < 5 || (metaIter % PROGRESS_LOG_INTERVAL) == 0) {
       auto dur = std::chrono::duration<double, std::milli>(now - iterStart)
                      .count();
       totalTime += dur;
-      double elapsedSec = totalTime / 1000.0;
-      double ips = elapsedSec > 0.0 ? i / elapsedSec : 0.0;
+      double wallSec =
+          std::chrono::duration<double>(now - startTime).count();
+      double ips = wallSec > 0.0 ? i / wallSec : 0.0;
       double left = maxTimeMs - totalTime;
       std::cerr << "[" << funcName << "] Step: " << i
                 << ", Left: " << std::fixed << std::setprecision(1) << left
                 << "ms | Cost: " << costBest
                 << " | ips: " << std::setprecision(0) << ips;
 
-      // Phase breakdown (every 1000 iterations)
-      if (i > 0 && (i % 1000) == 0 && g_phaseTiming.samples > 0) {
+      // Phase breakdown (every PROGRESS_LOG_INTERVAL meta-iterations)
+      if (metaIter > 0 && (metaIter % PROGRESS_LOG_INTERVAL) == 0 &&
+          g_phaseTiming.samples > 0) {
         double total = g_phaseTiming.cloneMs + g_phaseTiming.reorderMs +
                        g_phaseTiming.depsMs + g_phaseTiming.evalMs +
                        g_phaseTiming.dispatchMs + g_phaseTiming.resultsMs;
@@ -477,19 +480,16 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
       double funcIps =
           funcElapsedMs > 0.0 ? i / (funcElapsedMs / 1000.0) : 0.0;
       g_totalIterations += i;
-      g_totalElapsedMs += funcElapsedMs;
-      double cumIps = g_totalElapsedMs > 0.0
-                          ? g_totalIterations / (g_totalElapsedMs / 1000.0)
-                          : 0.0;
+      g_totalWallMs += funcElapsedMs;
       std::cerr << "[" << funcName << "] Timeout after " << i
                 << " iterations (" << std::fixed << std::setprecision(0)
-                << funcIps << " ips func, "
-                << cumIps << " ips cum)." << std::endl;
+                << funcIps << " ips)." << std::endl;
       break;
     }
 
     AsmFunc funcCopy = cloneFunction(func);
     std::vector<RoundResult> results;
+    int effectivePool = POOL_SIZE * numWorkers;
 
     if (stepsSinceLastOpt > MAX_STEPS_NO_CHANGE) {
       ++consecutiveSame;
@@ -519,12 +519,10 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
         results.push_back(reorderRound(variant));
       }
       // Remaining pool slots: if any left, run in parallel.
-      int remaining = POOL_SIZE - SEARCH_VARIANT_SEARCH;
+      int remaining = effectivePool - SEARCH_VARIANT_SEARCH;
       if (remaining > 0) {
-        const AsmFunc &pickBase =
-            rand01() < 0.1 ? lastRandPick : funcCopy;
         auto tD0 = std::chrono::steady_clock::now();
-        auto extraResults = pool.runParallel(pickBase, remaining);
+        auto extraResults = pool.runParallel(func, remaining);
         g_phaseTiming.dispatchMs +=
             std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - tD0).count();
@@ -534,10 +532,8 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
       }
       stepsSinceLastOpt = 0;
     } else {
-      const AsmFunc &pickBase =
-          rand01() < 0.1 ? lastRandPick : funcCopy;
       auto tD0 = std::chrono::steady_clock::now();
-      results = pool.runParallel(pickBase, POOL_SIZE);
+      results = pool.runParallel(func, effectivePool);
       g_phaseTiming.dispatchMs +=
           std::chrono::duration<double, std::milli>(
               std::chrono::steady_clock::now() - tD0).count();
@@ -573,7 +569,8 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
             std::chrono::steady_clock::now() - tR0).count();
 
     if (i % 3 == 0) lastRandPick = funcCopy;
-    ++i;
+    i += effectivePool;
+    ++metaIter;
     ++stepsSinceLastOpt;
   }
 

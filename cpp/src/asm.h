@@ -62,6 +62,23 @@ struct AsmInstCold {
   std::vector<AsmAnnotation> annotations;
 };
 
+// --- SmallVec: fixed-capacity vector, no heap allocation ---------
+
+template <typename T, size_t N> struct SmallVec {
+  std::array<T, N> data_{};
+  uint8_t size_ = 0;
+  T &operator[](size_t i) { return data_[i]; }
+  const T &operator[](size_t i) const { return data_[i]; }
+  T *begin() { return data_.data(); }
+  T *end() { return data_.data() + size_; }
+  const T *begin() const { return data_.data(); }
+  const T *end() const { return data_.data() + size_; }
+  size_t size() const { return size_; }
+  bool empty() const { return size_ == 0; }
+  void push_back(const T &v) { data_[size_++] = v; }
+  void clear() { size_ = 0; }
+};
+
 // --- ASM instruction --------------------------------------------------
 
 struct AsmInst {
@@ -76,10 +93,10 @@ struct AsmInst {
   uint32_t barrierMask = 0;
 
   // -- Dependency tracking (filled by optimizer) -----------------------
-  std::vector<int> depsSourceIdx;
-  std::vector<int> depsTargetIdx;
-  std::vector<int> depsStallSourceIdx;
-  std::vector<int> depsStallTargetIdx;
+  SmallVec<int, 16> depsSourceIdx;
+  SmallVec<int, 16> depsTargetIdx;
+  SmallVec<int, 16> depsStallSourceIdx;
+  SmallVec<int, 16> depsStallTargetIdx;
 
   // 295-bit register masks stored as 5 x uint64_t
   std::array<uint64_t, 5> depsSourceMask = {};

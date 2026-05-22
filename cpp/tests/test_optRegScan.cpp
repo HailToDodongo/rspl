@@ -50,6 +50,11 @@ static auto sorted(std::vector<int> v) {
   std::sort(v.begin(), v.end());
   return v;
 }
+template <typename C> static auto sorted(const C &c) {
+  std::vector<int> v(c.begin(), c.end());
+  std::sort(v.begin(), v.end());
+  return v;
+}
 
 static std::vector<int> idxs(const std::vector<std::string> &regs) {
   std::vector<int> r;
