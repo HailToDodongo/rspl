@@ -12,10 +12,10 @@
 namespace rspl {
 
 std::string stringifyInstr(const AsmInst &inst) {
-  if (inst.op.empty()) return inst.cold->label + ":";
-  if (inst.args.empty()) return inst.op;
+  if (inst.op == 0) return inst.cold->label + ":";
+  if (inst.args.empty()) return getOpcodeName(inst.op);
   std::ostringstream ss;
-  ss << inst.op;
+  ss << getOpcodeName(inst.op);
   for (size_t i = 0; i < inst.args.size(); ++i) {
     ss << (i == 0 ? " " : ", ") << inst.args[i];
   }

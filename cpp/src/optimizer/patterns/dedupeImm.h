@@ -21,7 +21,7 @@ inline void dedupeImmediate(AsmFunc &func) {
         std::string newAT;
         // Only handle "ori" — other writes are assumed to set $at
         // in unknown ways and reset the cache.
-        if (asm_.op == "ori" && asm_.args.size() >= 3) {
+        if (asm_.op == Op::ORI() && asm_.args.size() >= 3) {
           newAT = asm_.args[2];
           if (!lastAT.empty() && lastAT == newAT) {
             keep = false; // redundant — same value already in $at

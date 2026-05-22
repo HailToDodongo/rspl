@@ -18,7 +18,7 @@ static rspl::AsmInst O(const std::string &op,
                        std::vector<std::string> args = {}) {
   rspl::AsmInst inst;
   inst.type = rspl::AsmType::OP;
-  inst.op = op;
+  inst.op = rspl::getOpcode(op);
   inst.args = std::move(args);
   return inst;
 }

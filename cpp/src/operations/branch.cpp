@@ -11,24 +11,34 @@
 
 namespace rspl::ops {
 
-static const std::unordered_map<std::string, std::string> BRANCH_INVERT = {
-    {"beq", "bne"},    {"bne", "beq"},     {"bgezal", "bltzal"},
-    {"bltzal", "bgezal"}, {"bgez", "bltz"},  {"bltz", "bgez"},
-    {"blez", "bgtz"},    {"bgtz", "blez"},
-};
+static const std::unordered_map<Opcode, Opcode> BRANCH_INVERT = []() {
+  std::unordered_map<Opcode, Opcode> m;
+  m[getOpcode("beq")] = getOpcode("bne");
+  m[getOpcode("bne")] = getOpcode("beq");
+  m[getOpcode("bgezal")] = getOpcode("bltzal");
+  m[getOpcode("bltzal")] = getOpcode("bgezal");
+  m[getOpcode("bgez")] = getOpcode("bltz");
+  m[getOpcode("bltz")] = getOpcode("bgez");
+  m[getOpcode("blez")] = getOpcode("bgtz");
+  m[getOpcode("bgtz")] = getOpcode("blez");
+  return m;
+}();
 
-static const std::unordered_map<std::string, std::string>
-    ZERO_COMB_BRANCH = {
-        {"<", "bltz"},
-        {"<=", "blez"},
-        {">", "bgtz"},
-        {">=", "bgez"},
-};
+static const std::unordered_map<std::string, Opcode>
+    ZERO_COMB_BRANCH = []() {
+      std::unordered_map<std::string, Opcode> m;
+      m["<"] = getOpcode("bltz");
+      m["<="] = getOpcode("blez");
+      m[">"] = getOpcode("bgtz");
+      m[">="] = getOpcode("bgez");
+      return m;
+    }();
 
-std::string invertBranchOp(const std::string &op) {
+Opcode invertBranchOp(Opcode op) {
   auto it = BRANCH_INVERT.find(op);
   if (it == BRANCH_INVERT.end()) {
-    state.throwError("Cannot invert branch operation: " + op);
+    state.throwError("Cannot invert branch operation: " +
+                     getOpcodeName(op));
   }
   return it->second;
 }
@@ -58,7 +68,7 @@ std::vector<AsmInst> opBranch(const ast::CompareExpr &compare,
 
   // == and != are simple
   if (compare.op == "==" || compare.op == "!=") {
-    std::string opBranch = compare.op == "==" ? "bne" : "beq";
+    Opcode opBranch = compare.op == "==" ? getOpcode("bne") : getOpcode("beq");
     if (invert) opBranch = invertBranchOp(opBranch);
 
     std::vector<AsmInst> res;
@@ -67,7 +77,7 @@ std::vector<AsmInst> opBranch(const ast::CompareExpr &compare,
       res.insert(res.end(), load.begin(), load.end());
     }
     res.push_back(
-        asmBranch(opBranch, {regLeft, regTestRes, labelElse}, labelElse));
+        asmBranch(getOpcodeName(opBranch), {regLeft, regTestRes, labelElse}, labelElse));
     res.push_back(asmNOP());
     return res;
   }
@@ -76,9 +86,9 @@ std::vector<AsmInst> opBranch(const ast::CompareExpr &compare,
   if (!isImmediate && regTestRes == reg::Reg::ZERO) {
     auto it = ZERO_COMB_BRANCH.find(compare.op);
     if (it != ZERO_COMB_BRANCH.end()) {
-      std::string op = it->second;
+      Opcode op = it->second;
       if (!invert) op = invertBranchOp(op);
-      return {asmBranch(op, {regLeft, labelElse}, labelElse), asmNOP()};
+      return {asmBranch(getOpcodeName(op), {regLeft, labelElse}, labelElse), asmNOP()};
     }
   }
 
@@ -112,7 +122,7 @@ std::vector<AsmInst> opBranch(const ast::CompareExpr &compare,
       (isSigned(varLeft.type) ? "" : "u");
 
   if (op == "<" || op == ">=") {
-    std::string brOp = op == "<" ? "beq" : "bne";
+    Opcode brOp = op == "<" ? getOpcode("beq") : getOpcode("bne");
     if (invert) brOp = invertBranchOp(brOp);
 
     std::vector<AsmInst> res;
@@ -124,7 +134,7 @@ std::vector<AsmInst> opBranch(const ast::CompareExpr &compare,
         asmOp(opLessThan, {reg::Reg::AT, regLeft,
                             isImmediate ? valR : regTestRes}));
     res.push_back(asmBranch(
-        brOp, {reg::Reg::AT, reg::Reg::ZERO, labelElse}, labelElse));
+        getOpcodeName(brOp), {reg::Reg::AT, reg::Reg::ZERO, labelElse}, labelElse));
     res.push_back(asmNOP());
     return res;
   }

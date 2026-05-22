@@ -7,17 +7,46 @@
 
 namespace rspl {
 
+// --- Opcode registry ---------------------------------------------------
+// Function-local statics to avoid static-init-order fiasco across TUs.
+
+struct OpcodeRegistry {
+  std::vector<std::string> names;
+  std::unordered_map<std::string, Opcode> map;
+};
+static OpcodeRegistry &opcodeReg() {
+  static OpcodeRegistry reg;
+  return reg;
+}
+
+Opcode getOpcode(const std::string &name) {
+  if (name.empty()) return 0;
+  auto &reg = opcodeReg();
+  auto it = reg.map.find(name);
+  if (it != reg.map.end()) return it->second;
+  Opcode idx = static_cast<Opcode>(reg.names.size() + 1);
+  reg.names.push_back(name);
+  reg.map[name] = idx;
+  return idx;
+}
+
+const std::string &getOpcodeName(Opcode op) {
+  static const std::string empty;
+  auto &names = opcodeReg().names;
+  if (op == 0 || op > names.size()) return empty;
+  return names[op - 1];
+}
+
 // --- Precomputed opcode → (flags, latency) map --------------------------
 // Replaces the 8 separate unordered_set lookups with a single map lookup.
 
 struct OpInfoEntry { uint32_t flags; int latency; };
 
-static const std::unordered_map<std::string, OpInfoEntry> OP_INFO_MAP = []() {
-  std::unordered_map<std::string, OpInfoEntry> m;
+static const std::unordered_map<Opcode, OpInfoEntry> OP_INFO_MAP = []() {
+  std::unordered_map<Opcode, OpInfoEntry> m;
 
-  // For the few ops that need to be in the map even with flags=0
   auto add = [&](const char *op, uint32_t flags, int latency) {
-    m[op] = {flags, latency};
+    m[getOpcode(op)] = {flags, latency};
   };
 
   // Branches
@@ -57,19 +86,23 @@ static const std::unordered_map<std::string, OpInfoEntry> OP_INFO_MAP = []() {
   return m;
 }();
 
-int getStallLatency(const std::string &op) {
-  if (!op.empty() && op[0] == 'v') return 4;
+int getStallLatency(Opcode op) {
   auto it = OP_INFO_MAP.find(op);
-  return it != OP_INFO_MAP.end() ? it->second.latency : 0;
+  if (it != OP_INFO_MAP.end()) return it->second.latency;
+  const auto &name = getOpcodeName(op);
+  if (!name.empty() && name[0] == 'v') return 4;
+  return 0;
 }
 
-uint32_t getOpFlags(const std::string &op) {
+uint32_t getOpFlags(Opcode op) {
   uint32_t flags = OP_FLAG_IS_LIKELY;
-  if (!op.empty() && op[0] == 'v') flags |= OP_FLAG_IS_VECTOR;
-  if (op == "nop") flags |= OP_FLAG_IS_NOP;
-
   auto it = OP_INFO_MAP.find(op);
   if (it != OP_INFO_MAP.end()) flags |= it->second.flags;
+  else {
+    const auto &name = getOpcodeName(op);
+    if (!name.empty() && name[0] == 'v') flags |= OP_FLAG_IS_VECTOR;
+  }
+  if (op == getOpcode("nop")) flags |= OP_FLAG_IS_NOP;
 
   if ((flags & OP_FLAG_IS_BRANCH) && (flags & OP_FLAG_IS_LIKELY))
     flags |= OP_FLAG_LIKELY_BRANCH;
@@ -80,7 +113,7 @@ static AsmDebug currentDebug() {
   return AsmDebug{.lineRSPL = static_cast<int>(state.line)};
 }
 
-static void applyOpInfo(AsmInst &inst, const std::string &op,
+static void applyOpInfo(AsmInst &inst, Opcode op,
                         AsmType type) {
   inst.type = type;
   inst.opFlags = getOpFlags(op);
@@ -97,27 +130,27 @@ static void applyOpInfo(AsmInst &inst, const std::string &op,
 AsmInst asmOp(const std::string &op,
               const std::vector<std::string> &args) {
   AsmInst inst;
-  inst.op = op;
+  inst.op = getOpcode(op);
   inst.args = args;
   inst.debug = currentDebug();
-  applyOpInfo(inst, op, AsmType::OP);
+  applyOpInfo(inst, inst.op, AsmType::OP);
   return inst;
 }
 
 AsmInst asmNOP() {
   AsmInst inst;
-  inst.op = "nop";
+  inst.op = getOpcode("nop");
   inst.debug = currentDebug();
-  applyOpInfo(inst, "nop", AsmType::OP);
+  applyOpInfo(inst, inst.op, AsmType::OP);
   return inst;
 }
 
 AsmInst asmLabel(const std::string &label) {
   AsmInst inst;
   inst.cold->label = label;
-  inst.op = "";
+  inst.op = 0;
   inst.debug = currentDebug();
-  applyOpInfo(inst, "", AsmType::LABEL);
+  applyOpInfo(inst, 0, AsmType::LABEL);
   return inst;
 }
 
@@ -132,10 +165,10 @@ AsmInst asmBranch(const std::string &op,
 AsmInst asmInline(const std::string &op,
                   const std::vector<std::string> &args) {
   AsmInst inst;
-  inst.op = op;
+  inst.op = getOpcode(op);
   inst.args = args;
   inst.debug = currentDebug();
-  applyOpInfo(inst, op, AsmType::INLINE);
+  applyOpInfo(inst, inst.op, AsmType::INLINE);
   return inst;
 }
 

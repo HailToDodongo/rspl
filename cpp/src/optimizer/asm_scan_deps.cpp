@@ -93,88 +93,95 @@ int getRegStallIndex(const char *name, size_t len) {
 
 // --- Hidden registers -------------------------------------------------
 
-const std::unordered_map<std::string, std::vector<std::string>>
-    HIDDEN_REGS_READ = {
-        {"vlt", {"$vco"}},
-        {"veq", {"$vco"}},
-        {"vne", {"$vco"}},
-        {"vge", {"$vco"}},
-        {"vmrg", {"$vcc"}},
-        {"vcl", {"$vco", "$vce"}},
-        {"vmacf", {"$acc"}},
-        {"vmacu", {"$acc"}},
-        {"vmadn", {"$acc"}},
-        {"vmadl", {"$acc"}},
-        {"vmadm", {"$acc"}},
-        {"vmadh", {"$acc"}},
-        {"vrndp", {"$acc"}},
-        {"vrndn", {"$acc"}},
-        {"vmacq", {"$acc"}},
-        {"vsar", {"$acc"}},
-        {"vrcph", {"$divOut"}},
-        {"vrsqh", {"$divOut"}},
-        {"vrcpl", {"$divIn", "$divDP"}},
-        {"vrsql", {"$divIn", "$divDP"}},
-        {"vadd", {"$vco"}},
-        {"vsub", {"$vco"}},
-};
+const std::unordered_map<Opcode, std::vector<std::string>>
+    HIDDEN_REGS_READ = []() {
+      std::unordered_map<Opcode, std::vector<std::string>> m;
+      m[getOpcode("vlt")] = {"$vco"};
+      m[getOpcode("veq")] = {"$vco"};
+      m[getOpcode("vne")] = {"$vco"};
+      m[getOpcode("vge")] = {"$vco"};
+      m[getOpcode("vmrg")] = {"$vcc"};
+      m[getOpcode("vcl")] = {"$vco", "$vce"};
+      m[getOpcode("vmacf")] = {"$acc"};
+      m[getOpcode("vmacu")] = {"$acc"};
+      m[getOpcode("vmadn")] = {"$acc"};
+      m[getOpcode("vmadl")] = {"$acc"};
+      m[getOpcode("vmadm")] = {"$acc"};
+      m[getOpcode("vmadh")] = {"$acc"};
+      m[getOpcode("vrndp")] = {"$acc"};
+      m[getOpcode("vrndn")] = {"$acc"};
+      m[getOpcode("vmacq")] = {"$acc"};
+      m[getOpcode("vsar")] = {"$acc"};
+      m[getOpcode("vrcph")] = {"$divOut"};
+      m[getOpcode("vrsqh")] = {"$divOut"};
+      m[getOpcode("vrcpl")] = {"$divIn", "$divDP"};
+      m[getOpcode("vrsql")] = {"$divIn", "$divDP"};
+      m[getOpcode("vadd")] = {"$vco"};
+      m[getOpcode("vsub")] = {"$vco"};
+      return m;
+    }();
 
-const std::unordered_map<std::string, std::vector<std::string>>
-    HIDDEN_REGS_WRITE = {
-        {"vlt",  {"$vcc", "$vco", "$acc"}},
-        {"veq",  {"$vcc", "$vco", "$acc"}},
-        {"vne",  {"$vcc", "$vco", "$acc"}},
-        {"vge",  {"$vcc", "$vco", "$acc"}},
-        {"vch",  {"$vcc", "$vco", "$acc", "$vce"}},
-        {"vcr",  {"$vcc", "$vco", "$acc", "$vce"}},
-        {"vcl",  {"$vcc", "$vco", "$acc", "$vce"}},
-        {"vmrg", {"$vco", "$acc"}},
-        {"vmov", {"$acc"}},
-        {"vrcp", {"$acc", "$divOut", "$divDP"}},
-        {"vrcph", {"$acc", "$divIn", "$divDP"}},
-        {"vrcpl", {"$acc", "$divOut", "$divDP"}},
-        {"vrsq", {"$acc", "$divOut", "$divDP"}},
-        {"vrsqh", {"$acc", "$divIn", "$divDP"}},
-        {"vrsql", {"$acc", "$divOut", "$divDP"}},
-        {"vadd",  {"$vco", "$acc"}},
-        {"vsub",  {"$vco", "$acc"}},
-        {"vaddc", {"$vco", "$acc"}},
-        {"vsubc", {"$vco", "$acc"}},
-        {"vabs",  {"$acc"}},
-        {"vand",  {"$acc"}},
-        {"vnand", {"$acc"}},
-        {"vor",   {"$acc"}},
-        {"vnor",  {"$acc"}},
-        {"vxor",  {"$acc"}},
-        {"vnxor", {"$acc"}},
-        {"vmulf", {"$acc"}},
-        {"vmulu", {"$acc"}},
-        {"vmacf", {"$acc"}},
-        {"vmacu", {"$acc"}},
-        {"vmudn", {"$acc"}},
-        {"vmadn", {"$acc"}},
-        {"vmudl", {"$acc"}},
-        {"vmadl", {"$acc"}},
-        {"vmudm", {"$acc"}},
-        {"vmadm", {"$acc"}},
-        {"vmudh", {"$acc"}},
-        {"vmadh", {"$acc"}},
-        {"vrndp", {"$acc"}},
-        {"vrndn", {"$acc"}},
-        {"vmulq", {"$acc"}},
-        {"vmacq", {"$acc"}},
-};
+const std::unordered_map<Opcode, std::vector<std::string>>
+    HIDDEN_REGS_WRITE = []() {
+      std::unordered_map<Opcode, std::vector<std::string>> m;
+      m[getOpcode("vlt")] = {"$vcc", "$vco", "$acc"};
+      m[getOpcode("veq")] = {"$vcc", "$vco", "$acc"};
+      m[getOpcode("vne")] = {"$vcc", "$vco", "$acc"};
+      m[getOpcode("vge")] = {"$vcc", "$vco", "$acc"};
+      m[getOpcode("vch")] = {"$vcc", "$vco", "$acc", "$vce"};
+      m[getOpcode("vcr")] = {"$vcc", "$vco", "$acc", "$vce"};
+      m[getOpcode("vcl")] = {"$vcc", "$vco", "$acc", "$vce"};
+      m[getOpcode("vmrg")] = {"$vco", "$acc"};
+      m[getOpcode("vmov")] = {"$acc"};
+      m[getOpcode("vrcp")] = {"$acc", "$divOut", "$divDP"};
+      m[getOpcode("vrcph")] = {"$acc", "$divIn", "$divDP"};
+      m[getOpcode("vrcpl")] = {"$acc", "$divOut", "$divDP"};
+      m[getOpcode("vrsq")] = {"$acc", "$divOut", "$divDP"};
+      m[getOpcode("vrsqh")] = {"$acc", "$divIn", "$divDP"};
+      m[getOpcode("vrsql")] = {"$acc", "$divOut", "$divDP"};
+      m[getOpcode("vadd")] = {"$vco", "$acc"};
+      m[getOpcode("vsub")] = {"$vco", "$acc"};
+      m[getOpcode("vaddc")] = {"$vco", "$acc"};
+      m[getOpcode("vsubc")] = {"$vco", "$acc"};
+      m[getOpcode("vabs")] = {"$acc"};
+      m[getOpcode("vand")] = {"$acc"};
+      m[getOpcode("vnand")] = {"$acc"};
+      m[getOpcode("vor")] = {"$acc"};
+      m[getOpcode("vnor")] = {"$acc"};
+      m[getOpcode("vxor")] = {"$acc"};
+      m[getOpcode("vnxor")] = {"$acc"};
+      m[getOpcode("vmulf")] = {"$acc"};
+      m[getOpcode("vmulu")] = {"$acc"};
+      m[getOpcode("vmacf")] = {"$acc"};
+      m[getOpcode("vmacu")] = {"$acc"};
+      m[getOpcode("vmudn")] = {"$acc"};
+      m[getOpcode("vmadn")] = {"$acc"};
+      m[getOpcode("vmudl")] = {"$acc"};
+      m[getOpcode("vmadl")] = {"$acc"};
+      m[getOpcode("vmudm")] = {"$acc"};
+      m[getOpcode("vmadm")] = {"$acc"};
+      m[getOpcode("vmudh")] = {"$acc"};
+      m[getOpcode("vmadh")] = {"$acc"};
+      m[getOpcode("vrndp")] = {"$acc"};
+      m[getOpcode("vrndn")] = {"$acc"};
+      m[getOpcode("vmulq")] = {"$acc"};
+      m[getOpcode("vmacq")] = {"$acc"};
+      return m;
+    }();
 
 static const std::unordered_set<std::string> STALL_IGNORE_REGS = {
     "$vcc", "$vco", "$acc", "$vce", "$divOut", "$divIn", "$divDP"};
 
-static const std::unordered_set<std::string> READ_ONLY_OPS = {
-    "beq",  "bne",  "bgezal", "bltzal", "bgez", "bltz",
-    "blez", "bgtz", "j",      "jr",     "jal",
-    "sw",   "sh",   "sb",     "sbv",    "ssv",  "slv", "sdv",
-    "sqv",  "spv",  "suv",    "shv",    "sfv",  "stv", "swv", "srv",
-    "mtc0",
-};
+static const std::unordered_set<Opcode> READ_ONLY_OPS = []() {
+  std::unordered_set<Opcode> s;
+  for (auto *op : {"beq","bne","bgezal","bltzal","bgez","bltz",
+       "blez","bgtz","j","jr","jal",
+       "sw","sh","sb","sbv","ssv","slv","sdv",
+       "sqv","spv","suv","shv","sfv","stv","swv","srv",
+       "mtc0"})
+    s.insert(getOpcode(op));
+  return s;
+}();
 
 // --- LTV/STV register groups ------------------------------------------
 
@@ -287,18 +294,18 @@ static std::string extractRegFromArg(const std::string &arg) {
 }
 
 std::vector<std::string> getSourceRegs(const AsmInst &inst) {
-  if (inst.op == "jr" || inst.op == "mtc2" || inst.op == "mtc0" ||
-      inst.op == "ctc2") {
+  if (inst.op == Op::JR() || inst.op == Op::MTC2() ||
+      inst.op == Op::MTC0() || inst.op == Op::CTC2()) {
     return {inst.args[0]};
   }
   if ((inst.opFlags & OpFlag::OP_FLAG_IS_BRANCH) &&
-      inst.op.starts_with("b")) {
+      getOpcodeName(inst.op)[0] == 'b') {
     if (inst.args.empty()) return {};
     return std::vector<std::string>(inst.args.begin(),
                                     inst.args.end() - 1);
   }
   if (inst.opFlags & OpFlag::OP_FLAG_IS_STORE) {
-    if (inst.op == "stv") {
+    if (inst.op == Op::STV()) {
       const std::string &mainReg =
           inst.args.empty() ? "$v00" : inst.args[0];
       auto it = LTV_REG_MAP.find(mainReg);
@@ -317,7 +324,7 @@ std::vector<std::string> getSourceRegs(const AsmInst &inst) {
     }
     return inst.args;
   }
-  if (inst.op == "j" || inst.op == "jal") {
+  if (inst.op == Op::J() || inst.op == Op::JAL()) {
     return {inst.args[0]};
   }
   std::vector<std::string> res(inst.args.begin() + 1, inst.args.end());
@@ -332,7 +339,7 @@ std::vector<std::string> getTargetRegs(const AsmInst &inst) {
   if (READ_ONLY_OPS.count(inst.op)) return {};
 
   if ((inst.opFlags & OpFlag::OP_FLAG_IS_LOAD) &&
-      inst.op == "ltv") {
+      inst.op == Op::LTV()) {
     const std::string &mainReg =
         inst.args.empty() ? "$v00" : inst.args[0];
     auto it = LTV_REG_MAP.find(mainReg);
@@ -349,8 +356,8 @@ std::vector<std::string> getTargetRegs(const AsmInst &inst) {
   }
 
   const std::string &targetReg =
-      (inst.op == "mtc2" || inst.op == "ctc2") ? inst.args[1]
-                                                : inst.args[0];
+      (inst.op == Op::MTC2() || inst.op == Op::CTC2()) ? inst.args[1]
+                                                       : inst.args[0];
   std::vector<std::string> res = {targetReg};
   auto hit = HIDDEN_REGS_WRITE.find(inst.op);
   if (hit != HIDDEN_REGS_WRITE.end()) {

@@ -62,6 +62,41 @@ struct AsmInstCold {
   std::vector<AsmAnnotation> annotations;
 };
 
+// --- Compact opcode representation ------------------------------------
+// Replaces std::string op (32 bytes) with a uint16_t index (2 bytes).
+// Opcode strings are interned in a global table; getOpcode() converts
+// string → index, getOpcodeName() converts index → string (for output).
+
+using Opcode = uint16_t;
+Opcode getOpcode(const std::string &name);
+const std::string &getOpcodeName(Opcode op);
+
+// Cached Opcode constants for common comparisons (fast after first use).
+// Use: inst.op == OP_NOP instead of inst.op == getOpcode("nop").
+namespace Op {
+  inline Opcode NOP()   { static Opcode o = getOpcode("nop");    return o; }
+  inline Opcode J()     { static Opcode o = getOpcode("j");      return o; }
+  inline Opcode JR()    { static Opcode o = getOpcode("jr");     return o; }
+  inline Opcode JAL()   { static Opcode o = getOpcode("jal");    return o; }
+  inline Opcode BEQ()   { static Opcode o = getOpcode("beq");    return o; }
+  inline Opcode BNE()   { static Opcode o = getOpcode("bne");    return o; }
+  inline Opcode MTC2()  { static Opcode o = getOpcode("mtc2");   return o; }
+  inline Opcode MTC0()  { static Opcode o = getOpcode("mtc0");   return o; }
+  inline Opcode CTC2()  { static Opcode o = getOpcode("ctc2");   return o; }
+  inline Opcode STV()   { static Opcode o = getOpcode("stv");    return o; }
+  inline Opcode LTV()   { static Opcode o = getOpcode("ltv");    return o; }
+  inline Opcode LUI()   { static Opcode o = getOpcode("lui");    return o; }
+  inline Opcode ADDIU() { static Opcode o = getOpcode("addiu");  return o; }
+  inline Opcode ADDU()  { static Opcode o = getOpcode("addu");   return o; }
+  inline Opcode ORI()   { static Opcode o = getOpcode("ori");    return o; }
+  inline Opcode VMUDL() { static Opcode o = getOpcode("vmudl");  return o; }
+  inline Opcode VXOR()  { static Opcode o = getOpcode("vxor");   return o; }
+  inline Opcode VRSQH() { static Opcode o = getOpcode("vrsqh");  return o; }
+  inline Opcode VRCPH() { static Opcode o = getOpcode("vrcph");  return o; }
+  inline Opcode VRSQL() { static Opcode o = getOpcode("vrsql");  return o; }
+  inline Opcode VRCPL() { static Opcode o = getOpcode("vrcpl");  return o; }
+}
+
 // --- SmallVec: fixed-capacity vector, no heap allocation ---------
 
 template <typename T, size_t N> struct SmallVec {
@@ -90,7 +125,7 @@ template <typename T, size_t N> struct SmallVec {
 // --- ASM instruction --------------------------------------------------
 
 struct AsmInst {
-  std::string op;                     // mnemonic e.g. "add", "beq", "nop"
+  Opcode op = 0;                      // mnemonic e.g. "add", "beq", "nop"
   std::vector<std::string> args;      // operands
   AsmType type = AsmType::OP;
 
@@ -161,7 +196,7 @@ AsmInst asmFunction(const std::string &target,
 
 // --- Op classification helpers ----------------------------------------
 
-int getStallLatency(const std::string &op);
-uint32_t getOpFlags(const std::string &op);
+int getStallLatency(Opcode op);
+uint32_t getOpFlags(Opcode op);
 
 } // namespace rspl

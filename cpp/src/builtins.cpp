@@ -896,7 +896,7 @@ b_asm_op(const VarDef *varRes,
       asmArgs.push_back(v->reg + sw);
     }
   }
-  return {AsmInst{args[0].value, asmArgs}};
+  return {asmOp(args[0].value, asmArgs)};
 }
 
 // asm_include()

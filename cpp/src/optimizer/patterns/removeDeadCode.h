@@ -8,7 +8,7 @@ inline void removeDeadCode(AsmFunc &func) {
   int lastSafeIndex = -1;
   for (int i = static_cast<int>(func.asm_.size()) - 1 - 2; i >= 0; --i) {
     const auto &inst = func.asm_[i];
-    if (inst.op == "j" || inst.op == "jr") {
+    if (inst.op == Op::J() || inst.op == Op::JR()) {
       lastSafeIndex = i;
       break;
     }

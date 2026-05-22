@@ -22,9 +22,9 @@ int getRegStallIndex(const std::string &name);
 int getRegStallIndex(const char *name, size_t len);
 
 // Hidden registers (read/written implicitly by certain ops)
-extern const std::unordered_map<std::string, std::vector<std::string>>
+extern const std::unordered_map<Opcode, std::vector<std::string>>
     HIDDEN_REGS_READ;
-extern const std::unordered_map<std::string, std::vector<std::string>>
+extern const std::unordered_map<Opcode, std::vector<std::string>>
     HIDDEN_REGS_WRITE;
 
 // Lane expansion for vector registers

@@ -8,7 +8,7 @@
 
 namespace rspl::ops {
 
-std::string invertBranchOp(const std::string &op);
+Opcode invertBranchOp(Opcode op);
 
 std::vector<AsmInst> opBranch(const ast::CompareExpr &compare,
                               const std::string &labelElse,
