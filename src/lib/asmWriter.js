@@ -351,12 +351,19 @@ export function writeASM(ast, functionsAsm, config)
         }
       }
 
+      let tag = '';
+      for(const ann of asm.annotations) {
+        if(ann.name === ANNOTATIONS.Tag) {
+          tag = `TAG_${ann.value}: `;
+          break;
+        }
+      }
 
       // ASM Text output
       switch (asm.type) {
         case ASM_TYPE.INLINE:
-        case ASM_TYPE.OP     : writeLine(`  ${stringifyInstr(asm).padEnd(debugInfo ? 50 : 0,' ')}${debugInfo}`);break;
-        case ASM_TYPE.LABEL  : writeLine(`  ${asm.label}:`);         break;
+        case ASM_TYPE.OP     : writeLine(`  ${tag}${stringifyInstr(asm).padEnd(debugInfo ? 50 : 0,' ')}${debugInfo}`);break;
+        case ASM_TYPE.LABEL  : writeLine(`  ${tag}${asm.label}:`);         break;
         default: state.throwError("Unknown ASM type: " + asm.type, asm);
       }
 
