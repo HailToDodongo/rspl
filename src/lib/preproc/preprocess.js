@@ -45,7 +45,7 @@ export function preprocess(src, defines = {}, fileLoader = undefined)
       let [_, name, value] = parts;
 
       for (const data of Object.values(defines))  {
-        value = value.replace(data.regex, data.value);
+        value = value?.replace(data.regex, data.value);
       }
 
       defines[name] = {
