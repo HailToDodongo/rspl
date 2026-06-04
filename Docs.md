@@ -88,18 +88,18 @@ For scalar types, this can be a single value, for vectors it must be a list of v
 Any value left-out will be initialized to `0`.<br>
 
 ### Temporary state
-The `state` section will be persist across overlay-switches, meaning it will be saved/restored.<br>
+The `state` section will persist across overlay-switches, meaning it will be saved/restored.<br>
 For data that doesn't need to be saved, you can use the `data`/`bss` section.<br>
 
 Values inside `data` can have an initial value that will get restored after a switch.<br>
 Modifying them is allowed, but may not persist across commands.<br>
 
-Similarly, `bss` is a section that will be NOT be initialized and is not saved/restored.<br>
+Similarly, `bss` is a section that will NOT be initialized and is not saved/restored.<br>
 Meaning for any given command you run, those values will be in an undefined state.<br>
 
 ## Variables
 To access registers, variables must be used.<br>
-You can think of them as just an alias for registers, they have no runtime overhead.<br>
+You can think of them as just aliases for registers, they have no runtime overhead.<br>
 Additionally they provide the ability to have transpile-time checks.
 
 You can declare a variable like that:
@@ -118,7 +118,7 @@ u32<$t0> myVar;
 undef myVar;
 myVar += 1; // <- ERROR: no longer in scope
 ```
-This is no runtime overhead.
+There is no runtime overhead to un-declaring variables.
 
 ### Scope
 RSPL has a concept of scopes which, similar to C, refers to a block of code inside curly-brackets.<br>
@@ -150,7 +150,7 @@ c += 10; // <- ERROR
 
 ## Statements
 Code consists of a collection of statements.<br>
-A Statement can be a variables declaration, function call, calculation or control-structure.<br>
+A Statement can be a variable declaration, function call, calculation or control-structure.<br>
 As an example:
 ```c++
 u32 a, b, address;
@@ -204,7 +204,7 @@ goto LabelA;
 ```
 
 For exiting commands specifically, there is the `exit` statement.<br>
-This can be used inside commands, functions and macros to stop the execution and return to libdragons code.<br>
+This can be used inside commands, functions and macros to stop the execution and return to libdragon's code.<br>
 ```c++
 function test() {
   exit; // returns to 
@@ -267,7 +267,7 @@ store(a:u16, address); // store back as 16-bit value
 Allowed cast types: `u8`, `s8`, `u16`, `s16`, `u32`, `s32`
 
 #### Vector
-For vector types, this allows you partially access the integer or fraction part of a `vec32`.<br>
+For vector types, this allows you to partially access the integer or fraction part of a `vec32`.<br>
 Using it on a `vec16` is also safe, and usually affects how it will be treated by 32-bit operations and assignments.<br> 
 
 Allowed cast types: `sint`, `uint`, `sfract`, `ufract`.
@@ -297,8 +297,8 @@ As well as operations:
 ```c++
 vec32 a, b;
 a += b:sint; // only add an integer, leave fraction unchanged
-vec16 fA, fB; // assumed to be a 1.16 fixed-point
-fA += fB:sfract; // only add fraction, forcing a singed addition
+vec16 fA, fB; // assumed to be a s0.15 fixed-point
+fA += fB:sfract; // only add fraction, forcing a signed addition
 ```
 While you can set a cast on all variables of an expression (if supported),<br/>
 the main deciding factor is the destination variable.<br/>
@@ -348,7 +348,7 @@ function RDPQ_Send(u32<$s4> buffStart, u32<$s3> buffEnd);
 
 ### `command`
 Commands are mostly identical to functions.<br>
-They do however cause the function to be registered as an command in the overlay.<br>
+They do however cause the function to be registered as a command in the overlay.<br>
 For that, you need to specify the command ID/index like so: `command<4> my_command() { ... }`. <br>
 The other difference is that the jump at the end will return to libdragons command queue.<br>
 
@@ -600,7 +600,7 @@ a = abs(a);
 
 ### `min(vec a, vec b)` & `max(vec a, vec b)`
 Min/Max value of a 16-bit vector.<br>
-This functions is an alias for `a < b` or `a >= b`.<br>
+These functions are aliases for `a < b` and `a >= b`.<br>
 Just like a compare, the comparison result can be used for further operations.<br>
 To fetch it use `get_vcc()` or use `select()` for further selections.<br>
 
@@ -677,7 +677,7 @@ Similar to the ones above, there are function to read/write to the MFC0 register
 - `set_dma_read(int value)`
 
 ### `get_ticks()`
-Returns the RCP clock (24bit) and stored it into a scalar variable.<br>
+Returns the RCP clock (24bit) and stores it into a scalar variable.<br>
 This can be used to measure performance of code in both emulators and on hardware.<br>
 
 ### `invert_half(vec a)` & `invert(vec a)`
@@ -692,7 +692,7 @@ posInv.w = invert_half(pos).w;
 ```
 
 ### `invert_half_sqrt(vec a)`
-Inverted square-root a (single component of a) vector (`1 / sqrt(x)`).<br>
+Inverted square-root of a (single component of a) vector (`1 / sqrt(x)`).<br>
 
 Example:
 ```c++
@@ -709,7 +709,7 @@ u32 v = load(SOME_STATE_LABEL); // load 32-bit scalar
 u8 v = load(SOME_STATE_LABEL); // load 8-bit scalar
 vec16 a = load(address, 0x10); // loads entire 16-bit vector from address + 0x10
 vec32 a = load(address); // loads a 32-bit vector
-vec16 b = load(address, 0x10).xyzwxyzw; // loads the first for lanes, repeating them
+vec16 b = load(address, 0x10).xyzwxyzw; // loads the first four lanes, repeating them
 
 vec32 c; // only load the first 4 lanes
 c.xyzw = load(address, 0x00).xyzw;
@@ -811,7 +811,7 @@ Make sure that buffer can hold 8 total registers worth of data.<br>
 For matrices with a size of 4x4 or smaller a faster version is used.<br> 
 Doing the transpose in-place (vecDst == vecSrc) is also faster.<br>
 
-Be aware that while you are forced to specific the start of a group of 8 registers as the source/target,
+Be aware that while you are forced to specify the start of a group of 8 registers as the source/target,
 the transpose will touch all 8 registers in the group.<br>
 
 Example:
@@ -845,7 +845,7 @@ asm("sll $a1, $s5, 5");
 ### `asm_op(opcode, args...)`
 Single raw asm instruction, with the opcode and arguments separated.<br>
 In contrast to `asm()`, this will allow for reordering.<br>
-However using an instruction or argument that is unknown to RSPL my result in an error.<br>
+However using an instruction or argument that is unknown to RSPL may result in an error.<br>
 
 ### `asm_include(filePath)`
 Includes a raw ASM file directly at the position of the call.<br>
