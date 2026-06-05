@@ -266,7 +266,11 @@ export function writeASM(ast, functionsAsm, config)
 
   if(ast.defines) {
     for(const [name, def] of Object.entries(ast.defines)) {
-      writeLine(`#define ${name} ${def.value}`);
+      if (!def.value) {
+        writeLine(`#define ${name}`);
+      } else {
+        writeLine(`#define ${name} ${def.value}`);
+      }
     }
   }
 
