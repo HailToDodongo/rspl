@@ -633,7 +633,7 @@ function opMul(varRes, varLeft, varRight, clearAccum)
     {
       const intOp = clearAccum ? "vmudh": "vmadh";
       return [
-        asm(intOp,  [resRegs[1], varLeft.reg, varRight.reg + swizzleRight]),
+        asm(intOp,  [REG.VTEMP0, varLeft.reg, varRight.reg + swizzleRight]),
         asm("vsar", [resRegs[0], REG_COP2.ACC_HI]),
         asm("vsar", [resRegs[1], REG_COP2.ACC_MD]),
       ];
@@ -647,7 +647,7 @@ function opMul(varRes, varLeft, varRight, clearAccum)
   if(right32Bit && varRes.type === "vec32" && varLeft.type === "vec16" && !leftIsFraction) {
     const fractOp = clearAccum ? "vmudm" : "vmadm";
     return [
-      asm(fractOp, [resRegs[1], varLeft.reg, fractReg(varRight) + swizzleRight]),
+      asm(fractOp, [REG.VTEMP0, varLeft.reg, fractReg(varRight) + swizzleRight]),
       asm("vmadh", [resRegs[0], varLeft.reg, intReg(varRight) + swizzleRight]),
       asm("vmadn", [resRegs[1], REGS.VZERO, REGS.VZERO]),
     ];
@@ -676,13 +676,13 @@ function opMul(varRes, varLeft, varRight, clearAccum)
   {
     if(varLeft.type === "vec32") {
       res.push(
-        asm(fractOp, [nextVecReg(varRes.reg), fractReg(varLeft), varRight.reg + swizzleRight]),
-        asm("vmadm", [           varRes.reg,        varLeft.reg, varRight.reg + swizzleRight]),
+        asm(fractOp, [REG.VTEMP0, fractReg(varLeft), varRight.reg + swizzleRight]),
+        asm("vmadm", [varRes.reg,       varLeft.reg, varRight.reg + swizzleRight]),
       );
     } else {
       const fractOp = clearAccum ? "vmudm" : "vmadm";
       res.push(
-        asm(fractOp, [           varRes.reg,        varLeft.reg, varRight.reg + swizzleRight]),
+        asm(fractOp, [varRes.reg,       varLeft.reg, varRight.reg + swizzleRight]),
       );
     }
     res.push(

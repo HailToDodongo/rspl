@@ -293,6 +293,36 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
+  test('Mul (vec32 vs vec32:ufract)', async () => {
+    const { asm, warn } = await transpileSource(`function test() {
+      vec32<$v01> res, a;
+      res *= a:ufract.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudl $v29, $v02, $v04.e0
+  vmadm $v01, $v01, $v04.e0
+  vmadn $v02, $v00, $v00
+  jr $ra
+  nop`);
+  });
+
+  test('Mul (vec16 vs vec32:ufract)', async () => {
+    const { asm, warn } = await transpileSource(`function test() {
+      vec32<$v01> res, a;
+      vec16<$v05> b;
+      res = b * a:ufract.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudm $v01, $v05, $v04.e0
+  vmadn $v02, $v00, $v00
+  jr $ra
+  nop`);
+  });
+
   test('Mul (vec16 vs vec16)', async () => {
     const {asm, warn} = await transpileSource(`function test() {
       vec16<$v01> res, a;
@@ -302,6 +332,53 @@ describe('Vector - Ops', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   vmudn $v01, $v01, $v02.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Mul (vec16 vs vec16 -> vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec32<$v01> res;
+      vec16<$v03> a, b;
+      res = a * b.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudh $v29, $v03, $v04.e0
+  vsar $v01, COP2_ACC_HI
+  vsar $v02, COP2_ACC_MD
+  jr $ra
+  nop`);
+  });
+
+  test('Mul (vec16 vs vec32)', async () => {
+    const { asm, warn } = await transpileSource(`function test() {
+      vec32<$v01> res, a;
+      vec16<$v05> b;
+      res = b * a.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudm $v29, $v05, $v04.e0
+  vmadh $v01, $v05, $v03.e0
+  vmadn $v02, $v00, $v00
+  jr $ra
+  nop`);
+  });
+
+  test('Mul (vec16 vs vec32 -> vec16)', async () => {
+    const { asm, warn } = await transpileSource(`function test() {
+      vec16<$v01> res, a;
+      vec32<$v03> b;
+      res = a * b.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudm $v29, $v02, $v04.e0
+  vmadh $v01, $v02, $v03.e0
   jr $ra
   nop`);
   });
@@ -321,6 +398,244 @@ describe('Vector - Ops', () =>
   vmudh $v01, $v01, $v02.e0
   vmulu $v01, $v01, $v02.e0
   vmulf $v01, $v01, $v02.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Mul (vec16:sint vs vec16:sint)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec16<$v01> res, a, b;
+      res = a:sint * b:sint.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudh $v01, $v02, $v03.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Mul (vec16:ufract vs vec16:ufract)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec16<$v01> res, a, b;
+      res = a:ufract * b:ufract.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmulu $v01, $v02, $v03.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Mul (vec16:sfract vs vec16:sfract)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec16<$v01> res, a, b;
+      res = a:sfract * b:sfract.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmulf $v01, $v02, $v03.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Mul (vec16:sint vs vec16:ufract)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec16<$v01> res, a, b;
+      res = a:sint * b:ufract.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudm $v01, $v02, $v03.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Mul (vec16:ufract vs vec16:sint)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec16<$v01> res, a, b;
+      res = a:ufract * b:sint.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudn $v01, $v02, $v03.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Add-Mul (vec32 vs vec32)', async () => {
+    const { asm, warn } = await transpileSource(`function test() {
+      vec32<$v01> res, a;
+      res = res +* a.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmadl $v29, $v02, $v04.e0
+  vmadm $v29, $v01, $v04.e0
+  vmadn $v02, $v02, $v03.e0
+  vmadh $v01, $v01, $v03.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Add-Mul (vec32 vs vec32:ufract)', async () => {
+    const { asm, warn } = await transpileSource(`function test() {
+      vec32<$v01> res, a;
+      res = res +* a:ufract.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmadl $v29, $v02, $v04.e0
+  vmadm $v01, $v01, $v04.e0
+  vmadn $v02, $v00, $v00
+  jr $ra
+  nop`);
+  });
+
+  test('Add-Mul (vec16 vs vec32:ufract)', async () => {
+    const { asm, warn } = await transpileSource(`function test() {
+      vec32<$v01> res, a;
+      vec16<$v05> b;
+      res = b +* a:ufract.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmadm $v01, $v05, $v04.e0
+  vmadn $v02, $v00, $v00
+  jr $ra
+  nop`);
+  });
+
+  test('Add-Mul (vec32 vs vec32, cast sfract)', async () => {
+    const { asm, warn } = await transpileSource(`function test() {
+      vec32<$v01> res, a;
+      res:sfract = res +* a.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmadl $v29, $v02, $v04.e0
+  vmadm $v29, $v01, $v04.e0
+  vmadn $v02, $v02, $v03.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Add-Mul (vec16 vs vec16 -> vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec32<$v01> res;
+      vec16<$v03> a, b;
+      res = a +* b.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmadh $v29, $v03, $v04.e0
+  vsar $v01, COP2_ACC_HI
+  vsar $v02, COP2_ACC_MD
+  jr $ra
+  nop`);
+  });
+
+  test('Add-Mul (vec16 vs vec32)', async () => {
+    const { asm, warn } = await transpileSource(`function test() {
+      vec32<$v01> res, a;
+      vec16<$v05> b;
+      res = b +* a.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmadm $v29, $v05, $v04.e0
+  vmadh $v01, $v05, $v03.e0
+  vmadn $v02, $v00, $v00
+  jr $ra
+  nop`);
+  });
+
+  test('Add-Mul (vec16 vs vec32 -> vec16)', async () => {
+    const { asm, warn } = await transpileSource(`function test() {
+      vec16<$v01> res, a;
+      vec32<$v03> b;
+      res = a +* b.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmadm $v29, $v02, $v04.e0
+  vmadh $v01, $v02, $v03.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Add-Mul (vec16:sint vs vec16:sint)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec16<$v01> res, a, b;
+      res = a:sint +* b:sint.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmadh $v01, $v02, $v03.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Add-Mul (vec16:ufract vs vec16:ufract)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec16<$v01> res, a, b;
+      res = a:ufract +* b:ufract.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmacu $v01, $v02, $v03.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Add-Mul (vec16:sfract vs vec16:sfract)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec16<$v01> res, a, b;
+      res = a:sfract +* b:sfract.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmacf $v01, $v02, $v03.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Add-Mul (vec16:sint vs vec16:ufract)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec16<$v01> res, a, b;
+      res = a:sint +* b:ufract.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmadm $v01, $v02, $v03.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Add-Mul (vec16:ufract vs vec16:sint)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec16<$v01> res, a, b;
+      res = a:ufract +* b:sint.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmadn $v01, $v02, $v03.e0
   jr $ra
   nop`);
   });
