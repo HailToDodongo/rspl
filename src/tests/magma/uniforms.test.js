@@ -181,6 +181,20 @@ MgEndShaderUniforms`);
       .rejects.toThrowError(/Uniform binding number must be in \[0, 2\^32\)!/);
   });
 
+  test('Very large binding number', async () => {
+    const src = `
+    uniform<69347592054634> UNIFORM0
+    {
+        u32 VALUE0;
+    }
+    
+    shader testshader()
+    {
+    }`;
+    await expect(() => transpileSource(src, CONF))
+      .rejects.toThrowError(/Uniform binding number must be in \[0, 2\^32\)!/);
+  });
+
   test('Invalid binding number', async () => {
     const src = `
     uniform<wrong> UNIFORM0
