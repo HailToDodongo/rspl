@@ -97,7 +97,7 @@ export async function transpile(ast, updateCb, config = {})
   ast.state = astNormalizeState(ast, config);
   ast.uniforms = astNormalizeUniforms(ast, config);
   ast.attributes = astNormalizeAttributes(ast, config);
-  validateMemory(ast, ast.states);
+  validateMemory(ast, ast.states, config);
 
   ast.functions = astNormalizeFunctions(ast, config);
   const functionsAsm = ast2asm(ast);
