@@ -299,20 +299,18 @@ export function writeASM(ast, functionsAsm, config)
     res.asm = "";
   }
 
-  for(const block of functionsAsm) {
-    if(!["function", "command", "shader"].includes(block.type))continue;
-    if(block.asm.length === 0)continue;
+  const writeFunction = block => {
+    if(block.asm.length === 0)return;
 
     const align = getAnnotationVal(block.annotations, ANNOTATIONS.Align, 0) || 0;
-    if(align)writeLine(`.align ${alignToExp(align)}`);
+    if (align) writeLine(`.align ${alignToExp(align)}`);
 
-    if(block.type !== "shader") writeLine(block.name + ":");
+    if (block.type !== "shader") writeLine(block.name + ":");
 
     let lastAsm = block.asm[0] || null;
-    for(const asm of block.asm)
-    {
+    for (const asm of block.asm) {
       // Debug Information
-      if(!asm.debug.lineASM) {
+      if (!asm.debug.lineASM) {
         asm.debug.lineASM = state.line;
       } else {
         asm.debug.lineASMOpt = state.line;
@@ -320,44 +318,43 @@ export function writeASM(ast, functionsAsm, config)
       }
 
       const lineRSPL = asm.debug.lineRSPL;
-      if(!res.debug.lineMap[lineRSPL])res.debug.lineMap[lineRSPL] = [];
+      if (!res.debug.lineMap[lineRSPL]) res.debug.lineMap[lineRSPL] = [];
       res.debug.lineMap[lineRSPL].push(asm.debug.lineASM);
 
-      if(asm.debug.cycle) {
+      if (asm.debug.cycle) {
         res.debug.lineCycleMap[asm.debug.lineASMOpt] = asm.debug.cycle;
         res.debug.lineStallMap[asm.debug.lineASMOpt] = asm.debug.stall;
       }
 
       let debugInfo = '';
 
-      if(config.debugInfo)
-      {
-        if(asm.debug.lineRSPL) {
+      if (config.debugInfo) {
+        if (asm.debug.lineRSPL) {
           let cycleStr = '     ^';
           let cycleDiff = asm.debug.cycle - lastAsm.debug.cycle;
-          if(cycleDiff !== 0) {
+          if (cycleDiff !== 0) {
             let stars = '';
-            if(cycleDiff > 1) {
+            if (cycleDiff > 1) {
               stars = '*'.repeat(cycleDiff - 1);
             }
             cycleStr = (stars + asm.debug.cycle.toString()).padStart(6, ' ');
           }
 
-          debugInfo += ` ## L:${asm.debug.lineRSPL.toString().padEnd(4, ' ')} | ${cycleStr} | ${state.sourceLines[asm.debug.lineRSPL-1] || ''}`;
+          debugInfo += ` ## L:${asm.debug.lineRSPL.toString().padEnd(4, ' ')} | ${cycleStr} | ${state.sourceLines[asm.debug.lineRSPL - 1] || ''}`;
         }
 
-        if(asm.funcArgs && asm.funcArgs.length) {
+        if (asm.funcArgs && asm.funcArgs.length) {
           debugInfo += " ## Args: " + asm.funcArgs.join(", ");
         }
 
-        if(asm.barrierMask) {
+        if (asm.barrierMask) {
           debugInfo += " ## Barrier: 0x" + asm.barrierMask.toString(16).toUpperCase();
         }
       }
 
       let tag = '';
-      for(const ann of asm.annotations) {
-        if(ann.name === ANNOTATIONS.Tag) {
+      for (const ann of asm.annotations) {
+        if (ann.name === ANNOTATIONS.Tag) {
           tag = `TAG_${ann.value}: `;
           break;
         }
@@ -366,23 +363,34 @@ export function writeASM(ast, functionsAsm, config)
       // ASM Text output
       switch (asm.type) {
         case ASM_TYPE.INLINE:
-        case ASM_TYPE.OP     : writeLine(`  ${tag}${stringifyInstr(asm).padEnd(debugInfo ? 50 : 0,' ')}${debugInfo}`);break;
-        case ASM_TYPE.LABEL  : writeLine(`  ${tag}${asm.label}:`);         break;
+        case ASM_TYPE.OP: writeLine(`  ${tag}${stringifyInstr(asm).padEnd(debugInfo ? 50 : 0, ' ')}${debugInfo}`); break;
+        case ASM_TYPE.LABEL: writeLine(`  ${tag}${asm.label}:`); break;
         default: state.throwError("Unknown ASM type: " + asm.type, asm);
       }
 
       totalTextSize += asm.type === ASM_TYPE.OP ? 4 : 0;
-      if(asm.type === ASM_TYPE.OP) {
+      if (asm.type === ASM_TYPE.OP) {
         lastAsm = asm;
       }
     }
 
-    for(const asm of block.asm)
-    {
-      if(!asm.debug.lineASMOpt)continue;
+    for (const asm of block.asm) {
+      if (!asm.debug.lineASMOpt) continue;
       //console.log(asm.debug.lineASM, [asm.debug.reorderLineMin, asm.debug.reorderLineMax]);
       res.debug.lineDepMap[asm.debug.lineASM] = [asm.debug.reorderLineMin, asm.debug.reorderLineMax];
     }
+  }
+
+  if (config.magma) {
+    const shaderFunctions = functionsAsm.filter(fn => fn.type === "shader");
+    for (const block of shaderFunctions) {
+      writeFunction(block);
+    }
+  }
+
+  const regularFunctionsAsm = functionsAsm.filter(fn => ["function", "command"].includes(fn.type));
+  for (const block of regularFunctionsAsm) {
+    writeFunction(block);
   }
 
   writeLine("");
