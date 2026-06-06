@@ -124,6 +124,34 @@ MgEndVertexInput`);
     expect(asm).toContain("LOAD_ATTRIBUTE09: llv $v01, 0, 0, $t0");
   });
 
+  test('Loader (non-string value)', async () => {
+    const src = `
+    attribute<0> u32 ATTRIBUTE0?;
+    
+    shader testshader()
+    {
+      u32<$t0> vtx;
+      vec16<$v01> attr0;
+      @AttrLoader(10) attr0 = load(vtx);
+    }`;
+    await expect(() => transpileSource(src, CONF))
+      .rejects.toThrowError(/line 8: Annotation 'AttrLoader' expects a string value!/);
+  });
+
+  test('Loader (empty string value)', async () => {
+    const src = `
+    attribute<0> u32 ATTRIBUTE0?;
+    
+    shader testshader()
+    {
+      u32<$t0> vtx;
+      vec16<$v01> attr0;
+      @AttrLoader("") attr0 = load(vtx);
+    }`;
+    await expect(() => transpileSource(src, CONF))
+      .rejects.toThrowError(/line 8: Annotation 'AttrLoader' expects a non-empty string value!/);
+  });
+
   test('Optional attribute', async () => {
     const {asm, warn} = await transpileSource(`
     attribute<0> u32 ATTRIBUTE0?;
@@ -165,29 +193,75 @@ MgEndVertexInput`);
   });
 
   test('Patch (missing replacement)', async () => {
-    const src = `
+    const {asm, warn} = await transpileSource(`
     attribute<0> u32 ATTRIBUTE0?;
     
     shader testshader()
     {
       u32<$t0> a;
       @AttrPatch("ATTRIBUTE0:") a = 1;
-    }`;
-    await expect(() => transpileSource(src, CONF))
-      .rejects.toThrowError(/line 7: Annotation 'AttrPatch' must contain an attribute name and replacement instruction separated by ':'!/);
+    }`, CONF);
+    
+    expect(warn).toBe("");
+    expect(getAttributes(asm)).toBe(
+`MgBeginVertexInput
+  MgBeginVertexAttribute 0, 1
+    MgBeginVertexAttributePatch PATCH_ATTRIBUTE07
+      nop
+    MgEndVertexAttributePatch
+  MgEndVertexAttribute
+
+MgEndVertexInput`);
+    expect(asm).toContain("PATCH_ATTRIBUTE07: addiu $t0, $zero, 1");
   });
 
   test('Patch (missing colon)', async () => {
-    const src = `
+    const {asm, warn} = await transpileSource(`
     attribute<0> u32 ATTRIBUTE0?;
     
     shader testshader()
     {
       u32<$t0> a;
       @AttrPatch("ATTRIBUTE0") a = 1;
+    }`, CONF);
+    
+    expect(warn).toBe("");
+    expect(getAttributes(asm)).toBe(
+`MgBeginVertexInput
+  MgBeginVertexAttribute 0, 1
+    MgBeginVertexAttributePatch PATCH_ATTRIBUTE07
+      nop
+    MgEndVertexAttributePatch
+  MgEndVertexAttribute
+
+MgEndVertexInput`);
+    expect(asm).toContain("PATCH_ATTRIBUTE07: addiu $t0, $zero, 1");
+  });
+
+  test('Patch (non-string value)', async () => {
+    const src = `
+    attribute<0> u32 ATTRIBUTE0?;
+    
+    shader testshader()
+    {
+      u32<$t0> a;
+      @AttrPatch(1) a = 1;
     }`;
     await expect(() => transpileSource(src, CONF))
-      .rejects.toThrowError(/line 7: Annotation 'AttrPatch' must contain an attribute name and replacement instruction separated by ':'!/);
+      .rejects.toThrowError(/line 7: Annotation 'AttrPatch' expects a string value!/);
+  });
+
+  test('Patch (empty string value)', async () => {
+    const src = `
+    attribute<0> u32 ATTRIBUTE0?;
+    
+    shader testshader()
+    {
+      u32<$t0> a;
+      @AttrPatch("") a = 1;
+    }`;
+    await expect(() => transpileSource(src, CONF))
+      .rejects.toThrowError(/line 7: Annotation 'AttrPatch' expects a non-empty string value!/);
   });
 
   test('Multiple patches', async () => {

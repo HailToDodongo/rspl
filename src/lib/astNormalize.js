@@ -18,7 +18,7 @@ import {astCalcNormalize} from "./astCalcNormalizer.js";
 function getPrecedingAnnotations(statements, currentStatement)
 {
   const currentStatementIdx = statements.indexOf(currentStatement);
-  if (currentStatement < 0)
+  if (currentStatementIdx < 0)
     return [];
 
   /** @type {ASTStatement[]} */

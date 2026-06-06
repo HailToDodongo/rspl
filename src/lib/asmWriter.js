@@ -219,7 +219,7 @@ function writeMagmaHeader(ast, functionsAsm, writeLine, writeLines) {
     if(patches) {
       for(const patch of patches) {
         writeLine(`    MgBeginVertexAttributePatch ${getAttrPatchLabel(patch)}`);
-        writeLine(`      ${patch.attrPatch.op ?? "nop"}`);
+        writeLine(`      ${patch.attrPatch.op || "nop"}`);
         writeLine("    MgEndVertexAttributePatch");
       };
     }
