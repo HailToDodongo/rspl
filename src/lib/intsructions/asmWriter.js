@@ -19,7 +19,7 @@ import {
   STORE_OPS
 } from "../optimizer/asmScanDeps.js";
 import {REG} from "../syntax/registers.js";
-import {getAnnotationVal} from "../syntax/annotations.js";
+import {getAnnotationVal, getAttrPatch} from "../syntax/annotations.js";
 
 export const ASM_TYPE = {
   OP: 0,
@@ -56,12 +56,11 @@ function getDebugData() {
  * 
  * @returns {ASMAttrPatch}
  */
-function getAttrPatch(annotations) {
+function getAttrPatchFromAnnotations(annotations) {
   const annoVal = getAnnotationVal(annotations, "AttrPatch");
   if (!annoVal) return undefined;
 
-  const [name, op, ...rest] = annoVal.split(":");
-  return {name, op};
+  return getAttrPatch(annoVal);
 }
 
 /**
@@ -88,7 +87,7 @@ function getOpInfo(op, type = ASM_TYPE.OP) {
     depsArgMask: 0n,
     type: type,
     attrLoader: getAnnotationVal(annotations, "AttrLoader"),
-    attrPatch: getAttrPatch(annotations),
+    attrPatch: getAttrPatchFromAnnotations(annotations),
   };
   if((res.opFlags & OP_FLAG_IS_BRANCH) && (res.opFlags & OP_FLAG_IS_LIKELY)) {
     res.opFlags |= OP_FLAG_LIKELY_BRANCH;

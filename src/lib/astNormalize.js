@@ -349,7 +349,24 @@ export function astNormalizeAttributes(ast, config)
 {
   const astAttributes = ast.attributes;
 
-  
+  let curInputNumber = 0;
+  const usedInputNumbers = new Set(astAttributes.map(u => u.binding));
+
+  for(const attribute of astAttributes) {
+    if (!config.magma) {
+      state.throwError("Attributes are only allowed when compiling for magma (pass '--magma' on the command line)!", attribute);
+    }
+    if(typeof attribute.binding == 'number') {
+      if (attribute.binding < 0 || attribute.binding >= 2**32) {
+        state.throwError("Attribute input number must be in [0, 2^32)!", attribute);
+      }
+      curInputNumber = attribute.binding;
+    } else {
+      while (usedInputNumbers.has(curInputNumber)) curInputNumber++;
+      attribute.binding = curInputNumber;
+    }
+    usedInputNumbers.add(curInputNumber);
+  }
 
   return astAttributes;
 }

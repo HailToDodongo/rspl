@@ -212,7 +212,7 @@ function writeMagmaHeader(ast, functionsAsm, writeLine, writeLines) {
   for(const attribute of ast.attributes) {
     writeLine(`  MgBeginVertexAttribute ${attribute.binding}, ${attribute.optional ? 1 : 0}`);
     const loaders = attrLoaders[attribute.name]?.loaders;
-    if(loaders) {
+    if(typeof loaders !== 'undefined' && loaders.length > 0) {
       writeLine("    MgVertexAttributeLoaders " + loaders.map(getAttrLoaderLabel).join(", "));
     }
     const patches = attrLoaders[attribute.name]?.patches;

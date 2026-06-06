@@ -37,9 +37,24 @@ export function validateAnnotation(anno) {
       state.throwError("Annotation '"+anno.name+"' expects a non-empty string value!");
     }
   }
+  if (anno.name === "AttrPatch") {
+    const attrPatch = getAttrPatch(anno.value);
+    if (!attrPatch?.op) {
+      state.throwError("Annotation '"+anno.name+"' must contain an attribute name and replacement instruction separated by ':'!");
+    }
+  }
 }
 
 export function getAnnotationVal(annotations, name) {
   const anno = annotations.find(anno => anno.name === name);
   return anno ? (anno.value || true) : undefined;
+}
+
+/**
+ * @param {string} annoVal
+ * @returns {ASMAttrPatch}
+ */
+export function getAttrPatch(annoVal) {
+  const [name, op, ...rest] = annoVal.split(":");
+  return { name, op };
 }
