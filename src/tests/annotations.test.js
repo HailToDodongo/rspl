@@ -76,4 +76,31 @@ caller:
   jr $ra
   nop`);
   });
+
+  test('Tag', async () => {
+    const {asm, warn} = await transpileSource(`function test_tag() {
+    u32<$t0> a;
+    @Tag("TEST") a = 1;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(
+`test_tag:
+  TAG_TEST: addiu $t0, $zero, 1
+  jr $ra
+  nop`);
+  });
+
+  test('Tag (declaration-assignment)', async () => {
+    const {asm, warn} = await transpileSource(`function test_tag() {
+    @Tag("TEST") u32<$t0> a = 1;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(
+`test_tag:
+  TAG_TEST: addiu $t0, $zero, 1
+  jr $ra
+  nop`);
+  });
 });

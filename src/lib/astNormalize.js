@@ -10,6 +10,29 @@ import builtins from "./builtins/functions.js";
 import {astCalcNormalize} from "./astCalcNormalizer.js";
 
 /**
+ * 
+ * @param {ASTStatement[]} statements 
+ * @param {ASTStatement} currentStatement 
+ * @returns {ASTStatement[]}
+ */
+function getPrecedingAnnotations(statements, currentStatement)
+{
+  const currentStatementIdx = statements.indexOf(currentStatement);
+  if (currentStatement < 0)
+    return [];
+
+  /** @type {ASTStatement[]} */
+  let annotations = [];
+  // Search backwards from the current statement
+  for (let index = currentStatementIdx-1; index >= 0; index--) {
+    const st = statements[index];
+    if (st.type !== 'annotation') break;
+    annotations.splice(0, 0, st);
+  }
+  return annotations;
+}
+
+/**
  * @param {ASTScopedBlock} block
  * @param {ASTState[]} astState
  * @param {ASTMacroMap} macros
@@ -59,6 +82,8 @@ function normalizeScopedBlock(block, astState, macros)
       case "varDeclAssign":
         statements.push({...st, type: "varDecl", varName: st.varName.split(":")[0]});
         if(st.calc) { // ... and ignore empty assignments
+          // Duplicate annotations to the assigment
+          statements.push(...getPrecedingAnnotations(block.statements, st));
           statements.push({
             type: "varAssignCalc",
             varName: st.varName,
