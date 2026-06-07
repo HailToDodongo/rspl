@@ -12,8 +12,9 @@ const STATE_NAMES = ["state", "data", "bss"];
  * validates state memory
  * @param {AST} ast
  * @param {Array<{name: string; vars: ASTState[]}>} states
+ * @param {RSPLConfig} config
  */
-export const validateMemory = (ast, states) =>
+export const validateMemory = (ast, states, config) =>
 {
   state.func = "state";
 
@@ -52,6 +53,10 @@ export const validateMemory = (ast, states) =>
   let currentAddr = 0;
   let lastVar = stateVars[0];
   for(const stateVar of stateVars) {
+    if (config.magma && !stateVar.extern) {
+      state.throwError("Only extern states are allowed when compiling for magma!", stateVar);
+    }
+
     const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
     const byteSize = TYPE_SIZE[stateVar.varType] * arraySize;
     let align = stateVar.align || (2 ** TYPE_ALIGNMENT[stateVar.varType]);

@@ -855,5 +855,71 @@ Example:
 asm_include("./some_ucode.inc");
 ```
 
+## Magma
+RSPL supports writing magma vertex shaders.
+To enable magma mode, pass `--magma` on the command line.<br>
+When this mode is enabled, different syntax becomes available and the file must be structured slightly differently.
+
+### `shader`
+This is a special function that must be defined exactly once in your file.<br>
+In a magma vertex shader, there are no commands, but instead a single entry point.
+This is the code that will be run whenever the shader is invoked.<br>
+Example:
+```c++
+shader myshader()
+{
+  // ...
+}
+```
+
+### `uniform`
+Uniforms are a type of state which can be used to provide constant values as input to the shader.<br>
+Multiple uniforms can be defined, and each of them is assigned a binding number.<br>
+Example:
+```c++
+uniform<0> MATRICES
+{
+  vec16 MATRICES_MVP[4];
+  vec16 MATRICES_MV[4];
+}
+```
+
+### `attribute`
+This keyword is used to define the layout of input vertices.<br>
+Multiple attributes can be defined, and each of them is assigned an input number.<br>
+Attributes can be marked as optional.<br>
+Example:
+```c++
+attribute<0> s16 POSITION[3];
+attribute<1> u32 COLOR?; // use '?' to mark the attribute as optional
+```
+
+### `@AttrLoader(string)`
+This annotation is used to mark an instruction as an attribute loader.<br>
+Attribute loaders must be either scalar or vector load instructions, which is the case for any of the builtin `load()` functions.<br>
+Magma will then automatically patch the offset of these instructions to the configured offset of the specified attribute.<br>
+Therefore, the address register should point to the beginnning of a vertex, so that they load the value of the attribute.<br>
+Pass the name of an attribute as the argument of the annotation.<br>
+Example:
+```c++
+// No need to specify the offset, it will be automatically patched
+@AttrLoader("POSITION") position.xyzw = load(vertex_ptr).xyzw;
+```
+
+### `@AttrPatch(string)`
+This annotation is used to mark an instruction as an attribute patch.<br>
+The string argument is the name of an attribute, plus an assembly instruction separated by a colon.<br>
+When the patch is applied, the marked instruction is replaced by that assembly instruction.<br>
+When an optional attribute is omitted, all patches of that attribute are applied.<br>
+Example:
+```c++
+// When the COLOR attribute is omitted, this instruction gets replaced with vnop
+@AttrPatch("COLOR:vnop") vrgba:sfract *= vrgba_in:sfract;
+```
+
+### Further restrictions
+When magma mode is enabled, no commands may be defined.<br>
+Also, any `state`, `data` or `bss` blocks may only contain `extern` labels.
+
 ## References
 - <a href="https://emudev.org/2020/03/28/RSP.html" target="_blank">RSP Instruction Set</a>

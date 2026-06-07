@@ -25,7 +25,8 @@ let config = {
   defines: {},
   patchFunctions: [],
   watch: false,
-  debugInfo: true
+  debugInfo: true,
+  magma: false
 };
 
 function getFunctionStartEnd(source, funcName) {
@@ -71,7 +72,16 @@ for(let i=3; i<process.argv.length; ++i) {
   if(process.argv[i] === "-D") {
     if(!process.argv[i+1])throw new Error("Missing define name/value in arguments!");
     const [key, value] = process.argv[++i].split("=");
-    config.defines[key] = value;
+    config.defines[key] = value ?? "";
+  }
+
+  if (process.argv[i] === "-o") {
+    if(!process.argv[i+1])throw new Error("Missing output path in arguments!");
+    config.output = process.argv[++i]
+  }
+
+  if(process.argv[i] === "--magma") {
+    config.magma = true;
   }
 }
 
@@ -90,7 +100,7 @@ async function main() {
   }
   lastFileHash = fileHash;
 
-  const pathOut = process.argv[2].replace(".rspl", "") + ".S";
+  const pathOut = config.output ?? process.argv[2].replace(".rspl", "") + ".S";
 
   const selfPath = process.argv.find(arg => arg.includes(".mjs"));
   //const worker = new WorkerThreads(config.optimizeWorker, selfPath);

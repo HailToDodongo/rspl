@@ -30,6 +30,7 @@ const rsplHighlightRules = function() {
   const keywords =
         [
           "state", "temp_state", "function", "command", "macro",
+          "shader", "uniform", "attribute",
           "if", "else", "for", "goto", "break", "continue",
           "include", "extern", "while",
           "const", "undef", "exit", "loop",
@@ -48,7 +49,7 @@ const rsplHighlightRules = function() {
         ].join("|");
 
     const buildinConstants = [
-      "ZERO", "VZERO", "Relative", "Barrier", "Align", "NoReturn"
+      "ZERO", "VZERO", "Relative", "Barrier", "Align", "NoReturn", "AttrLoader", "AttrPatch"
     ].join("|")
 
     const variables = [

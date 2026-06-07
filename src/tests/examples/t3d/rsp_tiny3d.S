@@ -407,8 +407,8 @@ VertexFX_Spherical:
   j RSPQ_Loop                                        ## L:583  |     34 | if(prt3d == ptr3dEnd)goto RSPQ_Loop;
   nop                                                ## L:583  |    *36 | if(prt3d == ptr3dEnd)goto RSPQ_Loop;
 VertexFX_CelShadeColor:
-  vge $v04, $v04, $v04                               ## L:629  |      ^ | color = max(color, color.yyyyYYYY);
-  vge $v04, $v04, $v04                               ## L:630  |   ***5 | color = max(color, color.zzzzZZZZ);
+  vge $v04, $v04, $v04.h1                            ## L:629  |      ^ | color = max(color, color.yyyyYYYY);
+  vge $v04, $v04, $v04.h2                            ## L:630  |   ***5 | color = max(color, color.zzzzZZZZ);
   vmov $v03.e0, $v04.e0                              ## L:631  |   ***9 | uv.x = color.x;
   vmov $v03.e2, $v04.e4                              ## L:632  |     10 | uv.z = color.X;
   slv $v03, 4, 12, $s5                               ## L:635  |  ***14 | store(uv.zw, ptrBuffB, 0x0C);

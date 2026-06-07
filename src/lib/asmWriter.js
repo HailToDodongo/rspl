@@ -9,12 +9,30 @@ import {ASM_TYPE} from "./intsructions/asmWriter.js";
 import {REGS_SCALAR} from "./syntax/registers.js";
 import {ANNOTATIONS, getAnnotationVal} from "./syntax/annotations.js";
 
+function getAttrLoaderLabel(asm) {
+  if (!asm.attrLoader) return null;
+  return "LOAD_" + asm.attrLoader + asm.debug.lineRSPL;
+}
+
+function getAttrPatchLabel(asm) {
+  if (!asm.attrPatch?.name) return null;
+  return "PATCH_" + asm.attrPatch.name + asm.debug.lineRSPL;
+}
+
+function getAsmLabels(asm) {
+  let labels = "";
+  for(const label of [getAttrLoaderLabel(asm), getAttrPatchLabel(asm)].filter(l => l)) {
+    labels += label + ": ";
+  }
+  return labels;
+}
+
 /**
  * @param {ASM} asm
  * @returns {string}
  */
 function stringifyInstr(asm) {
-  return asm.op + (asm.args.length ? (" " + asm.args.join(", ")) : "");
+  return getAsmLabels(asm) + asm.op + (asm.args.length ? (" " + asm.args.join(", ")) : "");
 }
 
 /**
@@ -72,55 +90,7 @@ function writeStateVar(stateVar, writeLine) {
   return byteSize;
 }
 
-/**
- * Writes the ASM of all functions and the AST into a string.
- * @param {AST} ast
- * @param {ASMFunc[]} functionsAsm
- * @param {RSPLConfig} config
- * @returns {ASMOutput}
- */
-export function writeASM(ast, functionsAsm, config)
-{
-  state.func = "(ASM)";
-  state.line = 0;
-
-  /** @type {ASMOutput} */
-  const res = {
-    asm: "",
-    debug: {lineMap: {}, lineDepMap: {}, lineOptMap: {}, lineCycleMap: {}, lineStallMap: {}},
-    sizeDMEM: 0,
-    sizeIMEM: 0,
-  };
-
-  const writeLine = line => {
-    res.asm += line + "\n";
-    ++state.line;
-  }
-  const writeLines = lines => {
-    if(lines.length === 0)return;
-    res.asm += lines.join("\n") + "\n";
-    state.line += lines.length;
-  };
-
-  writeLine("## Auto-generated file, transpiled with RSPL");
-
-  if(ast.defines) {
-    for(const [name, def] of Object.entries(ast.defines)) {
-      writeLine(`#define ${name} ${def.value}`);
-    }
-  }
-
-  const preIncs = generateIncs(ast.includes);
-  for(const inc of preIncs)writeLine(inc);
-
-  writeLines(["", ".set noreorder", ".set noat", ".set nomacro", ""]);
-
-  REGS_SCALAR.forEach(reg => writeLine("#undef " + reg.substring(1)));
-  REGS_SCALAR.forEach((reg, i) => writeLine(`.equ hex.${reg}, ${i}`));
-  writeLine("#define vco 0");
-  writeLine("#define vcc 1");
-  writeLine("#define vce 2");
-
+function writeRSPQHeader(ast, functionsAsm, writeLine, writeLines) {
   writeLines(["", ".data", "  RSPQ_BeginOverlayHeader"]);
 
   let commandList = [];
@@ -142,7 +112,6 @@ export function writeASM(ast, functionsAsm, config)
   writeLines(["  RSPQ_EndOverlayHeader", ""]);
 
   let totalSaveByteSize = 0;
-  let totalTextSize = 0;
 
   const hasState = !!ast.state.find(v => !v.extern);
   if(hasState) {
@@ -181,25 +150,167 @@ export function writeASM(ast, functionsAsm, config)
 
   writeLines(["", ".text", "OVERLAY_CODE_START:", ""]);
 
+  return totalSaveByteSize;
+}
+
+/**
+ * 
+ * @param {ASMFunc[]} functionsAsm
+ */
+function collectAttrLoaders(functionsAsm) {
+  const res = {};
+
+  const addEntry = (attrName) => {
+    if(!res[attrName]) {
+      res[attrName] = {
+        loaders: [],
+        patches: []
+      };
+    }
+  };
+
+  for(const asmFunc of functionsAsm) {
+    for(const asm of asmFunc.asm) {
+      if (asm.attrLoader) {
+        addEntry(asm.attrLoader);
+        res[asm.attrLoader].loaders.push(asm);
+      }
+      if (asm.attrPatch) {
+        addEntry(asm.attrPatch.name);
+        res[asm.attrPatch.name].patches.push(asm);
+      }
+    }
+  }
+  return res;
+}
+
+/**
+ * 
+ * @param {AST} ast 
+ * @param {ASMFunc[]} functionsAsm
+ * @param {(line: any) => void} writeLine 
+ * @param {(line: any[]) => void} writeLines 
+ * @returns 
+ */
+function writeMagmaHeader(ast, functionsAsm, writeLine, writeLines) {
+  let totalSaveByteSize = 0;
+
+  writeLines(["", "MgBeginShaderUniforms"]);
+  for(const uniform of ast.uniforms) {
+    writeLine(`  MgBeginUniform ${uniform.name}, ${uniform.binding}`);
+    for(const stateVar of uniform.state) {
+      if(stateVar.extern)continue;
+      totalSaveByteSize += writeStateVar(stateVar, writeLine);
+    }
+    writeLines(["  MgEndUniform", ""]);
+  }
+  writeLines(["MgEndShaderUniforms", ""]);
+
+  const attrLoaders = collectAttrLoaders(functionsAsm);
+  
+  writeLine("MgBeginVertexInput");
+  for(const attribute of ast.attributes) {
+    writeLine(`  MgBeginVertexAttribute ${attribute.binding}, ${attribute.optional ? 1 : 0}`);
+    const loaders = attrLoaders[attribute.name]?.loaders;
+    if(typeof loaders !== 'undefined' && loaders.length > 0) {
+      writeLine("    MgVertexAttributeLoaders " + loaders.map(getAttrLoaderLabel).join(", "));
+    }
+    const patches = attrLoaders[attribute.name]?.patches;
+    if(patches) {
+      for(const patch of patches) {
+        writeLine(`    MgBeginVertexAttributePatch ${getAttrPatchLabel(patch)}`);
+        writeLine(`      ${patch.attrPatch.op || "nop"}`);
+        writeLine("    MgEndVertexAttributePatch");
+      };
+    }
+    writeLines(["  MgEndVertexAttribute", ""]);
+  }
+  writeLines(["MgEndVertexInput", ""]);
+
+  writeLine("MgBeginShader");
+
+  return totalSaveByteSize;
+}
+
+/**
+ * Writes the ASM of all functions and the AST into a string.
+ * @param {AST} ast
+ * @param {ASMFunc[]} functionsAsm
+ * @param {RSPLConfig} config
+ * @returns {ASMOutput}
+ */
+export function writeASM(ast, functionsAsm, config)
+{
+  state.func = "(ASM)";
+  state.line = 0;
+
+  /** @type {ASMOutput} */
+  const res = {
+    asm: "",
+    debug: {lineMap: {}, lineDepMap: {}, lineOptMap: {}, lineCycleMap: {}, lineStallMap: {}},
+    sizeDMEM: 0,
+    sizeIMEM: 0,
+  };
+
+  const writeLine = line => {
+    res.asm += line + "\n";
+    ++state.line;
+  }
+  const writeLines = lines => {
+    if(lines.length === 0)return;
+    res.asm += lines.join("\n") + "\n";
+    state.line += lines.length;
+  };
+
+  writeLine("## Auto-generated file, transpiled with RSPL");
+
+  if(ast.defines) {
+    for(const [name, def] of Object.entries(ast.defines)) {
+      if (!def.value) {
+        writeLine(`#define ${name}`);
+      } else {
+        writeLine(`#define ${name} ${def.value}`);
+      }
+    }
+  }
+
+  const preIncs = generateIncs(ast.includes);
+  for(const inc of preIncs)writeLine(inc);
+
+  writeLines(["", ".set noreorder", ".set noat", ".set nomacro", ""]);
+
+  REGS_SCALAR.forEach(reg => writeLine("#undef " + reg.substring(1)));
+  REGS_SCALAR.forEach((reg, i) => writeLine(`.equ hex.${reg}, ${i}`));
+  writeLine("#define vco 0");
+  writeLine("#define vcc 1");
+  writeLine("#define vce 2");
+
+  let totalSaveByteSize = 0;
+  let totalTextSize = 0;
+
+  if(config.magma) {
+    totalSaveByteSize += writeMagmaHeader(ast, functionsAsm, writeLine, writeLines);
+  } else {
+    totalSaveByteSize += writeRSPQHeader(ast, functionsAsm, writeLine, writeLines);
+  }
+
   if(!config.rspqWrapper) {
     state.line = 1;
     res.asm = "";
   }
 
-  for(const block of functionsAsm) {
-    if(!["function", "command"].includes(block.type))continue;
-    if(block.asm.length === 0)continue;
+  const writeFunction = block => {
+    if(block.asm.length === 0)return;
 
     const align = getAnnotationVal(block.annotations, ANNOTATIONS.Align, 0) || 0;
-    if(align)writeLine(`.align ${alignToExp(align)}`);
+    if (align) writeLine(`.align ${alignToExp(align)}`);
 
-    writeLine(block.name + ":");
+    if (block.type !== "shader") writeLine(block.name + ":");
 
     let lastAsm = block.asm[0] || null;
-    for(const asm of block.asm)
-    {
+    for (const asm of block.asm) {
       // Debug Information
-      if(!asm.debug.lineASM) {
+      if (!asm.debug.lineASM) {
         asm.debug.lineASM = state.line;
       } else {
         asm.debug.lineASMOpt = state.line;
@@ -207,44 +318,43 @@ export function writeASM(ast, functionsAsm, config)
       }
 
       const lineRSPL = asm.debug.lineRSPL;
-      if(!res.debug.lineMap[lineRSPL])res.debug.lineMap[lineRSPL] = [];
+      if (!res.debug.lineMap[lineRSPL]) res.debug.lineMap[lineRSPL] = [];
       res.debug.lineMap[lineRSPL].push(asm.debug.lineASM);
 
-      if(asm.debug.cycle) {
+      if (asm.debug.cycle) {
         res.debug.lineCycleMap[asm.debug.lineASMOpt] = asm.debug.cycle;
         res.debug.lineStallMap[asm.debug.lineASMOpt] = asm.debug.stall;
       }
 
       let debugInfo = '';
 
-      if(config.debugInfo)
-      {
-        if(asm.debug.lineRSPL) {
+      if (config.debugInfo) {
+        if (asm.debug.lineRSPL) {
           let cycleStr = '     ^';
           let cycleDiff = asm.debug.cycle - lastAsm.debug.cycle;
-          if(cycleDiff !== 0) {
+          if (cycleDiff !== 0) {
             let stars = '';
-            if(cycleDiff > 1) {
+            if (cycleDiff > 1) {
               stars = '*'.repeat(cycleDiff - 1);
             }
             cycleStr = (stars + asm.debug.cycle.toString()).padStart(6, ' ');
           }
 
-          debugInfo += ` ## L:${asm.debug.lineRSPL.toString().padEnd(4, ' ')} | ${cycleStr} | ${state.sourceLines[asm.debug.lineRSPL-1] || ''}`;
+          debugInfo += ` ## L:${asm.debug.lineRSPL.toString().padEnd(4, ' ')} | ${cycleStr} | ${state.sourceLines[asm.debug.lineRSPL - 1] || ''}`;
         }
 
-        if(asm.funcArgs && asm.funcArgs.length) {
+        if (asm.funcArgs && asm.funcArgs.length) {
           debugInfo += " ## Args: " + asm.funcArgs.join(", ");
         }
 
-        if(asm.barrierMask) {
+        if (asm.barrierMask) {
           debugInfo += " ## Barrier: 0x" + asm.barrierMask.toString(16).toUpperCase();
         }
       }
 
       let tag = '';
-      for(const ann of asm.annotations) {
-        if(ann.name === ANNOTATIONS.Tag) {
+      for (const ann of asm.annotations) {
+        if (ann.name === ANNOTATIONS.Tag) {
           tag = `TAG_${ann.value}: `;
           break;
         }
@@ -253,31 +363,47 @@ export function writeASM(ast, functionsAsm, config)
       // ASM Text output
       switch (asm.type) {
         case ASM_TYPE.INLINE:
-        case ASM_TYPE.OP     : writeLine(`  ${tag}${stringifyInstr(asm).padEnd(debugInfo ? 50 : 0,' ')}${debugInfo}`);break;
-        case ASM_TYPE.LABEL  : writeLine(`  ${tag}${asm.label}:`);         break;
+        case ASM_TYPE.OP: writeLine(`  ${tag}${stringifyInstr(asm).padEnd(debugInfo ? 50 : 0, ' ')}${debugInfo}`); break;
+        case ASM_TYPE.LABEL: writeLine(`  ${tag}${asm.label}:`); break;
         default: state.throwError("Unknown ASM type: " + asm.type, asm);
       }
 
       totalTextSize += asm.type === ASM_TYPE.OP ? 4 : 0;
-      if(asm.type === ASM_TYPE.OP) {
+      if (asm.type === ASM_TYPE.OP) {
         lastAsm = asm;
       }
     }
 
-    for(const asm of block.asm)
-    {
-      if(!asm.debug.lineASMOpt)continue;
+    for (const asm of block.asm) {
+      if (!asm.debug.lineASMOpt) continue;
       //console.log(asm.debug.lineASM, [asm.debug.reorderLineMin, asm.debug.reorderLineMax]);
       res.debug.lineDepMap[asm.debug.lineASM] = [asm.debug.reorderLineMin, asm.debug.reorderLineMax];
     }
+  }
+
+  if (config.magma) {
+    const shaderFunctions = functionsAsm.filter(fn => fn.type === "shader");
+    for (const block of shaderFunctions) {
+      writeFunction(block);
+    }
+  }
+
+  const regularFunctionsAsm = functionsAsm.filter(fn => ["function", "command"].includes(fn.type));
+  for (const block of regularFunctionsAsm) {
+    writeFunction(block);
   }
 
   writeLine("");
 
   if(!config.rspqWrapper)return res;
 
-  writeLine("OVERLAY_CODE_END:");
-  writeLine("");
+  if(config.magma) {
+    writeLine("MgEndShader");
+    writeLine("");
+  } else {
+    writeLine("OVERLAY_CODE_END:");
+    writeLine("");
+  }
 
   REGS_SCALAR.map((reg, i) => "#define " + reg.substring(1) + " $" + i)
     .filter((_, i) => i !== 1)

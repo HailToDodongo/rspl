@@ -11,7 +11,9 @@ export const ANNOTATIONS = {
   NoReturn: "NoReturn",
   Unlikely: "Unlikely",
   NoRegAlloc: "NoRegAlloc",
-  Tag: "Tag"
+  Tag: "Tag",
+  AttrLoader: "AttrLoader",
+  AttrPatch: "AttrPatch"
 };
 
 export const KNOWN_ANNOTATIONS = Object.keys(ANNOTATIONS);
@@ -27,9 +29,12 @@ export function validateAnnotation(anno) {
   }
 
   // string annotations
-  if(["Barrier"].includes(anno.name)) {
+  if(["Barrier", "AttrLoader", "AttrPatch"].includes(anno.name)) {
     if(typeof anno.value !== "string") {
       state.throwError("Annotation '"+anno.name+"' expects a string value!");
+    }
+    if(anno.value === "") {
+      state.throwError("Annotation '"+anno.name+"' expects a non-empty string value!");
     }
   }
 }

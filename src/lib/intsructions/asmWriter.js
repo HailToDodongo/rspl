@@ -53,6 +53,18 @@ function getDebugData() {
 }
 
 /**
+ * 
+ * @returns {ASMAttrPatch}
+ */
+function getAttrPatch(annotations) {
+  const annoVal = getAnnotationVal(annotations, "AttrPatch");
+  if (!annoVal) return undefined;
+
+  const [name, op, ...rest] = annoVal.split(":");
+  return { name, op };
+}
+
+/**
  *
  * @param op
  * @return {ASM}
@@ -75,6 +87,8 @@ function getOpInfo(op, type = ASM_TYPE.OP) {
     annotations,
     depsArgMask: 0n,
     type: type,
+    attrLoader: getAnnotationVal(annotations, "AttrLoader"),
+    attrPatch: getAttrPatch(annotations),
   };
   if((res.opFlags & OP_FLAG_IS_BRANCH) && (res.opFlags & OP_FLAG_IS_LIKELY)) {
     res.opFlags |= OP_FLAG_LIKELY_BRANCH;

@@ -44,6 +44,20 @@ declare global
         value: number[] | undefined;
     };
 
+    type ASTUniform = {
+        name: string;
+        binding?: number;
+        state: ASTState[];
+    };
+
+    type ASTAttribute = {
+        name: string;
+        binding?: number;
+        type: string;
+        arraySize: number[];
+        optional: boolean;
+    };
+
     type ASTStatementBase = { line: number; };
 
     type ASTScopedBlock = ASTStatementBase & {
@@ -167,6 +181,8 @@ declare global
         state: ASTState[];
         stateData: ASTState[];
         stateBss: ASTState[];
+        uniforms: ASTUniform[];
+        attributes: ASTAttribute[];
         functions: ASTFunc[];
         postIncludes: string[];
         defines: Record<string, string>;
