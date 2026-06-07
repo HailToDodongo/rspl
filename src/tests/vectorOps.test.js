@@ -301,7 +301,7 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmudl $v29, $v02, $v04.e0
+  vmudl $v02, $v02, $v04.e0
   vmadm $v01, $v01, $v04.e0
   vmadn $v02, $v00, $v00
   jr $ra
@@ -345,7 +345,7 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmudh $v29, $v03, $v04.e0
+  vmudh $v02, $v03, $v04.e0
   vsar $v01, COP2_ACC_HI
   vsar $v02, COP2_ACC_MD
   jr $ra
@@ -361,7 +361,7 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmudm $v29, $v05, $v04.e0
+  vmudm $v02, $v05, $v04.e0
   vmadh $v01, $v05, $v03.e0
   vmadn $v02, $v00, $v00
   jr $ra
@@ -491,7 +491,7 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmadl $v29, $v02, $v04.e0
+  vmadl $v02, $v02, $v04.e0
   vmadm $v01, $v01, $v04.e0
   vmadn $v02, $v00, $v00
   jr $ra
@@ -537,7 +537,7 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmadh $v29, $v03, $v04.e0
+  vmadh $v02, $v03, $v04.e0
   vsar $v01, COP2_ACC_HI
   vsar $v02, COP2_ACC_MD
   jr $ra
@@ -553,7 +553,7 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmadm $v29, $v05, $v04.e0
+  vmadm $v02, $v05, $v04.e0
   vmadh $v01, $v05, $v03.e0
   vmadn $v02, $v00, $v00
   jr $ra
@@ -1119,7 +1119,7 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmudm $v29, $v01, $v04.v
+  vmudm $v06, $v01, $v04.v
   vmadh $v05, $v01, $v03.v
   vmadn $v06, $v00, $v00
   jr $ra

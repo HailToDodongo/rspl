@@ -303,7 +303,7 @@ T3DCmd_VertLoad:
   bne $s3, $s2, LABEL_T3DCmd_VertLoad_0003           ## L:465  |    109 | isPointLight =  load(ptrLight, 15);
   vadd $v03, $v03, $v29.v                            ## L:461  |   *111 | lightColor:sint += VTEMP;
   LIGHT_LOOP_END:
-  vmudm $v29, $v15, $v06.h3                          ## L:471  |    112 | vec32 clipPlaneW = guardBandScale * posClip.wwwwWWWW;
+  vmudm $v02, $v15, $v06.h3                          ## L:471  |    112 | vec32 clipPlaneW = guardBandScale * posClip.wwwwWWWW;
   vmadh $v01, $v15, $v05.h3                          ## L:471  |    113 | vec32 clipPlaneW = guardBandScale * posClip.wwwwWWWW;
   luv $v04, 0, 16, $s4                               ## L:473  |      ^ | color = load_vec_u8(prt3d, 0x10);
   addu $fp, $s6, $s1                                 ## L:474  |    114 | fogA = ptrBuffA + fogStoreOffset;
@@ -334,7 +334,7 @@ T3DCmd_VertLoad:
   srl $t2, $t5, 5                                    ## L:255  |    141 | u32 tmp = res >> 5;
   nor $t5, $t5, $t2                                  ## L:256  |    142 | res = res ~| tmp;
   TAG_LightMul: vmulf $v04, $v04, $v03.v                           ## L:501  |      ^ | color:sfract *= lightColor:ufract;
-  vmudl $v29, $v06, $v10.v                           ## L:503  |    143 | posClip *= normScaleW:ufract;
+  vmudl $v06, $v06, $v10.v                           ## L:503  |    143 | posClip *= normScaleW:ufract;
   vmadm $v05, $v05, $v10.v                           ## L:503  |    144 | posClip *= normScaleW:ufract;
   vmadn $v06, $v00, $v00                             ## L:503  |    145 | posClip *= normScaleW:ufract;
   vmudm $v04, $v04, $v31.e6                          ## L:505  |    146 | color >>= 7;

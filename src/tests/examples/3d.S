@@ -260,7 +260,7 @@ T3DCmd_VertLoad:
   vadd $v06, $v06, $v03.v
   LABEL_T3DCmd_VertLoad_0004:
   vmulf $v07, $v07, $v06.v
-  vmudm $v29, $v15, $v09.h3
+  vmudm $v03, $v15, $v09.h3
   vmadh $v02, $v15, $v08.h3
   vmadn $v03, $v00, $v00
   vch $v29, $v08, $v02
@@ -283,7 +283,7 @@ T3DCmd_VertLoad:
   andi $sp, $sp, 1799
   srl $t9, $sp, 5
   nor $sp, $sp, $t9
-  vmudl $v29, $v09, $v10.v
+  vmudl $v09, $v09, $v10.v
   vmadm $v08, $v08, $v10.v
   vmadn $v09, $v00, $v00
   sdv $v08, 0, 16, $s6
@@ -449,7 +449,7 @@ T3DCmd_TriDraw:
   ori $at, $zero, %lo(RSPQ_SCRATCH_MEM)
   sdv $v17, 0, 0, $at
   ldv $v17, 8, 0, $at
-  vmudl $v29, $v18, $v22.v
+  vmudl $v18, $v18, $v22.v
   vmadm $v17, $v17, $v22.v
   vmadn $v18, $v00, $v00
   vor $v15, $v00, $v26
@@ -481,14 +481,14 @@ T3DCmd_TriDraw:
   vmrg $v12, $v12, $v22.e3
   vge $v29, $v11, $v00.e0
   vmrg $v12, $v12, $v00
-  vmudl $v29, $v20, $v12.e0
+  vmudl $v14, $v20, $v12.e0
   vmadm $v13, $v19, $v12.e0
   vmadn $v14, $v00, $v00
   vmadn $v27, $v27, $v30.e7
   vmadh $v26, $v26, $v30.e7
   vmudm $v21, $v21, $v12.e0
   vaddc $v28, $v28, $v21.v
-  vmudl $v29, $v27, $v22.v
+  vmudl $v21, $v27, $v22.v
   vmadm $v20, $v26, $v22.v
   vmadn $v21, $v00, $v00
   vch $v29, $v20, $v26.e3
