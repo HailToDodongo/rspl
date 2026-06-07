@@ -178,6 +178,18 @@ export async function transpile(ast, updateCb, config = {})
       }
       console.log("===============================");
     }
+  } else if(config.debugInfo) {
+    // When debugInfo is on but optimize is off, still run pattern
+    // optimizations and cycle evaluation so the debug output contains
+    // meaningful cycle counts.
+    for(const func of functionsAsm) {
+      if(config.patchFunctions.length && !config.patchFunctions.includes(func.name))continue;
+      asmOptimizePattern(func);
+      if(func.asm.length > 0) {
+        asmInitDeps(func);
+        func.cyclesAfter = evalFunctionCost(func);
+      }
+    }
   }
 
   return generateASM();

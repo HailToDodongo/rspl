@@ -17,6 +17,28 @@ describe('Optimizer E2E - Delay-Slots', () =>
   addiu $t0, $zero, 1`);
   });
 
+  test('Fill - across jal (scalar)', async () => {
+    // Scalar instructions independent of the jal target can fill its delay slot,
+    // but the jal still acts as a reorder barrier for dependent instructions.
+    const {asm, warn} = await transpileSource(`
+function DMAWaitIdle();
+function test()
+{
+  u32 a = 1;
+  u32 b = 2;
+  DMAWaitIdle();
+  u32 c = 3;
+}
+`, CONF);
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  addiu $t1, $zero, 2
+  jal DMAWaitIdle
+  addiu $t0, $zero, 1
+  jr $ra
+  addiu $t2, $zero, 3`);
+  });
+
   test('Fill - Complex', async () => {
     const {asm, warn} = await transpileSource(`function test(u32 i) 
     {

@@ -4,6 +4,11 @@ import {readFileSync} from "fs";
 
 const CONF = {rspqWrapper: true};
 
+function fileLoader(filePath) {
+  return readFileSync("./src/tests/examples/t3d/" + filePath, "utf8");
+}
+
+
 describe('Examples', () =>
 {
   test('Example code', async () => {
@@ -26,6 +31,33 @@ describe('Examples', () =>
     const expectedASM = readFileSync("./src/tests/examples/3d.S", "utf8");
 
     const {asm, warn} = await transpileSource(code, {rspqWrapper: true, optimize: true});
+    expect(warn.toLowerCase()).not.toContain("error");
+    expect(asm).toEqual(expectedASM);
+  });
+
+  test('Example code - Tiny3D', async () => {
+    const code = readFileSync("./src/tests/examples/t3d/rsp_tiny3d.rspl", "utf8");
+    const expectedASM = readFileSync("./src/tests/examples/t3d/rsp_tiny3d.S", "utf8");
+
+    const {asm, warn} = await transpileSource(code, {rspqWrapper: true, optimize: true, fileLoader, debugInfo: true});
+    expect(warn.toLowerCase()).not.toContain("error");
+    expect(asm).toEqual(expectedASM);
+  });
+
+  test('Example code - TinyPX', async () => {
+    const code = readFileSync("./src/tests/examples/t3d/rsp_tinypx.rspl", "utf8");
+    const expectedASM = readFileSync("./src/tests/examples/t3d/rsp_tinypx.S", "utf8");
+
+    const {asm, warn} = await transpileSource(code, {rspqWrapper: true, optimize: true, fileLoader, debugInfo: true});
+    expect(warn.toLowerCase()).not.toContain("error");
+    expect(asm).toEqual(expectedASM);
+  });
+
+  test('Example code - HDR/Bloom', async () => {
+    const code = readFileSync("./src/tests/examples/rsp_fx.rspl", "utf8");
+    const expectedASM = readFileSync("./src/tests/examples/rsp_fx.S", "utf8");
+
+    const {asm, warn} = await transpileSource(code, {rspqWrapper: true, optimize: true, fileLoader, debugInfo: true});
     expect(warn.toLowerCase()).not.toContain("error");
     expect(asm).toEqual(expectedASM);
   });

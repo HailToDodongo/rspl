@@ -290,4 +290,22 @@ test('Data State', async () => {
 
 `);
   });
+
+  test('Extern state variables registered for lookup', async () => {
+    const {asm, warn} = await transpileSource(`
+state {
+  extern u32 RDPQ_CMD_STAGING;
+  extern u16 RSPQ_Loop;
+  vec16 MY_VAR;
+}
+function test(u32 dummy)
+{
+  u32 x = RDPQ_CMD_STAGING;
+  u32 y = RSPQ_Loop;
+}
+`, CONF);
+    expect(warn).toBe("");
+    expect(asm).toContain("%lo(RDPQ_CMD_STAGING)");
+    expect(asm).toContain("%lo(RSPQ_Loop)");
+  });
 });
