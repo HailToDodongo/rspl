@@ -249,7 +249,7 @@ TPXCmd_DrawColor:
   LABEL_TPXCmd_DrawColor_0005:
   andi $t1, $t4, 1028                                ## L:481  |  **107 | clipA = temp1 & 0b0000'0100'0000'0100;
   andi $t5, $t4, 16448                               ## L:482  |    108 | clipB = temp1 & 0b0100'0000'0100'0000;
-  vmudl $v12, $v12, $v17.v                           ## L:485  |      ^ | posClip *= normScaleW:ufract;
+  vmudl $v29, $v12, $v17.v                           ## L:485  |      ^ | posClip *= normScaleW:ufract;
   vmadm $v11, $v11, $v17.v                           ## L:485  |    109 | posClip *= normScaleW:ufract;
   vmadn $v12, $v00, $v00                             ## L:485  |    110 | posClip *= normScaleW:ufract;
   vrcph $v07.e3, $v11.e3                             ## L:487  |  **113 | invW.w = invert_half(posClip).w;
@@ -365,7 +365,7 @@ TPXCmd_DrawColor:
   LABEL_TPXCmd_DrawColor_000A:
   andi $t1, $t4, 1028                                ## L:128  |  **263 | clipA = temp1 & 0b0000'0100'0000'0100;
   andi $t5, $t4, 16448                               ## L:129  |    264 | clipB = temp1 & 0b0100'0000'0100'0000;
-  vmudl $v12, $v12, $v17.v                           ## L:132  |      ^ | posClip *= normScaleW:ufract;
+  vmudl $v29, $v12, $v17.v                           ## L:132  |      ^ | posClip *= normScaleW:ufract;
   vmadm $v11, $v11, $v17.v                           ## L:132  |    265 | posClip *= normScaleW:ufract;
   vmadn $v12, $v00, $v00                             ## L:132  |    266 | posClip *= normScaleW:ufract;
   vrcph $v07.e3, $v11.e3                             ## L:134  |  **269 | invW.w = invert_half(posClip).w;
@@ -683,7 +683,7 @@ TPXCmd_DrawTextured:
   LABEL_TPXCmd_DrawTextured_0017:
   andi $t1, $t4, 1028                                ## L:626  |  **133 | clipA = temp1 & 0b0000'0100'0000'0100;
   andi $t5, $t4, 16448                               ## L:627  |    134 | clipB = temp1 & 0b0100'0000'0100'0000;
-  vmudl $v10, $v10, $v17.v                           ## L:630  |      ^ | posClip *= normScaleW:ufract;
+  vmudl $v29, $v10, $v17.v                           ## L:630  |      ^ | posClip *= normScaleW:ufract;
   vmadm $v09, $v09, $v17.v                           ## L:630  |    135 | posClip *= normScaleW:ufract;
   vmadn $v10, $v00, $v00                             ## L:630  |    136 | posClip *= normScaleW:ufract;
   vrcph $v05.e3, $v09.e3                             ## L:632  |  **139 | invW.w = invert_half(posClip).w;
@@ -835,7 +835,7 @@ TPXCmd_DrawTextured:
   LABEL_TPXCmd_DrawTextured_001C:
   andi $t1, $t4, 1028                                ## L:273  |  **344 | clipA = temp1 & 0b0000'0100'0000'0100;
   andi $t5, $t4, 16448                               ## L:274  |    345 | clipB = temp1 & 0b0100'0000'0100'0000;
-  vmudl $v10, $v10, $v17.v                           ## L:277  |      ^ | posClip *= normScaleW:ufract;
+  vmudl $v29, $v10, $v17.v                           ## L:277  |      ^ | posClip *= normScaleW:ufract;
   vmadm $v09, $v09, $v17.v                           ## L:277  |    346 | posClip *= normScaleW:ufract;
   vmadn $v10, $v00, $v00                             ## L:277  |    347 | posClip *= normScaleW:ufract;
   vrcph $v05.e3, $v09.e3                             ## L:279  |  **350 | invW.w = invert_half(posClip).w;

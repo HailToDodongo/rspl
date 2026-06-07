@@ -1119,7 +1119,7 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmudm $v06, $v01, $v04.v
+  vmudm $v29, $v01, $v04.v
   vmadh $v05, $v01, $v03.v
   vmadn $v06, $v00, $v00
   jr $ra
