@@ -102,6 +102,7 @@ const state =
     state.declareVar("VSHIFT", "vec16", REG.VSHIFT, true);
     state.declareVar("VSHIFT8", "vec16", REG.VSHIFT8, true);
     state.declareVar("RA", "u32", REG.RA, false);
+    state.declareVar("GP", "u32", REG.GP, false, true);
     state.declareVar("VTEMP", "vec16", REG.VTEMP0, false, true);
   },
 
