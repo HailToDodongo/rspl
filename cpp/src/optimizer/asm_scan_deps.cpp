@@ -422,8 +422,11 @@ void asmInitDep(AsmInst &inst) {
     for (const auto &e : expanded) {
       int idx = getRegIndex(e);
       if (idx >= 0) {
-        inst.depsSourceMask[idx / 64] |= (1ULL << (idx % 64));
-        inst.depsSourceIdx.push_back(idx);
+        uint64_t bit = 1ULL << (idx % 64);
+        if (!(inst.depsSourceMask[idx / 64] & bit)) {
+          inst.depsSourceMask[idx / 64] |= bit;
+          inst.depsSourceIdx.push_back(idx);
+        }
       }
     }
   }
@@ -457,8 +460,11 @@ void asmInitDep(AsmInst &inst) {
     for (const auto &e : expanded) {
       int idx = getRegIndex(e);
       if (idx >= 0) {
-        inst.depsTargetMask[idx / 64] |= (1ULL << (idx % 64));
-        inst.depsTargetIdx.push_back(idx);
+        uint64_t bit = 1ULL << (idx % 64);
+        if (!(inst.depsTargetMask[idx / 64] & bit)) {
+          inst.depsTargetMask[idx / 64] |= bit;
+          inst.depsTargetIdx.push_back(idx);
+        }
       }
     }
   }

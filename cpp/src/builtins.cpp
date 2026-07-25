@@ -9,6 +9,7 @@
 #include "swizzle.h"
 #include "types.h"
 
+#include <algorithm>
 #include <unordered_map>
 
 namespace rspl::builtins {
@@ -603,10 +604,9 @@ b_minmax(const VarDef *varRes,
 
   VarDef varA = resolveArg(args[0], "arg0");
   VarDef varB = resolveArg(args[1], "arg1");
-  // JS max()/min() do not propagate swizzle from the function arguments
-  // to the comparison operation (max is element-wise, not swizzled).
+  // only the right-hand side may carry a swizzle into the comparison
   varA.swizzle.clear();
-  varB.swizzle.clear();
+  varB.swizzle = args[1].swizzle;
   if (!varRes)
     state.throwError("Builtin min/max() needs a left-side");
 

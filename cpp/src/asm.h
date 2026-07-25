@@ -3,6 +3,7 @@
 #include "types.h"
 
 #include <array>
+#include <cassert>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -110,7 +111,7 @@ template <typename T, size_t N> struct SmallVec {
   const T *end() const { return data_.data() + size_; }
   size_t size() const { return size_; }
   bool empty() const { return size_ == 0; }
-  void push_back(const T &v) { data_[size_++] = v; }
+  void push_back(const T &v) { assert(size_ < N); data_[size_++] = v; }
   void clear() { size_ = 0; }
   T &back() { return data_[size_ - 1]; }
   const T &back() const { return data_[size_ - 1]; }
@@ -136,10 +137,12 @@ struct AsmInst {
   uint32_t barrierMask = 0;
 
   // -- Dependency tracking (filled by optimizer) -----------------------
-  SmallVec<int, 16> depsSourceIdx;
-  SmallVec<int, 16> depsTargetIdx;
-  SmallVec<int, 16> depsStallSourceIdx;
-  SmallVec<int, 16> depsStallTargetIdx;
+  // Capacity must cover the worst case after lane-expansion: two vector args
+  // at 8 lanes each plus two hidden regs (e.g. "vcl" reading $vco and $vce).
+  SmallVec<int, 24> depsSourceIdx;
+  SmallVec<int, 24> depsTargetIdx;
+  SmallVec<int, 24> depsStallSourceIdx;
+  SmallVec<int, 24> depsStallTargetIdx;
 
   // 295-bit register masks stored as 5 x uint64_t
   std::array<uint64_t, 5> depsSourceMask = {};
