@@ -1,5 +1,5 @@
 import {asm} from "../lib/intsructions/asmWriter.js";
-import {asmInitDep, asmGetReorderIndices} from "../lib/optimizer/asmScanDeps.js";
+import {asmInitDep, asmGetReorderIndices, getTargetRegs} from "../lib/optimizer/asmScanDeps.js";
 
 function build() {
   const list = [
@@ -23,4 +23,32 @@ test("Reorder partial load", () => {
   const min = Math.min(...range), max = Math.max(...range);
   const canLandBetweenLdvs = range.includes(1);   // index 1 == AFTER ldv[0], BEFORE ldv[8]
   expect(canLandBetweenLdvs).toBe(false);   // this SHOULD hold; it currently FAILS -> bug
+});
+
+test("Partial load target lanes - aligned offset", () => {
+  expect(getTargetRegs(asm("ldv", ["$v06", 0, 0, "$s0"])))
+    .toEqual(["$v06.e0", "$v06.e1", "$v06.e2", "$v06.e3"]);
+  expect(getTargetRegs(asm("ldv", ["$v06", 8, 0, "$s0"])))
+    .toEqual(["$v06.e4", "$v06.e5", "$v06.e6", "$v06.e7"]);
+  expect(getTargetRegs(asm("llv", ["$v06", 4, 0, "$s0"])))
+    .toEqual(["$v06.e2", "$v06.e3"]);
+  expect(getTargetRegs(asm("lsv", ["$v06", 2, 0, "$s0"])))
+    .toEqual(["$v06.e1"]);
+  expect(getTargetRegs(asm("lbv", ["$v06", 4, 0, "$s0"])))
+    .toEqual(["$v06.e2"]);
+});
+
+test("Partial load target lanes - odd offset", () => {
+  // an odd offset straddles a lane boundary, touching one extra lane
+  expect(getTargetRegs(asm("lbv", ["$v06", 5, 0, "$s0"])))
+    .toEqual(["$v06.e2"]);
+  expect(getTargetRegs(asm("lsv", ["$v06", 3, 0, "$s0"])))
+    .toEqual(["$v06.e1", "$v06.e2"]);
+  expect(getTargetRegs(asm("llv", ["$v06", 1, 0, "$s0"])))
+    .toEqual(["$v06.e0", "$v06.e1", "$v06.e2"]);
+  // loads stop at the end of the register, lanes must be clamped
+  expect(getTargetRegs(asm("ldv", ["$v06", 13, 0, "$s0"])))
+    .toEqual(["$v06.e6", "$v06.e7"]);
+  expect(getTargetRegs(asm("lsv", ["$v06", 15, 0, "$s0"])))
+    .toEqual(["$v06.e7"]);
 });

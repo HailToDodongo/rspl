@@ -426,7 +426,7 @@ T3DCmd_TriDraw:
   or $s2, $zero, $s7
   addu $s0, $s7, $t0
   LABEL_T3DCmd_TriDraw_0009:
-  ldv $v24, 0, 16, $s2
+  ldv $v25, 0, 24, $s2
   llv $v24, 8, 12, $s2
   luv $v23, 0, 8, $s2
   lbu $fp, 6($s2)
@@ -435,7 +435,7 @@ T3DCmd_TriDraw:
   and $sp, $sp, $s3
   and $k1, $k1, $s3
   beq $sp, $zero, LABEL_T3DCmd_TriDraw_000B
-  ldv $v25, 0, 24, $s2
+  ldv $v24, 0, 16, $s2
   ori $at, $zero, %lo(NORM_SCALE_W)
   ldv $v22, 0, 8, $at
   ldv $v22, 8, 8, $at

@@ -64,7 +64,7 @@ describe('Builtins - Debug', () =>
     expect(info).toContain("print() variable");
     expect(asm).toBe(`test:
   .set macro # print
-  emux_dump_gpr $t0, $t1
+  xlogregs_gpr $t0, $t1
   .set noat # print
   .set nomacro # print
   jr $ra
@@ -81,7 +81,7 @@ describe('Builtins - Debug', () =>
     expect(warn).toBe("");
     expect(asm).toBe(`test:
   .set macro # print
-  emux_dump_vpr $v01, $v03
+  xlogregs_vpr $v01, $v03
   .set noat # print
   .set nomacro # print
   jr $ra

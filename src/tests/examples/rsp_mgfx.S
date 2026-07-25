@@ -363,12 +363,12 @@ MgBeginShader
   beq $sp, $zero, LIGHT_END                          ## L:376  |      ^ | if (light_count == 0) goto LIGHT_END;
   ori $fp, $zero, %lo(LIGHTING_LIGHTS)               ## L:375  |   *233 | u16 light_ptr = LIGHTING_LIGHTS;
   LIGHT_LOOP:
-  ldv $v27, 0, 8, $fp                                ## L:379  |    234 | vec16 vlcol = load(light_ptr, 8).xyzwxyzw;
+  ldv $v27, 8, 8, $fp                                ## L:379  |    234 | vec16 vlcol = load(light_ptr, 8).xyzwxyzw;
   ldv $v28, 0, 0, $fp                                ## L:380  |    235 | vec16 vlpos = load(light_ptr, 0).xyzwxyzw;
   ldv $v28, 8, 0, $fp                                ## L:380  |    236 | vec16 vlpos = load(light_ptr, 0).xyzwxyzw;
   lh $s0, 6($fp)                                     ## L:382  |    237 | s16 light_w = load(light_ptr, 6);
   beq $s0, $zero, LABEL_mgfx_0003                    ## L:383  |  **240 | if (light_w != 0)
-  ldv $v27, 8, 8, $fp                                ## L:379  |   *242 | vec16 vlcol = load(light_ptr, 8).xyzwxyzw;
+  ldv $v27, 0, 8, $fp                                ## L:379  |   *242 | vec16 vlcol = load(light_ptr, 8).xyzwxyzw;
   vsubc $v28, $v28, $v19.v                           ## L:391  |    243 | vlpos -= vpos;
   vmudh $v02, $v28, $v28.v                           ## L:392  | ***247 | vec32 vsqdist = vlpos * vlpos;
   vsar $v01, COP2_ACC_HI                             ## L:392  |    248 | vec32 vsqdist = vlpos * vlpos;

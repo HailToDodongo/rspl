@@ -215,13 +215,13 @@ T3DCmd_VertLoad:
   jal DMAExec                                        ## L:339  |      8 | dma_in_async(prt3d, dmaAddrRDRAM, copySize); ## Args: $t0, $t1, $s0, $s4, $t2
   addu $s0, $a1, $s6                                 ## L:281  |    *10 | addrOut = addrIn + segment;
   ori $s6, $zero, %lo(MATRIX_NORMAL)                 ## L:271  |     11 | u16 address = MATRIX_NORMAL;
-  ldv $v20, 0, 0, $s6                                ## L:272  |     12 | mat0 = load(address, 0x00).xyzwxyzw;
+  ldv $v20, 8, 0, $s6                                ## L:272  |     12 | mat0 = load(address, 0x00).xyzwxyzw;
   ldv $v19, 0, 8, $s6                                ## L:273  |     13 | mat1 = load(address, 0x08).xyzwxyzw;
   ldv $v19, 8, 8, $s6                                ## L:273  |     14 | mat1 = load(address, 0x08).xyzwxyzw;
   ldv $v18, 0, 16, $s6                               ## L:274  |     15 | mat2 = load(address, 0x10).xyzwxyzw;
   ldv $v18, 8, 16, $s6                               ## L:274  |     16 | mat2 = load(address, 0x10).xyzwxyzw;
   jal loadCurrentMVPMat                              ## L:346  |     17 | loadCurrentMVPMat(mat0, mat1, mat2, mat3); ## Args: $v27, $v25, $v23, $v21
-  ldv $v20, 8, 0, $s6                                ## L:272  |    *19 | mat0 = load(address, 0x00).xyzwxyzw;
+  ldv $v20, 0, 0, $s6                                ## L:272  |    *19 | mat0 = load(address, 0x00).xyzwxyzw;
   ori $at, $zero, %lo(NORMAL_MASK_SHIFT)             ## L:348  |     20 | vec16 normMask = load(NORMAL_MASK_SHIFT, 0x00).xyzwxyzw;
   ldv $v17, 0, 0, $at                                ## L:348  |     21 | vec16 normMask = load(NORMAL_MASK_SHIFT, 0x00).xyzwxyzw;
   ldv $v17, 8, 0, $at                                ## L:348  |     22 | vec16 normMask = load(NORMAL_MASK_SHIFT, 0x00).xyzwxyzw;

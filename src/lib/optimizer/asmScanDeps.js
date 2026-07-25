@@ -261,13 +261,17 @@ export function getTargetRegs(line) {
       return regs;
     }
 
-    const PARTIAL_LANE_COUNT = {lbv:1, lsv:1, llv:2, ldv:4};
-    const laneCount = PARTIAL_LANE_COUNT[line.op];
-    if(laneCount) {
-      const first = parseInt(line.args[1]) / 2;   // args[1] = byte offset -> lane index
+    const PARTIAL_BYTE_COUNT = {lbv:1, lsv:2, llv:4, ldv:8};
+    const byteCount = PARTIAL_BYTE_COUNT[line.op];
+    if(byteCount) {
+      const offset = parseInt(line.args[1]); // args[1] = byte offset into the register
       const reg = line.args[0];
+      // an odd offset writes into the middle of a lane, covering one lane more than
+      // an aligned access; loads don't wrap around, so clamp at the last lane
+      const firstLane = Math.floor(offset / 2);
+      const lastLane = Math.min(7, Math.floor((offset + byteCount - 1) / 2));
       const lanes = [];
-      for(let i = 0; i < laneCount; ++i) lanes.push(reg + ".e" + (first + i));
+      for(let lane = firstLane; lane <= lastLane; ++lane) lanes.push(reg + ".e" + lane);
       return lanes;
     }
   }
