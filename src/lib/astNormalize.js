@@ -10,6 +10,29 @@ import builtins from "./builtins/functions.js";
 import {astCalcNormalize} from "./astCalcNormalizer.js";
 
 /**
+ * 
+ * @param {ASTStatement[]} statements 
+ * @param {ASTStatement} currentStatement 
+ * @returns {ASTStatement[]}
+ */
+function getPrecedingAnnotations(statements, currentStatement)
+{
+  const currentStatementIdx = statements.indexOf(currentStatement);
+  if (currentStatementIdx < 0)
+    return [];
+
+  /** @type {ASTStatement[]} */
+  let annotations = [];
+  // Search backwards from the current statement
+  for (let index = currentStatementIdx-1; index >= 0; index--) {
+    const st = statements[index];
+    if (st.type !== 'annotation') break;
+    annotations.splice(0, 0, st);
+  }
+  return annotations;
+}
+
+/**
  * @param {ASTScopedBlock} block
  * @param {ASTState[]} astState
  * @param {ASTMacroMap} macros
@@ -59,6 +82,8 @@ function normalizeScopedBlock(block, astState, macros)
       case "varDeclAssign":
         statements.push({...st, type: "varDecl", varName: st.varName.split(":")[0]});
         if(st.calc) { // ... and ignore empty assignments
+          // Duplicate annotations to the assigment
+          statements.push(...getPrecedingAnnotations(block.statements, st));
           statements.push({
             type: "varAssignCalc",
             varName: st.varName,
@@ -195,14 +220,16 @@ function normalizeScopedBlock(block, astState, macros)
 
 /**
  * @param {AST} ast
+ * @param {RSPLConfig} config
  * @returns {ASTFunc[]}
  */
-export function astNormalizeFunctions(ast)
+export function astNormalizeFunctions(ast, config)
 {
   const astFunctions = ast.functions;
 
   /** @type {ASTMacroMap} */
   const macros = {};
+  let shaderCount = 0;
 
   for(const block of astFunctions) {
     if(["function", "command"].includes(block.type)) {
@@ -214,34 +241,132 @@ export function astNormalizeFunctions(ast)
   }
 
   for(const block of astFunctions) {
-    if(!["function", "command", "macro"].includes(block.type) || !block.body)continue;
+    if(!["function", "command", "macro", "shader"].includes(block.type) || !block.body)continue;
 
     for(const anno of block.annotations) {
       validateAnnotation(anno);
     }
 
-    if(block.type === "command" && block.resultType === null) {
-      state.throwError("Commands must specify an index (e.g. 'command<4>')!", block)
+    if(block.type === "command") {
+      if(config.magma) {
+        state.throwError("Commands must not be defined when compiling for magma (define a 'shader' instead)!", block);
+      }
+      if(block.resultType === null) {
+        state.throwError("Commands must specify an index (e.g. 'command<4>')!", block);
+      }
     }
 
     if(block.type === "macro") {
       if(block.resultType != null) {
-        state.throwError("Macros must not specify an result-type (use 'macro' without `< >`)!", block);
+        state.throwError("Macros must not specify a result-type (use 'macro' without `< >`)!", block);
       }
       if(builtins[block.name]) {
         state.throwError(`Macro '${block.name}' shadows a builtin function! Please use another name.`);
       }
-
       macros[block.name] = block;
     }
+
+    if(block.type === "shader") {
+      if(!config.magma) {
+        state.throwError("Shaders are only allowed when compiling for magma (pass '--magma' on the command line)!", block);
+      }
+      if(shaderCount > 0) {
+        state.throwError("A shader has already been defined!", block);
+      }
+      if(block.resultType != null) {
+        state.throwError("Shaders must not specify a result-type (use 'shader' without `< >`)!", block);
+      }
+      if(block.args.length > 0) {
+        state.throwError("Shaders must not specify arguments!", block);
+      }
+      shaderCount++;
+    }
+  }
+
+  if(config.magma && shaderCount === 0) {
+    state.throwError("Exactly one shader must be defined when compiling for magma (use 'shader')!");
   }
 
   for(const block of astFunctions) {
     if(block.type !== "macro" && block.body) {
       state.func = block.name || "";
-      normalizeScopedBlock(block.body, [...ast.state, ...ast.stateData, ...ast.stateBss], macros);
+      const uniformsState = ast.uniforms.flatMap(u => u.state);
+      normalizeScopedBlock(block.body, [...ast.state, ...ast.stateData, ...ast.stateBss, ...uniformsState], macros);
     }
   }
 
   return astFunctions;
+}
+
+/**
+ * @param {AST} ast
+ * @param {RSPLConfig} config
+ * @returns {ASTState[]}
+ */
+export function astNormalizeState(ast, config)
+{
+  const astState = ast.state;
+  return astState;
+}
+
+/**
+ * @param {AST} ast
+ * @param {RSPLConfig} config
+ * @returns {ASTUniform[]}
+ */
+export function astNormalizeUniforms(ast, config)
+{
+  const astUniforms = ast.uniforms;
+
+  let curBindingNumber = 0;
+  const usedBindingNumbers = new Set(astUniforms.map(u => u.binding));
+
+  for(const uniform of astUniforms) {
+    if(!config.magma) {
+      state.throwError("Uniforms are only allowed when compiling for magma (pass '--magma' on the command line)!", uniform);
+    }
+    if(typeof uniform.binding === 'number') {
+      if(uniform.binding < 0 || uniform.binding >= 2**32) {
+        state.throwError("Uniform binding number must be in [0, 2^32)!", uniform);
+      }
+      curBindingNumber = uniform.binding;
+    } else {
+      while (usedBindingNumbers.has(curBindingNumber)) curBindingNumber++;
+      uniform.binding = curBindingNumber;
+    }
+    usedBindingNumbers.add(curBindingNumber);
+  }
+
+  return astUniforms;
+}
+
+/**
+ * @param {AST} ast
+ * @param {RSPLConfig} config
+ * @returns {ASTAttribute[]}
+ */
+export function astNormalizeAttributes(ast, config)
+{
+  const astAttributes = ast.attributes;
+
+  let curInputNumber = 0;
+  const usedInputNumbers = new Set(astAttributes.map(u => u.binding));
+
+  for(const attribute of astAttributes) {
+    if (!config.magma) {
+      state.throwError("Attributes are only allowed when compiling for magma (pass '--magma' on the command line)!", attribute);
+    }
+    if(typeof attribute.binding == 'number') {
+      if (attribute.binding < 0 || attribute.binding >= 2**32) {
+        state.throwError("Attribute input number must be in [0, 2^32)!", attribute);
+      }
+      curInputNumber = attribute.binding;
+    } else {
+      while (usedInputNumbers.has(curInputNumber)) curInputNumber++;
+      attribute.binding = curInputNumber;
+    }
+    usedInputNumbers.add(curInputNumber);
+  }
+
+  return astAttributes;
 }

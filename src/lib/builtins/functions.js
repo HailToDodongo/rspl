@@ -600,6 +600,7 @@ function max(varRes, args, swizzle) {
   if(varArg0.type !== varArg1.type)state.throwError("Builtin max() requires both arguments to be of the same type!", args);
   if(varArg0.type !== "vec16")state.throwError("Builtin max() requires both arguments to be of type vec16! (@TODO: add scalar)", args);
 
+  varArg1.swizzle = args[1].swizzle;
   return opsVector.opCompare(varRes, varArg0, varArg1, ">=", undefined);
 }
 
@@ -612,6 +613,7 @@ function min(varRes, args, swizzle) {
   if(varArg0.type !== varArg1.type)state.throwError("Builtin min() requires both arguments to be of the same type!", args);
   if(varArg0.type !== "vec16")state.throwError("Builtin min() requires both arguments to be of type vec16! (@TODO: add scalar)", args);
 
+  varArg1.swizzle = args[1].swizzle;
   return opsVector.opCompare(varRes, varArg0, varArg1, "<", undefined);
 }
 
@@ -650,7 +652,7 @@ function print(varRes, args, swizzle)
     if(isVecType(args[i].type) !== isVector)state.throwError("Builtin print() doesn't allow mixed scalar/vector arguments!", args[i]);
   }
 
-  const op = isVector ? "emux_dump_vpr" : "emux_dump_gpr";
+  const op = isVector ? "xlogregs_vpr" : "xlogregs_gpr";
   return [
     asmInline(".set macro", ["# print"]),
     asmInline(op, args.map(arg => arg.reg)),

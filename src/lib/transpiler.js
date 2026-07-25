@@ -5,7 +5,7 @@
 
 import { ast2asm } from "./ast2asm";
 import { writeASM } from "./asmWriter";
-import {astNormalizeFunctions} from "./astNormalize";
+import {astNormalizeFunctions, astNormalizeState, astNormalizeUniforms, astNormalizeAttributes} from "./astNormalize";
 import nearly from "nearley";
 import grammarDef from "./grammar.cjs";
 import state from "./state.js";
@@ -94,9 +94,12 @@ export async function transpile(ast, updateCb, config = {})
   state.reset();
   normalizeConfig(config);
 
-  validateMemory(ast, ast.states);
+  ast.state = astNormalizeState(ast, config);
+  ast.uniforms = astNormalizeUniforms(ast, config);
+  ast.attributes = astNormalizeAttributes(ast, config);
+  validateMemory(ast, ast.states, config);
 
-  ast.functions = astNormalizeFunctions(ast);
+  ast.functions = astNormalizeFunctions(ast, config);
   const functionsAsm = ast2asm(ast);
 
   for(const func of functionsAsm) {

@@ -20,6 +20,11 @@ declare global
         paired: boolean;
     };
 
+    type ASMAttrPatch = {
+        name: string;
+        op: string;
+    }
+
     type ASM = {
         type: ASMType;
         op: string;
@@ -53,6 +58,9 @@ declare global
 
         debug: ASMDebug;
         annotations: Annotation[];
+
+        attrLoader?: string;
+        attrPatch?: ASMAttrPatch;
     };
 
     type ASMFunc = ASTFunc | {

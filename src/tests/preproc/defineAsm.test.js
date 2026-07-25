@@ -30,4 +30,30 @@ describe('Define (ASM)', () =>
     expect(asm).toContain("#define SOME_DEF_C 3\n");
     expect(asm).toContain("#define SOME_DEF_D 4\n");
   });
+
+  test ('Define in ASM without value', async () => {
+    const {asm, warn} = await transpileSource(`
+      include "rsp_queue.inc"
+      include "rdpq_macros.h"
+
+      #define SOME_DEF_A
+      #define SOME_DEF_B
+      
+      state{}
+      
+      #define SOME_DEF_C
+      
+      command<0> test(u32 a)
+      {
+      }
+      
+      #define SOME_DEF_D
+    `, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toContain("#define SOME_DEF_A\n");
+    expect(asm).toContain("#define SOME_DEF_B\n");
+    expect(asm).toContain("#define SOME_DEF_C\n");
+    expect(asm).toContain("#define SOME_DEF_D\n");
+  });
 });

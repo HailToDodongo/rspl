@@ -62,6 +62,15 @@ describe('Examples', () =>
     expect(asm).toEqual(expectedASM);
   });
 
+  test('Example code - Mgfx', async () => {
+    const code = readFileSync("./src/tests/examples/rsp_mgfx.rspl", "utf8");
+    const expectedASM = readFileSync("./src/tests/examples/rsp_mgfx.S", "utf8");
+
+    const {asm, warn} = await transpileSource(code, {rspqWrapper: true, optimize: true, debugInfo: true, magma: true});
+    expect(warn.toLowerCase()).not.toContain("error");
+    expect(asm).toEqual(expectedASM);
+  });
+
   test('Example code - Mandelbrot', async () => {
     const code = readFileSync("./src/tests/examples/mandelbrot.rspl", "utf8");
     const {asm, warn} = await transpileSource(code, CONF);

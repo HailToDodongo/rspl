@@ -32,7 +32,7 @@ const NORM_SWIZZLE = s => s.split("")
 
 const moo = require("moo")
 const lexer = moo.compile({
-	String: /".*"/,
+	String: /".*?"/,
 
 	DataType: ["u8", "s8", "u16", "s16", "u32", "s32", "vec32", "vec16"],
 	Registers: [
@@ -65,7 +65,7 @@ const lexer = moo.compile({
 	  ".0", ".1", ".2", ".3", ".4", ".5", ".6", ".7",
 	], value: s => NORM_SWIZZLE(s.substring(1))},
 
-	FunctionType: ["function", "command", "macro"],
+	FunctionType: ["function", "command", "macro", "shader"],
 	KWIf      : "if",
 	KWLoop    : "loop",
 	KWElse    : "else",
@@ -79,6 +79,8 @@ const lexer = moo.compile({
 	KWUndef   : "undef",
 	KWExit    : "exit",
 	KWAlign   : "alignas",
+	KWUniform : "uniform",
+	KWAttr	  : "attribute",
 
 	ValueHex: /0x[0-9A-Fa-f']+/,
 	ValueBin: /0b[0-1']+/,
@@ -139,16 +141,24 @@ var grammar = {
     {"name": "main$ebnf$2$subexpression$1", "symbols": ["_", "SectionState"]},
     {"name": "main$ebnf$2", "symbols": ["main$ebnf$2", "main$ebnf$2$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "main$ebnf$3", "symbols": []},
-    {"name": "main$ebnf$3$subexpression$1", "symbols": ["Function"]},
+    {"name": "main$ebnf$3$subexpression$1", "symbols": ["_", "Uniform"]},
     {"name": "main$ebnf$3", "symbols": ["main$ebnf$3", "main$ebnf$3$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "main$ebnf$4", "symbols": []},
-    {"name": "main$ebnf$4$subexpression$1", "symbols": ["_", "SectionIncl"]},
+    {"name": "main$ebnf$4$subexpression$1", "symbols": ["_", "VertexAttribute"]},
     {"name": "main$ebnf$4", "symbols": ["main$ebnf$4", "main$ebnf$4$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "main", "symbols": ["main$ebnf$1", "main$ebnf$2", "main$ebnf$3", "main$ebnf$4", "_"], "postprocess":  d => ({
+    {"name": "main$ebnf$5", "symbols": []},
+    {"name": "main$ebnf$5$subexpression$1", "symbols": ["Function"]},
+    {"name": "main$ebnf$5", "symbols": ["main$ebnf$5", "main$ebnf$5$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "main$ebnf$6", "symbols": []},
+    {"name": "main$ebnf$6$subexpression$1", "symbols": ["_", "SectionIncl"]},
+    {"name": "main$ebnf$6", "symbols": ["main$ebnf$6", "main$ebnf$6$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "main", "symbols": ["main$ebnf$1", "main$ebnf$2", "main$ebnf$3", "main$ebnf$4", "main$ebnf$5", "main$ebnf$6", "_"], "postprocess":  d => ({
         	includes: MAP_TAKE(d[0], 1),
         	states: MAP_TAKE(d[1], 1),
-        	functions: MAP_TAKE(d[2], 0),
-        	postIncludes: MAP_TAKE(d[3], 1),
+        	uniforms: MAP_TAKE(d[2], 1),
+        	attributes: MAP_TAKE(d[3], 1),
+        	functions: MAP_TAKE(d[4], 0),
+        	postIncludes: MAP_TAKE(d[5], 1),
         }) },
     {"name": "SectionIncl", "symbols": [(lexer.has("KWInclude") ? {type: "KWInclude"} : KWInclude), "_", (lexer.has("String") ? {type: "String"} : String)], "postprocess": d => d[2].value},
     {"name": "SectionState$ebnf$1", "symbols": []},
@@ -157,6 +167,15 @@ var grammar = {
         	name: d[0].value,
         	vars: d[4]
         }) },
+    {"name": "Uniform$ebnf$1", "symbols": ["RegNumDef"], "postprocess": id},
+    {"name": "Uniform$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "Uniform$ebnf$2", "symbols": []},
+    {"name": "Uniform$ebnf$2", "symbols": ["Uniform$ebnf$2", "StateVarDef"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "Uniform", "symbols": [(lexer.has("KWUniform") ? {type: "KWUniform"} : KWUniform), "Uniform$ebnf$1", "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "_", (lexer.has("BlockStart") ? {type: "BlockStart"} : BlockStart), "_", "Uniform$ebnf$2", (lexer.has("BlockEnd") ? {type: "BlockEnd"} : BlockEnd)], "postprocess":  d => ({
+        	name: d[3],
+        	binding: d[1],
+        	state: d[7]
+        })},
     {"name": "StateVarDef$ebnf$1$subexpression$1", "symbols": [(lexer.has("KWExtern") ? {type: "KWExtern"} : KWExtern), "_"]},
     {"name": "StateVarDef$ebnf$1", "symbols": ["StateVarDef$ebnf$1$subexpression$1"], "postprocess": id},
     {"name": "StateVarDef$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
@@ -180,6 +199,19 @@ var grammar = {
     {"name": "NumList", "symbols": ["ValueNumeric"], "postprocess": MAP_FIRST},
     {"name": "NumList$subexpression$1", "symbols": ["NumList", "_", (lexer.has("Seperator") ? {type: "Seperator"} : Seperator), "_", "ValueNumeric"]},
     {"name": "NumList", "symbols": ["NumList$subexpression$1"], "postprocess": d => MAP_FLATTEN_TREE(d[0], 0, 4)},
+    {"name": "VertexAttribute$ebnf$1", "symbols": ["RegNumDef"], "postprocess": id},
+    {"name": "VertexAttribute$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "VertexAttribute$ebnf$2", "symbols": []},
+    {"name": "VertexAttribute$ebnf$2", "symbols": ["VertexAttribute$ebnf$2", "IndexDef"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "VertexAttribute$ebnf$3", "symbols": [(lexer.has("QuestionMark") ? {type: "QuestionMark"} : QuestionMark)], "postprocess": id},
+    {"name": "VertexAttribute$ebnf$3", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "VertexAttribute", "symbols": [(lexer.has("KWAttr") ? {type: "KWAttr"} : KWAttr), "VertexAttribute$ebnf$1", "_", (lexer.has("DataType") ? {type: "DataType"} : DataType), "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "VertexAttribute$ebnf$2", "VertexAttribute$ebnf$3", "_", (lexer.has("StmEnd") ? {type: "StmEnd"} : StmEnd)], "postprocess":  d => ({
+        	name: d[5],
+        	binding: d[1],
+        	type: d[3],
+        	arraySize: d[6] || 1,
+        	optional: !!d[7],
+        })},
     {"name": "Function$ebnf$1", "symbols": []},
     {"name": "Function$ebnf$1", "symbols": ["Function$ebnf$1", "Annotation"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "Function$ebnf$2$subexpression$1", "symbols": ["RegDef"]},

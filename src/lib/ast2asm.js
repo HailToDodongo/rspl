@@ -400,6 +400,7 @@ function scopedBlockToASM(block, args = [], isCommand = false)
 
 function getArgSize(block)
 {
+  if(block.type === "shader")return 8;
   if(block.type !== "command")return 0;
   // each arg is always 4-bytes, the first one is implicitly set
   return Math.max(block.args.length * 4, 4);
@@ -414,7 +415,9 @@ export function ast2asm(ast)
   /** @type {ASMFunc[]} */
   const res = [];
 
-  for(const stateVar of [...ast.state, ...ast.stateData, ...ast.stateBss]) {
+  const uniformsState = ast.uniforms.flatMap(u => u.state);
+
+  for(const stateVar of [...ast.state, ...ast.stateData, ...ast.stateBss, ...uniformsState]) {
     const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
     state.declareMemVar(stateVar.varName, stateVar.varType, arraySize);
   }
@@ -433,7 +436,7 @@ export function ast2asm(ast)
     state.func = block.name || "";
     state.line = block.line || 0;
 
-    if(["function", "command"].includes(block.type)) {
+    if(["function", "command", "shader"].includes(block.type)) {
 
       if(!block.body)continue;
       state.enterFunction(block.name, block.type, getArgSize(block));
@@ -445,7 +448,7 @@ export function ast2asm(ast)
       const needsReturn = !getAnnotationVal(block.annotations || [], ANNOTATIONS.NoReturn);
 
       if(needsReturn) {
-        if(block.type === "command") {
+        if(["command", "shader"].includes(block.type)) {
           blockAsm.push(asm("j", [LABEL_CMD_LOOP]), asmNOP());
         } else {
           blockAsm.push(asm("jr", [REG.RA]), asmNOP());

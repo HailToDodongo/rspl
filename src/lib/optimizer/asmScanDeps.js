@@ -17,6 +17,10 @@ export const STORE_OPS = [
 export const LOAD_OPS_SCALAR = ["lw", "lh", "lhu", "lb", "lbu"];
 export const LOAD_OPS_VECTOR = ["lbv", "lsv", "llv", "ldv", "lqv", "lpv", "luv", "lhv", "lfv", "ltv", "lrv"];
 
+// Vector loads that write only a sub-set of lanes and preserve the rest (read-modify-write).
+// Used so the dependency model treats them as also reading their destination register.
+export const PARTIAL_LOAD_OPS = ["lbv", "lsv", "llv", "ldv", "lrv"];
+
 // ops that load from RAM, r/w register access
 export const LOAD_OPS = [...LOAD_OPS_SCALAR, ...LOAD_OPS_VECTOR];
 
@@ -255,6 +259,20 @@ export function getTargetRegs(line) {
         regs[i] += ".e" + ((8 + i - row) % 8);
       }
       return regs;
+    }
+
+    const PARTIAL_BYTE_COUNT = {lbv:1, lsv:2, llv:4, ldv:8};
+    const byteCount = PARTIAL_BYTE_COUNT[line.op];
+    if(byteCount) {
+      const offset = parseInt(line.args[1]); // args[1] = byte offset into the register
+      const reg = line.args[0];
+      // an odd offset writes into the middle of a lane, covering one lane more than
+      // an aligned access; loads don't wrap around, so clamp at the last lane
+      const firstLane = Math.floor(offset / 2);
+      const lastLane = Math.min(7, Math.floor((offset + byteCount - 1) / 2));
+      const lanes = [];
+      for(let lane = firstLane; lane <= lastLane; ++lane) lanes.push(reg + ".e" + lane);
+      return lanes;
     }
   }
 

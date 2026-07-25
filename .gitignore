@@ -1,5 +1,6 @@
 .parcel-cache
 dist/
+coverage/
 node_modules
 .vscode
 .idea

@@ -40,17 +40,17 @@ export function preprocess(src, defines = {}, fileLoader = undefined)
 
     if (!ignoreLine && lineTrimmed.startsWith("#define"))
     {
-      const parts = lineTrimmed.match(/#define\s+([a-zA-Z0-9_]+)\s+(.*)/);
+      const parts = lineTrimmed.match(/#define\s+([a-zA-Z0-9_]+)(\s+.*)?/);
       if(!parts)throw new Error(`Line ${i+1}: Invalid #define statement!`);
       let [_, name, value] = parts;
 
       for (const data of Object.values(defines))  {
-        value = value.replace(data.regex, data.value);
+        value = value?.replace(data.regex, data.value);
       }
 
       defines[name] = {
         regex: new RegExp(`(\\b${name}\\b)|(\\$\\{${name}\\})`, "g"),
-        value
+        value: value?.trim() ?? ""
       };
     }
     else if (!ignoreLine && lineTrimmed.startsWith("#undef"))
