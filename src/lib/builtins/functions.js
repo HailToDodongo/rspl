@@ -652,7 +652,7 @@ function print(varRes, args, swizzle)
     if(isVecType(args[i].type) !== isVector)state.throwError("Builtin print() doesn't allow mixed scalar/vector arguments!", args[i]);
   }
 
-  const op = isVector ? "emux_dump_vpr" : "emux_dump_gpr";
+  const op = isVector ? "xlogregs_vpr" : "xlogregs_gpr";
   return [
     asmInline(".set macro", ["# print"]),
     asmInline(op, args.map(arg => arg.reg)),
