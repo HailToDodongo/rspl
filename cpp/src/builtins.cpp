@@ -1167,7 +1167,7 @@ static BuiltinMap buildRegistry() {
               "arguments!");
       }
 
-      std::string op = isVector ? "emux_dump_vpr" : "emux_dump_gpr";
+      std::string op = isVector ? "xlogregs_vpr" : "xlogregs_gpr";
       std::vector<std::string> regArgs;
       for (const auto &arg : args) {
         VarDef argVar = resolveArg(arg, "arg");

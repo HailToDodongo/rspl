@@ -31,10 +31,14 @@ set(RSPL_SOURCES
   src/asm_normalize.h
   src/asm_writer.cpp
   src/asm_writer.h
+  src/annotations.cpp
+  src/annotations.h
   src/ast.cpp
   src/ast.h
   src/ast2asm.cpp
   src/ast2asm.h
+  src/ast_normalize.cpp
+  src/ast_normalize.h
   src/astCalcNormalizer.cpp
   src/astCalcNormalizer.h
   src/builtins.cpp
@@ -98,6 +102,7 @@ set(TEST_SOURCES
   tests/test_load.cpp
   tests/test_loop.cpp
   tests/test_macros.cpp
+  tests/test_magma.cpp
   tests/test_preproc.cpp
   tests/test_scalarOps.cpp
   tests/test_scope.cpp
@@ -118,6 +123,7 @@ set(TEST_SOURCES
   tests/test_optDepScanRegs.cpp
   tests/test_optMergeSequence.cpp
   tests/test_optRegScan.cpp
+  tests/test_reorderPartialLoad.cpp
   tests/test_evalCost.cpp
   tests/test_evalCostExample.cpp
   tests/test_examples.cpp

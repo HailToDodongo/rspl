@@ -35,7 +35,7 @@ enum class CastType : uint8_t {
   S16
 };
 
-enum class FuncType : uint8_t { Function, Command, Macro };
+enum class FuncType : uint8_t { Function, Command, Macro, Shader };
 
 enum class ArgType : uint8_t { Var, Num, String };
 

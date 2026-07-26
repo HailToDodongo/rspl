@@ -9,6 +9,7 @@ struct TranspileConfig {
   bool optimize = false;
   bool debugInfo = false;
   bool reorder = false;
+  bool magma = false;       // emit a magma shader instead of an RSPQ overlay
   int optimizeTime = 30000; // ms, default 30s matching CLI
   int optWorkers = 0;       // 0 = auto (hw threads - 1)
   std::string sourceDir = ".";

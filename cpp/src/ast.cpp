@@ -31,6 +31,24 @@ static inline std::string jsonAsStr(const json &j) {
   return j.dump();
 }
 
+// Some grammar rules hand through the raw lexer token instead of its text
+// (the JS side relies on the token's implicit toString()).
+static inline std::string tokenStr(const json &j) {
+  if (j.is_object()) {
+    auto it = j.find("value");
+    if (it != j.end() && it->is_string()) return it->get<std::string>();
+  }
+  return jsonAsStr(j);
+}
+
+static inline uint32_t tokenLine(const json &j) {
+  if (j.is_object()) {
+    auto it = j.find("line");
+    if (it != j.end() && it->is_number()) return it->get<uint32_t>();
+  }
+  return 0;
+}
+
 static inline uint32_t optLine(const json &j) {
   auto it = j.find("line");
   if (it == j.end() || it->is_null()) return 0;
@@ -60,10 +78,16 @@ static FuncArg parseFuncArg(const json &j) {
 
 // --- Annotation -------------------------------------------------------
 
+static bool annoValueIsString(const json &j) {
+  auto it = j.find("value");
+  return it != j.end() && it->is_string();
+}
+
 static Annotation parseAnnotation(const json &j) {
   return Annotation{
       .name = j.value("name", ""),
       .value = optStr(j, "value"),
+      .valueIsString = annoValueIsString(j),
   };
 }
 
@@ -314,6 +338,7 @@ static ScopedBlock parseScopedBlock(const json &j) {
                       ? st["value"].is_string() ? st["value"].get<std::string>()
                                                 : st["value"].dump()
                       : "";
+        s.valueIsString = annoValueIsString(st);
         s.line = optLine(st);
         block.statements.push_back(std::move(s));
       } else if (stType == "scopedBlock") {
@@ -383,6 +408,44 @@ static StateSection parseStateSection(const json &j) {
   return sec;
 }
 
+// --- Magma uniform / vertex attribute ---------------------------------
+
+static Uniform parseUniform(const json &j) {
+  Uniform u;
+  if (j.contains("name")) {
+    u.name = tokenStr(j["name"]);
+    u.line = tokenLine(j["name"]);
+  }
+  if (j.contains("binding") && !j["binding"].is_null()) {
+    u.binding = j["binding"].get<int64_t>();
+  }
+  if (j.contains("state") && j["state"].is_array()) {
+    for (const auto &s : j["state"]) {
+      u.state.push_back(parseStateVarDef(s));
+    }
+  }
+  return u;
+}
+
+static Attribute parseAttribute(const json &j) {
+  Attribute a;
+  if (j.contains("name")) {
+    a.name = tokenStr(j["name"]);
+    a.line = tokenLine(j["name"]);
+  }
+  if (j.contains("binding") && !j["binding"].is_null()) {
+    a.binding = j["binding"].get<int64_t>();
+  }
+  if (j.contains("type")) a.type = tokenStr(j["type"]);
+  if (j.contains("arraySize") && j["arraySize"].is_array()) {
+    for (const auto &s : j["arraySize"]) {
+      if (s.is_number()) a.arraySize.push_back(s.get<int64_t>());
+    }
+  }
+  a.optional = j.value("optional", false);
+  return a;
+}
+
 // --- Function ---------------------------------------------------------
 
 static Function parseFunction(const json &j) {
@@ -394,7 +457,10 @@ static Function parseFunction(const json &j) {
   }
   func.type = toFuncType(j.value("type", "function"));
   if (j.contains("resultType") && !j["resultType"].is_null()) {
-    func.resultType = j["resultType"].get<int64_t>();
+    func.hasResultType = true;
+    if (j["resultType"].is_number()) {
+      func.resultType = j["resultType"].get<int64_t>();
+    }
   }
   func.name = j.value("name", "");
   if (j.contains("args") && j["args"].is_array()) {
@@ -422,6 +488,16 @@ Program parseJson(const std::string &jsonStr) {
   if (j.contains("states") && j["states"].is_array()) {
     for (const auto &s : j["states"]) {
       prog.states.push_back(parseStateSection(s));
+    }
+  }
+  if (j.contains("uniforms") && j["uniforms"].is_array()) {
+    for (const auto &u : j["uniforms"]) {
+      prog.uniforms.push_back(parseUniform(u));
+    }
+  }
+  if (j.contains("attributes") && j["attributes"].is_array()) {
+    for (const auto &a : j["attributes"]) {
+      prog.attributes.push_back(parseAttribute(a));
     }
   }
   if (j.contains("functions") && j["functions"].is_array()) {

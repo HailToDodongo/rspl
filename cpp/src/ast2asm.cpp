@@ -942,7 +942,7 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
 
           else if constexpr (std::is_same_v<T,
                                              ast::StmtAnnotation>) {
-            state.addAnnotation(s.name, s.value);
+            state.addAnnotation(s.name, s.value, s.valueIsString);
           }
 
           else if constexpr (std::is_same_v<T,
@@ -991,9 +991,22 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
     }
   }
 
+  // Uniform contents are addressable just like state memory
+  for (const auto &uniform : ast.uniforms) {
+    for (const auto &sv : uniform.state) {
+      int64_t arraySize = 1;
+      for (auto dim : sv.arraySize)
+        arraySize *= dim;
+      if (arraySize < 1) arraySize = 1;
+      state.declareMemVar(sv.varName, sv.varType,
+                          static_cast<int>(arraySize));
+    }
+  }
+
   // Pre-declare all functions so they can reference each other
   for (const auto &fn : ast.functions) {
-    if (fn.type == FuncType::Function || fn.type == FuncType::Command) {
+    if (fn.type == FuncType::Function || fn.type == FuncType::Command ||
+        fn.type == FuncType::Shader) {
       bool isRelative = false;
       for (const auto &ann : fn.annotations) {
         if (ann.name == "Relative") isRelative = true;
@@ -1008,12 +1021,17 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
 
     // argSize in bytes, matching JS getArgSize() = max(args.length * 4, 4)
     int byteArgSize =
-        std::max(static_cast<int>(fn.args.size()) * 4, 4);
+        (fn.type == FuncType::Shader)
+            ? 8
+            : std::max(static_cast<int>(fn.args.size()) * 4, 4);
     state.enterFunction(fn.name, toString(fn.type),
-                        fn.type == FuncType::Command ? byteArgSize
-                                             : fn.resultType.value_or(0));
+                        (fn.type == FuncType::Command ||
+                         fn.type == FuncType::Shader)
+                            ? byteArgSize
+                            : fn.resultType.value_or(0));
 
-    bool isCommand = (fn.type == FuncType::Command);
+    bool isCommand = (fn.type == FuncType::Command ||
+                      fn.type == FuncType::Shader);
     // Built-in registers (ZERO, VZERO, RA, etc.) are already
     // declared by enterFunction().
 

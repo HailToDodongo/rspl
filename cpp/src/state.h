@@ -147,7 +147,8 @@ public:
   std::string generateLabel();
 
   // -- Annotations -----------------------------------------------------
-  void addAnnotation(const std::string &name, const std::string &value);
+  void addAnnotation(const std::string &name, const std::string &value,
+                     bool valueIsString = true);
   std::vector<AnnotationDef> getAnnotations(
       const std::string &name = "") const;
   void clearAnnotations();

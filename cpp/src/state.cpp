@@ -1,4 +1,6 @@
 #include "state.h"
+
+#include "annotations.h"
 #include "registers.h"
 #include "types.h"
 
@@ -80,6 +82,7 @@ void State::enterFunction(const std::string &name, const std::string &type,
   declareVar("VSHIFT", "vec16", reg::Reg::VSHIFT, true);
   declareVar("VSHIFT8", "vec16", reg::Reg::VSHIFT8, true);
   declareVar("RA", "u32", reg::Reg::RA, false);
+  declareVar("GP", "u32", reg::Reg::GP, false, true);
   declareVar("VTEMP", "vec16", reg::Reg::VTEMP0, false, true);
 }
 
@@ -452,7 +455,8 @@ std::string State::generateLabel() {
 // --- Annotations ------------------------------------------------------
 
 void State::addAnnotation(const std::string &name,
-                          const std::string &value) {
+                          const std::string &value, bool valueIsString) {
+  validateAnnotation(name, value, valueIsString);
   Scope &scope = getScope();
   scope.annotations.push_back({name, value});
 }

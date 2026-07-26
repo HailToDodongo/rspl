@@ -716,7 +716,7 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
   if (varRes.originalType == TypeClass::Vec32 && varRes.castType == CastType::Sfract &&
       varLeft.type == TypeClass::Vec32 && varRight.type == TypeClass::Vec32) {
     return {
-        asmOp("vmudl", {reg::Reg::VTEMP0, fractReg(varLeft),
+        asmOp(fractOp, {reg::Reg::VTEMP0, fractReg(varLeft),
                          fractReg(varRight) + swSuffix}),
         asmOp("vmadm", {reg::Reg::VTEMP0, intReg(varLeft),
                          fractReg(varRight) + swSuffix}),
@@ -725,16 +725,52 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
     };
   }
 
-  // 16bit * 32bit multiply (JS opMul:643-649)
-  if (right32Bit && varRes.type == TypeClass::Vec32 && varLeft.type == TypeClass::Vec16 &&
-      !(varLeft.castType == CastType::Sfract || varLeft.castType == CastType::Ufract)) {
+  // 16bit * 16bit multiply into a 32bit vector (JS opMul:627-641)
+  if (varRes.type == TypeClass::Vec32 && varLeft.type == TypeClass::Vec16 &&
+      varRight.type == TypeClass::Vec16 &&
+      !(varLeft.castType == CastType::Sfract ||
+        varLeft.castType == CastType::Ufract) &&
+      !(varRight.castType == CastType::Sfract ||
+        varRight.castType == CastType::Ufract)) {
     auto regsDst = getVec32Regs(varRes);
+    std::string mulOp = clearAccum ? "vmudh" : "vmadh";
     return {
-        asmOp("vmudm", {regsDst.second, varLeft.reg,
-                         fractReg(varRight) + swSuffix}),
+        asmOp(mulOp, {regsDst.second, varLeft.reg,
+                       varRight.reg + swSuffix}),
+        asmOp("vsar", {regsDst.first, reg::RegCop2::ACC_HI}),
+        asmOp("vsar", {regsDst.second, reg::RegCop2::ACC_MD}),
+    };
+  }
+
+  bool leftIsFraction =
+      (varLeft.castType == CastType::Sfract || varLeft.castType == CastType::Ufract);
+  bool resIsFraction =
+      (varRes.castType == CastType::Sfract || varRes.castType == CastType::Ufract);
+
+  // 16bit * 32bit multiply (JS opMul:646-654)
+  if (right32Bit && varRes.type == TypeClass::Vec32 &&
+      varLeft.type == TypeClass::Vec16 && !leftIsFraction) {
+    auto regsDst = getVec32Regs(varRes);
+    std::string mulOp = clearAccum ? "vmudm" : "vmadm";
+    return {
+        asmOp(mulOp, {regsDst.second, varLeft.reg,
+                       fractReg(varRight) + swSuffix}),
         asmOp("vmadh", {intReg(varRes), varLeft.reg,
                          intReg(varRight) + swSuffix}),
         asmOp("vmadn", {regsDst.second, reg::Reg::VZERO, reg::Reg::VZERO}),
+    };
+  }
+
+  // 16bit * 32bit multiply with 16bit result (JS opMul:656-663)
+  if (right32Bit && varRes.type == TypeClass::Vec16 &&
+      varLeft.type == TypeClass::Vec16 && !leftIsFraction && !resIsFraction) {
+    auto regsDst = getVec32Regs(varRes);
+    std::string mulOp = clearAccum ? "vmudm" : "vmadm";
+    return {
+        asmOp(mulOp, {reg::Reg::VTEMP0, varLeft.reg,
+                       fractReg(varRight) + swSuffix}),
+        asmOp("vmadh", {regsDst.first, varLeft.reg,
+                         intReg(varRight) + swSuffix}),
     };
   }
 
@@ -768,16 +804,36 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
   if (rightSideIsFraction &&
       (varRight.originalType == TypeClass::Vec32 || varRes.type == TypeClass::Vec32)) {
     const std::string *nextReg = reg::nextVecReg(varRes.reg);
-    return {
-        asmOp(fractOp,
-              {*nextReg, fractReg(varLeft), varRight.reg + swSuffix}),
-        asmOp("vmadm", {varRes.reg, varLeft.reg, varRight.reg + swSuffix}),
-        asmOp("vmadn", {*nextReg, reg::Reg::VZERO, reg::Reg::VZERO}),
-    };
+    std::vector<AsmInst> res;
+    if (varLeft.type == TypeClass::Vec32) {
+      res.push_back(asmOp(fractOp,
+                          {*nextReg, fractReg(varLeft), varRight.reg + swSuffix}));
+      res.push_back(asmOp("vmadm",
+                          {varRes.reg, varLeft.reg, varRight.reg + swSuffix}));
+    } else {
+      std::string mulOp = clearAccum ? "vmudm" : "vmadm";
+      res.push_back(asmOp(mulOp,
+                          {varRes.reg, varLeft.reg, varRight.reg + swSuffix}));
+    }
+    res.push_back(asmOp("vmadn", {*nextReg, reg::Reg::VZERO, reg::Reg::VZERO}));
+    return res;
   }
 
-  // JS opMul:671-686 — vec16 result default path
-  if (varRes.type == TypeClass::Vec16) {
+  // JS opMul:692-717 — vec16 result default path
+  if (varRes.type == TypeClass::Vec16 && varLeft.type == TypeClass::Vec16) {
+    if (varLeft.castType == CastType::Ufract &&
+        varRight.castType == CastType::Sint) {
+      intOp = clearAccum ? "vmudn" : "vmadn";
+      return {asmOp(intOp, {varRes.reg, varLeft.reg,
+                            varRight.reg + swSuffix})};
+    }
+    if (varLeft.castType == CastType::Sint &&
+        varRight.castType == CastType::Ufract) {
+      intOp = clearAccum ? "vmudm" : "vmadm";
+      return {asmOp(intOp, {varRes.reg, varLeft.reg,
+                            varRight.reg + swSuffix})};
+    }
+
     CastType caseRef =
         varLeft.castType != CastType::None   ? varLeft.castType :
         varRight.castType != CastType::None  ? varRight.castType :
@@ -795,22 +851,18 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
                           varRight.reg + swSuffix})};
   }
 
-  // JS opMul:688-692 — general vec32 path
-  if (varRes.type == TypeClass::Vec32 || varRes.originalType == TypeClass::Vec32) {
+  // JS opMul:720-725 — unconditional fallthrough for everything above
+  {
     auto regsDst = getVec32Regs(varRes);
     std::string regResFract =
         (regsDst.second == reg::Reg::VZERO) ? reg::Reg::VTEMP0
                                              : regsDst.second;
     return {
         asmOp(intOp, {regResFract, fractReg(varLeft),
-                       intReg(varRight) + swSuffix}),
-        asmOp("vmadh", {intReg(varRes), intReg(varLeft),
-                         intReg(varRight) + swSuffix})};
+                       varRight.reg + swSuffix}),
+        asmOp("vmadh", {varRes.reg, varLeft.reg,
+                         varRight.reg + swSuffix})};
   }
-
-  // 16-bit multiply (default — scalar or unhandled)
-  return {asmOp(intOp, {varRes.reg, varLeft.reg,
-                        varRight.reg + swSuffix})};
 }
 
 // --- Shifts -----------------------------------------------------------

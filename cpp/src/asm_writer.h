@@ -13,6 +13,7 @@ namespace rspl {
 struct WriteConfig {
   bool rspqWrapper = true;
   bool debugInfo = true;
+  bool magma = false;
 };
 
 struct AsmWriteResult {

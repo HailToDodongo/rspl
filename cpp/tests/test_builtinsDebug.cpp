@@ -85,7 +85,7 @@ TEST_CASE("Builtins - Debug - print() - scalar", "[builtinsDebug]") {
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
   .set macro # print
-  emux_dump_gpr $t0, $t1
+  xlogregs_gpr $t0, $t1
   .set noat # print
   .set nomacro # print
   jr $ra
@@ -104,7 +104,7 @@ TEST_CASE("Builtins - Debug - print() - vector", "[builtinsDebug]") {
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
   .set macro # print
-  emux_dump_vpr $v01, $v03
+  xlogregs_vpr $v01, $v03
   .set noat # print
   .set nomacro # print
   jr $ra

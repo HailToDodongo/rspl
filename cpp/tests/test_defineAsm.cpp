@@ -30,3 +30,31 @@ TEST_CASE("Define (ASM) - Define in ASM", "[defineAsm]") {
   REQUIRE(result.asm_.find("#define SOME_DEF_C 3") != std::string::npos);
   REQUIRE(result.asm_.find("#define SOME_DEF_D 4") != std::string::npos);
 }
+
+TEST_CASE("Define (ASM) - Define in ASM without value", "[defineAsm]") {
+  auto result = rspl::transpileSource(
+      R"(
+      include "rsp_queue.inc"
+      include "rdpq_macros.h"
+
+      #define SOME_DEF_A
+      #define SOME_DEF_B
+
+      state{}
+
+      #define SOME_DEF_C
+
+      command<0> test(u32 a)
+      {
+      }
+
+      #define SOME_DEF_D
+    )",
+      {.rspqWrapper = true});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_.find("#define SOME_DEF_A\n") != std::string::npos);
+  REQUIRE(result.asm_.find("#define SOME_DEF_B\n") != std::string::npos);
+  REQUIRE(result.asm_.find("#define SOME_DEF_C\n") != std::string::npos);
+  REQUIRE(result.asm_.find("#define SOME_DEF_D\n") != std::string::npos);
+}

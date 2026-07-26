@@ -11,11 +11,58 @@
 
 namespace rspl {
 
+// --- Magma vertex-attribute annotations -------------------------------
+
+static std::string getAnnoValue(const AsmInst &inst, const char *name) {
+  for (const auto &ann : inst.cold->annotations) {
+    if (ann.name == name) return ann.value;
+  }
+  return {};
+}
+
+// "@AttrPatch(name:op)" — only the first two parts are used
+static std::string getAttrPatchName(const AsmInst &inst) {
+  std::string val = getAnnoValue(inst, "AttrPatch");
+  if (val.empty()) return {};
+  auto colon = val.find(':');
+  return (colon == std::string::npos) ? val : val.substr(0, colon);
+}
+
+static std::string getAttrPatchOp(const AsmInst &inst) {
+  std::string val = getAnnoValue(inst, "AttrPatch");
+  auto colon = val.find(':');
+  if (colon == std::string::npos) return {};
+  std::string rest = val.substr(colon + 1);
+  auto next = rest.find(':');
+  return (next == std::string::npos) ? rest : rest.substr(0, next);
+}
+
+static std::string getAttrLoaderLabel(const AsmInst &inst) {
+  std::string val = getAnnoValue(inst, "AttrLoader");
+  if (val.empty()) return {};
+  return "LOAD_" + val + std::to_string(inst.debug.lineRSPL);
+}
+
+static std::string getAttrPatchLabel(const AsmInst &inst) {
+  std::string name = getAttrPatchName(inst);
+  if (name.empty()) return {};
+  return "PATCH_" + name + std::to_string(inst.debug.lineRSPL);
+}
+
+static std::string getAsmLabels(const AsmInst &inst) {
+  std::string labels;
+  for (const auto &label : {getAttrLoaderLabel(inst), getAttrPatchLabel(inst)}) {
+    if (!label.empty()) labels += label + ": ";
+  }
+  return labels;
+}
+
 std::string stringifyInstr(const AsmInst &inst) {
   if (inst.op == 0) return inst.cold->label + ":";
-  if (inst.args.empty()) return getOpcodeName(inst.op);
+  std::string prefix = getAsmLabels(inst);
+  if (inst.args.empty()) return prefix + getOpcodeName(inst.op);
   std::ostringstream ss;
-  ss << getOpcodeName(inst.op);
+  ss << prefix << getOpcodeName(inst.op);
   for (size_t i = 0; i < inst.args.size(); ++i) {
     ss << (i == 0 ? " " : ", ") << inst.args[i];
   }
@@ -26,6 +73,136 @@ static std::string makePadding(size_t len, size_t target) {
   if (len >= target) return " ";
   return std::string(target - len, ' ');
 }
+
+// --- Magma header ------------------------------------------------------
+
+namespace {
+
+struct AttrEntry {
+  std::vector<const AsmInst *> loaders;
+  std::vector<const AsmInst *> patches;
+};
+
+// Group instructions by the vertex attribute they load or patch.
+std::unordered_map<std::string, AttrEntry>
+collectAttrLoaders(const std::vector<AsmFunc> &functions) {
+  std::unordered_map<std::string, AttrEntry> res;
+  for (const auto &fn : functions) {
+    for (const auto &inst : fn.asm_) {
+      std::string loader = getAnnoValue(inst, "AttrLoader");
+      if (!loader.empty()) res[loader].loaders.push_back(&inst);
+
+      std::string patch = getAttrPatchName(inst);
+      if (!patch.empty()) res[patch].patches.push_back(&inst);
+    }
+  }
+  return res;
+}
+
+// Emits one state variable, returning its size in bytes.
+// Mirrors the JS writeStateVar().
+int writeStateVar(const ast::StateVarDef &sv,
+                  const std::function<void(const std::string &)> &writeLine) {
+  int64_t arraySize = 1;
+  for (auto dim : sv.arraySize) arraySize *= dim;
+  if (arraySize < 1) arraySize = 1;
+
+  int typeSize = TYPE_SIZE.count(sv.varType) ? TYPE_SIZE.at(sv.varType) : 4;
+  int byteSize = static_cast<int>(typeSize * arraySize);
+
+  int align =
+      TYPE_ALIGNMENT.count(sv.varType) ? TYPE_ALIGNMENT.at(sv.varType) : 0;
+  if (sv.align != 0) {
+    double alignPow = std::log2(static_cast<double>(sv.align));
+    if (alignPow != std::floor(alignPow)) {
+      state.throwError("Invalid align value '" + std::to_string(sv.align) +
+                       "', must be a power of 2");
+    }
+    align = static_cast<int>(alignPow);
+  }
+  if (align > 0) writeLine("    .align " + std::to_string(align));
+
+  if (sv.value.empty()) {
+    writeLine("    " + sv.varName + ": .ds.b " + std::to_string(byteSize));
+    return byteSize;
+  }
+
+  auto asmDefIt = TYPE_ASM_DEF.find(sv.varType);
+  std::string asmType =
+      (asmDefIt != TYPE_ASM_DEF.end()) ? asmDefIt->second.type : "word";
+  int asmCount = (asmDefIt != TYPE_ASM_DEF.end()) ? asmDefIt->second.count : 1;
+
+  size_t total = static_cast<size_t>(asmCount * arraySize);
+  if (sv.value.size() > total) {
+    state.throwError("Too many initializers for '" + sv.varName + "' (" +
+                     std::to_string(sv.value.size()) + " > " +
+                     std::to_string(total) + ")");
+  }
+  std::vector<int64_t> data(total, 0);
+  for (size_t i = 0; i < sv.value.size(); ++i) data[i] = sv.value[i];
+
+  std::ostringstream ss;
+  for (size_t i = 0; i < data.size(); ++i) {
+    if (i) ss << ", ";
+    ss << data[i];
+  }
+  writeLine("    " + sv.varName + ": ." + asmType + " " + ss.str());
+  return byteSize;
+}
+
+int writeMagmaHeader(const ast::Program &ast,
+                     const std::vector<AsmFunc> &functions,
+                     const std::function<void(const std::string &)> &writeLine,
+                     const std::function<void(const std::vector<std::string> &)> &writeLines) {
+  int totalSaveByteSize = 0;
+
+  writeLines({"", "MgBeginShaderUniforms"});
+  for (const auto &uniform : ast.uniforms) {
+    writeLine("  MgBeginUniform " + uniform.name + ", " +
+              std::to_string(uniform.binding.value_or(0)));
+    for (const auto &sv : uniform.state) {
+      if (sv.isExtern) continue;
+      totalSaveByteSize += writeStateVar(sv, writeLine);
+    }
+    writeLines({"  MgEndUniform", ""});
+  }
+  writeLines({"MgEndShaderUniforms", ""});
+
+  auto attrLoaders = collectAttrLoaders(functions);
+
+  writeLine("MgBeginVertexInput");
+  for (const auto &attr : ast.attributes) {
+    writeLine("  MgBeginVertexAttribute " +
+              std::to_string(attr.binding.value_or(0)) + ", " +
+              (attr.optional ? "1" : "0"));
+
+    auto it = attrLoaders.find(attr.name);
+    if (it != attrLoaders.end()) {
+      if (!it->second.loaders.empty()) {
+        std::string line = "    MgVertexAttributeLoaders ";
+        for (size_t i = 0; i < it->second.loaders.size(); ++i) {
+          if (i) line += ", ";
+          line += getAttrLoaderLabel(*it->second.loaders[i]);
+        }
+        writeLine(line);
+      }
+      for (const auto *patch : it->second.patches) {
+        writeLine("    MgBeginVertexAttributePatch " +
+                  getAttrPatchLabel(*patch));
+        std::string op = getAttrPatchOp(*patch);
+        writeLine("      " + (op.empty() ? std::string("nop") : op));
+        writeLine("    MgEndVertexAttributePatch");
+      }
+    }
+    writeLines({"  MgEndVertexAttribute", ""});
+  }
+  writeLines({"MgEndVertexInput", ""});
+
+  writeLine("MgBeginShader");
+  return totalSaveByteSize;
+}
+
+} // namespace
 
 AsmWriteResult writeASM(const ast::Program &ast,
                         const std::vector<AsmFunc> &functions,
@@ -53,7 +230,8 @@ AsmWriteResult writeASM(const ast::Program &ast,
 
   // Defines from preprocessor
   for (const auto &def : ast.defines) {
-    writeLine("#define " + def.name + " " + def.value);
+    writeLine(def.value.empty() ? "#define " + def.name
+                                : "#define " + def.name + " " + def.value);
   }
 
   // Includes
@@ -82,6 +260,12 @@ AsmWriteResult writeASM(const ast::Program &ast,
   }
   writeLines({"#define vco 0", "#define vcc 1", "#define vce 2"});
 
+  int totalSaveByteSize = 0;
+  int totalTextSize = 0;
+
+  if (config.magma) {
+    totalSaveByteSize += writeMagmaHeader(ast, functions, writeLine, writeLines);
+  } else {
   writeLines({"", ".data", "  RSPQ_BeginOverlayHeader"});
 
   // Command list
@@ -126,9 +310,6 @@ AsmWriteResult writeASM(const ast::Program &ast,
         stateVars.push_back(v); // default to state
     }
   }
-
-  int totalSaveByteSize = 0;
-  int totalTextSize = 0;
 
   bool hasState = std::any_of(stateVars.begin(), stateVars.end(),
                               [](auto &v) { return !v.isExtern; });
@@ -234,6 +415,7 @@ AsmWriteResult writeASM(const ast::Program &ast,
   }
 
   writeLines({"", ".text", "OVERLAY_CODE_START:", ""});
+  }
 
   // For non-wrapper output, reset here — the headers above were only
   // needed for state.line to advance correctly (matching JS asmWriter.js:184-186)
@@ -244,8 +426,8 @@ AsmWriteResult writeASM(const ast::Program &ast,
   }
 
   // Function bodies
-  for (const auto &fn : functions) {
-    if (fn.asm_.empty()) continue;
+  auto writeFunction = [&](const AsmFunc &fn) {
+    if (fn.asm_.empty()) return;
 
     // Emit .align from @Align(N) annotation
     for (const auto &ann : fn.annotations) {
@@ -258,7 +440,8 @@ AsmWriteResult writeASM(const ast::Program &ast,
       }
     }
 
-    writeLine(fn.name + ":");
+    // the shader entry point is the start of the shader block itself
+    if (fn.type != FuncType::Shader) writeLine(fn.name + ":");
 
     // Track last cycle for debug info (matching JS asmWriter.js)
     int lastCycle = fn.asm_.empty() ? 0 : fn.asm_[0].debug.cycle;
@@ -338,6 +521,18 @@ AsmWriteResult writeASM(const ast::Program &ast,
         lastCycle = inst.debug.cycle;
       }
     }
+  };
+
+  // The shader body directly follows MgBeginShader, so it goes first.
+  if (config.magma) {
+    for (const auto &fn : functions) {
+      if (fn.type == FuncType::Shader) writeFunction(fn);
+    }
+  }
+  for (const auto &fn : functions) {
+    if (fn.type == FuncType::Function || fn.type == FuncType::Command) {
+      writeFunction(fn);
+    }
   }
 
   writeLine("");
@@ -347,7 +542,7 @@ AsmWriteResult writeASM(const ast::Program &ast,
     return res;
   }
 
-  writeLine("OVERLAY_CODE_END:");
+  writeLine(config.magma ? "MgEndShader" : "OVERLAY_CODE_END:");
   writeLine("");
 
   // Register defines

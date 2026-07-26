@@ -21,6 +21,7 @@ struct CliArgs {
   bool astDump = false;
   bool optimize = true;
   bool reorder = false;
+  bool magma = false;
   int optimizeTime = 30'000;
   int optWorkers = 0; // 0 = auto (hw threads - 1)
   bool rspqWrapper = true;
@@ -39,6 +40,7 @@ Options:
   --no-optimize    Disable optimization
   --reorder        Enable instruction reordering
   --no-rspq        Disable RSPQ wrapper
+  --magma          Compile as a magma shader
   --ast-dump       Print parsed AST and exit
   -h, --help       Show this help
 )";
@@ -54,6 +56,7 @@ CliArgs parseArgs(int argc, char **argv) {
     else if (arg == "--no-optimize") { args.optimize = false; }
     else if (arg == "--reorder") { args.reorder = true; }
     else if (arg == "--no-rspq") { args.rspqWrapper = false; }
+    else if (arg == "--magma") { args.magma = true; }
     else if (arg == "-D" && i + 1 < argc) { args.defines.push_back(argv[++i]); }
     else if (arg.starts_with("-D")) { args.defines.push_back(arg.substr(2)); }
     else if (arg.starts_with("--opt-time=")) { args.optimizeTime = std::stoi(arg.substr(11)) * 1000; }
@@ -143,6 +146,7 @@ int main(int argc, char **argv) {
   cfg.rspqWrapper = args.rspqWrapper;
   cfg.optimize = args.optimize;
   cfg.reorder = args.reorder;
+  cfg.magma = args.magma;
   cfg.optimizeTime = args.optimizeTime;
   cfg.optWorkers = args.optWorkers;
   cfg.sourceDir = sourceDir;

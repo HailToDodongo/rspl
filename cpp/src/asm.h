@@ -86,6 +86,10 @@ namespace Op {
   inline Opcode CTC2()  { static Opcode o = getOpcode("ctc2");   return o; }
   inline Opcode STV()   { static Opcode o = getOpcode("stv");    return o; }
   inline Opcode LTV()   { static Opcode o = getOpcode("ltv");    return o; }
+  inline Opcode LBV()   { static Opcode o = getOpcode("lbv");    return o; }
+  inline Opcode LSV()   { static Opcode o = getOpcode("lsv");    return o; }
+  inline Opcode LLV()   { static Opcode o = getOpcode("llv");    return o; }
+  inline Opcode LDV()   { static Opcode o = getOpcode("ldv");    return o; }
   inline Opcode LUI()   { static Opcode o = getOpcode("lui");    return o; }
   inline Opcode ADDIU() { static Opcode o = getOpcode("addiu");  return o; }
   inline Opcode ADDU()  { static Opcode o = getOpcode("addu");   return o; }

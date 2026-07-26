@@ -74,6 +74,7 @@ FuncType toFuncType(const std::string &s) {
   if (s == "function") return FuncType::Function;
   if (s == "command")  return FuncType::Command;
   if (s == "macro")    return FuncType::Macro;
+  if (s == "shader")   return FuncType::Shader;
   throw std::runtime_error("Unknown function type: " + s);
 }
 
@@ -82,6 +83,7 @@ std::string toString(FuncType ft) {
   case FuncType::Function: return "function";
   case FuncType::Command:  return "command";
   case FuncType::Macro:    return "macro";
+  case FuncType::Shader:   return "shader";
   }
   return "function";
 }

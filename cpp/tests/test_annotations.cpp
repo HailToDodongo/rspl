@@ -76,3 +76,34 @@ caller:
   jr $ra
   nop)");
 }
+
+TEST_CASE("Annotations - Tag", "[annotations]") {
+  auto result = rspl::transpileSource(
+      R"(function test_tag() {
+    u32<$t0> a;
+    @Tag("TEST") a = 1;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test_tag:
+  TAG_TEST: addiu $t0, $zero, 1
+  jr $ra
+  nop)");
+}
+
+// The annotation sits on the declaration but must reach the generated
+// assignment instruction.
+TEST_CASE("Annotations - Tag (declaration-assignment)", "[annotations]") {
+  auto result = rspl::transpileSource(
+      R"(function test_tag() {
+    @Tag("TEST") u32<$t0> a = 1;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test_tag:
+  TAG_TEST: addiu $t0, $zero, 1
+  jr $ra
+  nop)");
+}

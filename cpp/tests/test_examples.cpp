@@ -32,6 +32,20 @@ static std::string transpile(const std::string &src, bool optimize,
   return res.asm_;
 }
 
+static std::string transpileMagma(const std::string &src, bool optimize,
+                                  bool debugInfo = false,
+                                  const std::string &sourceDir = ".") {
+  rspl::TranspileConfig cfg;
+  cfg.rspqWrapper = true;
+  cfg.optimize = optimize;
+  cfg.debugInfo = debugInfo;
+  cfg.magma = true;
+  cfg.sourceDir = sourceDir;
+  auto res = rspl::transpileSource(src, cfg);
+  REQUIRE(res.warn.empty());
+  return res.asm_;
+}
+
 static std::string transpileFile(const std::string &path, bool optimize,
                                  bool debugInfo = false) {
   // Set sourceDir to the directory of the file so includes resolve correctly
@@ -69,6 +83,13 @@ TEST_CASE("Examples - TinyPX", "[examples]") {
 TEST_CASE("Examples - HDR/Bloom", "[examples]") {
   auto path = examplesPath("rsp_fx.rspl");
   REQUIRE_NOTHROW(transpileFile(path, true, true));
+}
+
+TEST_CASE("Examples - Mgfx", "[examples]") {
+  auto code = readFile(examplesPath("rsp_mgfx.rspl"));
+  auto expected = readFile(examplesPath("rsp_mgfx.S"));
+  auto asm_ = transpileMagma(code, true, true, "src/tests/examples");
+  REQUIRE_ASM_EQ(expected, asm_);
 }
 
 TEST_CASE("Examples - Mandelbrot", "[examples]") {

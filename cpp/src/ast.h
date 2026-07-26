@@ -46,6 +46,8 @@ struct FuncDefArg {
 struct Annotation {
   std::string name;
   std::string value;
+  // the parser reports numbers unquoted; some annotations require a string
+  bool valueIsString = false;
 };
 
 // --- Comparison expression (in if/while/loop conditions) --------------
@@ -224,6 +226,7 @@ struct StmtExit {
 struct StmtAnnotation {
   std::string name;
   std::string value;
+  bool valueIsString = false;
   uint32_t line = 0;
 };
 
@@ -278,12 +281,35 @@ struct StateSection {
   std::vector<StateVarDef> vars;
 };
 
+// --- Magma uniform / vertex attribute ---------------------------------
+
+struct Uniform {
+  std::string name;
+  // binding is auto-assigned during normalization when not given in source
+  std::optional<int64_t> binding;
+  std::vector<StateVarDef> state;
+  uint32_t line = 0;
+};
+
+struct Attribute {
+  std::string name;
+  std::optional<int64_t> binding;
+  std::string type;
+  std::vector<int64_t> arraySize;
+  bool optional = false;
+  uint32_t line = 0;
+};
+
 // --- Function ---------------------------------------------------------
 
 struct Function {
   std::vector<Annotation> annotations;
   FuncType type = FuncType::Function; // function, command, macro
-  std::optional<int64_t> resultType; // command index
+  std::optional<int64_t> resultType; // command index (numeric form only)
+  // "< >" was present at all — it may hold a non-numeric value such as a
+  // register, which is invalid for every function type but must still parse
+  // so validation can report it.
+  bool hasResultType = false;
   std::string name;
   std::vector<FuncDefArg> args;
   std::unique_ptr<ScopedBlock> body; // null for extern declarations
@@ -299,6 +325,8 @@ struct DefineEntry {
 struct Program {
   std::vector<std::string> includes;
   std::vector<StateSection> states;
+  std::vector<Uniform> uniforms;
+  std::vector<Attribute> attributes;
   std::vector<Function> functions;
   std::vector<std::string> postIncludes;
   std::vector<DefineEntry> defines;

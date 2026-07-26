@@ -76,7 +76,8 @@ std::string preprocess(const std::string &src,
     std::string newLine;
 
     if (!ignoreLine && trimmed.starts_with("#define")) {
-      std::regex defRe("#define\\s+([a-zA-Z0-9_]+)\\s+(.*)");
+      // the value is optional: "#define FOO" defines FOO as empty
+      std::regex defRe("#define\\s+([a-zA-Z0-9_]+)(\\s+.*)?");
       std::smatch m;
       if (!std::regex_match(trimmed, m, defRe)) {
         throw std::runtime_error(
@@ -84,7 +85,15 @@ std::string preprocess(const std::string &src,
             ": Invalid #define statement!");
       }
       std::string name = m[1].str();
-      std::string value = replaceDefines(m[2].str());
+      std::string value;
+      if (m[2].matched) {
+        value = replaceDefines(m[2].str());
+        size_t vStart = value.find_first_not_of(" \t");
+        size_t vEnd = value.find_last_not_of(" \t");
+        value = (vStart == std::string::npos)
+                    ? ""
+                    : value.substr(vStart, vEnd - vStart + 1);
+      }
       defines[name] = {name, value};
       if (defineOrder) defineOrder->push_back({name, value});
     } else if (!ignoreLine && trimmed.starts_with("#undef")) {

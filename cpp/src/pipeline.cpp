@@ -1,6 +1,7 @@
 #include "pipeline.h"
 
 #include "asm_normalize.h"
+#include "ast_normalize.h"
 #include "asm_writer.h"
 #include "ast.h"
 #include "ast2asm.h"
@@ -56,6 +57,7 @@ static std::string execJsParser(const std::string &rsplPath,
 TranspileResult runPipeline(const std::string &astJson,
                             const TranspileConfig &config) {
   auto prog = ast::parseJson(astJson);
+  astNormalize(prog, config.magma);
 
   auto functions = ast2asm(prog);
 
@@ -84,6 +86,7 @@ TranspileResult runPipeline(const std::string &astJson,
   WriteConfig wConfig;
   wConfig.rspqWrapper = config.rspqWrapper;
   wConfig.debugInfo = true;
+  wConfig.magma = config.magma;
 
   auto result = writeASM(prog, functions, wConfig);
 
@@ -140,6 +143,8 @@ TranspileResult transpileSource(const std::string &source,
       prog.defines.push_back({def.name, def.value});
   }
 
+  astNormalize(prog, config.magma);
+
   // Generate ASM
   auto functions = ast2asm(prog);
 
@@ -150,6 +155,7 @@ TranspileResult transpileSource(const std::string &source,
     WriteConfig wCfg;
     wCfg.rspqWrapper = config.rspqWrapper;
     wCfg.debugInfo = config.debugInfo;
+    wCfg.magma = config.magma;
     writeASM(prog, functions, wCfg);
   }
 
@@ -190,6 +196,7 @@ TranspileResult transpileSource(const std::string &source,
   WriteConfig wConfig;
   wConfig.rspqWrapper = config.rspqWrapper;
   wConfig.debugInfo = config.debugInfo;
+  wConfig.magma = config.magma;
 
   auto writeResult = writeASM(prog, functions, wConfig);
   result.asm_ = writeResult.asm_;

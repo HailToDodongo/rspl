@@ -355,6 +355,28 @@ std::vector<std::string> getTargetRegs(const AsmInst &inst) {
     return regs;
   }
 
+  // Loads that only write a sub-set of lanes, leaving the rest intact.
+  if (inst.opFlags & OpFlag::OP_FLAG_IS_LOAD) {
+    int byteCount = 0;
+    if (inst.op == Op::LBV()) byteCount = 1;
+    else if (inst.op == Op::LSV()) byteCount = 2;
+    else if (inst.op == Op::LLV()) byteCount = 4;
+    else if (inst.op == Op::LDV()) byteCount = 8;
+
+    if (byteCount && inst.args.size() > 1) {
+      int offset = std::stoi(inst.args[1]);
+      // an odd offset writes into the middle of a lane, covering one lane more
+      // than an aligned access; loads don't wrap around, so clamp at the last lane
+      int firstLane = offset / 2;
+      int lastLane = std::min(7, (offset + byteCount - 1) / 2);
+      std::vector<std::string> lanes;
+      for (int lane = firstLane; lane <= lastLane; ++lane) {
+        lanes.push_back(inst.args[0] + ".e" + std::to_string(lane));
+      }
+      return lanes;
+    }
+  }
+
   const std::string &targetReg =
       (inst.op == Op::MTC2() || inst.op == Op::CTC2()) ? inst.args[1]
                                                        : inst.args[0];

@@ -954,3 +954,362 @@ TEST_CASE("VectorOps - Half-move vec16 xyzw=XYZW (upper to lower)",
   jr $ra
   nop)");
 }
+
+TEST_CASE("Vector - Ops - Mul (vec32 vs vec32:ufract)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec32<$v01> res, a;
+      res *= a:ufract.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmudl $v02, $v02, $v04.e0
+  vmadm $v01, $v01, $v04.e0
+  vmadn $v02, $v00, $v00
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Mul (vec16 vs vec32:ufract)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec32<$v01> res, a;
+      vec16<$v05> b;
+      res = b * a:ufract.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmudm $v01, $v05, $v04.e0
+  vmadn $v02, $v00, $v00
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Mul (vec16 vs vec16 -> vec32)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec32<$v01> res;
+      vec16<$v03> a, b;
+      res = a * b.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmudh $v02, $v03, $v04.e0
+  vsar $v01, COP2_ACC_HI
+  vsar $v02, COP2_ACC_MD
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Mul (vec16 vs vec32)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec32<$v01> res, a;
+      vec16<$v05> b;
+      res = b * a.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmudm $v02, $v05, $v04.e0
+  vmadh $v01, $v05, $v03.e0
+  vmadn $v02, $v00, $v00
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Mul (vec16 vs vec32 -> vec16)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec16<$v01> res, a;
+      vec32<$v03> b;
+      res = a * b.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmudm $v29, $v02, $v04.e0
+  vmadh $v01, $v02, $v03.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Mul (vec16:sint vs vec16:sint)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec16<$v01> res, a, b;
+      res = a:sint * b:sint.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmudh $v01, $v02, $v03.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Mul (vec16:ufract vs vec16:ufract)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec16<$v01> res, a, b;
+      res = a:ufract * b:ufract.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmulu $v01, $v02, $v03.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Mul (vec16:sfract vs vec16:sfract)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec16<$v01> res, a, b;
+      res = a:sfract * b:sfract.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmulf $v01, $v02, $v03.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Mul (vec16:sint vs vec16:ufract)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec16<$v01> res, a, b;
+      res = a:sint * b:ufract.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmudm $v01, $v02, $v03.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Mul (vec16:ufract vs vec16:sint)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec16<$v01> res, a, b;
+      res = a:ufract * b:sint.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmudn $v01, $v02, $v03.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Add-Mul (vec32 vs vec32)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec32<$v01> res, a;
+      res = res +* a.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmadl $v29, $v02, $v04.e0
+  vmadm $v29, $v01, $v04.e0
+  vmadn $v02, $v02, $v03.e0
+  vmadh $v01, $v01, $v03.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Add-Mul (vec32 vs vec32:ufract)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec32<$v01> res, a;
+      res = res +* a:ufract.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmadl $v02, $v02, $v04.e0
+  vmadm $v01, $v01, $v04.e0
+  vmadn $v02, $v00, $v00
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Add-Mul (vec16 vs vec32:ufract)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec32<$v01> res, a;
+      vec16<$v05> b;
+      res = b +* a:ufract.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmadm $v01, $v05, $v04.e0
+  vmadn $v02, $v00, $v00
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Add-Mul (vec32 vs vec32, cast sfract)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec32<$v01> res, a;
+      res:sfract = res +* a.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmadl $v29, $v02, $v04.e0
+  vmadm $v29, $v01, $v04.e0
+  vmadn $v02, $v02, $v03.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Add-Mul (vec16 vs vec16 -> vec32)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec32<$v01> res;
+      vec16<$v03> a, b;
+      res = a +* b.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmadh $v02, $v03, $v04.e0
+  vsar $v01, COP2_ACC_HI
+  vsar $v02, COP2_ACC_MD
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Add-Mul (vec16 vs vec32)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec32<$v01> res, a;
+      vec16<$v05> b;
+      res = b +* a.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmadm $v02, $v05, $v04.e0
+  vmadh $v01, $v05, $v03.e0
+  vmadn $v02, $v00, $v00
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Add-Mul (vec16 vs vec32 -> vec16)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec16<$v01> res, a;
+      vec32<$v03> b;
+      res = a +* b.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmadm $v29, $v02, $v04.e0
+  vmadh $v01, $v02, $v03.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Add-Mul (vec16:sint vs vec16:sint)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec16<$v01> res, a, b;
+      res = a:sint +* b:sint.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmadh $v01, $v02, $v03.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Add-Mul (vec16:ufract vs vec16:ufract)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec16<$v01> res, a, b;
+      res = a:ufract +* b:ufract.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmacu $v01, $v02, $v03.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Add-Mul (vec16:sfract vs vec16:sfract)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec16<$v01> res, a, b;
+      res = a:sfract +* b:sfract.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmacf $v01, $v02, $v03.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Add-Mul (vec16:sint vs vec16:ufract)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec16<$v01> res, a, b;
+      res = a:sint +* b:ufract.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmadm $v01, $v02, $v03.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Add-Mul (vec16:ufract vs vec16:sint)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec16<$v01> res, a, b;
+      res = a:ufract +* b:sint.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmadn $v01, $v02, $v03.e0
+  jr $ra
+  nop)");
+}
