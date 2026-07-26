@@ -245,7 +245,15 @@ struct ExpandCache {
       for (int l = 0; l < 8; ++l) full.push_back(reg + "_" + std::to_string(l));
       for (auto &[ln, lanes] : laneMap) {
         std::string key = reg + (ln[0] == '.' ? ln : "");
-        if (ln == "v") { map[key] = full; continue; }
+        if (ln == "v") {
+          // both the bare register and the explicit ".v" suffix mean all
+          // lanes (JS: SWIZZLE_LANE_MAP["v"]) — without the ".v" entry,
+          // sources like "$v04.v" would fall through to the single-lane
+          // fallback and reads would be invisible to the reorder checks
+          map[key] = full;
+          map[reg + ".v"] = full;
+          continue;
+        }
         for (int l : lanes) map[key].push_back(reg + "_" + std::to_string(l));
       }
     }

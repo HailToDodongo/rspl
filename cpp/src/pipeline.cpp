@@ -2,6 +2,7 @@
 
 #include "asm_normalize.h"
 #include "ast_normalize.h"
+#include "parser/parser.h"
 #include "asm_writer.h"
 #include "ast.h"
 #include "ast2asm.h"
@@ -102,56 +103,10 @@ static bool isOptimizeTarget(const TranspileConfig &config,
 TranspileResult runPipeline(const std::string &astJson,
                             const TranspileConfig &config) {
   auto prog = ast::parseJson(astJson);
-  astNormalize(prog, config.magma);
-
-  auto functions = ast2asm(prog);
-
-  if (config.optimize) {
-    for (auto &fn : functions) {
-      if (fn.asm_.empty() || !isOptimizeTarget(config, fn)) continue;
-      asmOptimizePattern(fn);
-      asmInitDeps(fn);
-      evalFunctionCost(fn);
-    }
-    if (config.reorder) {
-      for (auto &fn : functions) {
-        if (fn.asm_.empty() || !isOptimizeTarget(config, fn)) continue;
-        asmOptimize(fn, config.optimizeTime, config.optWorkers);
-      }
-      printCumulativeStats();
-    } else {
-      for (auto &fn : functions) {
-        if (fn.asm_.empty() || !isOptimizeTarget(config, fn)) continue;
-        fillDelaySlots(fn);
-        evalFunctionCost(fn);
-      }
-    }
-  }
-
-  WriteConfig wConfig;
-  wConfig.rspqWrapper = config.rspqWrapper;
-  wConfig.debugInfo = true;
-  wConfig.magma = config.magma;
-
-  auto result = writeASM(prog, functions, wConfig);
-
-  TranspileResult out;
-  out.asm_ = result.asm_;
-  out.sizeDMEM = result.sizeDMEM;
-  out.sizeIMEM = result.sizeIMEM;
-  return out;
+  return runPipelineProgram(prog, config);
 }
 
-// --- transpileSource (test / library path) --------------------------
-
-TranspileResult transpileSource(const std::string &source,
-                                const TranspileConfig &config) {
-  // Preprocess in C++ to collect defines (ordered by source appearance)
-  std::unordered_map<std::string, DefineEntry> defines;
-  std::vector<DefineEntry> defineOrder;
-  std::string preprocessed =
-      preprocFull(source, defines, config.sourceDir, &defineOrder);
-
+void loadSourceLines(const std::string &preprocessed) {
   // Populate source lines from the PREPROCESSED source for debug info.
   // AST line numbers come from the preprocessed text (includes expanded,
   // macros resolved), so the sourceLines must match.
@@ -166,31 +121,12 @@ TranspileResult transpileSource(const std::string &source,
     else
       state.sourceLines.push_back("");
   }
+}
 
-  // Write preprocessed source to temp file
-  std::string tmpPath = "/tmp/rspl_test_source.rspl";
-  {
-    std::ofstream f(tmpPath);
-    if (!f) throw std::runtime_error("Cannot write temp file");
-    f << preprocessed;
-  }
-
-  // Call JS parser (skip its own preprocessor since we already did it)
-  std::string astJson = execJsParser(tmpPath, true);
-
-  // Parse AST
-  auto prog = ast::parseJson(astJson);
-
-  // Transfer collected defines to the program in source order.
-  // Filter out defines that were later #undef'd (still in the map).
-  for (const auto &def : defineOrder) {
-    if (defines.count(def.name))
-      prog.defines.push_back({def.name, def.value});
-  }
-
+TranspileResult runPipelineProgram(ast::Program &prog,
+                                   const TranspileConfig &config) {
   astNormalize(prog, config.magma);
 
-  // Generate ASM
   auto functions = ast2asm(prog);
 
   // Match JS pipeline: writeASM runs before patterns to advance state.line
@@ -224,7 +160,9 @@ TranspileResult transpileSource(const std::string &source,
         evalFunctionCost(fn);
       }
     }
-  } else if (config.debugInfo) {
+  }
+
+  else if (config.debugInfo) {
     // When debugInfo is on but optimize is off, still run pattern
     // optimizations and cycle evaluation so the debug output contains
     // meaningful cycle counts.
@@ -236,19 +174,58 @@ TranspileResult transpileSource(const std::string &source,
     }
   }
 
-  TranspileResult result;
-
   WriteConfig wConfig;
   wConfig.rspqWrapper = config.rspqWrapper;
   wConfig.debugInfo = config.debugInfo;
   wConfig.magma = config.magma;
 
   auto writeResult = writeASM(prog, functions, wConfig);
-  result.asm_ = writeResult.asm_;
-  result.sizeDMEM = writeResult.sizeDMEM;
-  result.sizeIMEM = writeResult.sizeIMEM;
-  while (!result.asm_.empty() && result.asm_.back() == '\n')
-    result.asm_.pop_back();
+
+  TranspileResult out;
+  out.asm_ = writeResult.asm_;
+  out.sizeDMEM = writeResult.sizeDMEM;
+  out.sizeIMEM = writeResult.sizeIMEM;
+  // JS generateASM() returns asm.trimEnd()
+  while (!out.asm_.empty() && out.asm_.back() == '\n')
+    out.asm_.pop_back();
+  return out;
+}
+
+// --- transpileSource (test / library path) --------------------------
+
+TranspileResult transpileSource(const std::string &source,
+                                const TranspileConfig &config) {
+  // Preprocess in C++ to collect defines (ordered by source appearance)
+  std::unordered_map<std::string, DefineEntry> defines;
+  std::vector<DefineEntry> defineOrder;
+  std::string preprocessed =
+      preprocFull(source, defines, config.sourceDir, &defineOrder);
+
+  loadSourceLines(preprocessed);
+
+  // Parse natively; RSPL_USE_JS_PARSER=1 routes through the JS parser
+  // subprocess instead (kept as a differential-testing oracle).
+  ast::Program prog;
+  if (std::getenv("RSPL_USE_JS_PARSER")) {
+    std::string tmpPath = "/tmp/rspl_test_source.rspl";
+    {
+      std::ofstream f(tmpPath);
+      if (!f) throw std::runtime_error("Cannot write temp file");
+      f << preprocessed;
+    }
+    prog = ast::parseJson(execJsParser(tmpPath, true));
+  } else {
+    prog = parser::parseProgram(preprocessed);
+  }
+
+  // Transfer collected defines to the program in source order.
+  // Filter out defines that were later #undef'd (still in the map).
+  for (const auto &def : defineOrder) {
+    if (defines.count(def.name))
+      prog.defines.push_back({def.name, def.value});
+  }
+
+  TranspileResult result = runPipelineProgram(prog, config);
 
   return result;
 }

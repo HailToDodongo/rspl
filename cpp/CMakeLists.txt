@@ -57,6 +57,12 @@ set(RSPL_SOURCES
   src/optimizer/asm_scan_deps.h
   src/optimizer/eval_cost.cpp
   src/optimizer/eval_cost.h
+  src/parser/lexer.cpp
+  src/parser/lexer.h
+  src/parser/parser.cpp
+  src/parser/parser.h
+  src/ast_json.cpp
+  src/ast_json.h
   src/pipeline.cpp
   src/pipeline.h
   src/preproc.cpp
@@ -79,6 +85,14 @@ target_link_libraries(rspl_core PUBLIC nlohmann_json::nlohmann_json)
 
 add_executable(rspl src/main.cpp)
 target_link_libraries(rspl PRIVATE rspl_core)
+
+# --- Dev tools -------------------------------------------------------------
+
+add_executable(rspl_lexdump tests/tools/lexdump.cpp)
+target_link_libraries(rspl_lexdump PRIVATE rspl_core)
+
+add_executable(rspl_astdump tests/tools/astdump.cpp)
+target_link_libraries(rspl_astdump PRIVATE rspl_core)
 
 # --- Tests ----------------------------------------------------------------
 
@@ -105,6 +119,8 @@ set(TEST_SOURCES
   tests/test_magma.cpp
   tests/test_preproc.cpp
   tests/test_patch.cpp
+  tests/test_lexer.cpp
+  tests/test_parserDiff.cpp
   tests/test_scalarOps.cpp
   tests/test_scope.cpp
   tests/test_state.cpp

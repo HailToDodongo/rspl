@@ -2,6 +2,8 @@
  * RSPL C++ transpiler — CLI entry point.
  */
 
+#include "ast_json.h"
+#include "parser/parser.h"
 #include "pipeline.h"
 #include "preproc.h"
 
@@ -25,6 +27,7 @@ struct CliArgs {
   int optimizeTime = 30'000;
   int optWorkers = 0; // 0 = auto (hw threads - 1)
   bool rspqWrapper = true;
+  bool debugInfo = true;
   bool help = false;
   std::vector<std::string> defines; // "KEY=VALUE" pairs
   std::vector<std::string> patchFunctions;
@@ -41,6 +44,7 @@ Options:
   --no-optimize    Disable optimization
   --reorder        Enable instruction reordering
   --no-rspq        Disable RSPQ wrapper
+  --no-debug-info  Omit per-line debug comments from the output
   --magma          Compile as a magma shader
   --patch a,b      Only optimize these functions and patch them into the
                    existing output file, leaving the rest untouched
@@ -59,6 +63,7 @@ CliArgs parseArgs(int argc, char **argv) {
     else if (arg == "--no-optimize") { args.optimize = false; }
     else if (arg == "--reorder") { args.reorder = true; }
     else if (arg == "--no-rspq") { args.rspqWrapper = false; }
+    else if (arg == "--no-debug-info") { args.debugInfo = false; }
     else if (arg == "--magma") { args.magma = true; }
     else if (arg == "--patch") {
       if (i + 1 >= argc) {
@@ -154,19 +159,39 @@ int main(int argc, char **argv) {
     if (slash != std::string::npos)
       sourceDir = args.inputFile.substr(0, slash);
   }
-  std::string preprocessed = rspl::preprocFull(source, defines, sourceDir);
+  std::vector<rspl::DefineEntry> defineOrder;
+  std::string preprocessed =
+      rspl::preprocFull(source, defines, sourceDir, &defineOrder);
 
-  // Write preprocessed source to temp file for JS parser
-  std::string tmpPath = "/tmp/rspl_preprocessed.rspl";
-  writeFile(tmpPath, preprocessed);
+  // Parse: native by default; RSPL_USE_JS_PARSER=1 keeps the old
+  // node-subprocess path as an escape hatch / oracle.
+  rspl::ast::Program prog;
+  if (std::getenv("RSPL_USE_JS_PARSER")) {
+    std::string tmpPath = "/tmp/rspl_preprocessed.rspl";
+    writeFile(tmpPath, preprocessed);
+    std::string astJson = execJsParser(tmpPath, true);
+    if (args.astDump) { std::cout << astJson; return 0; }
+    prog = rspl::ast::parseJson(astJson);
+  } else {
+    try {
+      prog = rspl::parser::parseProgram(preprocessed);
+    } catch (const std::exception &e) {
+      std::cerr << "Error: " << e.what() << "\n";
+      return 1;
+    }
+    if (args.astDump) { std::cout << rspl::astToJson(prog, true) << "\n"; return 0; }
+  }
 
-  // Route through JS parser with --preprocessed flag
-  std::string astJson = execJsParser(tmpPath, true);
-
-  if (args.astDump) { std::cout << astJson; return 0; }
+  // Emit #define lines in source order (skipping later #undef'd ones)
+  for (const auto &def : defineOrder) {
+    if (defines.count(def.name))
+      prog.defines.push_back({def.name, def.value});
+  }
+  rspl::loadSourceLines(preprocessed);
 
   rspl::TranspileConfig cfg;
   cfg.rspqWrapper = args.rspqWrapper;
+  cfg.debugInfo = args.debugInfo;
   cfg.optimize = args.optimize;
   cfg.reorder = args.reorder;
   cfg.magma = args.magma;
@@ -175,7 +200,13 @@ int main(int argc, char **argv) {
   cfg.sourceDir = sourceDir;
   cfg.patchFunctions = args.patchFunctions;
 
-  auto result = rspl::runPipeline(astJson, cfg);
+  rspl::TranspileResult result;
+  try {
+    result = rspl::runPipelineProgram(prog, cfg);
+  } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << "\n";
+    return 1;
+  }
 
   // Determine output path: explicit -o flag, or derive from input
   std::string outPath = args.outputFile;

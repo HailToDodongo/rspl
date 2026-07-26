@@ -59,3 +59,21 @@ TEST_CASE("Partial load target lanes - odd offset", "[reorderPartialLoad]") {
   REQUIRE(getTargetRegs(asmOp("lsv", {"$v06", "15", "0", "$s0"})) ==
           std::vector<std::string>{"$v06.e7"});
 }
+
+// A ".v" source suffix must expand to all 8 lanes. If it fell through to a
+// single-lane fallback, this partial load (lanes 4-7) would look independent
+// of the vmulf reading $v04.v and could be moved past it.
+// (Regression: reorder moved "ldv $v04, 8" below its reader.)
+TEST_CASE("Partial load not movable past .v reader", "[reorderPartialLoad]") {
+  std::vector<AsmInst> list = {
+      asmOp("ldv", {"$v04", "8", "0", "$t6"}),   // 0: writes lanes 4-7
+      asmOp("vmulf", {"$v03", "$v05", "$v04.v"}),// 1: reads ALL lanes
+      asmOp("or", {"$t0", "$zero", "$zero"}),    // 2
+      asmOp("or", {"$t1", "$zero", "$zero"}),    // 3
+  };
+  for (auto &a : list) asmInitDep(a);
+  auto range = asmGetReorderIndices(list, 0);
+  bool canMovePastReader =
+      std::find(range.begin(), range.end(), 2) != range.end();
+  REQUIRE(canMovePastReader == false);
+}

@@ -413,6 +413,14 @@ decomposeCalcMulti(const ast::CalcMulti &cm, const VarDef &varRes) {
   std::vector<AsmInst> res;
   int tmpCounter = 0;
   decomposeParts(parts, varRes, res, tmpCounter);
+
+  // Free the temp registers again — the JS normalizer emits a varUndef for
+  // every temp after the statement (astCalcNormalizer.js: tmpVarStack).
+  // Without this, each nested calc would leak its registers for the rest
+  // of the function.
+  for (int i = 0; i < tmpCounter; ++i) {
+    state.undefVar("__tmp_" + std::to_string(i));
+  }
   return res;
 }
 
@@ -896,7 +904,9 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
           }
 
           else if constexpr (std::is_same_v<T, ast::StmtGoto>) {
-            res.push_back(asmOp("j", {s.label}));
+            // the target may be a variable holding an address (JS: getVarReg)
+            const std::string *reg = state.getVarReg(s.label);
+            res.push_back(asmOp("j", {reg ? *reg : s.label}));
             res.push_back(asmNOP());
           }
 

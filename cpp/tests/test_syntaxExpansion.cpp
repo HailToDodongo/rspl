@@ -302,3 +302,18 @@ TEST_CASE("Syntax - Expansion - Multi+Calc - Scalar Only",
          a = (10 * 5) * 2;
          a = 2 * (1 + 9 * 11);)");
 }
+
+// Nested-calc temporaries must be freed after each statement (the JS
+// normalizer emits varUndef for every temp). Without that, each of these
+// statements would leak a register and this function would exhaust the
+// 22-register scalar pool. (Regression: "Out of free registers!")
+TEST_CASE("Syntax Expansion - nested calc temps are freed", "[syntaxExpansion]") {
+  std::string body = "u32<$t0> a; u32<$t1> b; u32<$t2> c;\n";
+  for (int i = 0; i < 30; ++i) {
+    body += "      a = b + ((c & 15) << 5);\n";
+  }
+  auto res = rspl::transpileSource("function test() {\n" + body + "}",
+                                   {.rspqWrapper = false});
+  REQUIRE(res.warn.empty());
+  REQUIRE(res.asm_.find("test:") != std::string::npos);
+}

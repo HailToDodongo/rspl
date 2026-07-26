@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ast.h"
+
 #include <string>
 #include <utility>
 #include <vector>
@@ -33,6 +35,14 @@ struct TranspileResult {
 /// Returns the transpile result. Throws std::runtime_error on errors.
 TranspileResult runPipeline(const std::string &astJson,
                             const TranspileConfig &config = {});
+
+/// Same pipeline, starting from an already-parsed program (native parser).
+TranspileResult runPipelineProgram(ast::Program &prog,
+                                   const TranspileConfig &config = {});
+
+/// Fills state.sourceLines from preprocessed source, enabling the source
+/// text column of the debug comments. Call before runPipelineProgram.
+void loadSourceLines(const std::string &preprocessed);
 
 /// Transpile an RSPL source string to assembly.
 /// Handles the JS parser subprocess internally.

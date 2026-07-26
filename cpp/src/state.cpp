@@ -426,6 +426,17 @@ std::string State::allocRegister(const std::string &type) {
     return reg;
   };
 
+  auto dumpUsed = [&]() {
+    std::string used;
+    for (const auto &reg : regList) {
+      auto it = scope.regVarMap.find(reg);
+      if (it != scope.regVarMap.end())
+        used += reg + "=" + it->second + " ";
+    }
+    return used;
+  };
+  (void)dumpUsed;
+
   if (reverse) {
     for (auto it = regList.rbegin(); it != regList.rend(); ++it) {
       std::string found = tryAlloc(*it);
@@ -438,7 +449,7 @@ std::string State::allocRegister(const std::string &type) {
     }
   }
 
-  throwError("Out of free registers!");
+  throwError("Out of free registers! Used: " + dumpUsed());
   return {}; // unreachable
 }
 

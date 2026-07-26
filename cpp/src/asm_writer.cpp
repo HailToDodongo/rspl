@@ -320,51 +320,7 @@ AsmWriteResult writeASM(const ast::Program &ast,
 
     for (const auto &sv : stateVars) {
       if (sv.isExtern) continue;
-      int arraySize = 1;
-      for (auto dim : sv.arraySize) arraySize *= dim;
-      if (arraySize < 1) arraySize = 1;
-      int byteSize = (TYPE_SIZE.count(sv.varType)
-                          ? TYPE_SIZE.at(sv.varType)
-                          : 4) *
-                     arraySize;
-
-      int align = TYPE_ALIGNMENT.count(sv.varType)
-                      ? TYPE_ALIGNMENT.at(sv.varType)
-                      : 0;
-      if (sv.align != 0) {
-        align = static_cast<int>(std::log2(sv.align));
-      }
-      if (align > 0) {
-        writeLine("    .align " + std::to_string(align));
-      }
-
-      if (sv.value.empty()) {
-        writeLine("    " + sv.varName + ": .ds.b " +
-                  std::to_string(byteSize));
-      } else {
-        auto asmDefIt = TYPE_ASM_DEF.find(sv.varType);
-        std::string asmType = (asmDefIt != TYPE_ASM_DEF.end())
-                                  ? asmDefIt->second.type
-                                  : "word";
-        int asmCount = (asmDefIt != TYPE_ASM_DEF.end())
-                           ? asmDefIt->second.count
-                           : 1;
-        int arrayCount = arraySize / asmCount;
-        if (arrayCount < 1) arrayCount = 1;
-        // Write data with correct type
-        int totalCount = asmCount * arrayCount;
-        std::vector<double> data(totalCount, 0.0);
-        for (size_t i = 0; i < sv.value.size() && i < static_cast<size_t>(totalCount); ++i) {
-          data[i] = sv.value[i];
-        }
-        std::ostringstream ss;
-        for (int i = 0; i < totalCount; ++i) {
-          if (i) ss << ", ";
-          ss << static_cast<int64_t>(data[i]);
-        }
-        writeLine("    " + sv.varName + ": ." + asmType + " " + ss.str());
-      }
-      totalSaveByteSize += byteSize;
+      totalSaveByteSize += writeStateVar(sv, writeLine);
     }
 
     writeLine("    STATE_MEM_END:");
@@ -373,32 +329,12 @@ AsmWriteResult writeASM(const ast::Program &ast,
     writeLine("  RSPQ_EmptySavedState");
   }
 
-  // Helper to emit a single state var (with alignment and size)
-  auto emitStateVar = [&](const ast::StateVarDef &sv) {
-    int arraySize = 1;
-    for (auto dim : sv.arraySize) arraySize *= dim;
-    if (arraySize < 1) arraySize = 1;
-    int byteSize = (TYPE_SIZE.count(sv.varType)
-                        ? TYPE_SIZE.at(sv.varType)
-                        : 4) *
-                   arraySize;
-    int align = TYPE_ALIGNMENT.count(sv.varType)
-                    ? TYPE_ALIGNMENT.at(sv.varType)
-                    : 0;
-    if (sv.align != 0)
-      align = static_cast<int>(std::log2(sv.align));
-    if (align > 0)
-      writeLine("    .align " + std::to_string(align));
-    writeLine("    " + sv.varName + ": .ds.b " +
-              std::to_string(byteSize));
-  };
-
-  // Data section
+  // Data section — same emitter as the saved state, values included
   if (!dataVars.empty()) {
     writeLine("");
     for (const auto &dv : dataVars) {
       if (dv.isExtern) continue;
-      emitStateVar(dv);
+      totalSaveByteSize += writeStateVar(dv, writeLine);
     }
   }
 
@@ -409,7 +345,7 @@ AsmWriteResult writeASM(const ast::Program &ast,
     writeLine("  TEMP_STATE_MEM_START:");
     for (const auto &bv : bssVars) {
       if (bv.isExtern) continue;
-      emitStateVar(bv);
+      totalSaveByteSize += writeStateVar(bv, writeLine);
     }
     writeLine("  TEMP_STATE_MEM_END:");
   }
@@ -517,8 +453,12 @@ AsmWriteResult writeASM(const ast::Program &ast,
         }
 
         writeLine(instr);
-        totalTextSize += 4;
-        lastCycle = inst.debug.cycle;
+        // JS: only real ops count toward text size / cycle tracking,
+        // inline ASM (.set directives, macros) is excluded
+        if (inst.type == AsmType::OP) {
+          totalTextSize += 4;
+          lastCycle = inst.debug.cycle;
+        }
       }
     }
   };
