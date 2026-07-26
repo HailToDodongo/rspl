@@ -27,6 +27,7 @@ struct CliArgs {
   bool rspqWrapper = true;
   bool help = false;
   std::vector<std::string> defines; // "KEY=VALUE" pairs
+  std::vector<std::string> patchFunctions;
 };
 
 void printHelp() {
@@ -41,6 +42,8 @@ Options:
   --reorder        Enable instruction reordering
   --no-rspq        Disable RSPQ wrapper
   --magma          Compile as a magma shader
+  --patch a,b      Only optimize these functions and patch them into the
+                   existing output file, leaving the rest untouched
   --ast-dump       Print parsed AST and exit
   -h, --help       Show this help
 )";
@@ -57,6 +60,26 @@ CliArgs parseArgs(int argc, char **argv) {
     else if (arg == "--reorder") { args.reorder = true; }
     else if (arg == "--no-rspq") { args.rspqWrapper = false; }
     else if (arg == "--magma") { args.magma = true; }
+    else if (arg == "--patch") {
+      if (i + 1 >= argc) {
+        std::cerr << "Error: missing patch function name in arguments!\n";
+        std::exit(1);
+      }
+      std::string list = argv[++i];
+      size_t start = 0;
+      while (start <= list.size()) {
+        auto comma = list.find(',', start);
+        auto len = (comma == std::string::npos) ? list.size() - start
+                                                : comma - start;
+        if (len > 0) args.patchFunctions.push_back(list.substr(start, len));
+        if (comma == std::string::npos) break;
+        start = comma + 1;
+      }
+      if (args.patchFunctions.empty()) {
+        std::cerr << "Error: missing patch function name in arguments!\n";
+        std::exit(1);
+      }
+    }
     else if (arg == "-D" && i + 1 < argc) { args.defines.push_back(argv[++i]); }
     else if (arg.starts_with("-D")) { args.defines.push_back(arg.substr(2)); }
     else if (arg.starts_with("--opt-time=")) { args.optimizeTime = std::stoi(arg.substr(11)) * 1000; }
@@ -150,6 +173,7 @@ int main(int argc, char **argv) {
   cfg.optimizeTime = args.optimizeTime;
   cfg.optWorkers = args.optWorkers;
   cfg.sourceDir = sourceDir;
+  cfg.patchFunctions = args.patchFunctions;
 
   auto result = rspl::runPipeline(astJson, cfg);
 
@@ -165,7 +189,26 @@ int main(int argc, char **argv) {
   }
 
   if (!outPath.empty()) {
-    writeFile(outPath, result.asm_);
+    if (!args.patchFunctions.empty()) {
+      // Splice only the requested functions into the existing output,
+      // leaving every other byte of that file as it was.
+      std::cerr << "// Patching functions";
+      for (size_t i = 0; i < args.patchFunctions.size(); ++i)
+        std::cerr << (i ? ", " : " ") << args.patchFunctions[i];
+      std::cerr << std::endl;
+
+      std::string oldAsm = readFile(outPath);
+      try {
+        writeFile(outPath,
+                  rspl::patchAsmFunctions(oldAsm, result.asm_,
+                                          args.patchFunctions));
+      } catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << "\n";
+        return 1;
+      }
+    } else {
+      writeFile(outPath, result.asm_);
+    }
   }
 
   std::cerr << "// DMEM: " << result.sizeDMEM

@@ -104,6 +104,7 @@ set(TEST_SOURCES
   tests/test_macros.cpp
   tests/test_magma.cpp
   tests/test_preproc.cpp
+  tests/test_patch.cpp
   tests/test_scalarOps.cpp
   tests/test_scope.cpp
   tests/test_state.cpp

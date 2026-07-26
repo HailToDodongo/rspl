@@ -31,6 +31,7 @@ cpp/build/rspl input.rspl -o output.S        # write to file
 cpp/build/rspl input.rspl --no-optimize      # skip optimizer
 cpp/build/rspl input.rspl --no-rspq          # raw asm, no RSPQ wrapper
 cpp/build/rspl input.rspl --magma            # compile as a magma shader
+cpp/build/rspl input.rspl --patch fnA,fnB     # only re-optimize these, patch into existing .S
 cpp/build/rspl input.rspl --ast-dump         # dump parsed AST (debug)
 cpp/build/rspl input.rspl -D FOO=42          # preprocessor define
 cpp/build/rspl input.rspl --reorder          # enable instruction reorder annealing

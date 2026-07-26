@@ -11,6 +11,8 @@
 #include "optimizer/eval_cost.h"
 #include "state.h"
 
+#include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -52,6 +54,49 @@ static std::string execJsParser(const std::string &rsplPath,
   return result;
 }
 
+// --- Function patching ----------------------------------------------
+
+std::pair<size_t, size_t> getFunctionStartEnd(const std::string &source,
+                                              const std::string &funcName) {
+  auto funcIdx = source.find(funcName + ":\n");
+  if (funcIdx == std::string::npos) {
+    throw std::runtime_error("Function " + funcName +
+                             " not found in output file!");
+  }
+  // The body is indented, so the function ends at the next line starting
+  // with an alphanumeric character in column 0.
+  for (size_t i = funcIdx; i + 1 < source.size(); ++i) {
+    if (source[i] == '\n' &&
+        std::isalnum(static_cast<unsigned char>(source[i + 1]))) {
+      return {funcIdx, i};
+    }
+  }
+  throw std::runtime_error("Function end not found in output file!");
+}
+
+std::string patchAsmFunctions(const std::string &oldAsm,
+                              const std::string &newAsm,
+                              const std::vector<std::string> &funcNames) {
+  std::string out = oldAsm;
+  for (const auto &name : funcNames) {
+    auto posOld = getFunctionStartEnd(out, name);
+    auto posNew = getFunctionStartEnd(newAsm, name);
+    out = out.substr(0, posOld.first) +
+          newAsm.substr(posNew.first, posNew.second - posNew.first) +
+          out.substr(posOld.second);
+  }
+  return out;
+}
+
+// True when this function should take part in optimization. With no patch
+// list everything is optimized; otherwise only the listed functions are.
+static bool isOptimizeTarget(const TranspileConfig &config,
+                             const AsmFunc &fn) {
+  if (config.patchFunctions.empty()) return true;
+  return std::find(config.patchFunctions.begin(), config.patchFunctions.end(),
+                   fn.name) != config.patchFunctions.end();
+}
+
 // --- runPipeline (CLI path) -----------------------------------------
 
 TranspileResult runPipeline(const std::string &astJson,
@@ -63,20 +108,20 @@ TranspileResult runPipeline(const std::string &astJson,
 
   if (config.optimize) {
     for (auto &fn : functions) {
-      if (fn.asm_.empty()) continue;
+      if (fn.asm_.empty() || !isOptimizeTarget(config, fn)) continue;
       asmOptimizePattern(fn);
       asmInitDeps(fn);
       evalFunctionCost(fn);
     }
     if (config.reorder) {
       for (auto &fn : functions) {
-        if (fn.asm_.empty()) continue;
+        if (fn.asm_.empty() || !isOptimizeTarget(config, fn)) continue;
         asmOptimize(fn, config.optimizeTime, config.optWorkers);
       }
       printCumulativeStats();
     } else {
       for (auto &fn : functions) {
-        if (fn.asm_.empty()) continue;
+        if (fn.asm_.empty() || !isOptimizeTarget(config, fn)) continue;
         fillDelaySlots(fn);
         evalFunctionCost(fn);
       }
@@ -161,20 +206,20 @@ TranspileResult transpileSource(const std::string &source,
 
   if (config.optimize) {
     for (auto &fn : functions) {
-      if (fn.asm_.empty()) continue;
+      if (fn.asm_.empty() || !isOptimizeTarget(config, fn)) continue;
       asmOptimizePattern(fn);
       asmInitDeps(fn);
       evalFunctionCost(fn);
     }
     if (config.reorder) {
       for (auto &fn : functions) {
-        if (fn.asm_.empty()) continue;
+        if (fn.asm_.empty() || !isOptimizeTarget(config, fn)) continue;
         asmOptimize(fn, config.optimizeTime, config.optWorkers);
       }
       printCumulativeStats();
     } else {
       for (auto &fn : functions) {
-        if (fn.asm_.empty()) continue;
+        if (fn.asm_.empty() || !isOptimizeTarget(config, fn)) continue;
         fillDelaySlots(fn);
         evalFunctionCost(fn);
       }
@@ -184,7 +229,7 @@ TranspileResult transpileSource(const std::string &source,
     // optimizations and cycle evaluation so the debug output contains
     // meaningful cycle counts.
     for (auto &fn : functions) {
-      if (fn.asm_.empty()) continue;
+      if (fn.asm_.empty() || !isOptimizeTarget(config, fn)) continue;
       asmOptimizePattern(fn);
       asmInitDeps(fn);
       evalFunctionCost(fn);
