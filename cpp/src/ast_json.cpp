@@ -104,6 +104,7 @@ json serializeCalc(const ast::Calc &calc) {
 }
 
 json serializeBlock(const ast::ScopedBlock &block);
+json serializeFunction(const ast::Function &fn);
 
 json serializeStmt(const ast::Stmt &stmt) {
   return std::visit(
@@ -183,6 +184,11 @@ json serializeStmt(const ast::Stmt &stmt) {
           json j = {{"type", "scopedBlock"}, {"line", s.line}};
           j["body"] = s.body ? serializeBlock(*s.body) : json(nullptr);
           return j;
+        } else if constexpr (std::is_same_v<T, ast::StmtMacroDef>) {
+          // C++-only extension — never produced by the JS parser
+          json j = {{"type", "macroDef"}, {"line", s.line}};
+          j["def"] = s.def ? serializeFunction(*s.def) : json(nullptr);
+          return j;
         }
       },
       stmt);
@@ -192,6 +198,30 @@ json serializeBlock(const ast::ScopedBlock &block) {
   json stmts = json::array();
   for (const auto &s : block.statements) stmts.push_back(serializeStmt(s));
   return {{"line", block.line}, {"statements", std::move(stmts)}};
+}
+
+json serializeFunction(const ast::Function &fn) {
+  json annos = json::array();
+  for (const auto &a : fn.annotations) {
+    annos.push_back({{"name", a.name},
+                     {"value", a.value},
+                     {"valueIsString", a.valueIsString}});
+  }
+  json args = json::array();
+  for (const auto &arg : fn.args) {
+    args.push_back({{"type", toString(arg.type)},
+                    {"reg", arg.reg},
+                    {"name", arg.name}});
+  }
+  json jf = {{"type", toString(fn.type)},
+             {"name", fn.name},
+             {"hasResultType", fn.hasResultType},
+             {"annotations", std::move(annos)},
+             {"args", std::move(args)}};
+  jf["resultType"] =
+      fn.resultType.has_value() ? json(*fn.resultType) : json(nullptr);
+  jf["body"] = fn.body ? serializeBlock(*fn.body) : json(nullptr);
+  return jf;
 }
 
 json serializeStateVar(const ast::StateVarDef &sv) {
@@ -236,27 +266,7 @@ std::string astToJson(const ast::Program &prog, bool pretty) {
 
   json functions = json::array();
   for (const auto &fn : prog.functions) {
-    json annos = json::array();
-    for (const auto &a : fn.annotations) {
-      annos.push_back({{"name", a.name},
-                       {"value", a.value},
-                       {"valueIsString", a.valueIsString}});
-    }
-    json args = json::array();
-    for (const auto &arg : fn.args) {
-      args.push_back({{"type", toString(arg.type)},
-                      {"reg", arg.reg},
-                      {"name", arg.name}});
-    }
-    json jf = {{"type", toString(fn.type)},
-               {"name", fn.name},
-               {"hasResultType", fn.hasResultType},
-               {"annotations", std::move(annos)},
-               {"args", std::move(args)}};
-    jf["resultType"] =
-        fn.resultType.has_value() ? json(*fn.resultType) : json(nullptr);
-    jf["body"] = fn.body ? serializeBlock(*fn.body) : json(nullptr);
-    functions.push_back(std::move(jf));
+    functions.push_back(serializeFunction(fn));
   }
   j["functions"] = std::move(functions);
 

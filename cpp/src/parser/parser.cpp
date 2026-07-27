@@ -365,6 +365,34 @@ private:
       block.statements.push_back(parseLoop());
       return;
     }
+    // Local macro definition
+    if (at(Tok::FunctionType)) {
+      uint32_t line = cur().line;
+      if (toFuncType(cur().value) != FuncType::Macro) {
+        throw std::runtime_error(
+            "Syntax error at line " + std::to_string(line) +
+            ": only macros can be declared inside a function ('" +
+            cur().value + "' must be global)");
+      }
+      ast::Function fn = parseFunction();
+      if (fn.hasResultType) {
+        throw std::runtime_error(
+            "Syntax error at line " + std::to_string(line) +
+            ": Macros must not specify a result-type (use 'macro' "
+            "without `< >`)!");
+      }
+      if (!fn.body) {
+        throw std::runtime_error(
+            "Syntax error at line " + std::to_string(line) +
+            ": local macros must have a body (forward declarations "
+            "are not allowed inside functions)");
+      }
+      ast::StmtMacroDef s;
+      s.def = std::make_unique<ast::Function>(std::move(fn));
+      s.line = line;
+      block.statements.push_back(std::move(s));
+      return;
+    }
     // LabelDecl -> _ %VarName %Colon (colon adjacent)
     if (at(Tok::VarName) && peekNext().type == Tok::Colon &&
         !peekNext().spaceBefore) {

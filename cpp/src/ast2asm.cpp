@@ -26,7 +26,25 @@ namespace rspl {
 
 // --- Macro registry ---------------------------------------------------
 
-static std::unordered_map<std::string, const ast::Function *> macros;
+// Lexically scoped: frame [0] holds global macros, one frame per emitted
+// scoped block on top. Local macros register into the top frame at their
+// declaration point, so they are callable only after it and die with the
+// enclosing block. Lookup walks top-down, letting locals shadow globals.
+static std::vector<std::unordered_map<std::string, const ast::Function *>>
+    macroScopes;
+
+static const ast::Function *findMacro(const std::string &name) {
+  for (auto it = macroScopes.rbegin(); it != macroScopes.rend(); ++it) {
+    auto f = it->find(name);
+    if (f != it->end()) return f->second;
+  }
+  return nullptr;
+}
+
+struct MacroScopeGuard {
+  MacroScopeGuard() { macroScopes.emplace_back(); }
+  ~MacroScopeGuard() { macroScopes.pop_back(); }
+};
 
 // --- Forward declarations ---------------------------------------------
 
@@ -38,10 +56,10 @@ scopedBlockToAsm(const ast::ScopedBlock &block);
 static std::vector<AsmInst>
 inlineMacroCall(const std::string &macroName,
                 const std::vector<ast::FuncArg> &args) {
-  auto it = macros.find(macroName);
-  if (it == macros.end()) return {};
+  const ast::Function *found = findMacro(macroName);
+  if (!found) return {};
 
-  const ast::Function &macro = *it->second;
+  const ast::Function &macro = *found;
   if (macro.args.size() != args.size()) {
     state.throwError("Macro '" + macroName + "' expects " +
                      std::to_string(macro.args.size()) +
@@ -545,7 +563,7 @@ calcToAsm(const ast::Calc &calc, const VarDef &varRes) {
         }
 
         else if constexpr (std::is_same_v<T, ast::CalcFunc>) {
-          if (macros.count(c.funcName)) {
+          if (findMacro(c.funcName)) {
             std::vector<ast::FuncArg> callArgs;
             callArgs.push_back(
                 {.type = ArgType::Var, .value = varRes.name, .swizzle = ""});
@@ -732,6 +750,10 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
   // Pre-scan labels so forward references resolve (JS: astNormalize.js:19-28)
   predeclareLabels(block);
 
+  // Local macros declared in this block die with it. An inlined macro body
+  // also runs through here, so it sees the frames of its *calling* site.
+  MacroScopeGuard macroScope;
+
   std::vector<AsmInst> res;
 
   for (const auto &stmt : block.statements) {
@@ -807,7 +829,7 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
                 callArgs.push_back(
                     {.type = ArgType::Var, .value = s.varName, .swizzle = s.swizzle});
                 for (auto &a : cf->args) callArgs.push_back(a);
-                if (macros.count(cf->funcName)) {
+                if (findMacro(cf->funcName)) {
                   auto inlineRes = inlineMacroCall(cf->funcName, callArgs);
                   res.insert(res.end(), inlineRes.begin(), inlineRes.end());
                 } else {
@@ -884,7 +906,7 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
 
           else if constexpr (std::is_same_v<T,
                                              ast::StmtFuncCall>) {
-            if (macros.count(s.func)) {
+            if (findMacro(s.func)) {
               auto inlineRes = inlineMacroCall(s.func, s.args);
               res.insert(res.end(), inlineRes.begin(), inlineRes.end());
             } else {
@@ -962,6 +984,13 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
             res.insert(res.end(), body.begin(), body.end());
             state.popScope();
           }
+
+          else if constexpr (std::is_same_v<T,
+                                             ast::StmtMacroDef>) {
+            // Registering mid-loop makes the macro callable only after
+            // its declaration point. Emits no ASM.
+            macroScopes.back()[s.def->name] = s.def.get();
+          }
         },
         stmt);
 
@@ -981,11 +1010,12 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
   std::vector<AsmFunc> result;
   state.reset();
 
-  // Register macros
-  macros.clear();
+  // Register global macros in the bottom scope frame
+  macroScopes.clear();
+  macroScopes.emplace_back();
   for (const auto &fn : ast.functions) {
     if (fn.type == FuncType::Macro) {
-      macros[fn.name] = &fn;
+      macroScopes.back()[fn.name] = &fn;
     }
   }
 

@@ -238,6 +238,12 @@ struct StmtScopedBlock {
   uint32_t line = 0;
 };
 
+// Local macro declaration inside a function/command body
+struct StmtMacroDef {
+  std::unique_ptr<struct Function> def; // def->type is always FuncType::Macro
+  uint32_t line = 0;
+};
+
 using Stmt = std::variant<
     StmtVarDecl,
     StmtVarDeclMulti,
@@ -255,7 +261,8 @@ using Stmt = std::variant<
     StmtContinue,
     StmtExit,
     StmtAnnotation,
-    StmtScopedBlock
+    StmtScopedBlock,
+    StmtMacroDef
 >;
 
 struct ScopedBlock {
