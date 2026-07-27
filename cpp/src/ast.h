@@ -164,7 +164,7 @@ struct StmtVarDeclAlias {
 };
 
 struct StmtVarUndef {
-  std::string varName;
+  std::vector<std::string> varNames; // `undef a, b;` — one or more
   uint32_t line = 0;
 };
 

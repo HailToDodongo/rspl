@@ -551,8 +551,14 @@ private:
     }
     if (at(Tok::KWUndef)) {
       Token kw = next();
-      return ast::Stmt{
-          ast::StmtVarUndef{expect(Tok::VarName).value, kw.line}};
+      ast::StmtVarUndef s;
+      s.line = kw.line;
+      s.varNames.push_back(expect(Tok::VarName).value);
+      while (at(Tok::Seperator)) {
+        next();
+        s.varNames.push_back(expect(Tok::VarName).value);
+      }
+      return ast::Stmt{std::move(s)};
     }
     if (at(Tok::KWGoto)) {
       next();

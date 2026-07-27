@@ -81,3 +81,43 @@ TEST_CASE("Scope - Var Decl. invalid", "[scope]") {
     REQUIRE(std::string(e.what()).find("Variable b not known") != std::string::npos);
   }
 }
+
+TEST_CASE("Scope - Var Un-Declaration multiple", "[scope]") {
+  // both registers must be freed: auto-allocation re-uses $t0/$t1 for c/d
+  auto result = rspl::transpileSource(
+      R"(function test_scope()
+{
+  u32 a;
+  u32 b;
+  undef a, b;
+  u32 c;
+  u32 d;
+  c += 1;
+  d += 2;
+})",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test_scope:
+  addiu $t0, $t0, 1
+  addiu $t1, $t1, 2
+  jr $ra
+  nop)");
+
+  // every name in the list is gone afterwards
+  const char *srcErr = R"(function test_scope()
+{
+  u32<$t0> a;
+  u32<$t1> b;
+  undef a, b;
+  b += 1;
+})";
+  REQUIRE_THROWS_AS(rspl::transpileSource(srcErr, {.rspqWrapper = false}),
+                    std::runtime_error);
+  try {
+    rspl::transpileSource(srcErr, {.rspqWrapper = false});
+  } catch (const std::runtime_error &e) {
+    REQUIRE(std::string(e.what()).find("Variable b not known") !=
+            std::string::npos);
+  }
+}

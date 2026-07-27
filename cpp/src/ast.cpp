@@ -262,7 +262,7 @@ static ScopedBlock parseScopedBlock(const json &j) {
         block.statements.push_back(std::move(s));
       } else if (stType == "varUndef") {
         block.statements.push_back(StmtVarUndef{
-            .varName = st.value("varName", ""),
+            .varNames = {st.value("varName", "")},
             .line = optLine(st),
         });
       } else if (stType == "varAssignCalc") {

@@ -817,7 +817,7 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
 
           else if constexpr (std::is_same_v<T,
                                              ast::StmtVarUndef>) {
-            state.undefVar(s.varName);
+            for (const auto &name : s.varNames) state.undefVar(name);
           }
 
           else if constexpr (std::is_same_v<T,

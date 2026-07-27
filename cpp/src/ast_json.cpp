@@ -130,7 +130,16 @@ json serializeStmt(const ast::Stmt &stmt) {
                   {"varName", s.varName},
                   {"line", s.line}};
         } else if constexpr (std::is_same_v<T, ast::StmtVarUndef>) {
-          return {{"type", "varUndef"}, {"varName", s.varName}, {"line", s.line}};
+          // single name keeps the JS shape (parser-diff compatible); the
+          // multi-name form is a C++-only extension
+          if (s.varNames.size() == 1) {
+            return {{"type", "varUndef"},
+                    {"varName", s.varNames[0]},
+                    {"line", s.line}};
+          }
+          return {{"type", "varUndef"},
+                  {"varNames", s.varNames},
+                  {"line", s.line}};
         } else if constexpr (std::is_same_v<T, ast::StmtVarAssignCalc>) {
           json j = {{"type", "varAssignCalc"}, {"varName", s.varName},
                     {"swizzle", s.swizzle},    {"assignType", s.assignType},

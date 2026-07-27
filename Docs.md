@@ -113,9 +113,12 @@ The latter should be preferred whenever possible.<br>
 Automatic allocation of registers happens in a fixed order, choosing the first free register.
 
 To manually un-declare a variable, you can use the `undef` keyword.<br>
+Multiple variables can be un-declared in a single statement by separating them with commas.
 ```c++
 u32<$t0> myVar;
+u32 varA, varB;
 undef myVar;
+undef varA, varB;
 myVar += 1; // <- ERROR: no longer in scope
 ```
 There is no runtime overhead to un-declaring variables.
@@ -379,6 +382,33 @@ macro loadCurrentMat(vec32 mat0, vec32 mat1, vec32 mat2, vec32 mat3)
   mat1 = load(address, 0x10).xyzwxyzw;
   mat2 = load(address, 0x20).xyzwxyzw;
   mat3 = load(address, 0x30).xyzwxyzw;
+}
+```
+
+#### Local macros
+Macros can also be declared inside `command`s, `function`s and other macros, acting as a force-inlined lambda.<br>
+This is useful for repeating a block of code multiple times without a runtime call, e.g. for loop de-phasing.<br>
+
+A local macro is callable after its declaration, until the end of the enclosing scope.<br>
+Its body is resolved at the calling site, so it can access any variable visible there, even ones declared after the macro itself.<br>
+Local macros shadow global macros of the same name.
+
+Example:
+```c++
+command<0> Cmd_Process(u32 addr, u32 count)
+{
+  u32 ptr = addr;
+
+  macro step(vec16 v) {
+    v = load(ptr);
+    v = v +* v.x;
+    store(v, ptr);
+    ptr += 0x10;
+  }
+
+  vec16 a, b;
+  step(a); // both calls inline the body,
+  step(b); // 'ptr' is picked up from this scope
 }
 ```
 
