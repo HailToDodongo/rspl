@@ -7,6 +7,13 @@ It's intended to be a simple language staying close to the hardware, while provi
 
 For a detailed documentation on the langue itself, see the language docs: [RSPL](Docs.md)
 
+## State of this Repo (JS -> C++)
+
+RSPL recently did a port to C++, which was mostly translated from JS into C++ automatically.<br>
+The C++ version is currently located in `cpp` and the only one being actively worked on.
+For reference, the JS is going to stay for a while, but will be eventually removed.<br>
+The sections that follow in this readme are mostly referencing the JS version.
+
 ## Using RSPL
 
 This project provides both a CLI, and an interactive Web-App which can transpile code in real-time.
