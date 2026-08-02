@@ -18,6 +18,7 @@
 #include <cmath>
 #include <condition_variable>
 #include <cstdint>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <mutex>
@@ -97,6 +98,9 @@ void fillDelaySlots(AsmFunc &func) {
 constexpr int POOL_SIZE = 8;
 constexpr double PREFER_STALLS_RATE = 0.20;
 constexpr double PREFER_PAIR_RATE = 0.80;
+// Chance per step to attempt an offset-rebase hop (mem-op crossing a pointer
+// increment, see asmTryRebaseCross). Disable with RSPL_REBASE_HOP=0.
+constexpr double REBASE_HOP_RATE = 0.10;
 constexpr int MAX_STEPS_NO_CHANGE = 5000;
 constexpr int SEARCH_VARIANT_SEARCH = 10;
 constexpr int SEARCH_BACK_STEPS_FACTOR = 10;
@@ -153,9 +157,28 @@ static void relocateElement(std::vector<AsmInst> &arr, int from, int to) {
 
 // --- optimizeStep (matches JS optimizeStep) --------------------------------
 
+static bool rebaseHopEnabled() {
+  static const bool enabled = [] {
+    const char *e = std::getenv("RSPL_REBASE_HOP");
+    return !(e && e[0] == '0');
+  }();
+  return enabled;
+}
+
 static int optimizeStep(AsmFunc &func) {
   auto sz = static_cast<int>(func.asm_.size());
   if (sz < 2) return 0;
+
+  // Occasionally try an offset-rebase hop; most picks are not rebasable
+  // mem-ops and fall through to the normal move below at trivial cost.
+  if (rebaseHopEnabled() && rand01() < REBASE_HOP_RATE) {
+    int hopIdx = randIndex(sz);
+    bool fwd = rand01() < 0.5;
+    if (asmTryRebaseCross(func.asm_, hopIdx, fwd) ||
+        asmTryRebaseCross(func.asm_, hopIdx, !fwd)) {
+      return 1;
+    }
+  }
 
   int i = 0;
   std::vector<int> reorderIndices;

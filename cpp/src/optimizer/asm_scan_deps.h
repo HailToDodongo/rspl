@@ -47,4 +47,10 @@ std::vector<int> asmGetReorderIndices(const std::vector<AsmInst> &asmList,
 // Debug: scan and set min/max reorder info for each instruction
 void asmScanDeps(AsmFunc &func);
 
+// Offset-rebase hop: try to move the mem-op at index `i` across the nearest
+// blocking pure self-increment of its base register (forward = below it,
+// backward = above it), rewriting the mem-op's immediate offset to keep the
+// effective address identical. Returns true if the list was modified.
+bool asmTryRebaseCross(std::vector<AsmInst> &asmList, int i, bool forward);
+
 } // namespace rspl

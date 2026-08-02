@@ -5,6 +5,7 @@
 #include "../types.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <set>
 #include <string>
 #include <unordered_set>
@@ -396,9 +397,119 @@ std::vector<std::string> getTargetRegs(const AsmInst &inst) {
   return res;
 }
 
+// --- Offset-rebase classification --------------------------------------
+
+// Vector load/store offset scale (hardware: 7-bit signed offset in units of
+// the access size). Ops with wrapping or transposed semantics (lrv/srv, ltv,
+// stv, lhv, sfv, ...) are deliberately excluded.
+static const std::unordered_map<Opcode, int> REBASE_VEC_SCALE = []() {
+  std::unordered_map<Opcode, int> m;
+  auto add = [&](const char *op, int scale) { m[getOpcode(op)] = scale; };
+  add("lbv", 1);  add("sbv", 1);
+  add("lsv", 2);  add("ssv", 2);
+  add("llv", 4);  add("slv", 4);
+  add("ldv", 8);  add("sdv", 8);
+  add("lpv", 8);  add("spv", 8);
+  add("luv", 8);  add("suv", 8);
+  add("lqv", 16); add("sqv", 16);
+  return m;
+}();
+
+static const std::unordered_set<Opcode> REBASE_SCALAR_MEM = []() {
+  std::unordered_set<Opcode> s;
+  for (auto *op : {"lw", "lh", "lhu", "lb", "lbu", "sw", "sh", "sb"})
+    s.insert(getOpcode(op));
+  return s;
+}();
+
+// Parse a full string as an integer (decimal or 0x-hex, optional sign).
+static bool parseFullInt(const std::string &s, int &out) {
+  if (s.empty()) return false;
+  char *end = nullptr;
+  long v = std::strtol(s.c_str(), &end, 0);
+  if (end != s.c_str() + s.size()) return false;
+  out = static_cast<int>(v);
+  return true;
+}
+
+static void initRebaseInfo(AsmInst &inst) {
+  inst.rebaseKind = RebaseKind::None;
+  inst.rebaseBase = -1;
+  inst.rebaseValue = 0;
+  if (inst.type != AsmType::OP) return;
+
+  // Pure self-increment: addiu B, B, imm
+  if (inst.op == Op::ADDIU() && inst.args.size() == 3 &&
+      inst.args[0] == inst.args[1]) {
+    int imm;
+    if (!parseFullInt(inst.args[2], imm) || imm == 0) return;
+    int base = getRegStallIndex(inst.args[0]);
+    if (base < 0 || base >= 32) return;
+    inst.rebaseKind = RebaseKind::Increment;
+    inst.rebaseBase = static_cast<int16_t>(base);
+    inst.rebaseValue = imm;
+    return;
+  }
+
+  if (!(inst.opFlags & (OP_FLAG_IS_LOAD | OP_FLAG_IS_STORE))) return;
+
+  // Vector load/store: (vreg, element, offset, base)
+  auto sit = REBASE_VEC_SCALE.find(inst.op);
+  if (sit != REBASE_VEC_SCALE.end()) {
+    if (inst.args.size() != 4) return;
+    int offset;
+    if (!parseFullInt(inst.args[2], offset)) return;
+    if (offset % sit->second != 0) return;
+    int base = getRegStallIndex(inst.args[3]);
+    if (base < 0 || base >= 32) return;
+    inst.rebaseKind = RebaseKind::MemOp;
+    inst.rebaseBase = static_cast<int16_t>(base);
+    inst.rebaseValue = offset;
+    return;
+  }
+
+  // Scalar load/store: (reg, "offset(base)")
+  if (!REBASE_SCALAR_MEM.count(inst.op) || inst.args.size() != 2) return;
+  const std::string &mem = inst.args[1];
+  auto par = mem.find('(');
+  if (par == std::string::npos || mem.back() != ')') return;
+  int offset;
+  if (!parseFullInt(mem.substr(0, par), offset)) return; // rejects %lo(...)
+  std::string baseReg = mem.substr(par + 1, mem.size() - par - 2);
+  int base = getRegStallIndex(baseReg);
+  if (base < 0 || base >= 32) return;
+  // The base must be used ONLY as the address: a store whose data is B, or a
+  // load whose destination is B, would change meaning when crossing B += imm.
+  if (inst.args[0] == baseReg) return;
+  inst.rebaseKind = RebaseKind::MemOp;
+  inst.rebaseBase = static_cast<int16_t>(base);
+  inst.rebaseValue = offset;
+}
+
+// Rewrite the mem-op's immediate offset by delta. Fails (without mutating)
+// if the result is unencodable for the opcode.
+static bool rebaseApplyDelta(AsmInst &inst, int delta) {
+  if (inst.rebaseKind != RebaseKind::MemOp) return false;
+  int newOffset = inst.rebaseValue + delta;
+  auto sit = REBASE_VEC_SCALE.find(inst.op);
+  if (sit != REBASE_VEC_SCALE.end()) {
+    int scale = sit->second;
+    if (newOffset % scale != 0) return false;
+    if (newOffset < -64 * scale || newOffset > 63 * scale) return false;
+    inst.args[2] = std::to_string(newOffset);
+  } else {
+    if (newOffset < -32768 || newOffset > 32767) return false;
+    auto par = inst.args[1].find('(');
+    inst.args[1] = std::to_string(newOffset) + inst.args[1].substr(par);
+  }
+  inst.rebaseValue = newOffset;
+  return true;
+}
+
 // --- Dependency initialization ----------------------------------------
 
 void asmInitDep(AsmInst &inst) {
+  initRebaseInfo(inst);
   // Clear all dependency data
   inst.depsSourceIdx.clear();
   inst.depsTargetIdx.clear();
@@ -618,6 +729,87 @@ std::vector<int> asmGetReorderIndices(const std::vector<AsmInst> &asmList,
   }
 
   return res;
+}
+
+// --- Offset-rebase hop -------------------------------------------------
+// Moves the mem-op at `i` directly across the nearest blocking instruction,
+// IF that blocker is a pure self-increment of the mem-op's base register,
+// rewriting the offset to keep the effective address identical:
+//   sqv $v01, 0, 0, $t0    <->   addiu $t0, $t0, 16
+//   addiu $t0, $t0, 16           sqv $v01, 0, -16, $t0
+// Every instruction crossed on the way must already be dep-compatible; the
+// relaxation applies ONLY to the base-register edge with the increment.
+
+bool asmTryRebaseCross(std::vector<AsmInst> &asmList, int i, bool forward) {
+  if (i < 0 || i >= (int)asmList.size()) return false;
+  AsmInst &m = asmList[i];
+  if (m.type != AsmType::OP || m.rebaseKind != RebaseKind::MemOp) return false;
+  if (m.opFlags & (OP_FLAG_IS_IMMOVABLE | OP_FLAG_IS_NOP)) return false;
+
+  const int sz = (int)asmList.size();
+
+  if (forward) {
+    for (int f = i + 1; f < sz; ++f) {
+      const AsmInst &next = asmList[f];
+      // never cross labels or control flow
+      if (next.type != AsmType::OP) return false;
+      if (next.opFlags & OP_FLAG_IS_BRANCH) return false;
+      // WAW: something between us and the landing writes one of our targets
+      // (only possible for loads; the increment itself writes only the base,
+      // which qualification guarantees is not among our targets)
+      if (maskAnd(next.depsTargetMask, m.depsTargetMask)) return false;
+
+      if (checkAsmBackwardDep(next, m)) {
+        // first blocker — must be a crossable increment of our base, with
+        // no other coupling (checkAsmBackwardDep includes barriers)
+        if (next.rebaseKind != RebaseKind::Increment ||
+            next.rebaseBase != m.rebaseBase ||
+            (next.barrierMask & m.barrierMask))
+          return false;
+        if (f + 1 >= sz) return false; // need a landing slot below it
+        if (!rebaseApplyDelta(m, -next.rebaseValue)) return false;
+
+        bool inDelaySlot =
+            (i >= 1) && (asmList[i - 1].opFlags & OP_FLAG_IS_BRANCH);
+        AsmInst inst = std::move(asmList[i]);
+        if (inDelaySlot) {
+          asmList[i] = asmNOP();
+          asmInitDep(asmList[i]);
+          asmList.insert(asmList.begin() + (f + 1), std::move(inst));
+        } else {
+          asmList.erase(asmList.begin() + i);
+          asmList.insert(asmList.begin() + f, std::move(inst));
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // backward
+  for (int b = i - 1; b >= 0; --b) {
+    const AsmInst &prev = asmList[b];
+    if (prev.type != AsmType::OP) return false;
+    if (prev.opFlags & OP_FLAG_IS_BRANCH) return false;
+    // landing at `b` while b is a branch delay slot would change which
+    // instruction executes in the slot — stop before that
+    if (b >= 1 && (asmList[b - 1].opFlags & OP_FLAG_IS_BRANCH)) return false;
+    if (maskAnd(prev.depsTargetMask, m.depsTargetMask)) return false;
+
+    if (checkAsmBackwardDep(m, prev)) {
+      if (prev.rebaseKind != RebaseKind::Increment ||
+          prev.rebaseBase != m.rebaseBase ||
+          (prev.barrierMask & m.barrierMask))
+        return false;
+      if (!rebaseApplyDelta(m, prev.rebaseValue)) return false;
+
+      AsmInst inst = std::move(asmList[i]);
+      asmList.erase(asmList.begin() + i);
+      asmList.insert(asmList.begin() + b, std::move(inst));
+      return true;
+    }
+  }
+  return false;
 }
 
 void asmScanDeps(AsmFunc &func) {

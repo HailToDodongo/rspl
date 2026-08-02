@@ -127,6 +127,18 @@ template <typename T, size_t N> struct SmallVec {
   }
 };
 
+// --- Offset rebasing (reorder across pointer increments) ---------------
+// A mem-op with a numeric immediate offset may be moved across a pure
+// self-increment of its base register ("addiu B, B, imm") if the offset is
+// rewritten by -imm (moving below) / +imm (moving above). The dep scanner
+// pre-classifies instructions so the annealer can check cheaply.
+
+enum class RebaseKind : uint8_t {
+  None = 0,
+  Increment, // addiu B, B, imm  (rebaseValue = imm)
+  MemOp,     // load/store, numeric offset (rebaseValue = offset)
+};
+
 // --- ASM instruction --------------------------------------------------
 
 struct AsmInst {
@@ -139,6 +151,11 @@ struct AsmInst {
 
   AsmDebug debug;
   uint32_t barrierMask = 0;
+
+  // -- Offset-rebase classification (filled by asmInitDep) --------------
+  RebaseKind rebaseKind = RebaseKind::None;
+  int16_t rebaseBase = -1;            // stall index of the base register
+  int32_t rebaseValue = 0;            // Increment: delta / MemOp: offset
 
   // -- Dependency tracking (filled by optimizer) -----------------------
   // Capacity must cover the worst case after lane-expansion: two vector args

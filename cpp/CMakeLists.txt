@@ -120,6 +120,7 @@ set(TEST_SOURCES
   tests/test_magma.cpp
   tests/test_preproc.cpp
   tests/test_patch.cpp
+  tests/test_rebaseHop.cpp
   tests/test_lexer.cpp
   tests/test_parserDiff.cpp
   tests/test_scalarOps.cpp
