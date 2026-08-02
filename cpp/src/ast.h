@@ -332,6 +332,9 @@ struct DefineEntry {
 struct Program {
   std::vector<std::string> includes;
   std::vector<StateSection> states;
+  // Top-level register-pinned variables (C++-only extension): visible in
+  // every function, excluded from auto-allocation, not undef-able.
+  std::vector<StmtVarDecl> globalVars;
   std::vector<Uniform> uniforms;
   std::vector<Attribute> attributes;
   std::vector<Function> functions;

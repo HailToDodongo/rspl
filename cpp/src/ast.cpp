@@ -490,6 +490,18 @@ Program parseJson(const std::string &jsonStr) {
       prog.states.push_back(parseStateSection(s));
     }
   }
+  // C++-only extension, never emitted by the JS parser
+  if (j.contains("globalVars") && j["globalVars"].is_array()) {
+    for (const auto &g : j["globalVars"]) {
+      prog.globalVars.push_back(StmtVarDecl{
+          .varName = g.value("varName", ""),
+          .varType = g.value("varType", ""),
+          .reg = g.value("reg", ""),
+          .isConst = g.value("isConst", false),
+          .line = g.value("line", 0u),
+      });
+    }
+  }
   if (j.contains("uniforms") && j["uniforms"].is_array()) {
     for (const auto &u : j["uniforms"]) {
       prog.uniforms.push_back(parseUniform(u));

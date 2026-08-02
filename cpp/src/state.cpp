@@ -25,6 +25,7 @@ void State::reset() {
   funcType.clear();
   argSize = 0;
   line = 0;
+  globalVars.clear();
   scopeStack.clear();
   memVarMap.clear();
   outWarn.clear();
@@ -84,6 +85,22 @@ void State::enterFunction(const std::string &name, const std::string &type,
   declareVar("RA", "u32", reg::Reg::RA, false);
   declareVar("GP", "u32", reg::Reg::GP, false, true);
   declareVar("VTEMP", "vec16", reg::Reg::VTEMP0, false, true);
+
+  // Global register variables live in every function's root scope; their
+  // registers stay out of reach of the auto-allocator via regVarMap.
+  for (const auto &g : globalVars) {
+    declareVar(g.name, g.type, g.reg, g.isConst);
+    VarDef &def = getScope().varMap[g.name];
+    def.isGlobal = true;
+    // a const global has no initializer in RSPL code, so the usual
+    // "one initializing write" allowance must not apply — any write errors
+    if (g.isConst) def.modifyCount = 1;
+  }
+}
+
+void State::declareGlobalVar(const std::string &name, const std::string &type,
+                             const std::string &reg, bool isConst) {
+  globalVars.push_back({name, type, reg, isConst});
 }
 
 void State::leaveFunction() {
@@ -213,6 +230,9 @@ void State::undefVar(const std::string &varName) {
   auto varIt = scope.varMap.find(resolved);
   if (varIt == scope.varMap.end()) {
     throwError("Variable " + resolved + " not known!");
+  }
+  if (varIt->second.isGlobal) {
+    throwError("Cannot undef global register variable '" + resolved + "'!");
   }
 
   // Free registers

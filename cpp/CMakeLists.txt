@@ -111,6 +111,7 @@ set(TEST_SOURCES
   tests/test_debugInfo.cpp
   tests/test_defineAsm.cpp
   tests/test_dma.cpp
+  tests/test_globalVars.cpp
   tests/test_immediateScalar.cpp
   tests/test_labels.cpp
   tests/test_load.cpp

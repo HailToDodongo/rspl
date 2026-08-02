@@ -49,8 +49,13 @@ public:
       next();
       prog.includes.push_back(expect(Tok::String).value); // keeps quotes
     }
-    while (at(Tok::VarName)) {
-      prog.states.push_back(parseStateSection());
+
+    while (at(Tok::VarName) || at(Tok::DataType) || at(Tok::KWConst)) {
+      if (at(Tok::VarName)) {
+        prog.states.push_back(parseStateSection());
+      } else {
+        prog.globalVars.push_back(parseGlobalVarDecl());
+      }
     }
     while (at(Tok::KWUniform)) {
       prog.uniforms.push_back(parseUniform());
@@ -169,6 +174,42 @@ private:
     }
     expect(Tok::StmEnd); // `_ %StmEnd` — space allowed here
     return sv;
+  }
+
+  // Global register variable
+  //   (%KWConst __):? %DataType RegDef _ %VarName _ %StmEnd
+  // The register is mandatory and exactly one name is allowed.
+  ast::StmtVarDecl parseGlobalVarDecl() {
+    ast::StmtVarDecl s;
+    if (at(Tok::KWConst)) {
+      next();
+      s.isConst = true;
+      if (!cur().spaceBefore) error(); // (%KWConst __) — space required
+    }
+    Token dt = expect(Tok::DataType);
+    s.varType = dt.value;
+    s.line = dt.line;
+    if (!atAdj(Tok::TypeStart)) {
+      throw std::runtime_error(
+          "Syntax error at line " + std::to_string(dt.line) +
+          ": global variables must specify a register, e.g. '" + dt.value +
+          "<$t0> name;'");
+    }
+    s.reg = parseRegDef();
+    s.varName = expect(Tok::VarName).value;
+    if (at(Tok::Seperator)) {
+      throw std::runtime_error(
+          "Syntax error at line " + std::to_string(dt.line) +
+          ": global variables must be declared one per statement "
+          "(each needs its own register)");
+    }
+    if (at(Tok::Assignment)) {
+      throw std::runtime_error(
+          "Syntax error at line " + std::to_string(dt.line) +
+          ": global variables cannot have an initializer");
+    }
+    expect(Tok::StmEnd);
+    return s;
   }
 
   // RegNumDef -> %TypeStart ValueNumeric %TypeEnd  (all adjacent)

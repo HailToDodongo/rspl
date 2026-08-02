@@ -123,6 +123,27 @@ myVar += 1; // <- ERROR: no longer in scope
 ```
 There is no runtime overhead to un-declaring variables.
 
+### Global variables
+Variables can also be declared at the top of a file, outside of any function (before/between the `state` sections).<br>
+This permanently pins the given register: it is visible in every function, the automatic register allocation will never hand it out, and it cannot be `undef`'d.<br>
+Use this for values you know are global and shared across functions, instead of re-pinning the same register locally in each one.
+
+A register must be specified explicitly, one variable per statement, and no initializer is allowed (no code runs at file scope):
+```c++
+include "rsp_queue.inc"
+
+u32<$k0> globCounter;    // pinned in every function
+vec16<$v27> globVec;     // vector registers work too (vec32 pins two)
+const u32<$k1> globRead; // const: any write is an error
+
+state { ... }
+
+function funcA() {
+  globCounter += 1;      // same register everywhere
+}
+```
+Declaring a local variable or function argument on a register held by a global variable is an error.
+
 ### Scope
 RSPL has a concept of scopes which, similar to C, refers to a block of code inside curly-brackets.<br>
 This only limits the visibly/lifetime of variable declarations.<br>

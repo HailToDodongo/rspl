@@ -253,6 +253,16 @@ std::string astToJson(const ast::Program &prog, bool pretty) {
   }
   j["states"] = std::move(states);
 
+  json globalVars = json::array();
+  for (const auto &g : prog.globalVars) {
+    globalVars.push_back({{"varName", g.varName},
+                          {"varType", g.varType},
+                          {"reg", g.reg},
+                          {"isConst", g.isConst},
+                          {"line", g.line}});
+  }
+  j["globalVars"] = std::move(globalVars);
+
   json uniforms = json::array();
   for (const auto &u : prog.uniforms) {
     json vars = json::array();

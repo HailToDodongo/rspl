@@ -21,6 +21,7 @@ struct VarDef {
   double value = 0.0;        // numeric value when reg is empty
   bool isConst = false;
   int modifyCount = 0;
+  bool isGlobal = false;     // file-level register-pinned var, not undef-able
 
   // Backward-compat accessors for code that still uses strings
   std::string typeStr() const { return toString(type); }
@@ -110,6 +111,18 @@ public:
                  const std::string &labelEnd = "");
   void popScope();
 
+  // -- Global register variables ---------------------------------------
+  struct GlobalVarDef {
+    std::string name;
+    std::string type;
+    std::string reg;
+    bool isConst = false;
+  };
+  // Registered once per program; re-declared into every function's root
+  // scope by enterFunction().
+  void declareGlobalVar(const std::string &name, const std::string &type,
+                        const std::string &reg, bool isConst);
+
   // -- Variable management ---------------------------------------------
   void declareVar(const std::string &name, const std::string &type,
                   const std::string &reg, bool isConst = false,
@@ -158,6 +171,7 @@ public:
 
 private:
   int nextLabelId = 0;
+  std::vector<GlobalVarDef> globalVars;
   std::vector<Scope> scopeStack;
   std::unordered_map<std::string, MemVarDef> memVarMap;
   std::unordered_map<std::string, FuncDef> funcMap;

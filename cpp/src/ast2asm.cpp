@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace rspl {
@@ -1017,6 +1018,59 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
     if (fn.type == FuncType::Macro) {
       macroScopes.back()[fn.name] = &fn;
     }
+  }
+
+  // Register global register variables. Validated eagerly here so errors
+  // carry the declaration's source line; enterFunction() re-declares them
+  // into every function's root scope (which keeps their registers away
+  // from the auto-allocator via regVarMap).
+  {
+    // registers the built-ins occupy in every function
+    std::unordered_map<std::string, std::string> usedRegs = {
+        {reg::Reg::ZERO, "ZERO"},      {reg::Reg::VZERO, "VZERO"},
+        {reg::Reg::VSHIFT, "VSHIFT"},  {reg::Reg::VSHIFT8, "VSHIFT8"},
+        {reg::Reg::RA, "RA"},          {reg::Reg::GP, "GP"},
+        {reg::Reg::VTEMP0, "VTEMP"},
+    };
+    std::unordered_set<std::string> usedNames;
+    for (const auto &g : ast.globalVars) {
+      state.line = g.line;
+      if (!usedNames.insert(g.varName).second) {
+        state.throwError("Global variable '" + g.varName +
+                         "' already declared!", g.varName);
+      }
+      if (std::find(reg::REGS_FORBIDDEN.begin(), reg::REGS_FORBIDDEN.end(),
+                    g.reg) != reg::REGS_FORBIDDEN.end()) {
+        state.throwError("Cannot use reserved register '" + g.reg +
+                         "' for a global variable!", g.varName);
+      }
+      if (isVecType(g.varType) && !reg::isVecReg(g.reg)) {
+        state.throwError("Cannot use scalar register for vector variable!",
+                         g.varName);
+      }
+      if (!isVecType(g.varType) && reg::isVecReg(g.reg)) {
+        state.throwError("Cannot use vector register for scalar variable!",
+                         g.varName);
+      }
+      auto claimReg = [&](const std::string &r) {
+        auto it = usedRegs.find(r);
+        if (it != usedRegs.end()) {
+          state.throwError("Register '" + r + "' already used for variable '" +
+                           it->second + "'!", g.varName);
+        }
+        usedRegs[r] = g.varName;
+      };
+      claimReg(g.reg);
+      if (isTwoRegType(g.varType)) {
+        const std::string *nextR = reg::nextReg(g.reg);
+        if (!nextR) {
+          state.throwError("No next register for two-reg type!", g.varName);
+        }
+        claimReg(*nextR);
+      }
+      state.declareGlobalVar(g.varName, g.varType, g.reg, g.isConst);
+    }
+    state.line = 0;
   }
 
   // Pre-declare memory variables from state/data/bss sections
