@@ -1,0 +1,196 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "RSPL",
+  "scopeName": "source.rspl",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#preprocessor" },
+    { "include": "#strings" },
+    { "include": "#annotations" },
+    { "include": "#numbers" },
+    { "include": "#swizzles" },
+    { "include": "#registers" },
+    { "include": "#types" },
+    { "include": "#sections" },
+    { "include": "#keywords" },
+    { "include": "#builtins" },
+    { "include": "#constants" },
+    { "include": "#functions" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.rspl",
+          "begin": "//",
+          "end": "$"
+        },
+        {
+          "name": "comment.block.rspl",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "preprocessor": {
+      "patterns": [
+        {
+          "name": "meta.preprocessor.rspl",
+          "begin": "^\\s*(#(?:define|undef|ifdef|ifndef|else|endif|include))\\b",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.directive.rspl" }
+          },
+          "end": "(?<!\\\\)$",
+          "patterns": [
+            { "include": "#comments" },
+            { "include": "#strings" },
+            { "include": "#numbers" }
+          ]
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.rspl",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        { "name": "constant.character.escape.rspl", "match": "\\\\." }
+      ]
+    },
+    "annotations": {
+      "patterns": [
+        {
+          "match": "(@)(Barrier|Relative|Align|NoReturn|Unlikely|NoRegAlloc|Tag|AttrLoader|AttrPatch)\\b",
+          "captures": {
+            "1": { "name": "punctuation.definition.annotation.rspl" },
+            "2": { "name": "storage.type.annotation.rspl" }
+          }
+        },
+        {
+          "name": "invalid.illegal.annotation.rspl",
+          "match": "@[A-Za-z_]\\w*"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        { "name": "constant.numeric.hex.rspl", "match": "\\b0x[0-9A-Fa-f']+\\b" },
+        { "name": "constant.numeric.binary.rspl", "match": "\\b0b[01']+\\b" },
+        { "name": "constant.numeric.float.rspl", "match": "\\b\\d+\\.\\d+\\b" },
+        { "name": "constant.numeric.decimal.rspl", "match": "\\b\\d+\\b" }
+      ]
+    },
+    "swizzles": {
+      "patterns": [
+        {
+          "name": "variable.other.member.swizzle.rspl",
+          "match": "(?<=[\\w\\)\\]])\\.(?:xyzwxyzw|xxzzXXZZ|yywwYYWW|xxxxXXXX|yyyyYYYY|zzzzZZZZ|wwwwWWWW|xxxxxxxx|yyyyyyyy|zzzzzzzz|wwwwwwww|XXXXXXXX|YYYYYYYY|ZZZZZZZZ|WWWWWWWW|xyzw|XYZW|xy|zw|XY|ZW|00224466|11335577|00004444|11115555|22226666|33337777|00000000|11111111|22222222|33333333|44444444|55555555|66666666|77777777|01230123|0123|4567|01|23|45|67|[xyzwXYZW0-7])\\b"
+        }
+      ]
+    },
+    "registers": {
+      "patterns": [
+        {
+          "name": "variable.language.register.vector.rspl",
+          "match": "\\$v(?:0[0-9]|1[0-9]|2[0-9]|3[01])\\b"
+        },
+        {
+          "name": "variable.language.register.rspl",
+          "match": "\\$(?:zero|at|v[01]|a[0-3]|t[0-9]|s[0-7]|k[01]|gp|sp|fp|ra)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.rspl",
+          "match": "\\b(?:u8|s8|u16|s16|u32|s32|vec16|vec32)\\b"
+        },
+        {
+          "match": "(:)\\s*(sint|uint|sfract|ufract)\\b",
+          "captures": {
+            "1": { "name": "punctuation.separator.cast.rspl" },
+            "2": { "name": "storage.type.cast.rspl" }
+          }
+        }
+      ]
+    },
+    "sections": {
+      "patterns": [
+        {
+          "name": "storage.modifier.section.rspl",
+          "match": "\\b(?:state|temp_state|bss|data)\\b(?=\\s*\\{)"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.rspl",
+          "match": "\\b(?:if|else|while|loop|goto|break|continue|exit)\\b"
+        },
+        {
+          "name": "storage.type.function.rspl",
+          "match": "\\b(?:function|command|macro|shader)\\b"
+        },
+        {
+          "name": "storage.modifier.rspl",
+          "match": "\\b(?:extern|const|undef|alignas|uniform|attribute)\\b"
+        },
+        {
+          "name": "keyword.control.include.rspl",
+          "match": "\\binclude\\b"
+        }
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.rspl",
+          "match": "\\b(?:abs|asm_include|asm_op|asm|assert|clear_vcc|clip|dma_await|dma_in_async|dma_in|dma_out_async|dma_out|get_acc_high|get_acc_low|get_acc_mid|get_acc|get_cmd_address|get_dma_busy|get_rdp_current|get_rdp_end|get_rdp_start|get_ticks|get_vcc|invert_half_sqrt|invert_half|invert|load_arg|load_transposed|load_unaligned|load_vec_s8|load_vec_u8|load|max|min|printf|print|select|set_dma_addr_rdram|set_dma_addr_rsp|set_dma_read|set_dma_write|set_rdp_current|set_rdp_end|set_rdp_start|set_rsp_status|set_vcc|store_offset|store_transposed|store_unaligned|store_vec_s8|store_vec_u8|store|swap|transpose)(?=\\s*\\()"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.rspl",
+          "match": "\\b(?:ZERO|VZERO|true|false)\\b"
+        },
+        {
+          "name": "constant.other.caps.rspl",
+          "match": "\\b[A-Z][A-Z0-9_]{2,}\\b"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.rspl",
+          "match": "\\b[A-Za-z_]\\w*(?=\\s*\\()"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.assignment.compound.rspl",
+          "match": "&&=|\\|\\|=|&=|\\|=|\\^=|>>>=|<<=|>>=|\\+\\*=|\\+=|-=|\\*=|/="
+        },
+        {
+          "name": "keyword.operator.comparison.rspl",
+          "match": "<=|>=|==|!="
+        },
+        {
+          "name": "keyword.operator.rspl",
+          "match": "&&|\\|\\||>>>|>>|<<|\\+\\*|[+\\-*/&|^!~?]|~\\|"
+        },
+        {
+          "name": "keyword.operator.assignment.rspl",
+          "match": "="
+        }
+      ]
+    }
+  }
+}

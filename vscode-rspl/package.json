@@ -1,0 +1,35 @@
+{
+  "name": "rspl-lang",
+  "displayName": "RSPL",
+  "description": "Language support for RSPL (N64 RSP high-level language)",
+  "version": "0.1.0",
+  "publisher": "rspl",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "rspl",
+        "aliases": [
+          "RSPL",
+          "rspl"
+        ],
+        "extensions": [
+          ".rspl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "rspl",
+        "scopeName": "source.rspl",
+        "path": "./syntaxes/rspl.tmLanguage.json"
+      }
+    ]
+  }
+}
