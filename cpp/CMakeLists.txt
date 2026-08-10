@@ -105,6 +105,7 @@ set(TEST_SOURCES
   tests/test_builtinsAll.cpp
   tests/test_branchVar.cpp
   tests/test_branchZero.cpp
+  tests/test_commandArgs.cpp
   tests/test_compare.cpp
   tests/test_const.cpp
   tests/test_control.cpp

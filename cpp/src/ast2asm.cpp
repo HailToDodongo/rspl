@@ -1133,6 +1133,7 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
     int argSize = 0;
     static const char *argRegs[] = {reg::Reg::A0, reg::Reg::A1,
                                     reg::Reg::A2, reg::Reg::A3};
+    std::vector<AsmInst> funcAsm;
     for (const auto &arg : fn.args) {
       std::string reg;
       if (!arg.reg.empty()) {
@@ -1143,10 +1144,25 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
         reg = state.allocRegister(toString(arg.type));
       }
       state.declareVar(arg.name, toString(arg.type), reg);
+
+      // The RSPQ dispatcher only provides the first 4 command args in $a0-$a3.
+      // anything past that is fetched from the command buffer
+      if (fn.type == FuncType::Command && argSize >= 4) {
+        int offset = argSize * 4 - byteArgSize;
+        VarDef argVar;
+        argVar.reg = reg;
+        argVar.type = toTypeClass(toString(arg.type));
+        VarOrMem loc;
+        loc.reg = reg::Reg::GP;
+        VarOrMem off;
+        off.reg = std::string("%lo(RSPQ_DMEM_BUFFER") + " " +
+                  std::string(offset < 0 ? "" : "+") + " " +
+                  std::to_string(offset) + ")";
+        auto load = ops::opLoad(argVar, loc, off);
+        funcAsm.insert(funcAsm.end(), load.begin(), load.end());
+      }
       argSize++;
     }
-
-    std::vector<AsmInst> funcAsm;
     auto body = scopedBlockToAsm(*fn.body);
     funcAsm.insert(funcAsm.end(), body.begin(), body.end());
 

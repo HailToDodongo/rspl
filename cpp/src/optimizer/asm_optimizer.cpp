@@ -111,6 +111,15 @@ constexpr int PROGRESS_LOG_INTERVAL = 500; // meta-iterations between logs
 
 // --- Helper functions -----------------------------------------------------
 
+// IMEM usage of a variant: every OP (incl. NOPs) is one instruction word.
+static int countOps(const std::vector<AsmInst> &asmList) {
+  int count = 0;
+  for (const auto &inst : asmList) {
+    if (inst.type == AsmType::OP) ++count;
+  }
+  return count;
+}
+
 static AsmFunc cloneFunction(const AsmFunc &func) {
   // Only asm_ is needed by reorderRound / evalFunctionCost / asmInitDeps.
   // Skip copying name, type, argSize, annotations, etc.
@@ -325,35 +334,29 @@ public:
 
   // Run `count` variants of `base` in parallel. Returns results.
   std::vector<RoundResult> runParallel(const AsmFunc &base, int count) {
+    results_.clear();
     results_.resize(count);
     nextIdx_.store(0, std::memory_order_release);
-    doneCount_.store(0, std::memory_order_release);
 
     {
       std::lock_guard lk(mtx_);
       base_ = &base;
       batchCount_ = count;
-      batchActive_ = true;
+      activeWorkers_ = static_cast<int>(threads_.size());
+      ++batchGen_;
     }
     cv_.notify_all();
 
-    // Give workers a head start before caller joins
-    std::this_thread::yield();
+    // Caller helps drain the queue
+    workBatch(count);
 
-    // Wait until all tasks are completed (caller helps if any remain)
-    while (doneCount_.load(std::memory_order_acquire) < (size_t)count) {
-      workBatch(count);
-    }
-
-    // Barrier: wait for all workers to exit workBatch, then cleanup
-    threadsDone_.store(1, std::memory_order_release);
+    // Rendezvous: every worker passes through workBatch exactly once per
+    // generation and checks out below. Only after the last check-out is
+    // results_ fully written and base_ guaranteed unused, so tearing down
+    // (or starting the next batch) cannot race a straggler.
     {
       std::unique_lock lk(mtx_);
-      cv_.wait(lk, [&] {
-        return (size_t)threadsDone_.load(std::memory_order_acquire) >
-               threads_.size();
-      });
-      batchActive_ = false;
+      cv_.wait(lk, [&] { return activeWorkers_ == 0; });
       base_ = nullptr;
     }
 
@@ -366,11 +369,10 @@ private:
   std::vector<std::thread> threads_;
   std::vector<RoundResult> results_;
   std::atomic<size_t> nextIdx_{0};
-  std::atomic<size_t> doneCount_{0};
-  std::atomic<int> threadsDone_{0};
   const AsmFunc *base_ = nullptr;
   int batchCount_ = 0;
-  bool batchActive_ = false;
+  int activeWorkers_ = 0;  // guarded by mtx_
+  uint64_t batchGen_ = 0;  // guarded by mtx_
   bool stop_ = false;
   std::mutex mtx_;
   std::condition_variable cv_;
@@ -381,7 +383,6 @@ private:
       if ((int)idx >= count) break;
       AsmFunc variant = cloneFunction(*base_);
       results_[idx] = reorderRoundImpl(std::move(variant));
-      doneCount_.fetch_add(1, std::memory_order_release);
     }
   }
 
@@ -389,18 +390,22 @@ private:
     std::random_device rd;
     setSeed(rd() ^ (static_cast<uint32_t>(id) * 0x9E3779B9));
 
+    uint64_t seenGen = 0;
     while (true) {
       int count;
       {
         std::unique_lock lk(mtx_);
-        cv_.wait(lk, [&] { return stop_ || batchActive_; });
+        cv_.wait(lk, [&] { return stop_ || batchGen_ != seenGen; });
         if (stop_) return;
+        seenGen = batchGen_;
         count = batchCount_;
       }
       workBatch(count);
-      // Signal worker finished this pass, wake caller for barrier
-      threadsDone_.fetch_add(1, std::memory_order_release);
-      cv_.notify_one();
+      {
+        std::lock_guard lk(mtx_);
+        --activeWorkers_;
+      }
+      cv_.notify_all();
     }
   }
 };
@@ -430,6 +435,7 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
 
   asmInitDeps(func);
   int costBest = evalFunctionCost(func);
+  int sizeBest = countOps(func.asm_);
   func.cyclesBefore = costBest;
   int costInit = costBest;
 
@@ -568,19 +574,24 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
       // Safety: a cost of 0 means the variant is broken (no instructions or
       // dependency corruption). Reject it to prevent poisoning func.asm_.
       if (cost == 0) continue;
-      bool isBetter = cost < costBest;
-      bool isSame = cost == costBest;
+      int opCount = countOps(asm_);
+      // Cycles first; on a tie fewer instructions win (filled delay slots
+      // drop a NOP, saving IMEM at identical cycle cost).
+      bool isBetter = cost < costBest ||
+                      (cost == costBest && opCount < sizeBest);
+      bool isSame = cost == costBest && opCount == sizeBest;
       bool canUseTheSame = s < ((int)results.size() / 4);
 
       if (isBetter || (canUseTheSame && isSame)) {
         costBest = cost;
+        sizeBest = opCount;
         func.asm_ = asm_;
         func.cyclesAfter = cost;
 
         if (isBetter) {
           std::cerr << "[" << funcName << "] \033[32m**** New Best for '"
                     << funcName << "': " << costInit << " -> " << cost
-                    << " ****\033[0m" << std::endl;
+                    << " (" << opCount << " ops) ****\033[0m" << std::endl;
           stepsSinceLastOpt = 0;
           consecutiveSame = 0;
         }

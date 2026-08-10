@@ -32,6 +32,7 @@ int evalFunctionCost(AsmFunc &func) {
   // Branch state: 0=none, 2=branch, 1=delay
   int branchStep = 0;
   bool didJump = false;
+  bool inUncondJump = false;
 
   while (pc < (int)ops.size()) {
     // Resolve stalls for to-be-executed instructions.
@@ -70,13 +71,22 @@ int evalFunctionCost(AsmFunc &func) {
       didJump |= (execOp->opFlags & OpFlag::OP_FLAG_LIKELY_BRANCH);
 
       branchStep >>= 1;
-      if (!branchStep && (execOp->opFlags & OpFlag::OP_FLAG_IS_BRANCH))
+      if (!branchStep && (execOp->opFlags & OpFlag::OP_FLAG_IS_BRANCH)) {
         branchStep = 2; // BRANCH_STEP_BRANCH
+        inUncondJump = execOp->op == Op::J() || execOp->op == Op::JAL() ||
+                       execOp->op == Op::JR();
+      }
 
       if (didJump && branchStep == 1) { // BRANCH_STEP_DELAY
         cycle += 1;
         lastLoadPosMask >>= 1;
         didJump = false;
+
+        if (inUncondJump) {
+          lastLoadPosMask = 0;
+          std::fill(std::begin(regStallExpiry), std::end(regStallExpiry), 0);
+          inUncondJump = false;
+        }
       }
 
       execOp->debug.cycle = cycle;

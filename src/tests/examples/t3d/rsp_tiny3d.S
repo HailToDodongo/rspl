@@ -769,9 +769,9 @@ T3DCmd_TriSync:
   or $t2, $zero, $zero                               ## L:1131 |     11 | dma_in_async(targetImem, codeAddr, codeSize);
   jal DMAExec                                        ## L:1131 |     12 | dma_in_async(targetImem, codeAddr, codeSize); ## Args: $t0, $t1, $s0, $s4, $t2
   lw $s0, %lo(CLIP_CODE_ORG_ADDR + 0)                ## L:1127 |    *14 | u32<$s0> codeAddr = load(CLIP_CODE_ORG_ADDR);
-  sb $zero, %lo(CLIP_CODE_ADDR)($zero)               ## L:1134 |    *16 | store(ZERO:u8, CLIP_CODE_ADDR);
-  j RDPQ_Triangle_Send_End                           ## L:1135 |     17 | goto RDPQ_Triangle_Send_End;
-  ori $ra, $zero, %lo(RSPQ_Loop)                     ## L:1133 |    *19 | RA = RSPQ_Loop;
+  sb $zero, %lo(CLIP_CODE_ADDR)($zero)               ## L:1134 |     15 | store(ZERO:u8, CLIP_CODE_ADDR);
+  j RDPQ_Triangle_Send_End                           ## L:1135 |     16 | goto RDPQ_Triangle_Send_End;
+  ori $ra, $zero, %lo(RSPQ_Loop)                     ## L:1133 |    *18 | RA = RSPQ_Loop;
 T3DCmd_TriDraw_Seq:
   andi $s4, $a1, 65535                               ## L:1143 |      ^ | u8<$s4> baseVtxEnd = endIndex & 0xFFFF;
   andi $s2, $a0, 65535                               ## L:1144 |      2 | u16<$s2> baseVtx = sizeAndIndex & 0xFFFF;
