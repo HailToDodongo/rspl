@@ -187,6 +187,7 @@ json serializeStmt(const ast::Stmt &stmt) {
           return {{"type", "annotation"},
                   {"name", s.name},
                   {"value", s.value},
+                  {"mode", s.mode},
                   {"valueIsString", s.valueIsString},
                   {"line", s.line}};
         } else if constexpr (std::is_same_v<T, ast::StmtScopedBlock>) {

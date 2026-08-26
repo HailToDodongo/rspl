@@ -10,12 +10,17 @@ namespace rspl {
 
 struct TranspileConfig {
   bool rspqWrapper = true;
+  // --no-rspq=include: emit the register/flag defines and .set noat/at
+  // guards around the bare code so it can be #include'd from a .S file
+  bool includeGuards = false;
   bool optimize = false;
   bool debugInfo = false;
   bool reorder = false;
   bool magma = false;       // emit a magma shader instead of an RSPQ overlay
   int optimizeTime = 30000; // ms, default 30s matching CLI
   int optWorkers = 0;       // 0 = auto (hw threads - 1)
+  uint32_t optSeed = 0;     // 0 = random; fixed seed = reproducible reorder
+  int optIters = 0;         // 0 = wall-time budget; N = exactly N iterations
   std::string sourceDir = ".";
   // When non-empty, only these functions are optimized; everything else is
   // still generated but left untouched. Used together with patchAsmFunctions()

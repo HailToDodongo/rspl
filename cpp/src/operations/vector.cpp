@@ -258,7 +258,7 @@ std::vector<AsmInst> opMoveVec(const VarDef &varRes,
         int dstOffset = sitDst->second * 2; // byte offset into dest reg
         int accessLen = 8; // 4 lanes × 2 bytes = 8 bytes
 
-        state.addAnnotation("Barrier", "__SCRATCH_MEM__");
+        state.addAnnotation("Barrier", "", "__SCRATCH_MEM__");
 
         std::vector<AsmInst> halfRes;
         halfRes.push_back(

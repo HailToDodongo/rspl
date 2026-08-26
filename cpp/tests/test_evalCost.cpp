@@ -279,3 +279,43 @@ CHECK_CYCLES("Branch - filled (vector)",
   "vxor $v28, $v00, $v30.e7\n"
   "vxor $v28, $v00, $v30.e7\n",
   {1, 2, 4, 5})
+
+// --- Control-register pairing quirk ----------------------------------------
+// The RSP issue logic treats a VU instruction that only *reads* VCO/VCC/VCE
+// as if it also wrote it when deciding dual-issue against CFC2/CTC2. The
+// pair is refused in one order only; there is no data dependency behind it.
+
+CHECK_CYCLES("VMRG + CFC2 - no dual (ctrl read counts as write)",
+  "vmrg $v01, $v02, $v03\n"
+  "cfc2 $t0, $vcc\n",
+  {1, 2})
+
+CHECK_CYCLES("CFC2 + VMRG - dual (swapped order is fine)",
+  "cfc2 $t0, $vcc\n"
+  "vmrg $v01, $v02, $v03\n",
+  {1, 1})
+
+CHECK_CYCLES("VMRG + CTC2 - no dual",
+  "vmrg $v01, $v02, $v03\n"
+  "ctc2 $t0, $vcc\n",
+  {1, 2})
+
+CHECK_CYCLES("CTC2 + VADD (reads VCO) - no dual",
+  "ctc2 $t0, $vco\n"
+  "vadd $v01, $v02, $v03\n",
+  {1, 2})
+
+CHECK_CYCLES("CTC2 VCC + VADD (VCO only) - dual",
+  "ctc2 $t0, $vcc\n"
+  "vadd $v01, $v02, $v03\n",
+  {1, 1})
+
+CHECK_CYCLES("VMRG + CFC2 VCO - no dual (vmrg really writes VCO)",
+  "vmrg $v01, $v02, $v03\n"
+  "cfc2 $t0, $vco\n",
+  {1, 2})
+
+CHECK_CYCLES("VMRG + CFC2 VCE - dual (untouched ctrl reg)",
+  "vmrg $v01, $v02, $v03\n"
+  "cfc2 $t0, $vce\n",
+  {1, 1})

@@ -835,7 +835,7 @@ b_transpose(const VarDef *varRes,
   bool is8x8 = (dimX > 4 || dimY > 4);
 
   // Barrier to prevent reordering across the transpose (matching JS)
-  state.addAnnotation("Barrier", state.generateLabel());
+  state.addAnnotation("Barrier", "", state.generateLabel());
 
   std::string bufReg = buffVar.reg;
 
@@ -889,7 +889,10 @@ b_asm_op(const VarDef *varRes,
     } else {
       const VarDef *v = state.getRequiredVar(args[i].value, "arg");
       std::string sw;
-      if (isVecType(v->type)) {
+      // NOTE: don't map an empty swizzle to ".v" here; unlike regular ops,
+      // asm_op() can't tell operand roles apart, and a ".v" suffix is only
+      // valid on the vt operand (a bare register encodes the same thing).
+      if (isVecType(v->type) && !args[i].swizzle.empty()) {
         auto sit = SWIZZLE_MAP.find(args[i].swizzle);
         sw = sit != SWIZZLE_MAP.end() ? sit->second : "";
       }

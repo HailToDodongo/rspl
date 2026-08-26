@@ -31,7 +31,8 @@ From the repo root:
 cpp/build/rspl input.rspl                    # full pipeline → stdout
 cpp/build/rspl input.rspl -o output.S        # write to file
 cpp/build/rspl input.rspl --no-optimize      # skip optimizer
-cpp/build/rspl input.rspl --no-rspq          # raw asm, no RSPQ wrapper
+cpp/build/rspl input.rspl --no-rspq          # raw asm, no RSPQ wrapper (tests)
+cpp/build/rspl input.rspl --no-rspq=include  # raw asm + register/flag defines, #include-able from a .S
 cpp/build/rspl input.rspl --no-debug-info    # omit per-line debug comments
 cpp/build/rspl input.rspl --magma            # compile as a magma shader
 cpp/build/rspl input.rspl --patch fnA,fnB     # only re-optimize these, patch into existing .S

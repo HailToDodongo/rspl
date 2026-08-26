@@ -53,6 +53,7 @@ struct FuncDef {
 struct AnnotationDef {
   std::string name;
   std::string value;
+  std::string mode;  // Barrier: "" | "strict" | "before" | "after"
 };
 
 // --- Scope ------------------------------------------------------------
@@ -160,7 +161,7 @@ public:
   std::string generateLabel();
 
   // -- Annotations -----------------------------------------------------
-  void addAnnotation(const std::string &name, const std::string &value,
+  void addAnnotation(const std::string &name, const std::string &mode, const std::string &value,
                      bool valueIsString = true);
   std::vector<AnnotationDef> getAnnotations(
       const std::string &name = "") const;
@@ -168,6 +169,9 @@ public:
 
   // -- Barrier masks ---------------------------------------------------
   uint32_t getBarrierMask(const std::string &name);
+  //ordering bit for a barrier tag: pseudo-register index offset (0..24),
+  //used above the real register space in the reorder dependency masks
+  int getBarrierBit(const std::string &name);
 
 private:
   int nextLabelId = 0;
@@ -176,6 +180,7 @@ private:
   std::unordered_map<std::string, MemVarDef> memVarMap;
   std::unordered_map<std::string, FuncDef> funcMap;
   std::unordered_map<std::string, uint32_t> barrierMaskMap;
+  std::unordered_map<std::string, int> barrierBitMap;
 
   Scope makeChildScope() const;
 };

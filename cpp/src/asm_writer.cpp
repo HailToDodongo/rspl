@@ -359,6 +359,16 @@ AsmWriteResult writeASM(const ast::Program &ast,
     state.line = 1;
     out.str("");
     out.clear();
+    if (config.includeGuards) {
+      // #include-able fragment: the including .S has libdragon's bare register
+      // names #define'd (clashing with the $-prefixed names used here), and is
+      // in '.set at' mode, where the explicit $at uses below would warn.
+      for (const auto &reg : reg::REGS_SCALAR) writeLine("#undef " + reg.substr(1));
+      for (size_t i = 0; i < reg::REGS_SCALAR.size(); ++i) {
+        writeLine(".equ hex." + reg::REGS_SCALAR[i] + ", " + std::to_string(i));
+      }
+      writeLines({"#define vco 0", "#define vcc 1", "#define vce 2", ".set noat", ""});
+    }
   }
 
   // Function bodies
@@ -378,6 +388,8 @@ AsmWriteResult writeASM(const ast::Program &ast,
 
     // the shader entry point is the start of the shader block itself
     if (fn.type != FuncType::Shader) writeLine(fn.name + ":");
+    if (config.hotCycles && config.debugInfo && fn.hotCycles > 0)
+      writeLine("  ## hot-path cycles: " + std::to_string(fn.hotCycles));
 
     // Track last cycle for debug info (matching JS asmWriter.js)
     int lastCycle = fn.asm_.empty() ? 0 : fn.asm_[0].debug.cycle;
@@ -478,6 +490,14 @@ AsmWriteResult writeASM(const ast::Program &ast,
   writeLine("");
 
   if (!config.rspqWrapper) {
+    if (config.includeGuards) {
+      // restore what the including file expects after the fragment
+      writeLine(".set at");
+      for (size_t i = 0; i < reg::REGS_SCALAR.size(); ++i) {
+        if (i == 1) continue; // skip $at
+        writeLine("#define " + reg::REGS_SCALAR[i].substr(1) + " $" + std::to_string(i));
+      }
+    }
     res.asm_ = out.str();
     return res;
   }

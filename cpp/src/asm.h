@@ -37,6 +37,7 @@ enum OpFlag : uint32_t {
 struct AsmAnnotation {
   std::string name;
   std::string value;
+  std::string mode;
 };
 
 // --- Debug information ------------------------------------------------
@@ -168,6 +169,9 @@ struct AsmInst {
   // 295-bit register masks stored as 5 x uint64_t
   std::array<uint64_t, 5> depsSourceMask = {};
   std::array<uint64_t, 5> depsTargetMask = {};
+  // registers read by a called function (from funcArgs); exposed as reads
+  // when scanning across branches/jumps (JS: depsArgMask)
+  std::array<uint64_t, 5> depsArgMask = {};
 
   uint32_t depsStallSourceMask0 = 0;
   uint32_t depsStallSourceMask1 = 0;
@@ -187,6 +191,7 @@ struct AsmFunc {
   int argSize = 0;
   int cyclesBefore = 0;
   int cyclesAfter = 0;
+  int hotCycles = 0; // hot-path cycles from the last evalFunctionCost()
   std::vector<AsmAnnotation> annotations; // from AST
   std::optional<int64_t> resultType;
   std::string nameOverride; // for command aliasing

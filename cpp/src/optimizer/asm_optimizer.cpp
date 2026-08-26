@@ -45,6 +45,15 @@ static int randIndex(int maxExcl) {
   return (seed_ >> 16) % maxExcl;
 }
 
+// splitmix32: derive independent sub-seeds from (base, index) pairs. 
+// makes sure threads get the same seed no matter the order
+static uint32_t mixSeed(uint32_t a, uint32_t b) {
+  uint32_t z = a + 0x9E3779B9u * (b + 1);
+  z = (z ^ (z >> 16)) * 0x21F0AAADu;
+  z = (z ^ (z >> 15)) * 0x735A2D97u;
+  return z ^ (z >> 15);
+}
+
 // --- Pattern optimization runner --------------------------------------
 
 void asmOptimizePattern(AsmFunc &func) {
@@ -333,10 +342,14 @@ public:
   }
 
   // Run `count` variants of `base` in parallel. Returns results.
-  std::vector<RoundResult> runParallel(const AsmFunc &base, int count) {
+  // Each variant i runs with its own PRNG stream mixSeed(batchSeed, i),
+  // making the batch outcome independent of thread scheduling.
+  std::vector<RoundResult> runParallel(const AsmFunc &base, int count,
+                                       uint32_t batchSeed) {
     results_.clear();
     results_.resize(count);
     nextIdx_.store(0, std::memory_order_release);
+    batchSeed_.store(batchSeed, std::memory_order_release);
 
     {
       std::lock_guard lk(mtx_);
@@ -369,6 +382,7 @@ private:
   std::vector<std::thread> threads_;
   std::vector<RoundResult> results_;
   std::atomic<size_t> nextIdx_{0};
+  std::atomic<uint32_t> batchSeed_{0};
   const AsmFunc *base_ = nullptr;
   int batchCount_ = 0;
   int activeWorkers_ = 0;  // guarded by mtx_
@@ -378,18 +392,18 @@ private:
   std::condition_variable cv_;
 
   void workBatch(int count) {
+    uint32_t batchSeed = batchSeed_.load(std::memory_order_acquire);
     while (true) {
       size_t idx = nextIdx_.fetch_add(1, std::memory_order_acq_rel);
       if ((int)idx >= count) break;
+      setSeed(mixSeed(batchSeed, static_cast<uint32_t>(idx)));
       AsmFunc variant = cloneFunction(*base_);
       results_[idx] = reorderRoundImpl(std::move(variant));
     }
   }
 
   void run(int id) {
-    std::random_device rd;
-    setSeed(rd() ^ (static_cast<uint32_t>(id) * 0x9E3779B9));
-
+    (void)id; // per-variant seeding happens in workBatch
     uint64_t seenGen = 0;
     while (true) {
       int count;
@@ -429,22 +443,39 @@ void printCumulativeStats() {
   std::cerr << "  IPS: " << std::setprecision(0) << ips << std::endl;
 }
 
-void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
+void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
+                 uint32_t optSeed, int optIters) {
   const std::string &funcName =
       func.name.empty() ? "(???)" : func.name;
 
   asmInitDeps(func);
   int costBest = evalFunctionCost(func);
   int sizeBest = countOps(func.asm_);
-  func.cyclesBefore = costBest;
+  func.cyclesBefore = func.hotCycles;
   int costInit = costBest;
 
-  std::cerr << "Starting optimization of '" << funcName
-            << "' with max. time: " << formatTimeMs(maxTimeMs) << std::endl;
+  const bool iterMode = optIters > 0;
+  if (iterMode) {
+    std::cerr << "Starting optimization of '" << funcName << "' with "
+              << optIters << " iterations" << std::endl;
+  } else {
+    std::cerr << "Starting optimization of '" << funcName
+              << "' with max. time: " << formatTimeMs(maxTimeMs) << std::endl;
+  }
 
-  // Initialize random seed from system entropy (JS uses Math.random)
-  std::random_device rd;
-  setSeed(rd());
+  // Base seed: fixed when given (reproducible builds), system entropy
+  // otherwise (JS uses Math.random). All variant/escape streams derive
+  // from this via mixSeed, so a fixed base seed + fixed iteration count
+  // + fixed worker count reproduces the exact same schedule.
+  uint32_t baseSeed = optSeed;
+  if (baseSeed == 0) {
+    std::random_device rd;
+    baseSeed = rd();
+    if (baseSeed == 0) baseSeed = 0x41C64E6D;
+  } else {
+    std::cerr << "[" << funcName << "] Seed: " << baseSeed << std::endl;
+  }
+  setSeed(mixSeed(baseSeed, 0xA11C0DE));
 
   // Create worker pool (one thread per hardware core, minus calling thread)
   int numWorkers = optWorkers > 0
@@ -466,7 +497,7 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
   double totalTime = 0.0;
   auto iterStart = startTime;
 
-  while (totalTime < maxTimeMs) {
+  while (iterMode ? (metaIter < optIters) : (totalTime < maxTimeMs)) {
     auto now = std::chrono::steady_clock::now();
 
     // Progress logging
@@ -502,19 +533,18 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
       iterStart = now;
     }
 
-    // Check timeout
-    if (now > deadline) {
-      double funcElapsedMs =
-          std::chrono::duration<double, std::milli>(now - startTime).count();
-      double funcIps =
-          funcElapsedMs > 0.0 ? i / (funcElapsedMs / 1000.0) : 0.0;
-      g_totalIterations += i;
-      g_totalWallMs += funcElapsedMs;
+    // Check timeout (wall-clock mode only; iteration mode runs exactly
+    // optIters meta-iterations regardless of time)
+    if (!iterMode && now > deadline) {
       std::cerr << "[" << funcName << "] Timeout after " << i
-                << " iterations (" << std::fixed << std::setprecision(0)
-                << funcIps << " ips)." << std::endl;
+                << " iterations." << std::endl;
       break;
     }
+
+    // Every stream in this meta-iteration derives from (baseSeed, metaIter):
+    // the parallel variants via mixSeed(batchSeed, variantIdx) inside the
+    // pool, the sequential escape path via its own sub-stream below.
+    uint32_t batchSeed = mixSeed(baseSeed, static_cast<uint32_t>(metaIter));
 
     AsmFunc funcCopy = cloneFunction(func);
     std::vector<RoundResult> results;
@@ -530,6 +560,7 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
 
       // Escape local minimum: generate worse variants (sequential, each
       // uses many reorderRound calls internally), then finalize in parallel.
+      setSeed(mixSeed(batchSeed, 0xE5CA9Eu));
       for (int s = 0; s < SEARCH_VARIANT_SEARCH; ++s) {
         auto [worseCopy, maxCost] =
             generateWorseFunction(funcCopy, stepsBack);
@@ -551,7 +582,7 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
       int remaining = effectivePool - SEARCH_VARIANT_SEARCH;
       if (remaining > 0) {
         auto tD0 = std::chrono::steady_clock::now();
-        auto extraResults = pool.runParallel(func, remaining);
+        auto extraResults = pool.runParallel(func, remaining, batchSeed);
         g_phaseTiming.dispatchMs +=
             std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - tD0).count();
@@ -562,7 +593,7 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
       stepsSinceLastOpt = 0;
     } else {
       auto tD0 = std::chrono::steady_clock::now();
-      results = pool.runParallel(func, effectivePool);
+      results = pool.runParallel(func, effectivePool, batchSeed);
       g_phaseTiming.dispatchMs +=
           std::chrono::duration<double, std::milli>(
               std::chrono::steady_clock::now() - tD0).count();
@@ -586,7 +617,6 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
         costBest = cost;
         sizeBest = opCount;
         func.asm_ = asm_;
-        func.cyclesAfter = cost;
 
         if (isBetter) {
           std::cerr << "[" << funcName << "] \033[32m**** New Best for '"
@@ -608,8 +638,19 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers) {
     ++stepsSinceLastOpt;
   }
 
-  func.cyclesBefore = costInit;
-  func.cyclesAfter = costBest;
+  {
+    double funcElapsedMs = std::chrono::duration<double, std::milli>(
+                               std::chrono::steady_clock::now() - startTime)
+                               .count();
+    g_totalIterations += i;
+    g_totalWallMs += funcElapsedMs;
+  }
+
+  // Human-readable numbers: hot-path cycles (the objective itself is a
+  // weighted, integer-scaled cost).
+  asmInitDeps(func);
+  evalFunctionCost(func);
+  func.cyclesAfter = func.hotCycles;
 }
 
 } // namespace rspl

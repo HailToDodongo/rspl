@@ -26,7 +26,10 @@ struct CliArgs {
   bool magma = false;
   int optimizeTime = 30'000;
   int optWorkers = 0; // 0 = auto (hw threads - 1)
+  unsigned long optSeed = 0; // 0 = random
+  long optIters = 0;  // 0 = use wall-time budget
   bool rspqWrapper = true;
+  bool includeGuards = false;
   bool debugInfo = true;
   bool help = false;
   std::vector<std::string> defines; // "KEY=VALUE" pairs
@@ -41,9 +44,17 @@ Options:
   -D KEY=VALUE     Define a preprocessor constant
   --opt-time=N     Optimizer time budget in seconds (default: 30)
   --opt-workers=N  Number of reorder worker threads (default: auto)
+  --opt-seed=N     Fixed reorder RNG seed (default: random). Together with
+                   --opt-iters (and a pinned --opt-workers across machines)
+                   this makes --reorder output fully reproducible.
+  --opt-iters=N    Stop reorder after exactly N iterations instead of a
+                   wall-time budget (required for reproducible output)
   --no-optimize    Disable optimization
   --reorder        Enable instruction reordering
-  --no-rspq        Disable RSPQ wrapper
+  --no-rspq        Disable RSPQ wrapper (bare code, no defines/sections)
+  --no-rspq=include  Same, but wrapped in the register/flag defines and
+                   .set noat/at guards so the output can be #include'd
+                   from a libdragon .S file
   --no-debug-info  Omit per-line debug comments from the output
   --magma          Compile as a magma shader
   --patch a,b      Only optimize these functions and patch them into the
@@ -62,7 +73,8 @@ CliArgs parseArgs(int argc, char **argv) {
     else if (arg == "-o" && i + 1 < argc) { args.outputFile = argv[++i]; }
     else if (arg == "--no-optimize") { args.optimize = false; }
     else if (arg == "--reorder") { args.reorder = true; }
-    else if (arg == "--no-rspq") { args.rspqWrapper = false; }
+    else if (arg == "--no-rspq" || arg == "--no-rspq=raw") { args.rspqWrapper = false; }
+    else if (arg == "--no-rspq=include") { args.rspqWrapper = false; args.includeGuards = true; }
     else if (arg == "--no-debug-info") { args.debugInfo = false; }
     else if (arg == "--magma") { args.magma = true; }
     else if (arg == "--patch") {
@@ -89,6 +101,8 @@ CliArgs parseArgs(int argc, char **argv) {
     else if (arg.starts_with("-D")) { args.defines.push_back(arg.substr(2)); }
     else if (arg.starts_with("--opt-time=")) { args.optimizeTime = std::stoi(arg.substr(11)) * 1000; }
     else if (arg.starts_with("--opt-workers=")) { args.optWorkers = std::stoi(arg.substr(14)); }
+    else if (arg.starts_with("--opt-seed=")) { args.optSeed = std::stoul(arg.substr(11)); }
+    else if (arg.starts_with("--opt-iters=")) { args.optIters = std::stol(arg.substr(12)); }
     else if (!arg.starts_with("-")) { args.inputFile = arg; }
   }
   return args;
@@ -191,12 +205,15 @@ int main(int argc, char **argv) {
 
   rspl::TranspileConfig cfg;
   cfg.rspqWrapper = args.rspqWrapper;
+  cfg.includeGuards = args.includeGuards;
   cfg.debugInfo = args.debugInfo;
   cfg.optimize = args.optimize;
   cfg.reorder = args.reorder;
   cfg.magma = args.magma;
   cfg.optimizeTime = args.optimizeTime;
   cfg.optWorkers = args.optWorkers;
+  cfg.optSeed = static_cast<uint32_t>(args.optSeed);
+  cfg.optIters = static_cast<int>(args.optIters);
   cfg.sourceDir = sourceDir;
   cfg.patchFunctions = args.patchFunctions;
 

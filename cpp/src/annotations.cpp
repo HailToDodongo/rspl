@@ -16,7 +16,18 @@ static const std::vector<std::string> STRING_ANNOTATIONS = {
     "Barrier", "AttrLoader", "AttrPatch"};
 
 void validateAnnotation(const std::string &name, const std::string &value,
-                        bool valueIsString) {
+                        const std::string &mode, bool valueIsString)
+{
+  if (!mode.empty()) {
+    if (name != "Barrier") {
+      state.throwError("Annotation @" + name + " does not take a mode argument");
+    }
+    if (mode != "strict" && mode != "before" && mode != "after") {
+      state.throwError("Invalid @Barrier mode '" + mode +
+                 "' (expected: strict, before or after)");
+    }
+  }
+
   if (std::find(KNOWN_ANNOTATIONS.begin(), KNOWN_ANNOTATIONS.end(), name) ==
       KNOWN_ANNOTATIONS.end()) {
     std::string known;

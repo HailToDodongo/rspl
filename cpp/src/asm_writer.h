@@ -12,8 +12,10 @@ namespace rspl {
 
 struct WriteConfig {
   bool rspqWrapper = true;
+  bool includeGuards = false; // see TranspileConfig::includeGuards
   bool debugInfo = true;
   bool magma = false;
+  bool hotCycles = false; // emit '## hot-path cycles: N' per function (reorder builds)
 };
 
 struct AsmWriteResult {

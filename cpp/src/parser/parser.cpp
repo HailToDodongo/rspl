@@ -276,6 +276,7 @@ private:
   struct AnnoResult {
     std::string name;
     std::string value;
+    std::string mode;  // optional bare-identifier 2nd arg, e.g. @Barrier("x", before)
     bool hasValue = false;
     bool valueIsString = false;
     uint32_t line = 0;
@@ -297,6 +298,10 @@ private:
         error();
       }
       res.hasValue = true;
+      if (atAdj(Tok::Seperator) || at(Tok::Seperator)) {
+        next();
+        res.mode = expect(Tok::VarName).value;
+      }
       expectAdj(Tok::ArgsEnd);
     }
     return res;
@@ -389,6 +394,7 @@ private:
       ast::StmtAnnotation s;
       s.name = a.name;
       s.value = a.value;
+      s.mode = a.mode;
       s.valueIsString = a.valueIsString;
       s.line = a.line;
       block.statements.push_back(std::move(s));

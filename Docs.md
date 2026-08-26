@@ -565,7 +565,53 @@ vec16 res = 2;
 @Barrier("some-name") store(res, SOME_ADDRESS);
 ```
 Since RSPL won't, and can't, safely know if the memory is the same or not.<br>
-In that case adding a barrier will prevent the store from being moved before the load.<br> 
+In that case adding a barrier will prevent the store from being moved before the load.<br>
+<br>
+A barrier can take an optional second argument setting its mode
+(C++ compiler only):
+```c++
+@Barrier("name")          // same as: @Barrier("name", strict)
+@Barrier("name", before)
+@Barrier("name", after)
+```
+- **`strict`** (the default): full mutual ordering — no two `strict` ops of the
+  same name may cross each other. This is the original behavior.
+- **`before`**: the op must stay *before* any `after`/`strict` op of the same
+  name, but `before` ops stay freely reorderable among each other.
+- **`after`**: the op waits for all `before`/`strict` ops of the same name,
+  and none of them may sink below it. Multiple `after` ops are freely
+  reorderable among each other (use `strict` if they must stay ordered).
+
+The typical use is a group of independent memory writes followed by something
+that consumes all of them at once (e.g. a DMA transfer): the stores don't care
+about their order relative to each other, only that the DMA starts last.
+Tagging the whole group `strict` would needlessly serialize the stores and
+hurt dual-issue scheduling:
+```c++
+@Barrier("dma-out", before) store(a, BUF, 0x00);
+@Barrier("dma-out", before) store(b, BUF, 0x08);
+@Barrier("dma-out", before) store(c, BUF, 0x10);
+// ...stores may still be interleaved freely with each other...
+@Barrier("dma-out", after) set_dma_write(SIZE);
+```
+
+### `@Unlikely`
+Marks the block of an `if`-statement (without `else`) as unlikely to execute.<br>
+The block is moved out-of-line to the end of the current function, and the
+condition is inverted so the common path falls through instead of branching
+over the block.<br>
+This avoids the taken-branch bubble on the hot path, the cold block jumps back
+to the join point on its own. (Note: only supported in the C++ compiler.)<br>
+Example:
+```c++
+@Unlikely if(dmaBusy != 0)
+{
+  loop {
+    dmaBusy = get_dma_busy();
+  } while(dmaBusy != 0)
+}
+// hot path continues here without a taken branch
+```
 
 ### `@Relative`
 Marks a function as relative, meaning any caller will use a branch instead of a jump.<br>

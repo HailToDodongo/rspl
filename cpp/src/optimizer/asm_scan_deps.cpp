@@ -517,6 +517,7 @@ void asmInitDep(AsmInst &inst) {
   inst.depsStallTargetIdx.clear();
   inst.depsSourceMask = {};
   inst.depsTargetMask = {};
+  inst.depsArgMask = {};
   inst.depsStallSourceMask0 = 0;
   inst.depsStallSourceMask1 = 0;
   inst.depsStallTargetMask0 = 0;
@@ -572,6 +573,17 @@ void asmInitDep(AsmInst &inst) {
     }
   }
 
+  // --- Function-call argument registers (JS: depsArgMask) ---------------
+  // A jal/branch target may read the registers its callee declares as args;
+  // these count as reads when scanning across branches during reordering.
+  for (const auto &a : inst.cold->funcArgs) {
+    const auto &expanded = expandRegister(a);
+    for (const auto &e : expanded) {
+      int idx = getRegIndex(e);
+      if (idx >= 0) inst.depsArgMask[idx / 64] |= (1ULL << (idx % 64));
+    }
+  }
+
   // --- Target registers: expand → mask + idx, track bases for stalls ---
 
   // Reuse seenBase for target stall dedup — clear first
@@ -620,10 +632,23 @@ void asmInitDep(AsmInst &inst) {
   inst.depsStallTargetMask0 = static_cast<uint32_t>(tgtStallMask);
   inst.depsStallTargetMask1 = static_cast<uint32_t>(tgtStallMask >> 32);
 
-  // Barrier mask from annotations
+  // Barrier annotations. Each tag also owns a pseudo-register bit above the
+  // real register space; the mode decides how an op touches it:
+  //   strict (default): read+write -> total order among strict ops (legacy)
+  //   before:           write only -> must stay before any "after"/"strict"
+  //                     op of the tag, but freely reorderable among peers
+  //   after:            read only  -> waits for all "before"/"strict" ops,
+  //                     and no "before" op may sink below it
+  // "strict" additionally keeps the legacy symmetric barrierMask.
   for (auto &ann : inst.cold->annotations) {
     if (ann.name == "Barrier") {
-      inst.barrierMask |= state.getBarrierMask(ann.value);
+      bool strict = ann.mode.empty() || ann.mode == "strict";
+      if (strict) inst.barrierMask |= state.getBarrierMask(ann.value);
+      int bit = REG_INDEX_SIZE + state.getBarrierBit(ann.value);
+      if (ann.mode != "after")   // strict + before: write the tag bit
+        inst.depsTargetMask[bit / 64] |= (1ULL << (bit % 64));
+      if (ann.mode != "before")  // strict + after: read the tag bit
+        inst.depsSourceMask[bit / 64] |= (1ULL << (bit % 64));
     }
   }
 }
@@ -693,11 +718,20 @@ std::vector<int> asmGetReorderIndices(const std::vector<AsmInst> &asmList,
   }
 
   // --- Second pass: collect reads after stop point ---
+  // NOTE: this must scan to the end of the function (matching the JS
+  // implementation): a read far below - even past branches - still binds to
+  // the last write before it, so stopping early would let a write be moved
+  // between another writer and that reader (e.g. a vmrg landing between a
+  // vaddc/vadd pair, clobbering VCO). Branch/jump targets may additionally
+  // read the callee's declared argument registers.
   int fRead = isPastBranch ? f - 2 : f;
   for (; fRead < (int)asmList.size(); ++fRead) {
     for (int idx = 0; idx < 5; ++idx)
       lastReadMask[idx] |= asmList[fRead].depsSourceMask[idx];
-    if (asmList[fRead].opFlags & OpFlag::OP_FLAG_IS_BRANCH) break;
+    if (asmList[fRead].opFlags & OpFlag::OP_FLAG_IS_BRANCH) {
+      for (int idx = 0; idx < 5; ++idx)
+        lastReadMask[idx] |= asmList[fRead].depsArgMask[idx];
+    }
   }
 
   // --- Check read-after-write across the gap ---

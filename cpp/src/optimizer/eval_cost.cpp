@@ -3,26 +3,28 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace rspl {
 
-int evalFunctionCost(AsmFunc &func) {
-  // Filter to only OP instructions (including NOPs).
-  // Thread-local to reuse allocation across evaluations.
-  static thread_local std::vector<AsmInst *> ops;
-  ops.clear();
-  for (auto &inst : func.asm_) {
-    if (inst.type == AsmType::OP) {
-      ops.push_back(&inst);
-    }
-  }
+// Dependency-mask bits (word 4) of the vector control registers:
+// $vco = 288, $vcc = 289, $vce = 294 (see asm_scan_deps.cpp).
+static constexpr uint64_t CTRL_REG_MASK4 =
+    (1ULL << (288 - 256)) | (1ULL << (289 - 256)) | (1ULL << (294 - 256));
+
+// --- Straight-line pipeline engine -----------------------------------------
+// Evaluates `ops` as one linear instruction stream from a clean pipeline
+// state, writes debug.cycle/stall/paired on every op and returns the total
+// cycle count. This is the validated per-instruction model (dual-issue,
+// stall latencies, load/store port conflicts, branch bubbles).
+
+static int evalSequence(std::vector<AsmInst *> &ops) {
   if (ops.empty()) return 0;
 
   // regStallExpiry[r] = cycle when register r's stall expires.
   // 0 means no active stall (cycle starts at 0, so expiry > 0 means active).
-  // Replaces the old regCycleMap[64] which stored remaining cycles and
-  // was fully decremented on every tick (O(64*cycles) → O(active_stalls)).
   int regStallExpiry[64] = {};
   int cycle = 0;
   int pc = 0;
@@ -123,11 +125,221 @@ int evalFunctionCost(AsmFunc &func) {
       }
     }
 
+    // Control-register pairing quirk (VCO/VCC/VCE): the issue logic treats
+    // a VU instruction that merely *reads* a control register as if it
+    // also wrote it. So "vmrg ; cfc2 $vcc" never pairs (while the swapped
+    // order does), and "ctc2 $vco ; vadd" never pairs either. This is a
+    // pairing-only fact — there is no data dependency behind it, so it is
+    // deliberately not part of the logical dependency masks.
+    if (canDualIssue) {
+      uint64_t defA = (op->opFlags & OpFlag::OP_FLAG_IS_VECTOR)
+                          ? (op->depsSourceMask[4] | op->depsTargetMask[4])
+                          : op->depsTargetMask[4];
+      uint64_t accB = opNext->depsSourceMask[4] | opNext->depsTargetMask[4];
+      if (defA & accB & CTRL_REG_MASK4) canDualIssue = false;
+    }
+
     execCount = canDualIssue ? 2 : 1;
     cycle += 1;
     lastLoadPosMask >>= 1;
   }
   return cycle;
+}
+
+// --- Path-aware function cost ----------------------------------------------
+// The anneal objective is the cost of the *hot path* — the fall-through
+// spine of the function — not a linear walk over every instruction. Cold
+// code (@Unlikely blocks parked after the function tail, skipped arms) is
+// costed separately with a low weight so it stays sane but never trades
+// against a hot-path cycle.
+//
+// Hot walk rules:
+//   - conditional branches fall through (not taken); a backward one marks
+//     a loop range, whose instructions get a per-nesting-level multiplier
+//   - forward unconditional jumps (j / beq $zero,$zero) to a label inside
+//     the function are followed (the skipped arm becomes an alternative)
+//   - backward unconditional jumps are loop back-edges: range marked, not
+//     followed
+//   - jr, and j to a label outside the function, terminate the walk (after
+//     their delay slot)
+//   - jal continues after the call
+//
+// Weights (integer-scaled so the annealer keeps exact comparisons):
+//   hot = 64 (× 8 per loop level, max 3 levels), alternative arm before the
+//   terminal = 16, cold code after the terminal = 1.
+
+namespace {
+constexpr int W_HOT = 64;
+constexpr int W_ALT = 16;
+constexpr int W_COLD = 1;
+constexpr int LOOP_MUL = 8;
+constexpr int LOOP_MAX_DEPTH = 3;
+
+struct LoopRange {
+  int from, to; // inclusive op indices
+};
+
+bool isUncondBranch(const AsmInst &inst) {
+  if (inst.op == Op::J()) return true;
+  if (inst.op == Op::BEQ() && inst.args.size() >= 3 &&
+      inst.args[0] == "$zero" && inst.args[1] == "$zero")
+    return true;
+  return false;
+}
+
+const std::string *branchTargetLabel(const AsmInst &inst) {
+  if (!inst.cold->labelEnd.empty()) return &inst.cold->labelEnd;
+  if (inst.args.empty()) return nullptr;
+  return &inst.args.back();
+}
+} // namespace
+
+int evalFunctionCost(AsmFunc &func) {
+  // Thread-local scratch to reuse allocations across evaluations.
+  static thread_local std::vector<AsmInst *> ops;
+  static thread_local std::vector<AsmInst *> seq;
+  static thread_local std::vector<int> seqIdx; // op index per seq entry
+  static thread_local std::vector<uint8_t> visited;
+  static thread_local std::vector<int> targetIdx;
+  static thread_local std::vector<LoopRange> loops;
+  static thread_local std::unordered_map<std::string, int> labelPos;
+
+  ops.clear();
+  labelPos.clear();
+  for (auto &inst : func.asm_) {
+    if (inst.type == AsmType::OP) {
+      ops.push_back(&inst);
+    } else if (inst.type == AsmType::LABEL) {
+      labelPos[inst.cold->label] = (int)ops.size(); // next op
+    }
+  }
+  const int n = (int)ops.size();
+  if (n == 0) {
+    func.hotCycles = 0;
+    return 0;
+  }
+
+  // Resolve branch targets to op indices (-1 = outside this function)
+  targetIdx.assign(n, -1);
+  for (int i = 0; i < n; ++i) {
+    const AsmInst &inst = *ops[i];
+    if (!(inst.opFlags & OpFlag::OP_FLAG_IS_BRANCH)) continue;
+    if (inst.op == Op::JR() || inst.op == Op::JAL()) continue;
+    const std::string *lbl = branchTargetLabel(inst);
+    if (!lbl) continue;
+    auto it = labelPos.find(*lbl);
+    if (it != labelPos.end() && it->second < n) targetIdx[i] = it->second;
+  }
+
+  // --- Hot walk ---
+  seq.clear();
+  seqIdx.clear();
+  visited.assign(n, 0);
+  loops.clear();
+  int pc = 0;
+  int terminal = n; // first op index that is "after the function exit"
+  auto visit = [&](int idx) {
+    visited[idx] = 1;
+    seq.push_back(ops[idx]);
+    seqIdx.push_back(idx);
+  };
+  while (pc < n && !visited[pc]) {
+    visit(pc);
+    const AsmInst &inst = *ops[pc];
+    if (!(inst.opFlags & OpFlag::OP_FLAG_IS_BRANCH)) {
+      ++pc;
+      continue;
+    }
+
+    // Delay slot always executes with its branch
+    auto takeDelaySlot = [&]() {
+      if (pc + 1 < n && !visited[pc + 1]) visit(pc + 1);
+    };
+
+    if (inst.op == Op::JR()) {
+      takeDelaySlot();
+      terminal = pc + 2;
+      break;
+    }
+    if (inst.op == Op::JAL()) {
+      takeDelaySlot();
+      pc += 2;
+      continue;
+    }
+
+    int tgt = targetIdx[pc];
+    if (isUncondBranch(inst)) {
+      if (tgt < 0) {
+        if (inst.op == Op::J()) { // jump out of the function
+          takeDelaySlot();
+          terminal = pc + 2;
+          break;
+        }
+        // beq $zero,$zero to an unknown label: keep walking linearly
+        pc += 1;
+        continue;
+      }
+      if (tgt <= pc) { // loop back-edge
+        loops.push_back({tgt, pc});
+        takeDelaySlot();
+        pc += 2;
+        continue;
+      }
+      takeDelaySlot();
+      pc = tgt; // follow forward jump (skipped arm is an alternative)
+      continue;
+    }
+
+    // Conditional branch: fall through; backward = loop
+    if (tgt >= 0 && tgt <= pc) loops.push_back({tgt, pc});
+    pc += 1;
+  }
+
+  int hotCycles = evalSequence(seq);
+
+  // Weight the hot path per instruction (cycle deltas keep dual-issue
+  // pairs and stall attribution exactly as the engine produced them).
+  int64_t scaled = 0;
+  int prevCycle = 0;
+  for (size_t s = 0; s < seq.size(); ++s) {
+    int delta = seq[s]->debug.cycle - prevCycle;
+    prevCycle = seq[s]->debug.cycle;
+    if (delta <= 0) continue;
+    int weight = W_HOT;
+    if (!loops.empty()) {
+      int opIdx = seqIdx[s];
+      int depth = 0;
+      for (const auto &lr : loops)
+        if (opIdx >= lr.from && opIdx <= lr.to) ++depth;
+      for (int d = 0; d < std::min(depth, LOOP_MAX_DEPTH); ++d)
+        weight *= LOOP_MUL;
+    }
+    scaled += (int64_t)delta * weight;
+  }
+
+  // --- Cold / alternative regions: each maximal unvisited run is costed as
+  // its own straight-line sequence from a clean state.
+  int i = 0;
+  while (i < n) {
+    if (visited[i]) { ++i; continue; }
+    int start = i;
+    seq.clear();
+    while (i < n && !visited[i]) seq.push_back(ops[i++]);
+    int cycles = evalSequence(seq);
+    scaled += (int64_t)cycles * (start >= terminal ? W_COLD : W_ALT);
+  }
+
+  func.hotCycles = hotCycles;
+  if (scaled > INT32_MAX) scaled = INT32_MAX;
+  return (int)scaled;
+}
+
+int evalFunctionCostLinear(AsmFunc &func) {
+  static thread_local std::vector<AsmInst *> ops;
+  ops.clear();
+  for (auto &inst : func.asm_)
+    if (inst.type == AsmType::OP) ops.push_back(&inst);
+  return evalSequence(ops);
 }
 
 } // namespace rspl

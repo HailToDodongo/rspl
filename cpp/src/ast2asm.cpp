@@ -621,11 +621,47 @@ calcToAsm(const ast::Calc &calc, const VarDef &varRes) {
 
 // --- Control flow -----------------------------------------------------
 
+// Blocks marked @Unlikely are generated in place but emitted out-of-line at
+// the end of the current function (self-contained), so the hot path falls
+// through their guard instead of branching over the inline block.
+static std::vector<AsmInst> coldBlocks;
+
 static std::vector<AsmInst> ifToAsm(const ast::StmtIf &st) {
   const VarDef *varLeft =
       state.getRequiredVar(st.compare.left.value, "left");
   if (reg::isVecReg(varLeft->reg))
     state.throwError("IF-Statements must use scalar-registers!");
+
+  if (!state.getAnnotations("Unlikely").empty()) {
+    if (st.blockElse)
+      state.throwError("@Unlikely if-statements cannot have an else-block!");
+    state.clearAnnotations();
+
+    std::string labelCold = state.generateLabel();
+    std::string labelJoin = state.generateLabel();
+
+    // Inverted guard: branch INTO the cold block when the condition holds,
+    // fall through on the hot path. The branch is by definition rarely
+    // taken, so drop the likely-flags (the cost eval then prices the hot
+    // path without a taken-branch bubble).
+    std::vector<AsmInst> res = ops::opBranch(st.compare, labelCold, true);
+    for (auto &inst : res) {
+      if (inst.opFlags & OP_FLAG_IS_BRANCH)
+        inst.opFlags &=
+            ~(OP_FLAG_IS_LIKELY | OP_FLAG_LIKELY_BRANCH);
+    }
+    res.push_back(asmLabel(labelJoin));
+
+    state.pushScope("", "");
+    auto ifBlock = scopedBlockToAsm(*st.blockIf);
+    state.popScope();
+
+    coldBlocks.push_back(asmLabel(labelCold));
+    coldBlocks.insert(coldBlocks.end(), ifBlock.begin(), ifBlock.end());
+    coldBlocks.push_back(asmOp("j", {labelJoin}));
+    coldBlocks.push_back(asmNOP());
+    return res;
+  }
 
   std::string labelElse = state.generateLabel();
   std::string labelEnd =
@@ -975,7 +1011,7 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
 
           else if constexpr (std::is_same_v<T,
                                              ast::StmtAnnotation>) {
-            state.addAnnotation(s.name, s.value, s.valueIsString);
+            state.addAnnotation(s.name, s.mode, s.value, s.valueIsString);
           }
 
           else if constexpr (std::is_same_v<T,
@@ -1163,6 +1199,7 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
       }
       argSize++;
     }
+    coldBlocks.clear();
     auto body = scopedBlockToAsm(*fn.body);
     funcAsm.insert(funcAsm.end(), body.begin(), body.end());
 
@@ -1182,6 +1219,13 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
         funcAsm.push_back(asmOp("jr", {reg::Reg::RA}));
         funcAsm.push_back(asmNOP());
       }
+    }
+
+    // Flush @Unlikely blocks after the function tail (they jump back to
+    // their join label, so they stay self-contained within the function).
+    if (!coldBlocks.empty()) {
+      funcAsm.insert(funcAsm.end(), coldBlocks.begin(), coldBlocks.end());
+      coldBlocks.clear();
     }
 
     AsmFunc af;

@@ -121,7 +121,7 @@ static void applyOpInfo(AsmInst &inst, Opcode op,
   // Copy current annotations from state (but don't clear —
   // clearing is done per-statement in scopedBlockToAsm to match JS)
   for (const auto &ann : state.getAnnotations()) {
-    inst.cold->annotations.push_back({ann.name, ann.value});
+    inst.cold->annotations.push_back({ann.name, ann.value, ann.mode});
   }
 }
 

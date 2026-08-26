@@ -135,8 +135,10 @@ TranspileResult runPipelineProgram(ast::Program &prog,
   if (config.optimize || config.debugInfo) {
     WriteConfig wCfg;
     wCfg.rspqWrapper = config.rspqWrapper;
+    wCfg.includeGuards = config.includeGuards;
     wCfg.debugInfo = config.debugInfo;
     wCfg.magma = config.magma;
+    wCfg.hotCycles = config.reorder;
     writeASM(prog, functions, wCfg);
   }
 
@@ -146,11 +148,13 @@ TranspileResult runPipelineProgram(ast::Program &prog,
       asmOptimizePattern(fn);
       asmInitDeps(fn);
       evalFunctionCost(fn);
+      evalFunctionCostLinear(fn); // output annotations
     }
     if (config.reorder) {
       for (auto &fn : functions) {
         if (fn.asm_.empty() || !isOptimizeTarget(config, fn)) continue;
-        asmOptimize(fn, config.optimizeTime, config.optWorkers);
+        asmOptimize(fn, config.optimizeTime, config.optWorkers,
+                    config.optSeed, config.optIters);
       }
       printCumulativeStats();
     } else {
@@ -158,6 +162,7 @@ TranspileResult runPipelineProgram(ast::Program &prog,
         if (fn.asm_.empty() || !isOptimizeTarget(config, fn)) continue;
         fillDelaySlots(fn);
         evalFunctionCost(fn);
+        evalFunctionCostLinear(fn); // output annotations
       }
     }
   }
@@ -171,13 +176,16 @@ TranspileResult runPipelineProgram(ast::Program &prog,
       asmOptimizePattern(fn);
       asmInitDeps(fn);
       evalFunctionCost(fn);
+      evalFunctionCostLinear(fn); // output annotations
     }
   }
 
   WriteConfig wConfig;
   wConfig.rspqWrapper = config.rspqWrapper;
+  wConfig.includeGuards = config.includeGuards;
   wConfig.debugInfo = config.debugInfo;
   wConfig.magma = config.magma;
+  wConfig.hotCycles = config.reorder;
 
   auto writeResult = writeASM(prog, functions, wConfig);
 

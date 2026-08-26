@@ -226,6 +226,7 @@ struct StmtExit {
 struct StmtAnnotation {
   std::string name;
   std::string value;
+  std::string mode;  // "" | "strict" | "before" | "after" (Barrier only)
   bool valueIsString = false;
   uint32_t line = 0;
 };

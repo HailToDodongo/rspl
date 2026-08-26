@@ -136,6 +136,7 @@ set(TEST_SOURCES
   tests/test_optDeadCode.cpp
   tests/test_optDedupeImm.cpp
   tests/test_optDelaySlot.cpp
+  tests/test_optDeterminism.cpp
   tests/test_optJumpDedupe.cpp
   tests/test_optLabels.cpp
   tests/test_optDepScanCtrl.cpp
@@ -146,6 +147,7 @@ set(TEST_SOURCES
   tests/test_reorderPartialLoad.cpp
   tests/test_evalCost.cpp
   tests/test_evalCostExample.cpp
+  tests/test_evalCostPath.cpp
   tests/test_examples.cpp
   tests/test_vectorOps.cpp
   tests/test_syntaxNumbers.cpp

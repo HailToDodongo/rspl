@@ -338,6 +338,7 @@ static ScopedBlock parseScopedBlock(const json &j) {
                       ? st["value"].is_string() ? st["value"].get<std::string>()
                                                 : st["value"].dump()
                       : "";
+        s.mode = st.value("mode", "");
         s.valueIsString = annoValueIsString(st);
         s.line = optLine(st);
         block.statements.push_back(std::move(s));

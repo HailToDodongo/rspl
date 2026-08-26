@@ -77,7 +77,7 @@ void astNormalize(ast::Program &prog, bool magma) {
     state.line = fn.body->line;
 
     for (const auto &anno : fn.annotations) {
-      validateAnnotation(anno.name, anno.value, anno.valueIsString);
+      validateAnnotation(anno.name, anno.value, "", anno.valueIsString);
     }
 
     if (fn.type == FuncType::Command) {

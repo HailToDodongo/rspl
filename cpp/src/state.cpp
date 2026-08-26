@@ -32,6 +32,7 @@ void State::reset() {
   outInfo.clear();
   funcMap.clear();
   barrierMaskMap.clear();
+  barrierBitMap.clear();
   regAllocAllowed = true;
 
   for (const auto &label : LABELS) {
@@ -485,11 +486,11 @@ std::string State::generateLabel() {
 
 // --- Annotations ------------------------------------------------------
 
-void State::addAnnotation(const std::string &name,
+void State::addAnnotation(const std::string &name, const std::string &mode,
                           const std::string &value, bool valueIsString) {
-  validateAnnotation(name, value, valueIsString);
+  validateAnnotation(name, value, mode, valueIsString);
   Scope &scope = getScope();
-  scope.annotations.push_back({name, value});
+  scope.annotations.push_back({name, value, mode});
 }
 
 std::vector<AnnotationDef> State::getAnnotations(
@@ -524,6 +525,22 @@ uint32_t State::getBarrierMask(const std::string &name) {
   uint32_t mask = (1u << len);
   barrierMaskMap[name] = mask;
   return mask;
+}
+
+// Ordering bit for @Barrier modes (before/after/strict): each barrier tag
+// gets a pseudo-register bit above the real register space (295..319) in the
+// reorder dependency masks. "before" ops write the bit (freely reorderable
+// among themselves), "after" ops read it, "strict" ops do both.
+int State::getBarrierBit(const std::string &name) {
+  auto it = barrierBitMap.find(name);
+  if (it != barrierBitMap.end()) return it->second;
+
+  int len = barrierBitMap.size();
+  if (len >= 25) {
+    throwError("Too many different barriers, only up to 25 are supported!");
+  }
+  barrierBitMap[name] = len;
+  return len;
 }
 
 // --- Global instance --------------------------------------------------
