@@ -21,6 +21,7 @@ struct TranspileConfig {
   int optWorkers = 0;       // 0 = auto (hw threads - 1)
   uint32_t optSeed = 0;     // 0 = random; fixed seed = reproducible reorder
   int optIters = 0;         // 0 = wall-time budget; N = exactly N iterations
+  bool optAnneal = false;   // simulated-annealing acceptance in the reorderer
   std::string sourceDir = ".";
   // When non-empty, only these functions are optimized; everything else is
   // still generated but left untouched. Used together with patchAsmFunctions()

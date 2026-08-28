@@ -28,6 +28,7 @@ struct CliArgs {
   int optWorkers = 0; // 0 = auto (hw threads - 1)
   unsigned long optSeed = 0; // 0 = random
   long optIters = 0;  // 0 = use wall-time budget
+  bool optAnneal = false;
   bool rspqWrapper = true;
   bool includeGuards = false;
   bool debugInfo = true;
@@ -47,6 +48,9 @@ Options:
   --opt-seed=N     Fixed reorder RNG seed (default: random). Together with
                    --opt-iters (and a pinned --opt-workers across machines)
                    this makes --reorder output fully reproducible.
+  --opt-anneal     Simulated-annealing acceptance in the reorderer: worse
+                   variants may be accepted (cooling over the budget) so the
+                   search can cross bad intermediate orders; best seen wins
   --opt-iters=N    Stop reorder after exactly N iterations instead of a
                    wall-time budget (required for reproducible output)
   --no-optimize    Disable optimization
@@ -103,6 +107,7 @@ CliArgs parseArgs(int argc, char **argv) {
     else if (arg.starts_with("--opt-workers=")) { args.optWorkers = std::stoi(arg.substr(14)); }
     else if (arg.starts_with("--opt-seed=")) { args.optSeed = std::stoul(arg.substr(11)); }
     else if (arg.starts_with("--opt-iters=")) { args.optIters = std::stol(arg.substr(12)); }
+    else if (arg == "--opt-anneal") { args.optAnneal = true; }
     else if (!arg.starts_with("-")) { args.inputFile = arg; }
   }
   return args;
@@ -214,6 +219,7 @@ int main(int argc, char **argv) {
   cfg.optWorkers = args.optWorkers;
   cfg.optSeed = static_cast<uint32_t>(args.optSeed);
   cfg.optIters = static_cast<int>(args.optIters);
+  cfg.optAnneal = args.optAnneal;
   cfg.sourceDir = sourceDir;
   cfg.patchFunctions = args.patchFunctions;
 

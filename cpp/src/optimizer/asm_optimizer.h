@@ -17,12 +17,18 @@ void setSeed(uint32_t s);
 /// Run reorder optimization (stochastic annealing) on a single function.
 /// optWorkers: 0 = auto-detect, otherwise that many threads.
 /// optSeed: 0 = seed from system entropy, otherwise a fixed base seed.
+/// optAnneal: simulated-annealing acceptance (a worse variant may become
+///   the current state with probability exp(-delta/T), T cooling over the
+///   budget); the best state seen is what gets emitted. Lets the search cross
+///   worse intermediate orders (e.g. shifting a long run by one position to
+///   flip its pairing phase), which plain hill-climbing never does.
 /// optIters: 0 = stop on maxTimeMs wall time, otherwise run exactly that
 ///           many meta-iterations (deterministic together with optSeed;
 ///           pin optWorkers too when comparing across machines, since the
 ///           batch size scales with the worker count).
 void asmOptimize(AsmFunc &func, int maxTimeMs = 30'000, int optWorkers = 0,
-                 uint32_t optSeed = 0, int optIters = 0);
+                 uint32_t optSeed = 0, int optIters = 0,
+                 bool optAnneal = false);
 
 /// Print cumulative reorder stats (total iterations, average IPS)
 /// across all asmOptimize calls since program start.

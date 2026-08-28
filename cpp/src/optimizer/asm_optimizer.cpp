@@ -444,7 +444,7 @@ void printCumulativeStats() {
 }
 
 void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
-                 uint32_t optSeed, int optIters) {
+                 uint32_t optSeed, int optIters, bool optAnneal) {
   const std::string &funcName =
       func.name.empty() ? "(???)" : func.name;
 
@@ -486,6 +486,18 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
             << " threads" << std::endl;
 
   AsmFunc lastRandPick = cloneFunction(func);
+
+  // Simulated annealing: `cur` is the state variants are generated from;
+  // `func` always holds the best state seen (what gets emitted).
+  // Costs are integer-scaled (one hot-path cycle = 64), so T0 accepts a
+  // 1-cycle-worse move with ~30% and the final T practically never.
+  AsmFunc cur = cloneFunction(func);
+  int costCur = costBest;
+  const double annealT0 = 64.0 / std::log(1.0 / 0.30);
+  const double annealTend = 4.0;
+  if (optAnneal)
+    std::cerr << "[" << funcName << "] Annealing acceptance enabled (T "
+              << (int)annealT0 << " -> " << (int)annealTend << ")" << std::endl;
 
   auto startTime = std::chrono::steady_clock::now();
   auto deadline = startTime + std::chrono::milliseconds(maxTimeMs);
@@ -582,7 +594,7 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
       int remaining = effectivePool - SEARCH_VARIANT_SEARCH;
       if (remaining > 0) {
         auto tD0 = std::chrono::steady_clock::now();
-        auto extraResults = pool.runParallel(func, remaining, batchSeed);
+        auto extraResults = pool.runParallel(optAnneal ? cur : func, remaining, batchSeed);
         g_phaseTiming.dispatchMs +=
             std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - tD0).count();
@@ -593,13 +605,44 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
       stepsSinceLastOpt = 0;
     } else {
       auto tD0 = std::chrono::steady_clock::now();
-      results = pool.runParallel(func, effectivePool, batchSeed);
+      results = pool.runParallel(optAnneal ? cur : func, effectivePool, batchSeed);
       g_phaseTiming.dispatchMs +=
           std::chrono::duration<double, std::milli>(
               std::chrono::steady_clock::now() - tD0).count();
     }
 
     auto tR0 = std::chrono::steady_clock::now();
+    if (optAnneal) {
+      // pick the best variant of this batch, accept it into `cur` if it is
+      // not worse, or with probability exp(-delta/T) otherwise; track best
+      int bi = -1;
+      for (int s = 0; s < (int)results.size(); ++s) {
+        const auto &[cost, asm_] = results[s];
+        if (cost == 0) continue;
+        if (bi < 0 || cost < results[bi].cost) bi = s;
+      }
+      if (bi >= 0) {
+        const auto &[cost, asm_] = results[bi];
+        double frac = iterMode ? (double)metaIter / std::max(1, optIters)
+                               : std::min(1.0, totalTime / std::max(1, maxTimeMs));
+        double T = annealT0 * std::pow(annealTend / annealT0, frac);
+        std::mt19937 arng(mixSeed(batchSeed, 0xA11EA7u));
+        double u = std::uniform_real_distribution<double>(0.0, 1.0)(arng);
+        bool accept = cost <= costCur || u < std::exp(-(double)(cost - costCur) / T);
+        if (accept) { cur.asm_ = asm_; costCur = cost; }
+        int opCount = countOps(asm_);
+        bool isBetter = cost < costBest || (cost == costBest && opCount < sizeBest);
+        if (isBetter) {
+          costBest = cost; sizeBest = opCount; func.asm_ = asm_;
+          std::cerr << "[" << funcName << "] \033[32m**** New Best for '"
+                    << funcName << "': " << costInit << " -> " << cost
+                    << " (" << opCount << " ops) ****\033[0m" << std::endl;
+          stepsSinceLastOpt = 0;
+          consecutiveSame = 0;
+        }
+      }
+      results.clear(); // handled
+    }
     for (int s = 0; s < (int)results.size(); ++s) {
       const auto &[cost, asm_] = results[s];
       // Safety: a cost of 0 means the variant is broken (no instructions or

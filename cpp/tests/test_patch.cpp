@@ -95,6 +95,19 @@ TEST_CASE("Patch - patching every function equals the new listing", "[patch]") {
   REQUIRE(out == NEW_ASM);
 }
 
+// A last function may be followed only by non-label directives (".set at")
+// and EOF - e.g. the --no-rspq=include output. Its end is then EOF; the
+// trailing directives are identical in old and new output, so they come
+// along with the spliced range.
+TEST_CASE("Patch - last function ends at EOF", "[patch]") {
+  const std::string OLD =
+      "funcA:\n  old a1\nfuncB:\n  old b1\n\n.set at\n";
+  const std::string NEW =
+      "funcA:\n  new a1\nfuncB:\n  new b1\n  new b2\n\n.set at\n";
+  auto out = rspl::patchAsmFunctions(OLD, NEW, {"funcB"});
+  REQUIRE(out == "funcA:\n  old a1\nfuncB:\n  new b1\n  new b2\n\n.set at\n");
+}
+
 TEST_CASE("Patch - empty function list is a no-op", "[patch]") {
   REQUIRE(rspl::patchAsmFunctions(OLD_ASM, NEW_ASM, {}) == OLD_ASM);
 }

@@ -175,10 +175,6 @@ constexpr int W_COLD = 1;
 constexpr int LOOP_MUL = 8;
 constexpr int LOOP_MAX_DEPTH = 3;
 
-struct LoopRange {
-  int from, to; // inclusive op indices
-};
-
 bool isUncondBranch(const AsmInst &inst) {
   if (inst.op == Op::J()) return true;
   if (inst.op == Op::BEQ() && inst.args.size() >= 3 &&
@@ -194,35 +190,33 @@ const std::string *branchTargetLabel(const AsmInst &inst) {
 }
 } // namespace
 
-int evalFunctionCost(AsmFunc &func) {
-  // Thread-local scratch to reuse allocations across evaluations.
-  static thread_local std::vector<AsmInst *> ops;
-  static thread_local std::vector<AsmInst *> seq;
-  static thread_local std::vector<int> seqIdx; // op index per seq entry
-  static thread_local std::vector<uint8_t> visited;
-  static thread_local std::vector<int> targetIdx;
-  static thread_local std::vector<LoopRange> loops;
+HotPath evalCollectHotPath(AsmFunc &func) {
+  HotPath hp;
   static thread_local std::unordered_map<std::string, int> labelPos;
-
-  ops.clear();
   labelPos.clear();
-  for (auto &inst : func.asm_) {
+  std::vector<int> ops; // asm_ indices of OP entries
+  int lastLabel = -1;
+  for (int a = 0; a < (int)func.asm_.size(); ++a) {
+    const AsmInst &inst = func.asm_[a];
     if (inst.type == AsmType::OP) {
-      ops.push_back(&inst);
+      hp.asmIndex.push_back(a);
+      hp.labelBefore.push_back(lastLabel);
+      lastLabel = -1;
     } else if (inst.type == AsmType::LABEL) {
-      labelPos[inst.cold->label] = (int)ops.size(); // next op
+      labelPos[inst.cold->label] = (int)hp.asmIndex.size(); // next op
+      lastLabel = a;
     }
   }
-  const int n = (int)ops.size();
-  if (n == 0) {
-    func.hotCycles = 0;
-    return 0;
-  }
+  const int n = (int)hp.asmIndex.size();
+  hp.opCount = n;
+  hp.visited.assign(n, 0);
+  hp.terminal = n;
+  if (n == 0) return hp;
+  auto opAt = [&](int i) -> const AsmInst & { return func.asm_[hp.asmIndex[i]]; };
 
-  // Resolve branch targets to op indices (-1 = outside this function)
-  targetIdx.assign(n, -1);
+  std::vector<int> targetIdx(n, -1);
   for (int i = 0; i < n; ++i) {
-    const AsmInst &inst = *ops[i];
+    const AsmInst &inst = opAt(i);
     if (!(inst.opFlags & OpFlag::OP_FLAG_IS_BRANCH)) continue;
     if (inst.op == Op::JR() || inst.op == Op::JAL()) continue;
     const std::string *lbl = branchTargetLabel(inst);
@@ -231,74 +225,55 @@ int evalFunctionCost(AsmFunc &func) {
     if (it != labelPos.end() && it->second < n) targetIdx[i] = it->second;
   }
 
-  // --- Hot walk ---
-  seq.clear();
-  seqIdx.clear();
-  visited.assign(n, 0);
-  loops.clear();
   int pc = 0;
-  int terminal = n; // first op index that is "after the function exit"
-  auto visit = [&](int idx) {
-    visited[idx] = 1;
-    seq.push_back(ops[idx]);
-    seqIdx.push_back(idx);
-  };
-  while (pc < n && !visited[pc]) {
+  auto visit = [&](int idx) { hp.visited[idx] = 1; hp.ops.push_back(idx); };
+  while (pc < n && !hp.visited[pc]) {
     visit(pc);
-    const AsmInst &inst = *ops[pc];
-    if (!(inst.opFlags & OpFlag::OP_FLAG_IS_BRANCH)) {
-      ++pc;
-      continue;
-    }
-
-    // Delay slot always executes with its branch
-    auto takeDelaySlot = [&]() {
-      if (pc + 1 < n && !visited[pc + 1]) visit(pc + 1);
-    };
-
-    if (inst.op == Op::JR()) {
-      takeDelaySlot();
-      terminal = pc + 2;
-      break;
-    }
-    if (inst.op == Op::JAL()) {
-      takeDelaySlot();
-      pc += 2;
-      continue;
-    }
-
+    const AsmInst &inst = opAt(pc);
+    if (!(inst.opFlags & OpFlag::OP_FLAG_IS_BRANCH)) { ++pc; continue; }
+    auto takeDelaySlot = [&]() { if (pc + 1 < n && !hp.visited[pc + 1]) visit(pc + 1); };
+    if (inst.op == Op::JR()) { takeDelaySlot(); hp.terminal = pc + 2; break; }
+    if (inst.op == Op::JAL()) { takeDelaySlot(); pc += 2; continue; }
     int tgt = targetIdx[pc];
     if (isUncondBranch(inst)) {
       if (tgt < 0) {
-        if (inst.op == Op::J()) { // jump out of the function
-          takeDelaySlot();
-          terminal = pc + 2;
-          break;
-        }
-        // beq $zero,$zero to an unknown label: keep walking linearly
-        pc += 1;
-        continue;
+        if (inst.op == Op::J()) { takeDelaySlot(); hp.terminal = pc + 2; break; }
+        pc += 1; continue;
       }
-      if (tgt <= pc) { // loop back-edge
-        loops.push_back({tgt, pc});
-        takeDelaySlot();
-        pc += 2;
-        continue;
-      }
-      takeDelaySlot();
-      pc = tgt; // follow forward jump (skipped arm is an alternative)
-      continue;
+      if (tgt <= pc) { hp.loops.push_back({tgt, pc}); takeDelaySlot(); pc += 2; continue; }
+      takeDelaySlot(); pc = tgt; continue;
     }
-
-    // Conditional branch: fall through; backward = loop
-    if (tgt >= 0 && tgt <= pc) loops.push_back({tgt, pc});
+    if (tgt >= 0 && tgt <= pc) hp.loops.push_back({tgt, pc});
     pc += 1;
   }
+  return hp;
+}
 
+int evalFunctionCost(AsmFunc &func) {
+  static thread_local std::vector<AsmInst *> seq;
+  HotPath hp = evalCollectHotPath(func);
+  const int n = hp.opCount;
+  if (n == 0) { func.hotCycles = 0; return 0; }
+
+  // Conditional branches on the hot path are not taken (the walk fell
+  // through them), so they carry no taken-branch bubble; only followed
+  // jumps (j / beq $zero,$zero / jr) do. Mask the likely-flag for the
+  // duration of the evaluation.
+  std::vector<AsmInst *> masked;
+  seq.clear();
+  for (int idx : hp.ops) {
+    AsmInst *op = &func.asm_[hp.asmIndex[idx]];
+    if ((op->opFlags & OpFlag::OP_FLAG_IS_BRANCH) && !isUncondBranch(*op) &&
+        op->op != Op::JR() && op->op != Op::J() &&
+        (op->opFlags & OpFlag::OP_FLAG_LIKELY_BRANCH)) {
+      op->opFlags &= ~OpFlag::OP_FLAG_LIKELY_BRANCH;
+      masked.push_back(op);
+    }
+    seq.push_back(op);
+  }
   int hotCycles = evalSequence(seq);
+  for (AsmInst *op : masked) op->opFlags |= OpFlag::OP_FLAG_LIKELY_BRANCH;
 
-  // Weight the hot path per instruction (cycle deltas keep dual-issue
-  // pairs and stall attribution exactly as the engine produced them).
   int64_t scaled = 0;
   int prevCycle = 0;
   for (size_t s = 0; s < seq.size(); ++s) {
@@ -306,27 +281,26 @@ int evalFunctionCost(AsmFunc &func) {
     prevCycle = seq[s]->debug.cycle;
     if (delta <= 0) continue;
     int weight = W_HOT;
-    if (!loops.empty()) {
-      int opIdx = seqIdx[s];
+    if (!hp.loops.empty()) {
+      int opIdx = hp.ops[s];
       int depth = 0;
-      for (const auto &lr : loops)
-        if (opIdx >= lr.from && opIdx <= lr.to) ++depth;
-      for (int d = 0; d < std::min(depth, LOOP_MAX_DEPTH); ++d)
-        weight *= LOOP_MUL;
+      for (const auto &lr : hp.loops)
+        if (opIdx >= lr.first && opIdx <= lr.second) ++depth;
+      for (int d = 0; d < std::min(depth, LOOP_MAX_DEPTH); ++d) weight *= LOOP_MUL;
     }
     scaled += (int64_t)delta * weight;
   }
 
-  // --- Cold / alternative regions: each maximal unvisited run is costed as
-  // its own straight-line sequence from a clean state.
+  // Cold / alternative regions: each maximal unvisited run is costed as its
+  // own straight-line sequence from a clean state.
   int i = 0;
   while (i < n) {
-    if (visited[i]) { ++i; continue; }
+    if (hp.visited[i]) { ++i; continue; }
     int start = i;
     seq.clear();
-    while (i < n && !visited[i]) seq.push_back(ops[i++]);
+    while (i < n && !hp.visited[i]) seq.push_back(&func.asm_[hp.asmIndex[i++]]);
     int cycles = evalSequence(seq);
-    scaled += (int64_t)cycles * (start >= terminal ? W_COLD : W_ALT);
+    scaled += (int64_t)cycles * (start >= hp.terminal ? W_COLD : W_ALT);
   }
 
   func.hotCycles = hotCycles;

@@ -43,7 +43,7 @@ static std::vector<int> linesToCycles(std::vector<AsmInst> &lines) {
   AsmFunc func;
   func.asm_ = std::move(lines);
   asmInitDeps(func);
-  evalFunctionCost(func);
+  evalFunctionCostLinear(func); // engine semantics: plain linear walk
   std::vector<int> cycles;
   for (const auto &inst : func.asm_)
     cycles.push_back(inst.debug.cycle);
@@ -319,3 +319,12 @@ CHECK_CYCLES("VMRG + CFC2 VCE - dual (untouched ctrl reg)",
   "vmrg $v01, $v02, $v03\n"
   "cfc2 $t0, $vce\n",
   {1, 1})
+
+// Memory port: CFC2 counts as a load and MFC2 as a store for the port rule
+// (ares: both are Load+Store), so an MFC2 issued exactly 2 cycles after a
+// CFC2 stalls one cycle.
+CHECK_CYCLES("CFC2 + MFC2 - memory port stall",
+  "cfc2 $t0, $vcc\n"
+  "or $t1, $zero, $zero\n"
+  "mfc2 $a0, $v01.e3\n",
+  {1, 2, 4})

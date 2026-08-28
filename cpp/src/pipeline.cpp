@@ -65,14 +65,17 @@ std::pair<size_t, size_t> getFunctionStartEnd(const std::string &source,
                              " not found in output file!");
   }
   // The body is indented, so the function ends at the next line starting
-  // with an alphanumeric character in column 0.
+  // with an alphanumeric character in column 0. The last function in the
+  // file has no such line: it ends at EOF (any trailing directives like
+  // ".set at" are identical in old and new output, so including them in
+  // the spliced range is harmless).
   for (size_t i = funcIdx; i + 1 < source.size(); ++i) {
     if (source[i] == '\n' &&
         std::isalnum(static_cast<unsigned char>(source[i + 1]))) {
       return {funcIdx, i};
     }
   }
-  throw std::runtime_error("Function end not found in output file!");
+  return {funcIdx, source.size()};
 }
 
 std::string patchAsmFunctions(const std::string &oldAsm,
@@ -154,7 +157,7 @@ TranspileResult runPipelineProgram(ast::Program &prog,
       for (auto &fn : functions) {
         if (fn.asm_.empty() || !isOptimizeTarget(config, fn)) continue;
         asmOptimize(fn, config.optimizeTime, config.optWorkers,
-                    config.optSeed, config.optIters);
+                    config.optSeed, config.optIters, config.optAnneal);
       }
       printCumulativeStats();
     } else {
