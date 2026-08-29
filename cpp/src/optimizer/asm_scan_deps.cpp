@@ -173,6 +173,18 @@ const std::unordered_map<Opcode, std::vector<std::string>>
 static const std::unordered_set<std::string> STALL_IGNORE_REGS = {
     "$vcc", "$vco", "$acc", "$vce", "$divOut", "$divIn", "$divDP"};
 
+// Link instructions: these WRITE $ra (the return address). Modeling that is
+// essential — without it the scanner sees no conflict between a call and an
+// instruction reading/writing $ra, so such an instruction may be moved across
+// the call or (worse) into its delay slot, which executes when $ra already
+// holds the NEW return address. That silently corrupts idioms like
+// "savedRA = RA" around a call.
+static const std::unordered_set<Opcode> LINK_OPS = []() {
+  std::unordered_set<Opcode> s;
+  for (auto *op : {"jal", "bgezal", "bltzal"}) s.insert(getOpcode(op));
+  return s;
+}();
+
 static const std::unordered_set<Opcode> READ_ONLY_OPS = []() {
   std::unordered_set<Opcode> s;
   for (auto *op : {"beq","bne","bgezal","bltzal","bgez","bltz",
@@ -345,6 +357,7 @@ std::vector<std::string> getSourceRegs(const AsmInst &inst) {
 }
 
 std::vector<std::string> getTargetRegs(const AsmInst &inst) {
+  if (LINK_OPS.count(inst.op)) return {reg::Reg::RA};
   if (READ_ONLY_OPS.count(inst.op)) return {};
 
   if ((inst.opFlags & OpFlag::OP_FLAG_IS_LOAD) &&

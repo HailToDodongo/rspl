@@ -52,6 +52,7 @@ set(RSPL_SOURCES
   src/operations/vector.cpp
   src/operations/vector.h
   src/optimizer/asm_optimizer.cpp
+  src/optimizer/compact_sched.cpp
   src/optimizer/asm_optimizer.h
   src/optimizer/asm_scan_deps.cpp
   src/optimizer/asm_scan_deps.h
@@ -121,6 +122,7 @@ set(TEST_SOURCES
   tests/test_magma.cpp
   tests/test_preproc.cpp
   tests/test_patch.cpp
+  tests/test_compactSched.cpp
   tests/test_rebaseHop.cpp
   tests/test_lexer.cpp
   tests/test_parserDiff.cpp
