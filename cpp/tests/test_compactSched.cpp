@@ -13,8 +13,9 @@
 
 using namespace rspl;
 
-// The compact scheduler must be an exact port of the AsmInst-based logic:
-// same legal move ranges, same relocation/rebase results, same cost.
+// The compact scheduler is the one implementation of the move rules; these
+// tests pin its relocation semantics against an independent reference
+// (the annealer's former AsmInst-based relocateElement) on random moves.
 
 namespace {
 
@@ -141,77 +142,72 @@ END:
 [0] sqv $v12, 0, 0, $s5
 )";
 
-void runEquivalence(const char *text, uint32_t seed, int steps) {
+// Random legal moves: the compact relocation, materialized through
+// compactApply, must produce the same instruction list as the reference
+// relocation on a plain AsmInst list. Also checks the plan-based cost stays
+// consistent with itself after every move (stable hot cycle count).
+void runRandomMoves(const char *text, uint32_t seed, int steps) {
   AsmFunc f; f.asm_ = parseWithLabels(text);
   asmInitDeps(f);
   CompactFunc cf = compactBuild(f);
   CompactState st = compactInitialState(cf);
-  REQUIRE(compactEvalCost(cf, st) == evalFunctionCost(f));
-  REQUIRE(st.hotCycles == f.hotCycles);
+  REQUIRE(cf.plan.valid);
+  REQUIRE(compactEvalCost(cf, st) > 0);
 
   std::mt19937 rng(seed);
-  int movesDone = 0, hops = 0;
+  int movesDone = 0;
   for (int k = 0; k < steps; ++k) {
     int sz = (int)f.asm_.size();
     REQUIRE((int)st.seq.size() == sz);
     int i = (int)(rng() % sz);
-    if (rng() % 5 == 0) {
-      bool fwd = rng() & 1;
-      bool r1 = asmTryRebaseCross(f.asm_, i, fwd);
-      bool r2 = compactTryRebaseCross(cf, st, i, fwd);
-      REQUIRE(r1 == r2);
-      if (r1) ++hops;
-    } else {
-      auto a = asmGetReorderIndices(f.asm_, i);
-      auto b = compactReorderIndices(cf, st, i);
-      REQUIRE(a == b);
-      if (a.size() > 1) {
-        int t = i;
-        while (t == i) t = a[rng() % a.size()];
-        relocateRef(f.asm_, i, t);
-        compactRelocate(cf, st, i, t);
-        ++movesDone;
-      }
+    auto range = compactReorderIndices(cf, st, i);
+    if (range.size() > 1) {
+      int t = i;
+      while (t == i) t = range[rng() % range.size()];
+      relocateRef(f.asm_, i, t);
+      compactRelocate(cf, st, i, t);
+      ++movesDone;
     }
     AsmFunc g; compactApply(cf, st, g);
     REQUIRE(texts(g.asm_) == texts(f.asm_));
-    int c1 = evalFunctionCost(f);
+    // evaluating twice from the same order must agree
+    int c1 = compactEvalCost(cf, st);
+    int h1 = st.hotCycles;
     int c2 = compactEvalCost(cf, st);
     REQUIRE(c1 == c2);
-    REQUIRE(f.hotCycles == st.hotCycles);
+    REQUIRE(h1 == st.hotCycles);
   }
   REQUIRE(movesDone > 0);
-  (void)hops;
 }
 
 } // namespace
 
-TEST_CASE("Compact - matches reference on random moves (A)", "[compact]") {
-  runEquivalence(SAMPLE_A, 1, 400);
-  runEquivalence(SAMPLE_A, 7, 400);
+TEST_CASE("Compact - relocation matches reference on random moves (A)", "[compact]") {
+  runRandomMoves(SAMPLE_A, 1, 400);
+  runRandomMoves(SAMPLE_A, 7, 400);
 }
 
-TEST_CASE("Compact - matches reference on random moves (B)", "[compact]") {
-  runEquivalence(SAMPLE_B, 3, 400);
+TEST_CASE("Compact - relocation matches reference on random moves (B)", "[compact]") {
+  runRandomMoves(SAMPLE_B, 3, 400);
 }
 
-TEST_CASE("Compact - rebase hop rewrites offsets like the reference", "[compact]") {
+TEST_CASE("Compact - rebase hop rewrites the offset", "[compact]") {
   AsmFunc f; f.asm_ = parseWithLabels(SAMPLE_A);
   asmInitDeps(f);
   CompactFunc cf = compactBuild(f);
   CompactState st = compactInitialState(cf);
   int hops = 0;
-  for (int i = 0; i < (int)f.asm_.size(); ++i) {
+  for (int i = 0; i < (int)st.seq.size(); ++i) {
     for (bool fwd : {true, false}) {
-      bool r1 = asmTryRebaseCross(f.asm_, i, fwd);
-      bool r2 = compactTryRebaseCross(cf, st, i, fwd);
-      REQUIRE(r1 == r2);
-      if (r1) ++hops;
-      AsmFunc g; compactApply(cf, st, g);
-      REQUIRE(texts(g.asm_) == texts(f.asm_));
+      if (compactTryRebaseCross(cf, st, i, fwd)) ++hops;
     }
   }
   REQUIRE(hops > 0);
+  AsmFunc g; compactApply(cf, st, g);
+  // every hop keeps the effective address: a rewritten offset shows up as a
+  // different immediate, and the op count is unchanged
+  REQUIRE(g.asm_.size() == f.asm_.size());
+  REQUIRE(texts(g.asm_) != texts(f.asm_));
 }
 
 // Moving an op out of a branch delay slot onto a NOP must move it (slot

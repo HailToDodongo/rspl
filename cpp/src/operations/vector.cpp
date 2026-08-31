@@ -95,12 +95,22 @@ static void assertVectorVars(const VarDef &varLeft,
 
 static std::vector<AsmInst>
 genericLogicOp(const VarDef &varRes, const VarDef &varLeft,
-               const VarDef &varRight, const std::string &op) {
+               VarDef varRight, const std::string &op) {
   std::string funcName;
   for (char c : op)
     funcName += static_cast<char>(std::toupper(c));
-  if (varRight.reg.empty())
-    state.throwError(funcName + " cannot be done with a constant!");
+  // A constant right side is read from the matching lane of the constant
+  // registers ($v00 / $v30 / $v31), so powers of two and zero work directly.
+  bool rightWasConst = varRight.reg.empty();
+  if (rightWasConst) {
+    auto pIt = POW2_SWIZZLE_VAR.find(varRight.value);
+    if (pIt == POW2_SWIZZLE_VAR.end())
+      state.throwError(funcName + " with a constant can only be done with "
+                       "powers of two or zero!");
+    varRight.reg = pIt->second.reg;
+    varRight.swizzle = pIt->second.swizzle;
+    varRight.type = TypeClass::Vec16;
+  }
   if (!varRes.swizzle.empty() || !varLeft.swizzle.empty())
     state.throwError(funcName +
                      " only allows swizzle on the right side!");
@@ -117,9 +127,12 @@ genericLogicOp(const VarDef &varRes, const VarDef &varLeft,
   std::vector<AsmInst> res;
   res.push_back(asmOp(op, {varRes.reg, varLeft.reg, regR}));
   if (is32) {
+    // an integer constant has zero fraction bits: read the zero lane
+    std::string fractR = rightWasConst
+                             ? std::string(reg::Reg::VZERO) + ".e0"
+                             : fractReg(varRight) + swSuffix;
     res.push_back(asmOp(op, {*reg::nextVecReg(varRes.reg),
-                             fractReg(varLeft), fractReg(varRight) +
-                                                    swSuffix}));
+                             fractReg(varLeft), fractR}));
   }
   return res;
 }

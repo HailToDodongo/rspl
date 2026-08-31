@@ -1313,3 +1313,60 @@ TEST_CASE("Vector - Ops - Add-Mul (vec16:ufract vs vec16:sint)", "[vectorOps]") 
   jr $ra
   nop)");
 }
+
+TEST_CASE("Vector - Ops - Logic with pow2 constant (vec16)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec16<$v01> a;
+      a &= 0x400;
+      a |= 16;
+      a ^= 0x8000;
+      a = a & 2;
+      a &= 0;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vand $v01, $v01, $v31.e5
+  vor $v01, $v01, $v30.e3
+  vxor $v01, $v01, $v31.e0
+  vand $v01, $v01, $v30.e6
+  vand $v01, $v01, $v00.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Logic with pow2 constant (vec32)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec32<$v02> b;
+      b &= 0x400;
+      b ^= 4;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  // the constant's fraction bits are zero -> fract half uses the zero lane
+  REQUIRE(result.asm_ == R"(test:
+  vand $v02, $v02, $v31.e5
+  vand $v03, $v03, $v00.e0
+  vxor $v02, $v02, $v30.e5
+  vxor $v03, $v03, $v00.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Logic with non-pow2 constant throws", "[vectorOps]") {
+  const char *src = R"(function test() {
+      vec16<$v01> a;
+      a &= 3;
+    })";
+  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}),
+                    std::runtime_error);
+  try {
+    rspl::transpileSource(src, {.rspqWrapper = false});
+  } catch (const std::runtime_error &e) {
+    REQUIRE(std::string(e.what()).find("powers of two") != std::string::npos);
+  }
+}

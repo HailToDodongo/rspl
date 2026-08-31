@@ -46,9 +46,6 @@ struct AsmDebug {
   int lineASM = 0;
   int lineRSPL = 0;
   int lineASMOpt = 0;
-  int reorderCount = 0;
-  int reorderLineMin = 0;
-  int reorderLineMax = 0;
   int cycle = 0;
   int stall = 0;
   bool paired = false;

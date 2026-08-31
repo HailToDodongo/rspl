@@ -40,12 +40,12 @@ void asmInitDep(AsmInst &inst);
 // Initialize dependency data for all instructions in a function
 void asmInitDeps(AsmFunc &func);
 
+// AsmInst-list entry points to the move logic; both are thin wrappers over
+// the compact scheduler (compact_sched.cpp), which is the one implementation.
+
 // Get set of indices where instruction at position `i` can be safely reordered
 std::vector<int> asmGetReorderIndices(const std::vector<AsmInst> &asmList,
                                       int i);
-
-// Debug: scan and set min/max reorder info for each instruction
-void asmScanDeps(AsmFunc &func);
 
 // Offset-rebase hop: try to move the mem-op at index `i` across the nearest
 // blocking pure self-increment of its base register (forward = below it,

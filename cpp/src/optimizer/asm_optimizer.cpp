@@ -30,7 +30,7 @@
 
 namespace rspl {
 
-// --- PRNG (matches JS LCG, thread-local for worker parallelism) ----------
+// --- PRNG (LCG, one stream per worker thread) ------------------------------
 
 static thread_local uint32_t seed_ = 0x41C64E6D;
 
@@ -72,38 +72,32 @@ void asmOptimizePattern(AsmFunc &func) {
 // --- Delay slot filling -----------------------------------------------
 
 void fillDelaySlots(AsmFunc &func) {
-  for (size_t i = 0; i < func.asm_.size(); ++i) {
-    auto &inst = func.asm_[i];
-    if (inst.type != AsmType::OP) continue;
-    if (inst.opFlags &
-        (OpFlag::OP_FLAG_IS_IMMOVABLE | OpFlag::OP_FLAG_IS_NOP |
-         OpFlag::OP_FLAG_IS_BRANCH))
+  CompactFunc cf = compactBuild(func);
+  CompactState st = compactInitialState(cf);
+  std::vector<int> range;
+  for (int i = 0; i < (int)st.seq.size(); ++i) {
+    const CompactOp &op = cf.ops[st.seq[i]];
+    if (!op.isOp || (op.flags & (OpFlag::OP_FLAG_IS_IMMOVABLE |
+                                 OpFlag::OP_FLAG_IS_NOP |
+                                 OpFlag::OP_FLAG_IS_BRANCH)))
       continue;
-
-    auto reorderRange = asmGetReorderIndices(func.asm_, static_cast<int>(i));
-
-    int delaySlotIdx = -1;
-    for (int idx : reorderRange) {
-      if (idx <= static_cast<int>(i)) continue;
-      if (func.asm_[idx].opFlags & OpFlag::OP_FLAG_IS_NOP) {
-        delaySlotIdx = idx;
+    compactReorderIndices(cf, st, i, range);
+    for (int idx : range) {
+      if (idx > i && cf.ops[st.seq[idx]].isNop) {
+        compactRelocate(cf, st, i, idx); // fills the slot, drops the NOP
+        --i;
         break;
       }
     }
-
-    if (delaySlotIdx >= 0) {
-      func.asm_[delaySlotIdx] = std::move(inst);
-      func.asm_.erase(func.asm_.begin() + static_cast<long>(i));
-      --i;
-    }
   }
+  compactApply(cf, st, func);
 }
 
 // ==========================================================================
-// Reorder optimization (stochastic annealing, matches JS algorithm)
+// Reorder optimization (stochastic search over instruction orders)
 // ==========================================================================
 
-// --- Constants (matching JS) ----------------------------------------------
+// --- Constants -------------------------------------------------------------
 
 constexpr int POOL_SIZE = 8;
 constexpr double PREFER_STALLS_RATE = 0.20;
@@ -120,17 +114,6 @@ constexpr int REORDER_MAX_OPS = 15;
 constexpr int PROGRESS_LOG_INTERVAL = 500; // meta-iterations between logs
 
 // --- Helper functions -----------------------------------------------------
-
-// IMEM usage of a variant: every OP (incl. NOPs) is one instruction word.
-static int countOps(const std::vector<AsmInst> &asmList) {
-  int count = 0;
-  for (const auto &inst : asmList) {
-    if (inst.type == AsmType::OP) ++count;
-  }
-  return count;
-}
-
-
 
 // ============================================================================
 // Reorder search inner loop on the compact representation (see
@@ -152,7 +135,7 @@ static bool rebaseHopEnabled() {
   return enabled;
 }
 
-// --- optimizeStep (matches JS optimizeStep) --------------------------------
+// --- optimizeStep: one random legal move ------------------------------------
 
 static int optimizeStep(const CompactFunc &cf, CompactState &st) {
   auto sz = static_cast<int>(st.seq.size());
@@ -170,10 +153,10 @@ static int optimizeStep(const CompactFunc &cf, CompactState &st) {
   }
 
   int i = 0;
-  std::vector<int> reorderIndices;
+  static thread_local std::vector<int> reorderIndices;
   for (int r = 0; r < 50; ++r) {
     i = randIndex(sz);
-    reorderIndices = compactReorderIndices(cf, st, i);
+    compactReorderIndices(cf, st, i, reorderIndices);
     if ((int)reorderIndices.size() > 1) break;
   }
   if ((int)reorderIndices.size() <= 1) return 0;
@@ -215,54 +198,41 @@ static int optimizeStep(const CompactFunc &cf, CompactState &st) {
     }
   }
 
-  st.reorderCount[st.seq[i]]++;
   compactRelocate(cf, st, i, targetIdx);
   return 1;
 }
 
-// --- reorderRound (matches JS reorderRound) --------------------------------
+// --- reorderRound: a few moves, then evaluate --------------------------------
 
 struct RoundResult {
   int cost = 0;
   CompactState st;
 };
 
-// --- Phase-level timing (printed every N iterations) --------------------
-
-struct PhaseTiming {
-  double cloneMs = 0;
-  double reorderMs = 0;
-  double depsMs = 0;
-  double evalMs = 0;
-  double dispatchMs = 0;
-  double resultsMs = 0;
-  int samples = 0;
-  void reset() { *this = {}; }
-};
-PhaseTiming g_phaseTiming;
-
-static RoundResult reorderRound(const CompactFunc &cf, const CompactState &base) {
-  RoundResult r;
+// Writes into `r` (copy-assignment reuses its vectors' capacity, so a
+// persistent RoundResult makes a round allocation-free).
+static void reorderRound(const CompactFunc &cf, const CompactState &base,
+                         RoundResult &r) {
   r.st = base;
   int opCount = randIndex(REORDER_MAX_OPS - REORDER_MIN_OPS) + REORDER_MIN_OPS;
   for (int o = 0; o < opCount; ++o) optimizeStep(cf, r.st);
   r.cost = compactEvalCost(cf, r.st);
-  return r;
 }
 
-// --- generateWorseFunction (matches JS generateWorseFunction) ---------------
+// --- generateWorseFunction: escape a local minimum ----------------------------
 
 static std::pair<CompactState, int> generateWorseFunction(const CompactFunc &cf,
                                                           const CompactState &base,
                                                           int steps) {
   int maxCost = 0;
   CompactState newWorst = base;
+  static thread_local RoundResult a, b;
   for (int i = 0; i < steps; ++i) {
-    RoundResult r = reorderRound(cf, base);
-    r = reorderRound(cf, r.st);
-    if (r.cost > maxCost) {
-      newWorst = std::move(r.st);
-      maxCost = r.cost;
+    reorderRound(cf, base, a);
+    reorderRound(cf, a.st, b);
+    if (b.cost > maxCost) {
+      newWorst = b.st;
+      maxCost = b.cost;
     }
   }
   return {std::move(newWorst), maxCost};
@@ -299,13 +269,16 @@ public:
       if (t.joinable()) t.join();
   }
 
-  // Run `count` variants of `base` in parallel. Returns results.
-  // Each variant i runs with its own PRNG stream mixSeed(batchSeed, i),
-  // making the batch outcome independent of thread scheduling.
-  std::vector<RoundResult> runParallel(const CompactFunc &cf, const CompactState &base,
-                                       int count, uint32_t batchSeed) {
-    results_.clear();
-    results_.resize(count);
+  // Run `count` variants of `base` in parallel, writing variant i into
+  // out[offset + i]. `out` must already be sized; keeping it alive across
+  // batches means the per-variant states keep their capacity and a batch
+  // does no allocation. Each variant i runs with its own PRNG stream
+  // mixSeed(batchSeed, i), making the outcome independent of scheduling.
+  void runParallel(const CompactFunc &cf, const CompactState &base,
+                   std::vector<RoundResult> &out, int offset, int count,
+                   uint32_t batchSeed) {
+    out_ = &out;
+    offset_ = offset;
     nextIdx_.store(0, std::memory_order_release);
     batchSeed_.store(batchSeed, std::memory_order_release);
 
@@ -331,16 +304,14 @@ public:
       cv_.wait(lk, [&] { return activeWorkers_ == 0; });
       base_ = nullptr;
       cf_ = nullptr;
+      out_ = nullptr;
     }
-
-    std::vector<RoundResult> out;
-    results_.swap(out);
-    return out;
   }
 
 private:
   std::vector<std::thread> threads_;
-  std::vector<RoundResult> results_;
+  std::vector<RoundResult> *out_ = nullptr;
+  int offset_ = 0;
   std::atomic<size_t> nextIdx_{0};
   std::atomic<uint32_t> batchSeed_{0};
   const CompactFunc *cf_ = nullptr;
@@ -358,7 +329,7 @@ private:
       size_t idx = nextIdx_.fetch_add(1, std::memory_order_acq_rel);
       if ((int)idx >= count) break;
       setSeed(mixSeed(batchSeed, static_cast<uint32_t>(idx)));
-      results_[idx] = reorderRound(*cf_, *base_);
+      reorderRound(*cf_, *base_, (*out_)[offset_ + idx]);
     }
   }
 
@@ -407,10 +378,6 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
       func.name.empty() ? "(???)" : func.name;
 
   asmInitDeps(func);
-  int costBest = evalFunctionCost(func);
-  int sizeBest = countOps(func.asm_);
-  func.cyclesBefore = func.hotCycles;
-  int costInit = costBest;
 
   const bool iterMode = optIters > 0;
   if (iterMode) {
@@ -422,7 +389,7 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
   }
 
   // Base seed: fixed when given (reproducible builds), system entropy
-  // otherwise (JS uses Math.random). All variant/escape streams derive
+  // otherwise. All variant/escape streams derive
   // from this via mixSeed, so a fixed base seed + fixed iteration count
   // + fixed worker count reproduces the exact same schedule.
   uint32_t baseSeed = optSeed;
@@ -446,15 +413,14 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
   // Compact representation: `best` is what gets emitted at the end, `cur`
   // the state variants are generated from (identical unless annealing).
   CompactFunc cf = compactBuild(func);
+  if (!cf.plan.valid)
+    std::cerr << "[" << funcName << "] NOTE: no unit plan, evaluating with a "
+                 "full hot-path walk per variant" << std::endl;
   CompactState best = compactInitialState(cf);
-  {
-    int c = compactEvalCost(cf, best);
-    if (c != costBest)
-      std::cerr << "[" << funcName << "] WARNING: compact eval " << c
-                << " != eval " << costBest << std::endl;
-    costBest = c;
-    costInit = c;
-  }
+  int costBest = compactEvalCost(cf, best);
+  const int costInit = costBest;
+  int sizeBest = countOpsSeq(cf, best);
+  func.cyclesBefore = best.hotCycles;
   // Simulated annealing: costs are integer-scaled (one hot-path cycle = 64),
   // so T0 accepts a 1-cycle-worse move with ~30% and the final T practically
   // never.
@@ -476,6 +442,11 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
   double totalTime = 0.0;
   auto iterStart = startTime;
 
+  // Persistent across meta-iterations: the variant states inside keep
+  // their capacity, so steady-state batches allocate nothing.
+  std::vector<RoundResult> results;
+  RoundResult escapeScratch;
+
   while (iterMode ? (metaIter < optIters) : (totalTime < maxTimeMs)) {
     auto now = std::chrono::steady_clock::now();
 
@@ -492,22 +463,6 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
                 << ", Left: " << std::fixed << std::setprecision(1) << left
                 << "ms | Cost: " << costBest
                 << " | ips: " << std::setprecision(0) << ips;
-
-      // Phase breakdown (every PROGRESS_LOG_INTERVAL meta-iterations)
-      if (metaIter > 0 && (metaIter % PROGRESS_LOG_INTERVAL) == 0 &&
-          g_phaseTiming.samples > 0) {
-        double total = g_phaseTiming.cloneMs + g_phaseTiming.reorderMs +
-                       g_phaseTiming.depsMs + g_phaseTiming.evalMs +
-                       g_phaseTiming.dispatchMs + g_phaseTiming.resultsMs;
-        auto pct = [&](double v) { return (int)(v / total * 100); };
-        std::cerr << "\n  [profile] clone:" << pct(g_phaseTiming.cloneMs)
-                  << "% reorder:" << pct(g_phaseTiming.reorderMs)
-                  << "% deps:" << pct(g_phaseTiming.depsMs)
-                  << "% eval:" << pct(g_phaseTiming.evalMs)
-                  << "% dispatch:" << pct(g_phaseTiming.dispatchMs)
-                  << "% results:" << pct(g_phaseTiming.resultsMs)
-                  << "  (samples:" << g_phaseTiming.samples << ")";
-      }
       std::cerr << std::endl;
       iterStart = now;
     }
@@ -525,7 +480,6 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
     // pool, the sequential escape path via its own sub-stream below.
     uint32_t batchSeed = mixSeed(baseSeed, static_cast<uint32_t>(metaIter));
 
-    std::vector<RoundResult> results;
     int effectivePool = POOL_SIZE * numWorkers;
 
     if (stepsSinceLastOpt > MAX_STEPS_NO_CHANGE) {
@@ -538,41 +492,32 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
 
       // Escape local minimum: generate worse variants (sequential, each
       // uses many reorderRound calls internally), then finalize in parallel.
+      int remaining = std::max(0, effectivePool - SEARCH_VARIANT_SEARCH);
+      results.resize(SEARCH_VARIANT_SEARCH + remaining);
       setSeed(mixSeed(batchSeed, 0xE5CA9Eu));
       for (int s = 0; s < SEARCH_VARIANT_SEARCH; ++s) {
         auto [worseCopy, maxCost] = generateWorseFunction(cf, best, stepsBack);
         // walk part of the way back down from the worse state
         for (int t = 0; t < stepsFwd; ++t) {
-          RoundResult r = reorderRound(cf, worseCopy);
-          if (r.cost < maxCost) {
-            worseCopy = std::move(r.st);
-            maxCost = r.cost;
+          reorderRound(cf, worseCopy, escapeScratch);
+          if (escapeScratch.cost < maxCost) {
+            worseCopy = escapeScratch.st;
+            maxCost = escapeScratch.cost;
           }
         }
-        results.push_back(reorderRound(cf, worseCopy));
+        reorderRound(cf, worseCopy, results[s]);
       }
       // Remaining pool slots: if any left, run in parallel.
-      int remaining = effectivePool - SEARCH_VARIANT_SEARCH;
       if (remaining > 0) {
-        auto tD0 = std::chrono::steady_clock::now();
-        auto extraResults = pool.runParallel(cf, optAnneal ? cur : best, remaining, batchSeed);
-        g_phaseTiming.dispatchMs +=
-            std::chrono::duration<double, std::milli>(
-                std::chrono::steady_clock::now() - tD0).count();
-        results.insert(results.end(),
-                       std::make_move_iterator(extraResults.begin()),
-                       std::make_move_iterator(extraResults.end()));
+        pool.runParallel(cf, optAnneal ? cur : best, results,
+                         SEARCH_VARIANT_SEARCH, remaining, batchSeed);
       }
       stepsSinceLastOpt = 0;
     } else {
-      auto tD0 = std::chrono::steady_clock::now();
-      results = pool.runParallel(cf, optAnneal ? cur : best, effectivePool, batchSeed);
-      g_phaseTiming.dispatchMs +=
-          std::chrono::duration<double, std::milli>(
-              std::chrono::steady_clock::now() - tD0).count();
+      results.resize(effectivePool);
+      pool.runParallel(cf, optAnneal ? cur : best, results, 0, effectivePool,
+                       batchSeed);
     }
-
-    auto tR0 = std::chrono::steady_clock::now();
     if (optAnneal) {
       // pick the best variant of this batch, accept it into `cur` if it is
       // not worse, or with probability exp(-delta/T) otherwise; track best
@@ -602,8 +547,7 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
           consecutiveSame = 0;
         }
       }
-      results.clear(); // handled
-    }
+    } else
     for (int s = 0; s < (int)results.size(); ++s) {
       int cost = results[s].cost;
       const CompactState &stv = results[s].st;
@@ -632,10 +576,6 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
         }
       }
     }
-
-    g_phaseTiming.resultsMs +=
-        std::chrono::duration<double, std::milli>(
-            std::chrono::steady_clock::now() - tR0).count();
 
     i += effectivePool;
     ++metaIter;
