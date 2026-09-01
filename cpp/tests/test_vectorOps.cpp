@@ -271,11 +271,12 @@ TEST_CASE("Vector - Ops - Add (vec16 cast)", "[vectorOps]") {
       {.rspqWrapper = false});
 
   REQUIRE(result.warn.empty());
+  // an operand without a cast follows the destination's view
   REQUIRE(result.asm_ == R"(test:
   vaddc $v01, $v01, $v02.e0
   vadd $v01, $v01, $v02.e0
-  vadd $v01, $v01, $v00.e0
-  vaddc $v01, $v01, $v00.e0
+  vadd $v01, $v01, $v02.e0
+  vaddc $v01, $v01, $v02.e0
   jr $ra
   nop)");
 }
@@ -1369,4 +1370,92 @@ TEST_CASE("Vector - Ops - Logic with non-pow2 constant throws", "[vectorOps]") {
   } catch (const std::runtime_error &e) {
     REQUIRE(std::string(e.what()).find("powers of two") != std::string::npos);
   }
+}
+
+static void requireVecThrowsWith(const char *src, const char *msgPart) {
+  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}),
+                    std::runtime_error);
+  try {
+    rspl::transpileSource(src, {.rspqWrapper = false});
+  } catch (const std::runtime_error &e) {
+    INFO(e.what());
+    REQUIRE(std::string(e.what()).find(msgPart) != std::string::npos);
+  }
+}
+
+TEST_CASE("Vector - Ops - Add on vec32 fraction view with uncast operand",
+          "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec32<$v02> nrT;
+      vec16<$v16> normShift;
+      nrT:ufract += normShift.x;
+      nrT:ufract += 2;
+      nrT:sfract += normShift.x;
+      nrT:ufract += normShift:ufract.x;
+      nrT:sint += normShift.x;
+      nrT:ufract -= normShift.x;
+      nrT += normShift.x;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  // the view decides how an uncast operand is read; a full vec32 target
+  // keeps reading it as the integer half (with the carry into the int add)
+  REQUIRE(result.asm_ == R"(test:
+  vaddc $v03, $v03, $v16.e0
+  vaddc $v03, $v03, $v30.e6
+  vadd $v03, $v03, $v16.e0
+  vaddc $v03, $v03, $v16.e0
+  vadd $v02, $v02, $v16.e0
+  vsubc $v03, $v03, $v16.e0
+  vaddc $v03, $v03, $v00.e0
+  vadd $v02, $v02, $v16.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("Vector - Ops - Add with an operand cast to the opposite view throws",
+          "[vectorOps]") {
+  requireVecThrowsWith(R"(function test() {
+      vec32<$v02> nrT;
+      vec16<$v16> a;
+      nrT:ufract += a:sint.x;
+    })", "integer operand on a fraction view");
+  requireVecThrowsWith(R"(function test() {
+      vec32<$v02> nrT;
+      vec16<$v16> a;
+      nrT:sint += a:ufract.x;
+    })", "fraction operand on an integer view");
+}
+
+TEST_CASE("Vector - Ops - Mul (vec16 fraction * vec32)", "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+      vec32<$v02> nrT;
+      vec32<$v13> screenSize;
+      vec16<$v01> nrD;
+      vec16<$v05> r16;
+      nrT = nrD:ufract * screenSize.wwwwWWWW;
+      r16 = nrD:ufract * screenSize.wwwwWWWW;
+      nrT = screenSize * nrD:ufract.xxxxXXXX;
+    })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  // fraction on the left: it is `vs`, the vec32 halves are `vt` (the lane
+  // swizzle can only sit on vt); no integer products, just a flush of the
+  // high accumulator. The mirrored form keeps its existing pattern.
+  REQUIRE(result.asm_ == R"(test:
+  vmudl $v29, $v01, $v14.h3
+  vmadn $v03, $v01, $v13.h3
+  vmadh $v02, $v00, $v00
+  vmudl $v29, $v01, $v14.h3
+  vmadn $v29, $v01, $v13.h3
+  vmadh $v05, $v00, $v00
+  vmudl $v03, $v14, $v01.h0
+  vmadm $v02, $v13, $v01.h0
+  vmadn $v03, $v00, $v00
+  jr $ra
+  nop)");
 }

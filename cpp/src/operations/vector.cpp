@@ -18,7 +18,17 @@ static const std::string *nextVecReg(const std::string &regName) {
   return reg::nextVecReg(regName);
 }
 
-static std::string intReg(const VarDef &v) { return v.reg; }
+static bool isFractCast(const VarDef &v) {
+  return v.castType == CastType::Ufract || v.castType == CastType::Sfract;
+}
+
+// Integer half of an operand. A vec16 read as a fraction has none.
+static std::string intReg(const VarDef &v) {
+  if (v.type != TypeClass::Vec32 && v.originalType != TypeClass::Vec32 &&
+      isFractCast(v))
+    return reg::Reg::VZERO;
+  return v.reg;
+}
 
 static std::string fractReg(const VarDef &v) {
   if (v.type == TypeClass::Vec32 || v.originalType == TypeClass::Vec32) {
@@ -44,6 +54,35 @@ std::pair<std::string, std::string> getVec32Regs(const VarDef &v) {
     return {reg::Reg::VZERO, v.reg};
   }
   return {v.reg, reg::Reg::VZERO};
+}
+
+// Operand pair as seen from the result's view: an operand without a cast
+// follows the destination, so `res:ufract += a.x` reads `a` as a fraction
+// (the same rule the multiply applies). Operands with an explicit cast keep
+// it, and adding one to the opposite view is refused instead of silently
+// turning into an add of $v00.
+static std::pair<std::string, std::string>
+getVec32RegsForView(const VarDef &varRes, const VarDef &v,
+                    const char *opName) {
+  bool resIsFract = isFractCast(varRes);
+  bool resIsInt =
+      varRes.castType == CastType::Sint || varRes.castType == CastType::Uint;
+  bool vIsVec32 =
+      v.type == TypeClass::Vec32 || v.originalType == TypeClass::Vec32;
+  if (resIsFract && !vIsVec32 && v.castType == CastType::None)
+    return {reg::Reg::VZERO, v.reg};
+  auto regs = getVec32Regs(v);
+  if (v.reg != reg::Reg::VZERO) {
+    if (resIsFract && regs.second == reg::Reg::VZERO)
+      state.throwError(std::string(opName) +
+                       ": integer operand on a fraction view has no effect, "
+                       "cast it with :ufract/:sfract!");
+    if (resIsInt && regs.first == reg::Reg::VZERO)
+      state.throwError(std::string(opName) +
+                       ": fraction operand on an integer view has no effect, "
+                       "cast it with :sint/:uint!");
+  }
+  return regs;
 }
 
 // JS getVec32RegsResLR: when the result is not a two-reg type (cast or
@@ -638,7 +677,7 @@ std::vector<AsmInst> opAddVec(const VarDef &varRes,
 
   auto regsDst = getVec32Regs(varRes);
   auto regsL = getVec32Regs(varLeft);
-  auto regsR = getVec32Regs(varRight);
+  auto regsR = getVec32RegsForView(varRes, varRight, "Addition");
 
   std::string fractOp = "vaddc";
   std::string intOp = "vaddc";
@@ -784,6 +823,26 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
                        fractReg(varRight) + swSuffix}),
         asmOp("vmadh", {regsDst.first, varLeft.reg,
                          intReg(varRight) + swSuffix}),
+    };
+  }
+
+  // 0.16 fraction (vec16 cast) * vec32. The fraction is `vs`, the vec32
+  // halves are `vt` (a lane swizzle can only sit on vt); there is no
+  // integer half on the left, so the two integer products are skipped and
+  // the high accumulator is just flushed into the int half.
+  if (right32Bit && varLeft.type == TypeClass::Vec16 && leftIsFraction &&
+      varRes.castType == CastType::None &&
+      (varRes.type == TypeClass::Vec32 || varRes.type == TypeClass::Vec16)) {
+    auto regsDst = getVec32Regs(varRes);
+    std::string regResFract =
+        (regsDst.second == reg::Reg::VZERO) ? reg::Reg::VTEMP0
+                                             : regsDst.second;
+    return {
+        asmOp(fractOp, {reg::Reg::VTEMP0, varLeft.reg,
+                         fractReg(varRight) + swSuffix}),
+        asmOp("vmadn", {regResFract, varLeft.reg,
+                         intReg(varRight) + swSuffix}),
+        asmOp("vmadh", {regsDst.first, reg::Reg::VZERO, reg::Reg::VZERO}),
     };
   }
 
