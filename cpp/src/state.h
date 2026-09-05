@@ -13,6 +13,16 @@ namespace rspl {
 
 struct VarDef {
   std::string reg;
+  // A 32-bit vector always names both of its registers explicitly; they are
+  // never derived from each other. `reg` is the register this *view* uses
+  // (regInt normally, regFract after a :ufract/:sfract cast). Empty for
+  // everything that is not vec32-derived.
+  std::string regInt;
+  std::string regFract;
+  // false when the register was borrowed from another variable via
+  // `alias(...)`: it is not reserved here and undef must not free it.
+  bool ownsInt = true;
+  bool ownsFract = true;
   TypeClass type = TypeClass::Unknown;
   std::string name;         // for memory label references
   TypeClass originalType = TypeClass::Unknown; // before cast
@@ -118,16 +128,23 @@ public:
     std::string type;
     std::string reg;
     bool isConst = false;
+    std::string regFract; // vec32 only: second register
   };
   // Registered once per program; re-declared into every function's root
   // scope by enterFunction().
   void declareGlobalVar(const std::string &name, const std::string &type,
-                        const std::string &reg, bool isConst);
+                        const std::string &reg, bool isConst,
+                        const std::string &regFract = {});
 
   // -- Variable management ---------------------------------------------
+  // `regFract`: second register of a vec32. Empty picks the register right
+  // after `reg` — the only place that fallback exists; from here on the pair
+  // is carried explicitly.
   void declareVar(const std::string &name, const std::string &type,
                   const std::string &reg, bool isConst = false,
-                  bool ignoreReserved = false);
+                  bool ignoreReserved = false,
+                  const std::string &regFract = {},
+                  bool ownsReg = true, bool ownsFract = true);
   void declareVarAlias(const std::string &aliasName,
                        const std::string &varName);
   void undefVar(const std::string &varName);

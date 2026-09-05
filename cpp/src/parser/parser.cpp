@@ -1,4 +1,6 @@
 #include "parser.h"
+
+#include <tuple>
 #include "lexer.h"
 
 #include <cmath>
@@ -195,7 +197,11 @@ private:
           ": global variables must specify a register, e.g. '" + dt.value +
           "<$t0> name;'");
     }
-    s.reg = parseRegDef();
+    {
+      RegDefPair p = parseRegDefPair();
+      s.reg = p.reg; s.regFract = p.regFract;
+      s.regAlias = p.regAlias; s.regFractAlias = p.regFractAlias;
+    }
     s.varName = expect(Tok::VarName).value;
     if (at(Tok::Seperator)) {
       throw std::runtime_error(
@@ -220,12 +226,54 @@ private:
     return v;
   }
 
-  // RegDef -> %TypeStart %Registers %TypeEnd  (all adjacent)
-  std::string parseRegDef() {
+  // RegSlot -> %Registers | "alias" %ArgsStart %VarName %ArgsEnd
+  // `alias(var)` borrows the register `var` already lives in instead of
+  // claiming one; returns {name, isAlias}.
+  std::pair<std::string, bool> parseRegSlot(bool adjacent) {
+    if (at(Tok::VarName) && cur().value == "alias") {
+      if (adjacent && cur().spaceBefore) error();
+      next(); // alias
+      expectAdj(Tok::ArgsStart);
+      Token v = expect(Tok::VarName);
+      expect(Tok::ArgsEnd);
+      return {v.value, true};
+    }
+    Token reg = adjacent ? expectAdj(Tok::Register) : expect(Tok::Register);
+    return {reg.value, false};
+  }
+
+  struct RegDefPair {
+    std::string reg, regFract;
+    bool regAlias = false, regFractAlias = false;
+  };
+
+  // RegDef -> %TypeStart RegSlot (%Seperator RegSlot):? %TypeEnd
+  // The optional second slot is the fraction half of a vec32, letting the
+  // two halves live in any two registers: `vec32<$v05, $v12> tmp;`
+  RegDefPair parseRegDefPair() {
     next(); // <
-    Token reg = expectAdj(Tok::Register);
+    RegDefPair out;
+    std::tie(out.reg, out.regAlias) = parseRegSlot(true);
+    if (at(Tok::Seperator)) {
+      next();
+      std::tie(out.regFract, out.regFractAlias) = parseRegSlot(false);
+    }
     expectAdj(Tok::TypeEnd);
-    return reg.value;
+    return out;
+  }
+
+  // Single-register form, for places where a pair makes no sense.
+  std::string parseRegDef() {
+    RegDefPair p = parseRegDefPair();
+    if (!p.regFract.empty())
+      throw std::runtime_error("Syntax error at line " +
+                               std::to_string(cur().line) +
+                               ": only one register is allowed here");
+    if (p.regAlias)
+      throw std::runtime_error("Syntax error at line " +
+                               std::to_string(cur().line) +
+                               ": alias() is not allowed here");
+    return p.reg;
   }
 
   // Uniform -> %KWUniform RegNumDef:? _ %VarName _ %BlockStart _
@@ -353,7 +401,14 @@ private:
   ast::FuncDefArg parseFuncDefArg() {
     ast::FuncDefArg arg;
     arg.type = toTypeClass(expect(Tok::DataType).value);
-    if (atAdj(Tok::TypeStart)) arg.reg = parseRegDef();
+    if (atAdj(Tok::TypeStart)) {
+      RegDefPair p = parseRegDefPair();
+      if (p.regAlias || p.regFractAlias)
+        throw std::runtime_error("Syntax error at line " +
+                                 std::to_string(cur().line) +
+                                 ": alias() cannot be used on a function argument");
+      arg.reg = p.reg; arg.regFract = p.regFract;
+    }
     arg.name = expect(Tok::VarName).value;
     return arg;
   }
@@ -570,14 +625,19 @@ private:
         if (!cur().spaceBefore) error(); // (%KWConst __) — space required
       }
       Token dt = expect(Tok::DataType);
-      std::string reg;
-      if (atAdj(Tok::TypeStart)) reg = parseRegDef(); // register only
+      RegDefPair rp;
+      if (atAdj(Tok::TypeStart)) rp = parseRegDefPair();
+      const std::string &reg = rp.reg;
+      const std::string &regFract = rp.regFract;
       Token firstName = expect(Tok::VarName);
       if (at(Tok::Assignment)) {
         next();
         ast::StmtVarDeclAssign s;
         s.varType = dt.value;
         s.reg = reg;
+        s.regFract = regFract;
+        s.regAlias = rp.regAlias;
+        s.regFractAlias = rp.regFractAlias;
         s.varName = firstName.value;
         s.isConst = isConst;
         s.line = dt.line;
@@ -587,6 +647,9 @@ private:
       ast::StmtVarDeclMulti s;
       s.varType = dt.value;
       s.reg = reg;
+      s.regFract = regFract;
+      s.regAlias = rp.regAlias;
+      s.regFractAlias = rp.regFractAlias;
       s.isConst = isConst;
       s.line = dt.line;
       s.varNames.push_back(firstName.value);

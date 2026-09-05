@@ -38,6 +38,7 @@ struct FuncArg {
 struct FuncDefArg {
   TypeClass type = TypeClass::Unknown; // data type e.g. u32, vec16
   std::string reg;  // optional register constraint, e.g. "$t0"
+  std::string regFract; // vec32 only: second register of the pair
   std::string name;
 };
 
@@ -136,6 +137,11 @@ struct StmtVarDecl {
   std::string varName;
   std::string varType;
   std::string reg;
+  std::string regFract; // vec32 only: second register of the pair
+  // A slot written as `alias(var)` borrows that variable's register
+  // instead of claiming a free one.
+  bool regAlias = false;
+  bool regFractAlias = false;
   bool isConst = false;
   uint32_t line = 0;
 };
@@ -143,6 +149,11 @@ struct StmtVarDecl {
 struct StmtVarDeclMulti {
   std::string varType;
   std::string reg;
+  std::string regFract; // vec32 only: second register of the pair
+  // A slot written as `alias(var)` borrows that variable's register
+  // instead of claiming a free one.
+  bool regAlias = false;
+  bool regFractAlias = false;
   std::vector<std::string> varNames;
   bool isConst = false;
   uint32_t line = 0;
@@ -151,6 +162,11 @@ struct StmtVarDeclMulti {
 struct StmtVarDeclAssign {
   std::string varType;
   std::string reg;
+  std::string regFract; // vec32 only: second register of the pair
+  // A slot written as `alias(var)` borrows that variable's register
+  // instead of claiming a free one.
+  bool regAlias = false;
+  bool regFractAlias = false;
   std::string varName;
   std::unique_ptr<Calc> calc;
   bool isConst = false;

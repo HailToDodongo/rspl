@@ -188,6 +188,8 @@ struct AsmFunc {
   int argSize = 0;
   int cyclesBefore = 0;
   int cyclesAfter = 0;
+  int costBefore = 0; // reorder objective (scaled cost) before / after
+  int costAfter = 0;
   int hotCycles = 0; // hot-path cycles from the last evalFunctionCost()
   std::vector<AsmAnnotation> annotations; // from AST
   std::optional<int64_t> resultType;

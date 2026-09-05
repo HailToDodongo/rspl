@@ -112,6 +112,43 @@ In the declaration it's possible to either specify a register directly (useful f
 The latter should be preferred whenever possible.<br>
 Automatic allocation of registers happens in a fixed order, choosing the first free register.
 
+A `vec32` occupies two registers: the integer half and the fraction half.<br>
+By default the fraction half is the register right after the integer one, but both
+can be named explicitly, which lets the two halves live in **any** two registers:
+```c++
+vec32<$v05, $v12> tmp; // integer half in $v05, fraction half in $v12
+vec32<$v05> alsoFine;  // fraction half is $v06
+```
+This is useful under register pressure, where two free registers are often
+available but not next to each other. Both registers are reserved for the
+variable, and `undef` releases both.
+
+### `alias(...)`
+A register slot can also be written as `alias(otherVar)`, which **borrows** the
+register that variable already lives in instead of claiming a free one:
+```c++
+vec16 fogScaleOffset, pos;
+vec32<alias(fogScaleOffset), alias(pos)> invW; // no register of its own
+invW.w = invert_half(posClip).w;               // writes only lane w of both
+```
+Nothing is reserved: the registers stay owned by `fogScaleOffset` and `pos`, so
+the allocator still sees them as taken and `undef invW` frees nothing.<br>
+It works for any type, and slots can be mixed (`vec32<$v05, alias(pos)>`):
+```c++
+vec16<alias(foo)> renamed;         // second name for the same register
+vec16<alias(bigVec:ufract)> half;  // name a vec32's fraction half
+u32<alias(ptr)> p2;                // scalars too
+```
+Aliasing a whole `vec32` is rejected as ambiguous &mdash; pick a half with
+`:sint` / `:ufract`.<br>
+
+**This is unchecked.** Only the `vrcp`/`vrcph`/`vrcpl`/`vrsq`/`vmov` family (so
+`invert_half`, `invert_half_sqrt`, lane assignment) writes a single lane; every
+other vector operation writes **all 8 lanes** and will destroy whatever the host
+variables held. Use it only where you know the lanes you touch are free.<br>
+`undef` on a variable that an alias still points at is an error, so a borrowed
+register cannot silently return to the allocator.
+
 To manually un-declare a variable, you can use the `undef` keyword.<br>
 Multiple variables can be un-declared in a single statement by separating them with commas.
 ```c++
@@ -867,6 +904,30 @@ Example:
 ```c++
 vec16 color;
 store_vec_u8(color, ptrColor, 0x08);
+```
+
+### `load_byte_lo/hi(address, [offset])` & `store_byte_lo/hi(value, address, [offset])`
+Access a **single byte** of one lane, using the `lbv` / `sbv` instructions.<br>
+The lane is taken from the swizzle, `_lo` / `_hi` picks which half of it:<br>
+
+| form | half of the lane | value |
+| --- | --- | --- |
+| `_hi` | upper byte | value &times; 256 |
+| `_lo` | lower byte | plain 0-255 |
+
+Only that one byte is read or written, the other half of the lane keeps its
+value. So a load only yields a clean `0-255` number if the lane was cleared
+first &mdash; loading both halves separately builds a 16-bit lane out of two bytes.<br>
+The offset is a byte offset and is **not** scaled, so it has to fit into `-64` to `63`.<br>
+A single-lane swizzle (`.x` &hellip; `.W`) is required.<br>
+
+Example:
+```c++
+vec16 v;
+u32 ptr;
+v.x = load_byte_lo(ptr, 0x10);  // lbv $v01, 1, 16, $t0  -> low byte of lane x
+v.z = load_byte_hi(ptr);        // lbv $v01, 4,  0, $t0  -> high byte of lane z
+store_byte_lo(v.x, ptr, 0x10);  // sbv $v01, 1, 16, $t0  -> writes (lane x & 0xFF)
 ```
 
 ### `load_transposed(row, address, [offset])`

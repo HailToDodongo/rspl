@@ -598,6 +598,8 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
   asmInitDeps(func);
   evalFunctionCost(func);
   func.cyclesAfter = func.hotCycles;
+  func.costBefore = costInit;
+  func.costAfter = costBest;
 }
 
 } // namespace rspl

@@ -52,6 +52,21 @@ struct MacroScopeGuard {
 static std::vector<AsmInst>
 scopedBlockToAsm(const ast::ScopedBlock &block);
 
+// Resolve one declaration register slot: either a register written
+// literally, or `alias(var)` which borrows the register `var` lives in.
+// `owned` reports whether the slot claims the register for itself.
+static std::string resolveRegSlot(const std::string &spec, bool isAlias,
+                                  const std::string &declName, bool &owned) {
+  owned = !isAlias;
+  if (!isAlias) return spec;
+  VarDef target = state.getRequiredVarCopy(spec, "alias");
+  if (target.type == TypeClass::Vec32) {
+    state.throwError("alias(" + spec + ") is ambiguous for a vec32, pick a "
+                     "half with ':sint' or ':ufract'!", declName);
+  }
+  return target.reg;
+}
+
 // --- Macro inlining ---------------------------------------------------
 
 static std::vector<AsmInst>
@@ -802,25 +817,54 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
           using T = std::decay_t<decltype(s)>;
 
           if constexpr (std::is_same_v<T, ast::StmtVarDecl>) {
-            std::string reg = s.reg.empty()
-                                  ? state.allocRegister(s.varType)
-                                  : s.reg;
-            state.declareVar(s.varName, s.varType, reg,
-                             s.isConst);
+            bool ownsReg = true, ownsFract = true;
+            std::string reg =
+                s.reg.empty()
+                    ? state.allocRegister(s.varType)
+                    : resolveRegSlot(s.reg, s.regAlias, s.varName, ownsReg);
+            std::string regFract =
+                s.regFract.empty()
+                    ? std::string{}
+                    : resolveRegSlot(s.regFract, s.regFractAlias, s.varName,
+                                     ownsFract);
+            state.declareVar(s.varName, s.varType, reg, s.isConst, false,
+                             regFract, ownsReg, ownsFract);
           }
 
           else if constexpr (std::is_same_v<T,
                                              ast::StmtVarDeclMulti>) {
+            // An explicit register pair names exactly one variable's two
+            // halves, so it cannot be stepped across several declarations.
+            if (!s.regFract.empty() && s.varNames.size() > 1) {
+              state.throwError("A register pair declares a single variable, "
+                               "declare the others separately!",
+                               s.varNames[0]);
+            }
+            if (s.regAlias && s.varNames.size() > 1) {
+              state.throwError("An alias declares a single variable, "
+                               "declare the others separately!",
+                               s.varNames[0]);
+            }
             for (size_t i = 0; i < s.varNames.size(); ++i) {
-              int step = isTwoRegType(s.varType) ? 2 : 1;
-              int offset = static_cast<int>(i) * step;
-              std::string reg = s.reg.empty()
-                                    ? state.allocRegister(s.varType)
-                                    : reg::nextReg(s.reg, offset)
-                                          ? *reg::nextReg(s.reg, offset)
-                                          : s.reg;
-              state.declareVar(s.varNames[i], s.varType, reg,
-                               s.isConst);
+              bool ownsReg = true, ownsFract = true;
+              std::string reg;
+              if (s.reg.empty()) {
+                reg = state.allocRegister(s.varType);
+              } else if (s.regAlias) {
+                reg = resolveRegSlot(s.reg, true, s.varNames[i], ownsReg);
+              } else {
+                int step = isTwoRegType(s.varType) ? 2 : 1;
+                int offset = static_cast<int>(i) * step;
+                reg = reg::nextReg(s.reg, offset) ? *reg::nextReg(s.reg, offset)
+                                                  : s.reg;
+              }
+              std::string regFract =
+                  s.regFract.empty()
+                      ? std::string{}
+                      : resolveRegSlot(s.regFract, s.regFractAlias,
+                                       s.varNames[i], ownsFract);
+              state.declareVar(s.varNames[i], s.varType, reg, s.isConst,
+                               false, regFract, ownsReg, ownsFract);
             }
           }
 
@@ -832,11 +876,18 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
             if (s.calc) {
               effectiveType = toString(inferCalcResultType(*s.calc, s.varType));
             }
-            state.declareVar(baseName, effectiveType,
-                             s.reg.empty()
-                                 ? state.allocRegister(effectiveType)
-                                 : s.reg,
-                             s.isConst);
+            bool ownsReg = true, ownsFract = true;
+            std::string declReg =
+                s.reg.empty()
+                    ? state.allocRegister(effectiveType)
+                    : resolveRegSlot(s.reg, s.regAlias, baseName, ownsReg);
+            std::string declFract =
+                s.regFract.empty()
+                    ? std::string{}
+                    : resolveRegSlot(s.regFract, s.regFractAlias, baseName,
+                                     ownsFract);
+            state.declareVar(baseName, effectiveType, declReg, s.isConst,
+                             false, declFract, ownsReg, ownsFract);
             if (s.calc) {
               VarDef vr = state.getRequiredVarCopy(
                   s.varName, "result");
@@ -1097,14 +1148,21 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
         usedRegs[r] = g.varName;
       };
       claimReg(g.reg);
+      std::string gFract = g.regFract;
       if (isTwoRegType(g.varType)) {
-        const std::string *nextR = reg::nextReg(g.reg);
-        if (!nextR) {
-          state.throwError("No next register for two-reg type!", g.varName);
+        if (gFract.empty()) {
+          const std::string *nextR = reg::nextReg(g.reg);
+          if (!nextR) {
+            state.throwError("No next register for two-reg type!", g.varName);
+          }
+          gFract = *nextR;
         }
-        claimReg(*nextR);
+        claimReg(gFract);
+      } else if (!gFract.empty()) {
+        state.throwError("Only vec32 variables can specify two registers!",
+                         g.varName);
       }
-      state.declareGlobalVar(g.varName, g.varType, g.reg, g.isConst);
+      state.declareGlobalVar(g.varName, g.varType, g.reg, g.isConst, gFract);
     }
     state.line = 0;
   }
@@ -1179,7 +1237,8 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
       } else {
         reg = state.allocRegister(toString(arg.type));
       }
-      state.declareVar(arg.name, toString(arg.type), reg);
+      state.declareVar(arg.name, toString(arg.type), reg, false, false,
+                       arg.regFract);
 
       // The RSPQ dispatcher only provides the first 4 command args in $a0-$a3.
       // anything past that is fetched from the command buffer

@@ -90,7 +90,7 @@ void State::enterFunction(const std::string &name, const std::string &type,
   // Global register variables live in every function's root scope; their
   // registers stay out of reach of the auto-allocator via regVarMap.
   for (const auto &g : globalVars) {
-    declareVar(g.name, g.type, g.reg, g.isConst);
+    declareVar(g.name, g.type, g.reg, g.isConst, false, g.regFract);
     VarDef &def = getScope().varMap[g.name];
     def.isGlobal = true;
     // a const global has no initializer in RSPL code, so the usual
@@ -100,8 +100,9 @@ void State::enterFunction(const std::string &name, const std::string &type,
 }
 
 void State::declareGlobalVar(const std::string &name, const std::string &type,
-                             const std::string &reg, bool isConst) {
-  globalVars.push_back({name, type, reg, isConst});
+                             const std::string &reg, bool isConst,
+                             const std::string &regFract) {
+  globalVars.push_back({name, type, reg, isConst, regFract});
 }
 
 void State::leaveFunction() {
@@ -152,7 +153,8 @@ Scope State::makeChildScope() const {
 
 void State::declareVar(const std::string &name, const std::string &type,
                        const std::string &reg, bool isConst,
-                       bool ignoreReserved) {
+                       bool ignoreReserved, const std::string &regFract,
+                       bool ownsReg, bool ownsFract) {
   if (name.find(':') != std::string::npos) {
     throwError("Variable name cannot contain a cast (':')!", {name});
   }
@@ -187,15 +189,38 @@ void State::declareVar(const std::string &name, const std::string &type,
     }
   };
 
-  checkReg(reg);
-  scope.varMap[name] = VarDef{reg, toTypeClass(type), {}, {}, {}, {}, 0, isConst, 0};
-  scope.regVarMap[reg] = name;
+  if (ownsReg) checkReg(reg);
 
+  // Resolve the register pair once, here. Every later use reads the stored
+  // pair instead of deriving the second register.
+  std::string rInt, rFract;
   if (isTwoRegType(type)) {
-    const std::string *nextR = reg::nextReg(reg);
-    if (!nextR) throwError("No next register for two-reg type!", {name});
-    checkReg(*nextR);
-    scope.regVarMap[*nextR] = name;
+    rInt = reg;
+    rFract = regFract;
+    if (rFract.empty()) {
+      const std::string *nextR = reg::nextReg(reg);
+      if (!nextR) throwError("No next register for two-reg type!", {name});
+      rFract = *nextR;
+    }
+    if (rFract == rInt)
+      throwError("A vec32 needs two different registers, '" + rInt +
+                 "' given twice!", {name});
+    if (!reg::isVecReg(rFract))
+      throwError("'" + rFract + "' is not a vector register!", {name});
+  } else if (!regFract.empty()) {
+    throwError("Only vec32 variables can specify two registers!", {name});
+  }
+
+  VarDef def{reg,     rInt,    rFract, ownsReg, ownsFract,
+             toTypeClass(type), {}, {}, {}, {}, 0, isConst, 0};
+  scope.varMap[name] = def;
+  // Borrowed registers stay owned by the variable they came from, so they
+  // are neither claimed here nor freed by undef.
+  if (ownsReg) scope.regVarMap[reg] = name;
+
+  if (!rFract.empty() && ownsFract) {
+    checkReg(rFract);
+    scope.regVarMap[rFract] = name;
   }
 }
 
@@ -236,12 +261,31 @@ void State::undefVar(const std::string &varName) {
     throwError("Cannot undef global register variable '" + resolved + "'!");
   }
 
-  // Free registers
-  scope.regVarMap.erase(varIt->second.reg);
-  if (isTwoRegType(varIt->second.type)) {
-    const std::string *nextR = reg::nextReg(varIt->second.reg);
-    if (nextR) scope.regVarMap.erase(*nextR);
+  // Refuse while something still aliases one of our registers, otherwise the
+  // register would go back to the allocator with the alias still pointing at it.
+  {
+    const VarDef &me = varIt->second;
+    std::vector<std::string> mine;
+    if (me.ownsInt) mine.push_back(me.reg);
+    if (me.ownsFract && !me.regFract.empty()) mine.push_back(me.regFract);
+    auto isMine = [&](const std::string &r) {
+      return !r.empty() &&
+             std::find(mine.begin(), mine.end(), r) != mine.end();
+    };
+    for (const auto &[otherName, other] : scope.varMap) {
+      if (otherName == resolved) continue;
+      if ((!other.ownsInt && isMine(other.reg)) ||
+          (!other.ownsFract && isMine(other.regFract))) {
+        throwError("Cannot undef '" + resolved + "' while '" + otherName +
+                   "' still aliases one of its registers!");
+      }
+    }
   }
+
+  // Free registers (borrowed ones belong to another variable)
+  if (varIt->second.ownsInt) scope.regVarMap.erase(varIt->second.reg);
+  if (varIt->second.ownsFract && !varIt->second.regFract.empty())
+    scope.regVarMap.erase(varIt->second.regFract);
   scope.varMap.erase(varIt);
 }
 
@@ -303,10 +347,11 @@ VarDef State::getRequiredVarCopy(const std::string &name,
                        name + ", expected: uint,sint,ufract,sfract!",
                    context);
       }
+      // A fraction view of a vec32 points at the fraction register; the
+      // pair (regInt/regFract) stays intact so the other half is still known.
       if (copy.type == TypeClass::Vec32 &&
           (toCastType(castStr) == CastType::Sfract || toCastType(castStr) == CastType::Ufract)) {
-        const std::string *nextV = reg::nextVecReg(copy.reg);
-        if (nextV) copy.reg = *nextV;
+        if (!copy.regFract.empty()) copy.reg = copy.regFract;
       }
       copy.type = TypeClass::Vec16;
     } else {

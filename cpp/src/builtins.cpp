@@ -271,8 +271,8 @@ b_clip(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
         "Builtin clip() requires both arguments to be of the same type!");
 
   if (is32BitA) {
-    const std::string *nextReg0 = reg::nextVecReg(varArg0.reg);
-    const std::string *nextReg1 = reg::nextVecReg(varArg1.reg);
+    const std::string *nextReg0 = &varArg0.regFract;
+    const std::string *nextReg1 = &varArg1.regFract;
     return {
         asmOp("vch",
               {reg::Reg::VTEMP0, varArg0.reg, varArg1.reg + swizzleRight}),
@@ -334,8 +334,7 @@ b_get_acc(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
         "Builtin get_acc() must be assigned to a vec32 variable!\n"
         "Use get_acc_high/mid/low.");
   return {asmOp("vsar", {varRes->reg, reg::RegCop2::ACC_HI}),
-          asmOp("vsar",
-                 {*reg::nextVecReg(varRes->reg), reg::RegCop2::ACC_MD})};
+          asmOp("vsar", {varRes->regFract, reg::RegCop2::ACC_MD})};
 }
 
 // get_acc_high/mid/low
@@ -582,8 +581,8 @@ b_swap(const VarDef *varRes,
   res.push_back(asmOp(op, {varA.reg, varA.reg, varB.reg}));
 
   if (isTwoRegType(varA.type)) {
-    std::string ra = *reg::nextReg(varA.reg);
-    std::string rb = *reg::nextReg(varB.reg);
+    std::string ra = varA.regFract;
+    std::string rb = varB.regFract;
     res.push_back(asmOp(op, {ra, ra, rb}));
     res.push_back(asmOp(op, {rb, ra, rb}));
     res.push_back(asmOp(op, {ra, ra, rb}));
@@ -936,6 +935,73 @@ b_asm_include(const VarDef *varRes,
 using BuiltinMap =
     std::unordered_map<std::string, BuiltinFn>;
 
+// --- load_byte_lo/hi + store_byte_lo/hi (lbv / sbv) --------------------
+// Access a single byte at one half of a lane. The element field of these
+// two instructions is a byte index 0-15:
+//     element = lane * 2 + (low ? 1 : 0)
+// so an even element is the HIGH byte of the lane (value x 256) and an odd
+// one the LOW byte (plain 0-255). Only that byte is touched, the other half
+// of the lane keeps whatever it had. The offset is a byte offset and is not
+// scaled (signed 7-bit immediate), so it has to fit into -64..63.
+static std::vector<AsmInst>
+b_byte_mem(const VarDef *varRes, const std::vector<ast::FuncArg> &args,
+           const std::string &swizzle, bool isStore, bool isLow) {
+  const std::string pre = std::string("Builtin ") +
+                          (isStore ? "store" : "load") + "_byte_" +
+                          (isLow ? "lo" : "hi") + "() ";
+  if (!swizzle.empty()) state.throwError(pre + "cannot use swizzle!");
+
+  // The lane comes from the swizzle: the destination for a load, the value
+  // argument for a store.
+  VarDef val;
+  size_t iAddr = 0;
+  if (isStore) {
+    if (varRes) state.throwError(pre + "cannot have a left side!");
+    if (args.empty() || args[0].type != ArgType::Var)
+      state.throwError(pre + "requires the first argument to be a vector "
+                             "variable!");
+    val = resolveArg(args[0], "arg0");
+    iAddr = 1;
+  } else {
+    if (!varRes) state.throwError(pre + "needs a left-side!");
+    val = *varRes;
+  }
+  assertArgsNoSwizzle(args, iAddr);
+
+  if (!reg::isVecReg(val.reg))
+    state.throwError(pre + "requires a vector variable!");
+  if (val.swizzle.size() != 1 || !SWIZZLE_SCALAR_IDX.count(val.swizzle[0]))
+    state.throwError(pre + "requires a single-lane swizzle (e.g. '.x' or "
+                           "'.W')!");
+  int element = SWIZZLE_SCALAR_IDX.at(val.swizzle[0]) * 2 + (isLow ? 1 : 0);
+
+  if (args.size() < iAddr + 1 || args.size() > iAddr + 2)
+    state.throwError(pre + "requires an address and an optional offset!");
+  int offset = 0;
+  if (args.size() == iAddr + 2) {
+    if (args[iAddr + 1].type != ArgType::Num)
+      state.throwError(pre + "requires the offset to be a number!");
+    offset = std::stoi(args[iAddr + 1].value);
+    if (offset < -64 || offset > 63)
+      state.throwError(pre + "offset must be in the range -64 to 63, " +
+                       std::to_string(offset) + " given!");
+  }
+
+  auto addrMem = state.getRequiredVarOrMem(args[iAddr].value, "addr");
+  if (!addrMem.reg.empty() && reg::isVecReg(addrMem.reg))
+    state.throwError(pre + "requires the address to be a scalar variable!");
+
+  const char *op = isStore ? "sbv" : "lbv";
+  std::string elemStr = std::to_string(element);
+  std::string offStr = std::to_string(offset);
+  if (!addrMem.reg.empty())
+    return {asmOp(op, {val.reg, elemStr, offStr, addrMem.reg})};
+
+  auto res = loadImmediate("$at", "%lo(" + addrMem.name + ")");
+  res.push_back(asmOp(op, {val.reg, elemStr, offStr, "$at"}));
+  return res;
+}
+
 static BuiltinMap buildRegistry() {
   BuiltinMap m;
 
@@ -960,6 +1026,22 @@ static BuiltinMap buildRegistry() {
                          const std::vector<ast::FuncArg> &args,
                          const std::string &swizzle) {
     return b_store_ex(vr, args, swizzle, true, true, false);
+  };
+  m["load_byte_lo"] = [](const VarDef *vr, const std::vector<ast::FuncArg> &a,
+                         const std::string &s) {
+    return b_byte_mem(vr, a, s, false, true);
+  };
+  m["load_byte_hi"] = [](const VarDef *vr, const std::vector<ast::FuncArg> &a,
+                         const std::string &s) {
+    return b_byte_mem(vr, a, s, false, false);
+  };
+  m["store_byte_lo"] = [](const VarDef *vr, const std::vector<ast::FuncArg> &a,
+                          const std::string &s) {
+    return b_byte_mem(vr, a, s, true, true);
+  };
+  m["store_byte_hi"] = [](const VarDef *vr, const std::vector<ast::FuncArg> &a,
+                          const std::string &s) {
+    return b_byte_mem(vr, a, s, true, false);
   };
   m["load_unaligned"] = [](const VarDef *vr,
                            const std::vector<ast::FuncArg> &args,

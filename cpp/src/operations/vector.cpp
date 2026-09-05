@@ -12,32 +12,28 @@
 
 namespace rspl::ops {
 
-// --- Vec32 register helpers (mirror registers.js) ---------------------
-
-static const std::string *nextVecReg(const std::string &regName) {
-  return reg::nextVecReg(regName);
-}
+// --- Vec32 register helpers -------------------------------------------
 
 static bool isFractCast(const VarDef &v) {
   return v.castType == CastType::Ufract || v.castType == CastType::Sfract;
 }
 
+static bool isVec32Based(const VarDef &v) {
+  return v.type == TypeClass::Vec32 || v.originalType == TypeClass::Vec32;
+}
+
 // Integer half of an operand. A vec16 read as a fraction has none.
 static std::string intReg(const VarDef &v) {
-  if (v.type != TypeClass::Vec32 && v.originalType != TypeClass::Vec32 &&
-      isFractCast(v))
-    return reg::Reg::VZERO;
+  if (isVec32Based(v))
+    return v.regInt.empty() ? v.reg : v.regInt;
+  if (isFractCast(v)) return reg::Reg::VZERO;
   return v.reg;
 }
 
 static std::string fractReg(const VarDef &v) {
-  if (v.type == TypeClass::Vec32 || v.originalType == TypeClass::Vec32) {
-    const auto *next = reg::nextVecReg(v.reg);
-    return next ? *next : reg::Reg::VZERO;
-  }
-  if (v.castType == CastType::Ufract || v.castType == CastType::Sfract) {
-    return v.reg;
-  }
+  if (isVec32Based(v))
+    return v.regFract.empty() ? std::string(reg::Reg::VZERO) : v.regFract;
+  if (isFractCast(v)) return v.reg;
   return reg::Reg::VZERO;
 }
 
@@ -46,13 +42,8 @@ static std::string fractReg(const VarDef &v) {
 // For destinations, callers should use getVec32DstRegs() to always get the
 // original register pair.
 std::pair<std::string, std::string> getVec32Regs(const VarDef &v) {
-  if (v.type == TypeClass::Vec32) {
-    const auto *next = reg::nextVecReg(v.reg);
-    return {v.reg, next ? *next : reg::Reg::VZERO};
-  }
-  if (v.castType == CastType::Ufract || v.castType == CastType::Sfract) {
-    return {reg::Reg::VZERO, v.reg};
-  }
+  if (v.type == TypeClass::Vec32) return {intReg(v), fractReg(v)};
+  if (isFractCast(v)) return {reg::Reg::VZERO, v.reg};
   return {v.reg, reg::Reg::VZERO};
 }
 
@@ -101,22 +92,8 @@ static void adjustRegsForResType(const VarDef &varRes, const VarDef &varLeft,
 // Returns the actual register pair of the original vec32, regardless of cast.
 static std::pair<std::string, std::string>
 getVec32DstRegs(const VarDef &v) {
-  if (v.type == TypeClass::Vec32) {
-    const auto *next = reg::nextVecReg(v.reg);
-    return {v.reg, next ? *next : reg::Reg::VZERO};
-  }
-  if (v.originalType == TypeClass::Vec32) {
-    if (v.castType == CastType::Ufract || v.castType == CastType::Sfract) {
-      // v.reg is the fract register; the int reg is the previous one
-      const auto *prev = reg::nextReg(v.reg, -1);
-      std::string intReg = prev ? *prev : reg::Reg::VZERO;
-      return {intReg, v.reg};
-    }
-    // sint/uint: v.reg is the int register
-    const auto *next = reg::nextVecReg(v.reg);
-    return {v.reg, next ? *next : reg::Reg::VZERO};
-  }
-  // Shouldn't be reached for vec32 destinations
+  // Always the declared pair, whichever half this view points at.
+  if (isVec32Based(v)) return {intReg(v), fractReg(v)};
   return {v.reg, reg::Reg::VZERO};
 }
 
@@ -170,7 +147,7 @@ genericLogicOp(const VarDef &varRes, const VarDef &varLeft,
     std::string fractR = rightWasConst
                              ? std::string(reg::Reg::VZERO) + ".e0"
                              : fractReg(varRight) + swSuffix;
-    res.push_back(asmOp(op, {*reg::nextVecReg(varRes.reg),
+    res.push_back(asmOp(op, {fractReg(varRes),
                              fractReg(varLeft), fractR}));
   }
   return res;
@@ -542,7 +519,8 @@ std::vector<AsmInst> opLoadVec(const VarDef &varRes,
   }
 
   if (is32) {
-    const auto *nextRegV = reg::nextVecReg(varRes.reg);
+    const std::string fractR = fractReg(varRes);
+    const std::string *nextRegV = fractR.empty() ? nullptr : &fractR;
     if (nextRegV) {
       emit(*nextRegV, destOffset, srcOffset + accessLen);
       if (dupeLoad) emit(*nextRegV, destOffset + 8, srcOffset + accessLen);
@@ -636,7 +614,8 @@ std::vector<AsmInst> opStoreVec(const VarDef &varRes,
   if (!alignOp.empty()) emitA(varRes.reg, srcOffset, baseOffset + 0x10);
 
   if (is32) {
-    const auto *nextRegV = reg::nextVecReg(varRes.reg);
+    const std::string fractR = fractReg(varRes);
+    const std::string *nextRegV = fractR.empty() ? nullptr : &fractR;
     if (nextRegV) {
       emit(*nextRegV, srcOffset, baseOffset + accessLen);
       if (!alignOp.empty()) emitA(*nextRegV, srcOffset, baseOffset + accessLen + 0x10);
@@ -714,7 +693,7 @@ std::vector<AsmInst> opSubVec(const VarDef &varRes,
     state.throwError("Unsupported swizzle: " + varRight.swizzle);
 
   if (varRes.type == TypeClass::Vec32) {
-    return {asmOp("vsubc", {*reg::nextReg(varRes.reg),
+    return {asmOp("vsubc", {fractReg(varRes),
                             fractReg(varLeft),
                             fractReg(varRight) + sit->second}),
             asmOp("vsub", {varRes.reg, varLeft.reg,
@@ -875,7 +854,8 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
       (varRight.castType == CastType::Sfract || varRight.castType == CastType::Ufract);
   if (rightSideIsFraction &&
       (varRight.originalType == TypeClass::Vec32 || varRes.type == TypeClass::Vec32)) {
-    const std::string *nextReg = reg::nextVecReg(varRes.reg);
+    const std::string fractRes = fractReg(varRes);
+    const std::string *nextReg = &fractRes;
     std::vector<AsmInst> res;
     if (varLeft.type == TypeClass::Vec32) {
       res.push_back(asmOp(fractOp,

@@ -106,6 +106,7 @@ set(TEST_SOURCES
   tests/test_builtinsAll.cpp
   tests/test_branchVar.cpp
   tests/test_branchZero.cpp
+  tests/test_byteMem.cpp
   tests/test_commandArgs.cpp
   tests/test_compare.cpp
   tests/test_const.cpp
@@ -151,6 +152,7 @@ set(TEST_SOURCES
   tests/test_evalCostExample.cpp
   tests/test_evalCostPath.cpp
   tests/test_examples.cpp
+  tests/test_vec32Pair.cpp
   tests/test_vectorOps.cpp
   tests/test_syntaxNumbers.cpp
   tests/test_syntaxVar.cpp

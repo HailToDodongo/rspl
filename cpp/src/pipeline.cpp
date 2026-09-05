@@ -159,6 +159,13 @@ TranspileResult runPipelineProgram(ast::Program &prog,
         asmOptimize(fn, config.optimizeTime, config.optWorkers,
                     config.optSeed, config.optIters, config.optAnneal);
       }
+      std::cerr << "\n=== Reorder Results =======================" << std::endl;
+      for (const auto &fn : functions) {
+        if (fn.asm_.empty() || !isOptimizeTarget(config, fn)) continue;
+        std::cerr << "  " << fn.name << ": cost " << fn.costBefore << " -> "
+                  << fn.costAfter << " | hot-path cycles: " << fn.cyclesBefore
+                  << " -> " << fn.cyclesAfter << std::endl;
+      }
       printCumulativeStats();
     } else {
       for (auto &fn : functions) {
