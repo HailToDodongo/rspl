@@ -890,12 +890,55 @@ TEST_CASE("VectorOps - Multiply vec16 * vec32 -> vec32",
       {.rspqWrapper = false});
 
   REQUIRE(result.warn.empty());
+  // Reordered to vec32 * vec16: vmudn drops the low slice straight into the
+  // result and the vmadh that follows only touches the upper slices, so the
+  // read-back of the accumulator's low half is not needed.
   REQUIRE(result.asm_ == R"(test:
-  vmudm $v06, $v01, $v04.v
-  vmadh $v05, $v01, $v03.v
+  vmudn $v06, $v04, $v01.v
+  vmadh $v05, $v03, $v01.v
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("VectorOps - Multiply vec16 * vec32 with a swizzled vec32",
+          "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test() {
+        vec16<$v01> a;
+        vec32<$v03> b;
+        vec32<$v05> res;
+        res = a * b.wwwwWWWW;
+      })",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  // The lane select can only sit on `vt`, so the vec32 has to stay on the
+  // right and the low half must be read back from the accumulator.
+  REQUIRE(result.asm_ == R"(test:
+  vmudm $v06, $v01, $v04.h3
+  vmadh $v05, $v01, $v03.h3
   vmadn $v06, $v00, $v00
   jr $ra
   nop)");
+}
+
+TEST_CASE("VectorOps - Multiply rejects a swizzle on the left operand",
+          "[vectorOps]") {
+  const char *src = R"(function test() {
+        vec16<$v01> a;
+        vec32<$v03> b;
+        vec32<$v05> res;
+        res = b.wwwwWWWW * a;
+      })";
+  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}),
+                    std::runtime_error);
+  try {
+    rspl::transpileSource(src, {.rspqWrapper = false});
+  } catch (const std::runtime_error &e) {
+    INFO(e.what());
+    REQUIRE(std::string(e.what()).find("swizzle on the right side") !=
+            std::string::npos);
+  }
 }
 
 TEST_CASE("VectorOps - Half-move vec32 xyzw=XYZW (upper to lower)",

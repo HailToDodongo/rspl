@@ -720,9 +720,28 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
     varRight.type = TypeClass::Vec16;
   }
   assertVectorVars(varLeft, &varRight);
+  // The element select is encodable only on `vt`, which is the right-hand
+  // operand of every emitted multiply — a swizzle on the left cannot be
+  // expressed and used to be dropped without a word.
+  if (!varLeft.swizzle.empty())
+    state.throwError("Multiplication only allows swizzle on the right side!");
   auto sit = SWIZZLE_MAP.find(varRight.swizzle);
   if (sit == SWIZZLE_MAP.end())
     state.throwError("Unsupported swizzle: " + varRight.swizzle);
+
+  // vec16 * vec32 is the same product as vec32 * vec16, and the vec32-first
+  // form is one instruction shorter: vmudn/vmadn writes the accumulator's
+  // low slice straight into the result, and the vmadh that follows only
+  // touches the upper slices, so no extra read-back is needed. Only safe
+  // while the vec32 carries no swizzle, since after the swap it becomes
+  // `vs`, which has no element field.
+  if (varRes.type == TypeClass::Vec32 &&
+      varRight.type == TypeClass::Vec32 &&
+      varLeft.type == TypeClass::Vec16 && varRight.swizzle.empty() &&
+      !(varLeft.castType == CastType::Sfract ||
+        varLeft.castType == CastType::Ufract)) {
+    return opMulVec(varRes, varRight, varLeft, clearAccum);
+  }
 
   std::string swSuffix = sit->second;
   bool right32Bit = (varRight.type == TypeClass::Vec32);
