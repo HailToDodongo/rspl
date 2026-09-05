@@ -42,11 +42,52 @@ void State::reset() {
 
 // --- Error handling ---------------------------------------------------
 
+std::string State::describeLine(uint32_t lineNo) const {
+  if (lineNo == 0) return "(???)";
+  if (lineNo <= sourceOrigins.size()) {
+    const SourceLoc &loc = sourceOrigins[lineNo - 1];
+    std::string out = std::to_string(loc.line);
+    if (!loc.file.empty()) out += " (" + loc.file + ")";
+    return out;
+  }
+  return std::to_string(lineNo);
+}
+
+// The offending line with one line of context either side, e.g.
+//     11 |   vec32<$v05> a;
+//  >  12 |   vec16<$v05> b;
+//     13 | }
+std::string State::sourceContext(uint32_t lineNo) const {
+  if (lineNo == 0 || sourceLines.empty()) return {};
+  int cur = static_cast<int>(lineNo);
+  int last = static_cast<int>(sourceLines.size());
+  if (cur > last) return {};
+
+  // number the lines the way the author sees them
+  auto shownNo = [&](int n) {
+    if (n <= (int)sourceOrigins.size() && sourceOrigins[n - 1].line > 0)
+      return sourceOrigins[n - 1].line;
+    return n;
+  };
+  int width = 1;
+  for (int n = std::max(1, cur - 1); n <= std::min(last, cur + 1); ++n)
+    width = std::max(width, (int)std::to_string(shownNo(n)).size());
+
+  std::ostringstream oss;
+  for (int n = std::max(1, cur - 1); n <= std::min(last, cur + 1); ++n) {
+    std::string num = std::to_string(shownNo(n));
+    oss << "\n " << (n == cur ? ">" : " ") << " "
+        << std::string(width - num.size(), ' ') << num << " | "
+        << sourceLines[n - 1];
+  }
+  return oss.str();
+}
+
 void State::throwError(const std::string &msg,
                        const std::string &context) const {
   std::ostringstream oss;
   oss << "Error in " << (func.empty() ? "(???)" : func) << ", line "
-      << (line == 0 ? "(???)" : std::to_string(line)) << ": " << msg
+      << describeLine(line) << ": " << msg << sourceContext(line)
       << "\n  -> AST: " << context;
   throw std::runtime_error(oss.str());
 }
@@ -54,7 +95,7 @@ void State::throwError(const std::string &msg,
 void State::logWarning(const std::string &msg, const std::string &context) {
   std::ostringstream oss;
   oss << "Warning in " << (func.empty() ? "(???)" : func) << ", line "
-      << (line == 0 ? "(???)" : std::to_string(line)) << ": " << msg
+      << describeLine(line) << ": " << msg << sourceContext(line)
       << "\n  -> AST: " << context << "\n";
   outWarn += oss.str();
 }

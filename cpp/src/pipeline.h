@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ast.h"
+#include "preproc.h"
 
 #include <string>
 #include <utility>
@@ -48,7 +49,8 @@ TranspileResult runPipelineProgram(ast::Program &prog,
 
 /// Fills state.sourceLines from preprocessed source, enabling the source
 /// text column of the debug comments. Call before runPipelineProgram.
-void loadSourceLines(const std::string &preprocessed);
+void loadSourceLines(const std::string &preprocessed,
+                     const std::vector<SourceLoc> *origins = nullptr);
 
 /// Transpile an RSPL source string to assembly.
 /// Handles the JS parser subprocess internally.

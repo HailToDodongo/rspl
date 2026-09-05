@@ -109,21 +109,22 @@ TranspileResult runPipeline(const std::string &astJson,
   return runPipelineProgram(prog, config);
 }
 
-void loadSourceLines(const std::string &preprocessed) {
+void loadSourceLines(const std::string &preprocessed,
+                     const std::vector<SourceLoc> *origins) {
   // Populate source lines from the PREPROCESSED source for debug info.
   // AST line numbers come from the preprocessed text (includes expanded,
   // macros resolved), so the sourceLines must match.
+  // Kept verbatim (indentation included) so error context reads like the
+  // original file; the debug-comment writer trims when it emits them.
   state.sourceLines.clear();
   std::istringstream srcStream(preprocessed);
   std::string srcLine;
   while (std::getline(srcStream, srcLine)) {
-    size_t start = srcLine.find_first_not_of(" \t\r");
     size_t end = srcLine.find_last_not_of(" \t\r");
-    if (start != std::string::npos)
-      state.sourceLines.push_back(srcLine.substr(start, end - start + 1));
-    else
-      state.sourceLines.push_back("");
+    state.sourceLines.push_back(
+        end == std::string::npos ? "" : srcLine.substr(0, end + 1));
   }
+  state.sourceOrigins = origins ? *origins : std::vector<SourceLoc>{};
 }
 
 TranspileResult runPipelineProgram(ast::Program &prog,
@@ -216,10 +217,11 @@ TranspileResult transpileSource(const std::string &source,
   // Preprocess in C++ to collect defines (ordered by source appearance)
   std::unordered_map<std::string, DefineEntry> defines;
   std::vector<DefineEntry> defineOrder;
-  std::string preprocessed =
-      preprocFull(source, defines, config.sourceDir, &defineOrder);
+  std::vector<SourceLoc> origins;
+  std::string preprocessed = preprocFull(source, defines, config.sourceDir,
+                                         &defineOrder, &origins);
 
-  loadSourceLines(preprocessed);
+  loadSourceLines(preprocessed, &origins);
 
   // Parse natively; RSPL_USE_JS_PARSER=1 routes through the JS parser
   // subprocess instead (kept as a differential-testing oracle).

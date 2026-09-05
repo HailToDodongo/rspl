@@ -441,7 +441,10 @@ AsmWriteResult writeASM(const ast::Program &ast,
             if (inst.debug.lineRSPL > 0 &&
                 inst.debug.lineRSPL <=
                     static_cast<int>(state.sourceLines.size())) {
-              di << state.sourceLines[inst.debug.lineRSPL - 1];
+              const std::string &srcLine =
+                  state.sourceLines[inst.debug.lineRSPL - 1];
+              size_t srcStart = srcLine.find_first_not_of(" \t");
+              if (srcStart != std::string::npos) di << srcLine.substr(srcStart);
             }
           }
 

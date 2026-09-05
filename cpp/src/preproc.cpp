@@ -47,7 +47,9 @@ std::string stripComments(const std::string &source) {
 std::string preprocess(const std::string &src,
                        std::unordered_map<std::string, DefineEntry> &defines,
                        const std::string &sourceDir,
-                       std::vector<DefineEntry> *defineOrder) {
+                       std::vector<DefineEntry> *defineOrder,
+                       std::vector<SourceLoc> *origins,
+                       const std::string &fileName) {
   std::istringstream iss(src);
   std::string line;
   std::string result;
@@ -150,12 +152,14 @@ std::string preprocess(const std::string &src,
         ss << incFile.rdbuf();
         incSrc = ss.str();
       }
-      result += preprocess(stripComments(incSrc), defines, sourceDir, defineOrder);
+      result += preprocess(stripComments(incSrc), defines, sourceDir,
+                           defineOrder, origins, path);
     } else if (!ignoreLine) {
       newLine = replaceDefines(line);
     }
 
     result += newLine + "\n";
+    if (origins) origins->push_back({fileName, lineNum});
   }
 
   return result;
@@ -164,8 +168,11 @@ std::string preprocess(const std::string &src,
 std::string preprocFull(const std::string &src,
                         std::unordered_map<std::string, DefineEntry> &defines,
                         const std::string &sourceDir,
-                        std::vector<DefineEntry> *defineOrder) {
-  return preprocess(stripComments(src), defines, sourceDir, defineOrder);
+                        std::vector<DefineEntry> *defineOrder,
+                        std::vector<SourceLoc> *origins,
+                        const std::string &fileName) {
+  return preprocess(stripComments(src), defines, sourceDir, defineOrder,
+                    origins, fileName);
 }
 
 } // namespace rspl

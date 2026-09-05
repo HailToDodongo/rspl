@@ -179,8 +179,11 @@ int main(int argc, char **argv) {
       sourceDir = args.inputFile.substr(0, slash);
   }
   std::vector<rspl::DefineEntry> defineOrder;
+  // top-level file name stays empty: only lines spliced in from an
+  // #include need naming, the main file is obvious
+  std::vector<rspl::SourceLoc> origins;
   std::string preprocessed =
-      rspl::preprocFull(source, defines, sourceDir, &defineOrder);
+      rspl::preprocFull(source, defines, sourceDir, &defineOrder, &origins);
 
   // Parse: native by default; RSPL_USE_JS_PARSER=1 keeps the old
   // node-subprocess path as an escape hatch / oracle.
@@ -206,7 +209,7 @@ int main(int argc, char **argv) {
     if (defines.count(def.name))
       prog.defines.push_back({def.name, def.value});
   }
-  rspl::loadSourceLines(preprocessed);
+  rspl::loadSourceLines(preprocessed, &origins);
 
   rspl::TranspileConfig cfg;
   cfg.rspqWrapper = args.rspqWrapper;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ast.h"
+#include "preproc.h"
 
 #include <functional>
 #include <string>
@@ -99,7 +100,12 @@ public:
   void logInfo(const std::string &msg);
 
   // -- Source tracking -------------------------------------------------
-  std::vector<std::string> sourceLines;
+  std::vector<std::string> sourceLines;   // preprocessed text, one per line
+  std::vector<SourceLoc> sourceOrigins;   // parallel: real file + line
+  /// "line 12" / "line 42 (inc/math.rspl)" for a preprocessed line number
+  std::string describeLine(uint32_t lineNo) const;
+  /// The line plus its neighbours, ready to append to a message
+  std::string sourceContext(uint32_t lineNo) const;
   std::string func;       // current function name
   std::string funcType;   // "function", "command", "macro"
   int argSize = 0;

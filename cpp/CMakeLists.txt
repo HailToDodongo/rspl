@@ -148,6 +148,7 @@ set(TEST_SOURCES
   tests/test_optMergeSequence.cpp
   tests/test_optRegScan.cpp
   tests/test_reorderPartialLoad.cpp
+  tests/test_errorContext.cpp
   tests/test_evalCost.cpp
   tests/test_evalCostExample.cpp
   tests/test_evalCostPath.cpp
