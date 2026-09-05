@@ -6,6 +6,7 @@
 #include <functional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace rspl {
@@ -177,6 +178,16 @@ public:
                                    const std::string &context = "{}") const;
 
   // -- Register allocation ---------------------------------------------
+  // Per emitted block: the registers that block (or anything nested in it)
+  // asks for by name, mapped to the last line that asks. A variable
+  // auto-allocated inside a block lives until that block ends, so those are
+  // exactly the requests it could collide with; the allocator steps around
+  // them while one is still ahead. Pushed/popped by scopedBlockToAsm.
+  std::vector<std::unordered_map<std::string, uint32_t>> explicitRegStack;
+  // Registers handed out even though a later declaration asks for them by
+  // name — only happens when nothing else was free. Remembered so the
+  // resulting clash can say it is register pressure, not a naming mistake.
+  std::unordered_set<std::string> fallbackAllocRegs;
   std::string allocRegister(const std::string &type);
   bool regAllocAllowed = true;
 

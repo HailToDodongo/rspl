@@ -116,6 +116,7 @@ void State::enterFunction(const std::string &name, const std::string &type,
   funcType = type;
   argSize = argSize_ > 0 ? argSize_ : 0;
   line = 0;
+  fallbackAllocRegs.clear();
   scopeStack.clear();
   pushScope();
 
@@ -224,8 +225,17 @@ void State::declareVar(const std::string &name, const std::string &type,
   auto checkReg = [&](const std::string &r) {
     auto it = scope.regVarMap.find(r);
     if (it != scope.regVarMap.end()) {
+      std::string extra;
+      if (fallbackAllocRegs.count(r)) {
+        extra = "\n  -> '" + it->second + "' was auto-allocated to " + r +
+                " because every other register was already taken; this "
+                "function is out of " +
+                std::string(reg::isVecReg(r) ? "vector" : "scalar") +
+                " registers. Free one up, or give '" + it->second +
+                "' a register of its own.";
+      }
       throwError("Register '" + r + "' already used for variable '" +
-                     it->second + "'!",
+                     it->second + "'!" + extra,
                  {name});
     }
   };
@@ -519,8 +529,23 @@ std::string State::allocRegister(const std::string &type) {
   const Scope &scope = getScope();
   bool twoRegs = isTwoRegType(type);
 
+  // A register still wanted by name further down is left alone on the first
+  // pass; the second pass ignores this so tight code keeps compiling.
+  bool avoidExplicit = true;
+  auto wantedLater = [&](const std::string &reg) {
+    if (explicitRegStack.empty()) return false;
+    const auto &wanted = explicitRegStack.back();
+    auto it = wanted.find(reg);
+    return it != wanted.end() && it->second > line;
+  };
+
   auto tryAlloc = [&](const std::string &reg) -> std::string {
     if (scope.regVarMap.count(reg)) return {};
+    if (avoidExplicit && wantedLater(reg)) return {};
+    if (twoRegs) {
+      const std::string *nR = reg::nextReg(reg);
+      if (avoidExplicit && nR && wantedLater(*nR)) return {};
+    }
     if (twoRegs) {
       const std::string *nextR = reg::nextReg(reg);
       if (!nextR ||
@@ -544,15 +569,29 @@ std::string State::allocRegister(const std::string &type) {
   };
   (void)dumpUsed;
 
-  if (reverse) {
-    for (auto it = regList.rbegin(); it != regList.rend(); ++it) {
-      std::string found = tryAlloc(*it);
-      if (!found.empty()) return found;
-    }
-  } else {
-    for (const auto &reg : regList) {
-      std::string found = tryAlloc(reg);
-      if (!found.empty()) return found;
+  for (int pass = 0; pass < 2; ++pass) {
+    avoidExplicit = (pass == 0);
+    auto take = [&](const std::string &found) {
+      // pass 1 means we had to step on a register wanted further down
+      if (pass == 1) {
+        fallbackAllocRegs.insert(found);
+        if (twoRegs) {
+          const std::string *nR = reg::nextReg(found);
+          if (nR) fallbackAllocRegs.insert(*nR);
+        }
+      }
+      return found;
+    };
+    if (reverse) {
+      for (auto it = regList.rbegin(); it != regList.rend(); ++it) {
+        std::string found = tryAlloc(*it);
+        if (!found.empty()) return take(found);
+      }
+    } else {
+      for (const auto &reg : regList) {
+        std::string found = tryAlloc(reg);
+        if (!found.empty()) return take(found);
+      }
     }
   }
 

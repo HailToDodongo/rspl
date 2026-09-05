@@ -95,6 +95,54 @@ inlineMacroCall(const std::string &macroName,
   return res;
 }
 
+// Collect every register a function asks for by name, with the last line that
+// does so. `alias(...)` slots are skipped: they borrow a register that is
+// already owned, so they never compete with the allocator.
+static void collectExplicitRegs(const ast::ScopedBlock &block,
+                                std::unordered_map<std::string, uint32_t> &out);
+
+static void noteReg(const std::string &reg, bool isAlias, uint32_t line,
+                    std::unordered_map<std::string, uint32_t> &out) {
+  if (reg.empty() || isAlias) return;
+  auto it = out.find(reg);
+  if (it == out.end() || it->second < line) out[reg] = line;
+}
+
+static void collectExplicitRegs(const ast::ScopedBlock &block,
+                                std::unordered_map<std::string, uint32_t> &out) {
+  for (const auto &stmt : block.statements) {
+    std::visit(
+        [&](const auto &s) {
+          using T = std::decay_t<decltype(s)>;
+          if constexpr (std::is_same_v<T, ast::StmtVarDecl> ||
+                        std::is_same_v<T, ast::StmtVarDeclAssign>) {
+            noteReg(s.reg, s.regAlias, s.line, out);
+            noteReg(s.regFract, s.regFractAlias, s.line, out);
+          } else if constexpr (std::is_same_v<T, ast::StmtVarDeclMulti>) {
+            noteReg(s.regFract, s.regFractAlias, s.line, out);
+            if (s.reg.empty() || s.regAlias) return;
+            int step = isTwoRegType(s.varType) ? 2 : 1;
+            for (size_t i = 0; i < s.varNames.size(); ++i) {
+              const std::string *r =
+                  reg::nextReg(s.reg, static_cast<int>(i) * step);
+              noteReg(r ? *r : s.reg, false, s.line, out);
+            }
+          } else if constexpr (std::is_same_v<T, ast::StmtIf>) {
+            if (s.blockIf) collectExplicitRegs(*s.blockIf, out);
+            if (s.blockElse) collectExplicitRegs(*s.blockElse, out);
+          } else if constexpr (std::is_same_v<T, ast::StmtWhile> ||
+                               std::is_same_v<T, ast::StmtLoop>) {
+            if (s.block) collectExplicitRegs(*s.block, out);
+          } else if constexpr (std::is_same_v<T, ast::StmtScopedBlock>) {
+            if (s.body) collectExplicitRegs(*s.body, out);
+          } else if constexpr (std::is_same_v<T, ast::StmtMacroDef>) {
+            if (s.def && s.def->body) collectExplicitRegs(*s.def->body, out);
+          }
+        },
+        stmt);
+  }
+}
+
 static const std::string LABEL_CMD_LOOP = "RSPQ_Loop";
 
 // --- Type inference for declarations ----------------------------------
@@ -805,6 +853,15 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
   // Local macros declared in this block die with it. An inlined macro body
   // also runs through here, so it sees the frames of its *calling* site.
   MacroScopeGuard macroScope;
+
+  // Registers this block still needs by name, for the allocator to avoid.
+  struct ExplicitRegGuard {
+    ExplicitRegGuard(const ast::ScopedBlock &b) {
+      state.explicitRegStack.emplace_back();
+      collectExplicitRegs(b, state.explicitRegStack.back());
+    }
+    ~ExplicitRegGuard() { state.explicitRegStack.pop_back(); }
+  } explicitRegs{block};
 
   std::vector<AsmInst> res;
 

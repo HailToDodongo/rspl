@@ -127,6 +127,7 @@ set(TEST_SOURCES
   tests/test_rebaseHop.cpp
   tests/test_lexer.cpp
   tests/test_parserDiff.cpp
+  tests/test_regAlloc.cpp
   tests/test_scalarOps.cpp
   tests/test_scope.cpp
   tests/test_state.cpp
