@@ -458,8 +458,8 @@ T3DCmd_TriDraw:
   sdv $v25, 0, 8, $at
   ldv $v15, 8, 0, $at
   ldv $v16, 8, 8, $at
-  vmudl $v29, $v16, $v18.v
-  vmadm $v29, $v15, $v18.v
+  vmudl $v13, $v16, $v18.v
+  vmadm $v13, $v15, $v18.v
   vmadn $v14, $v16, $v17.v
   vmadh $v13, $v15, $v17.v
   vaddc $v14, $v14, $v14.q1
@@ -608,32 +608,32 @@ mulMat4Mat4:
   ldv $v12, 0, 40, $s4
   ldv $v11, 8, 48, $s4
   ldv $v12, 8, 56, $s4
-  vmudl $v29, $v02, $v10.h0
-  vmadm $v29, $v01, $v10.h0
+  vmudl $v13, $v02, $v10.h0
+  vmadm $v13, $v01, $v10.h0
   vmadn $v14, $v02, $v09.h0
   vmadh $v13, $v01, $v09.h0
-  vmadl $v29, $v04, $v10.h1
-  vmadm $v29, $v03, $v10.h1
+  vmadl $v13, $v04, $v10.h1
+  vmadm $v13, $v03, $v10.h1
   vmadn $v14, $v04, $v09.h1
   vmadh $v13, $v03, $v09.h1
-  vmadl $v29, $v06, $v10.h2
-  vmadm $v29, $v05, $v10.h2
+  vmadl $v13, $v06, $v10.h2
+  vmadm $v13, $v05, $v10.h2
   vmadn $v14, $v06, $v09.h2
   vmadh $v13, $v05, $v09.h2
   vmadl $v29, $v08, $v10.h3
   vmadm $v29, $v07, $v10.h3
   vmadn $v10, $v08, $v09.h3
   vmadh $v09, $v07, $v09.h3
-  vmudl $v29, $v02, $v12.h0
-  vmadm $v29, $v01, $v12.h0
+  vmudl $v13, $v02, $v12.h0
+  vmadm $v13, $v01, $v12.h0
   vmadn $v14, $v02, $v11.h0
   vmadh $v13, $v01, $v11.h0
-  vmadl $v29, $v04, $v12.h1
-  vmadm $v29, $v03, $v12.h1
+  vmadl $v13, $v04, $v12.h1
+  vmadm $v13, $v03, $v12.h1
   vmadn $v14, $v04, $v11.h1
   vmadh $v13, $v03, $v11.h1
-  vmadl $v29, $v06, $v12.h2
-  vmadm $v29, $v05, $v12.h2
+  vmadl $v13, $v06, $v12.h2
+  vmadm $v13, $v05, $v12.h2
   vmadn $v14, $v06, $v11.h2
   vmadh $v13, $v05, $v11.h2
   vmadl $v29, $v08, $v12.h3
@@ -652,8 +652,8 @@ mulMat4Mat4:
 normalizeMatrixVector:
   ldv $v01, 0, 0, $s4
   ldv $v02, 0, 8, $s4
-  vmudl $v29, $v02, $v02.v
-  vmadm $v29, $v01, $v02.v
+  vmudl $v03, $v02, $v02.v
+  vmadm $v03, $v01, $v02.v
   vmadn $v04, $v02, $v01.v
   vmadh $v03, $v01, $v01.v
   vaddc $v06, $v04, $v04.h1

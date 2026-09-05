@@ -14,6 +14,10 @@ namespace rspl::ops {
 
 std::pair<std::string, std::string> getVec32Regs(const VarDef &v);
 
+/// Replace throwaway VTEMP destinations with `resReg` where that register is
+/// overwritten later in `ops` and read by nothing in between.
+void relaxScratchReg(std::vector<AsmInst> &ops, const std::string &resReg);
+
 // Move/assign (vector->vector, scalar->vector, constant->vector)
 std::vector<AsmInst> opMoveVec(const VarDef &varRes,
                                const VarDef &varRight);

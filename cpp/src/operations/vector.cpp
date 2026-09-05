@@ -1,4 +1,6 @@
 #include "vector.h"
+
+#include "../optimizer/asm_scan_deps.h"
 #include "scalar.h"
 
 #include "../asm.h"
@@ -104,6 +106,44 @@ static void assertVectorVars(const VarDef &varLeft,
        !isVecType(varRight->type))) {
     state.throwError(
         "Vector-Operation requires all variables to be vectors!");
+  }
+}
+
+// --- Scratch-register relaxation --------------------------------------
+// Several sequences park an intermediate accumulator result in VTEMP: the
+// value is never read, the instruction is there for its accumulator effect.
+// VTEMP is a single register shared with user code, so that write adds false
+// dependencies and can even clobber a live VTEMP variable. Where the
+// sequence's own result register is overwritten further down anyway and read
+// by nothing in between, it does the job without touching VTEMP.
+static std::string baseRegOf(const std::string &arg) {
+  auto par = arg.find('(');
+  std::string r = (par == std::string::npos) ? arg : arg.substr(par + 1);
+  if (!r.empty() && r.back() == ')') r.pop_back();
+  auto dot = r.find('.');
+  return dot == std::string::npos ? r : r.substr(0, dot);
+}
+
+void relaxScratchReg(std::vector<AsmInst> &ops, const std::string &resReg) {
+  // only a vector register can stand in for VTEMP (clip() returns a scalar)
+  if (resReg.empty() || !reg::isVecReg(resReg) ||
+      resReg == reg::Reg::VTEMP0 || resReg == reg::Reg::VZERO)
+    return;
+
+  for (size_t i = 0; i < ops.size(); ++i) {
+    if (ops[i].type != AsmType::OP || ops[i].args.empty()) continue;
+    if (baseRegOf(ops[i].args[0]) != reg::Reg::VTEMP0) continue;
+
+    // resReg must be rewritten later (so the scratch value dies) and read by
+    // nothing after this point (or that reader would see the scratch value)
+    bool writtenLater = false, readAfter = false;
+    for (size_t k = i + 1; k < ops.size(); ++k) {
+      for (const auto &src : getSourceRegs(ops[k]))
+        if (baseRegOf(src) == resReg) readAfter = true;
+      for (const auto &tgt : getTargetRegs(ops[k]))
+        if (baseRegOf(tgt) == resReg) writtenLater = true;
+    }
+    if (writtenLater && !readAfter) ops[i].args[0] = resReg;
   }
 }
 
@@ -706,9 +746,9 @@ std::vector<AsmInst> opSubVec(const VarDef &varRes,
                  varRight.reg + sit->second})};
 }
 
-std::vector<AsmInst> opMulVec(const VarDef &varRes,
-                              const VarDef &varLeft,
-                              VarDef varRight, bool clearAccum) {
+static std::vector<AsmInst> opMulVecImpl(const VarDef &varRes,
+                                         const VarDef &varLeft,
+                                         VarDef varRight, bool clearAccum) {
   if (varRight.reg.empty()) {
     auto pIt = POW2_SWIZZLE_VAR.find(varRight.value);
     if (pIt == POW2_SWIZZLE_VAR.end()) {
@@ -740,7 +780,7 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
       varLeft.type == TypeClass::Vec16 && varRight.swizzle.empty() &&
       !(varLeft.castType == CastType::Sfract ||
         varLeft.castType == CastType::Ufract)) {
-    return opMulVec(varRes, varRight, varLeft, clearAccum);
+    return opMulVecImpl(varRes, varRight, varLeft, clearAccum);
   }
 
   std::string swSuffix = sit->second;
@@ -937,6 +977,13 @@ std::vector<AsmInst> opMulVec(const VarDef &varRes,
 }
 
 // --- Shifts -----------------------------------------------------------
+
+std::vector<AsmInst> opMulVec(const VarDef &varRes, const VarDef &varLeft,
+                              VarDef varRight, bool clearAccum) {
+  auto res = opMulVecImpl(varRes, varLeft, std::move(varRight), clearAccum);
+  relaxScratchReg(res, varRes.reg);
+  return res;
+}
 
 std::vector<AsmInst> opShiftLeftVec(const VarDef &varRes,
                                     const VarDef &varLeft,

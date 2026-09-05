@@ -357,7 +357,7 @@ MgBeginShader
   vmadh $v29, $v03, $v19.h1                          ## L:370  |    227 | VTEMP = vmvp1 +* vpos.yyyyYYYY;
   vmadn $v29, $v06, $v19.h2                          ## L:371  |    228 | VTEMP = vmvp2 +* vpos.zzzzZZZZ;
   vmadh $v29, $v05, $v19.h2                          ## L:371  |    229 | VTEMP = vmvp2 +* vpos.zzzzZZZZ;
-  vmadn $v29, $v08, $v30.e7                          ## L:372  |    230 | vpos = vmvp3 +* 1;
+  vmadn $v19, $v08, $v30.e7                          ## L:372  |    230 | vpos = vmvp3 +* 1;
   vmadh $v19, $v07, $v30.e7                          ## L:372  |    231 | vpos = vmvp3 +* 1;
   LABEL_mgfx_0001:
   beq $sp, $zero, LIGHT_END                          ## L:376  |      ^ | if (light_count == 0) goto LIGHT_END;
@@ -384,7 +384,7 @@ MgBeginShader
   vrsqh $v03.e4, $v00.e0                             ## L:397  |    266 | vtmp.X = invert_half_sqrt(vsqdist).X;
   vmudm $v29, $v28, $v04.h0                          ## L:399  |  **269 | vlpos *= vtmp.xxxxXXXX;
   vmadh $v28, $v28, $v03.h0                          ## L:399  |    270 | vlpos *= vtmp.xxxxXXXX;
-  vmudn $v29, $v04, $v27.h3                          ## L:400  |    271 | vec16 vatten = vtmp * vlcol.wwwwWWWW;
+  vmudn $v05, $v04, $v27.h3                          ## L:400  |    271 | vec16 vatten = vtmp * vlcol.wwwwWWWW;
   vmadh $v05, $v03, $v27.h3                          ## L:400  |    272 | vec16 vatten = vtmp * vlcol.wwwwWWWW;
   vmulf $v05, $v05, $v05.v                           ## L:401  | ***276 | vatten:sfract *= vatten:sfract;
   vmulf $v27, $v27, $v05.h0                          ## L:402  | ***280 | vlcol:sfract *= vatten:sfract.xxxxXXXX;

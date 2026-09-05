@@ -870,8 +870,8 @@ TEST_CASE("VectorOps - Multiply-accumulate +* - vec32",
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
-  vmadl $v29, $v02, $v04.v
-  vmadm $v29, $v01, $v04.v
+  vmadl $v05, $v02, $v04.v
+  vmadm $v05, $v01, $v04.v
   vmadn $v06, $v02, $v03.v
   vmadh $v05, $v01, $v03.v
   jr $ra
@@ -1080,7 +1080,7 @@ TEST_CASE("Vector - Ops - Mul (vec16 vs vec32 -> vec16)", "[vectorOps]") {
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
-  vmudm $v29, $v02, $v04.e0
+  vmudm $v01, $v02, $v04.e0
   vmadh $v01, $v02, $v03.e0
   jr $ra
   nop)");
@@ -1277,7 +1277,7 @@ TEST_CASE("Vector - Ops - Add-Mul (vec16 vs vec32 -> vec16)", "[vectorOps]") {
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
-  vmadm $v29, $v02, $v04.e0
+  vmadm $v01, $v02, $v04.e0
   vmadh $v01, $v02, $v03.e0
   jr $ra
   nop)");
@@ -1490,15 +1490,83 @@ TEST_CASE("Vector - Ops - Mul (vec16 fraction * vec32)", "[vectorOps]") {
   // swizzle can only sit on vt); no integer products, just a flush of the
   // high accumulator. The mirrored form keeps its existing pattern.
   REQUIRE(result.asm_ == R"(test:
-  vmudl $v29, $v01, $v14.h3
+  vmudl $v02, $v01, $v14.h3
   vmadn $v03, $v01, $v13.h3
   vmadh $v02, $v00, $v00
-  vmudl $v29, $v01, $v14.h3
-  vmadn $v29, $v01, $v13.h3
+  vmudl $v05, $v01, $v14.h3
+  vmadn $v05, $v01, $v13.h3
   vmadh $v05, $v00, $v00
   vmudl $v03, $v14, $v01.h0
   vmadm $v02, $v13, $v01.h0
   vmadn $v03, $v00, $v00
+  jr $ra
+  nop)");
+}
+
+// A multi-step sequence parks intermediates in VTEMP purely for the
+// accumulator effect. VTEMP is shared with user code, so where the result
+// register is overwritten later anyway it is used instead.
+TEST_CASE("VectorOps - scratch uses the result register, not VTEMP",
+          "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test()
+{
+  vec32<$v05> posClip;
+  vec16<$v15> guardBandScale;
+  vec16<$v02> clipPlaneW = posClip * guardBandScale.xxxxxxxx;
+})",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmudn $v02, $v06, $v15.e0
+  vmadh $v02, $v05, $v15.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("VectorOps - scratch keeps VTEMP when the result is also a source",
+          "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test()
+{
+  vec32<$v05> big;
+  vec16<$v02> out;
+  out = big * out.xxxxxxxx;
+})",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  // $v02 is read by the vmadh, so it cannot take the scratch write
+  REQUIRE(result.asm_ == R"(test:
+  vmudn $v29, $v06, $v02.e0
+  vmadh $v02, $v05, $v02.e0
+  jr $ra
+  nop)");
+}
+
+TEST_CASE("VectorOps - a live VTEMP survives an unrelated multiply",
+          "[vectorOps]") {
+  auto result = rspl::transpileSource(
+      R"(function test()
+{
+  vec16<$v10> a;
+  vec16<$v11> b;
+  vec16<$v12> c;
+  vec32<$v05> big;
+  vec16<$v02> out;
+  VTEMP = a * b;
+  out = big * c.xxxxxxxx;
+  a:sint += VTEMP;
+})",
+      {.rspqWrapper = false});
+
+  REQUIRE(result.warn.empty());
+  REQUIRE(result.asm_ == R"(test:
+  vmudn $v29, $v10, $v11.v
+  vmudn $v02, $v06, $v12.e0
+  vmadh $v02, $v05, $v12.e0
+  vadd $v10, $v10, $v29.v
   jr $ra
   nop)");
 }
