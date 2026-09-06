@@ -1,5 +1,6 @@
 #include "compact_sched.h"
 #include "asm_scan_deps.h"
+#include "../asm_writer.h"
 
 #include <algorithm>
 #include <string>
@@ -79,6 +80,7 @@ CompactOp fromInst(const AsmInst &inst) {
 } // namespace
 
 static void buildPlan(CompactFunc &cf);
+static void buildChains(CompactFunc &cf);
 
 // --- build -----------------------------------------------------------------
 
@@ -106,7 +108,218 @@ CompactFunc compactBuild(const AsmFunc &func) {
   cf.ops.push_back(fromInst(nop));
   cf.nopId = (int)cf.ops.size() - 1;
   buildPlan(cf);
+  buildChains(cf);
   return cf;
+}
+
+// --- $acc chains -------------------------------------------------------------
+
+static int accRegIndex() {
+  static const int idx = getRegIndex("$acc");
+  return idx;
+}
+
+static void buildChains(CompactFunc &cf) {
+  const int acc = accRegIndex();
+  cf.chains.clear();
+  cf.chainOf.assign(cf.ops.size(), -1);
+  int cur = -1;
+  for (int id = 0; id < (int)cf.ops.size(); ++id) {
+    const CompactOp &o = cf.ops[id];
+    if (!o.isOp || o.isNop) continue;
+    bool reads = maskGetBit(o.src, acc), writes = maskGetBit(o.tgt, acc);
+    if (!reads && !writes) continue;
+    // a non-reading writer starts a chain; a reader with no open chain
+    // (function entry) starts one too, it is simply never movable
+    if (!reads || cur < 0) { cf.chains.push_back({}); cur = (int)cf.chains.size() - 1; }
+    cf.chains[cur].ids.push_back(id);
+    cf.chainOf[id] = cur;
+  }
+  for (auto &c : cf.chains) {
+    for (int id = c.ids.front(); id <= c.ids.back(); ++id) {
+      const CompactOp &o = cf.ops[id];
+      if (!o.isOp || isBranch(o)) { c.movable = false; break; }
+    }
+  }
+}
+
+// --- verifier ----------------------------------------------------------------
+
+namespace {
+
+// Segment of every id in `s`: labels split the function, and so does a
+// branch together with its delay slot (the slot belongs to the segment
+// before the branch, which is where delay-slot filling takes items from).
+void segmentsOf(const CompactFunc &cf, const std::vector<int> &s, std::vector<int> &segOf) {
+  segOf.assign(cf.ops.size(), -1);
+  int seg = 0;
+  bool slot = false;
+  for (int id : s) {
+    const CompactOp &o = cf.ops[id];
+    if (!o.isOp) { seg++; segOf[id] = seg; seg++; slot = false; continue; }
+    if (slot) { segOf[id] = seg; seg++; slot = false; continue; }
+    segOf[id] = seg;
+    if (isBranch(o)) slot = true;
+  }
+}
+
+std::string idText(const CompactFunc &cf, int id) {
+  const AsmInst &i = cf.orig[id];
+  return i.type == AsmType::LABEL ? i.cold->label + ":" : stringifyInstr(i);
+}
+
+} // namespace
+
+bool compactVerifySeq(const CompactFunc &cf, const std::vector<int> &seq, std::string *err) {
+  auto fail = [&](const std::string &m) { if (err) *err = m; return false; };
+  const int n = (int)cf.ops.size();
+  const int acc = accRegIndex();
+
+  // every non-NOP id exactly once (NOPs are dropped when an item lands on
+  // them and inserted when one leaves a delay slot)
+  auto isNopId = [&](int id) { return id == cf.nopId || cf.ops[id].isNop; };
+  std::vector<int> pos(n, -1);
+  for (int p = 0; p < (int)seq.size(); ++p) {
+    int id = seq[p];
+    if (id < 0 || id >= n) return fail("invalid id at position " + std::to_string(p));
+    if (isNopId(id)) continue;
+    if (pos[id] >= 0) return fail("duplicate item: " + idText(cf, id));
+    pos[id] = p;
+  }
+  std::vector<int> initial; // the original order, original NOPs included
+  for (int id = 0; id < n; ++id) {
+    if (id == cf.nopId) continue;
+    if (!isNopId(id) && pos[id] < 0) return fail("missing item: " + idText(cf, id));
+    initial.push_back(id);
+  }
+
+  // immovables keep their order, ops keep their segment
+  std::vector<int> segInit, segNow;
+  segmentsOf(cf, initial, segInit);
+  segmentsOf(cf, seq, segNow);
+  std::vector<int> immInit, immNow;
+  auto immovable = [&](int id) {
+    const CompactOp &o = cf.ops[id];
+    return !o.isOp || isBranch(o) || (o.flags & OpFlag::OP_FLAG_IS_IMMOVABLE);
+  };
+  for (int id : initial) if (!isNopId(id) && immovable(id)) immInit.push_back(id);
+  for (int id : seq) if (!isNopId(id) && immovable(id)) immNow.push_back(id);
+  if (immInit != immNow) return fail("labels/branches changed order");
+  for (int id : initial) {
+    if (isNopId(id)) continue;
+    if (segInit[id] != segNow[id]) return fail("item left its segment: " + idText(cf, id));
+  }
+
+  // $acc structure: the acc-touching subsequence is a concatenation of
+  // whole chains, none interleaved. Inside a chain the writers keep their
+  // order; a member that only reads $acc (vsar) may move among its fellow
+  // readers but must see the same writers before it as originally.
+  {
+    // per id: number of chain writers before it in the initial order
+    std::vector<int> writerRank(n, 0);
+    for (const auto &c : cf.chains) {
+      int rank = 0;
+      for (int id : c.ids) {
+        writerRank[id] = rank;
+        if (maskGetBit(cf.ops[id].tgt, acc)) ++rank;
+      }
+    }
+    int open = -1, seen = 0, writersSeen = 0;
+    for (int id : seq) {
+      int c = isNopId(id) ? -1 : cf.chainOf[id];
+      if (c < 0) continue;
+      if (open < 0) { open = c; seen = 0; writersSeen = 0; }
+      else if (c != open) return fail("chain interrupted before: " + idText(cf, id));
+      if (writerRank[id] != writersSeen)
+        return fail("chain member out of order: " + idText(cf, id));
+      if (maskGetBit(cf.ops[id].tgt, acc)) ++writersSeen;
+      if (++seen == (int)cf.chains[open].ids.size()) open = -1;
+    }
+    if (open >= 0) return fail("chain not completed at end of function");
+  }
+
+  // all other registers, pairwise against the initial order. A branch reads
+  // its own operands (src) at the branch, but the registers a call passes
+  // on (arg) are read by the callee, i.e. after the delay slot: for those
+  // an item in a delay slot counts as sitting *before* its branch.
+  auto effective = [&](const std::vector<int> &s, std::vector<int> &eff) {
+    eff.assign(n, -1);
+    for (int p = 0; p < (int)s.size(); ++p) {
+      bool inSlot = p >= 1 && isBranch(cf.ops[s[p - 1]]);
+      eff[s[p]] = inSlot ? 2 * p - 3 : 2 * p;
+    }
+  };
+  std::vector<int> effInit, effNow;
+  effective(initial, effInit);
+  effective(seq, effNow);
+
+  std::vector<RegMask> rd(n), wr(n), argRd(n), observed(n);
+  for (int id = 0; id < n; ++id) {
+    const CompactOp &o = cf.ops[id];
+    rd[id] = o.src; wr[id] = o.tgt;
+    if (isBranch(o)) argRd[id] = o.arg;
+    rd[id][acc / 64] &= ~(1ULL << (acc % 64));
+    wr[id][acc / 64] &= ~(1ULL << (acc % 64));
+  }
+  // observed[y]: registers y writes whose value some later op reads before
+  // the next write of that register (initial effective order)
+  {
+    std::vector<int> order = initial;
+    std::sort(order.begin(), order.end(), [&](int a, int b) { return effInit[a] < effInit[b]; });
+    RegMask live{};
+    for (int k = (int)order.size() - 1; k >= 0; --k) {
+      int id = order[k];
+      for (int w = 0; w < 5; ++w) {
+        observed[id][w] = wr[id][w] & live[w];
+        live[w] = (live[w] & ~wr[id][w]) | rd[id][w] | argRd[id][w];
+      }
+    }
+  }
+  for (size_t a = 0; a < initial.size(); ++a) {
+    int x = initial[a];
+    const CompactOp &ox = cf.ops[x];
+    if (!ox.isOp || ox.isNop) continue;
+    for (size_t b = a + 1; b < initial.size(); ++b) {
+      int y = initial[b];
+      const CompactOp &oy = cf.ops[y];
+      if (!oy.isOp || oy.isNop) continue;
+      bool plainKept = pos[y] > pos[x];
+      bool argKept = (effNow[y] > effNow[x]) == (effInit[y] > effInit[x]);
+      if (plainKept && argKept) continue;
+      RegMask rx = rd[x], wx = wr[x], ry = rd[y], wy = wr[y];
+      // rebase hop: a mem op may cross the increment of its base register
+      bool hop = (ox.rebaseKind == RebaseKind::Increment && oy.rebaseKind == RebaseKind::MemOp &&
+                  ox.rebaseBase == oy.rebaseBase) ||
+                 (oy.rebaseKind == RebaseKind::Increment && ox.rebaseKind == RebaseKind::MemOp &&
+                  ox.rebaseBase == oy.rebaseBase);
+      if (hop) {
+        const RegMask &base = (ox.rebaseKind == RebaseKind::Increment) ? wr[x] : wr[y];
+        for (int w = 0; w < 5; ++w) {
+          if (ox.rebaseKind == RebaseKind::Increment) ry[w] &= ~base[w];
+          else rx[w] &= ~base[w];
+        }
+      }
+      const char *why = nullptr;
+      if (!plainKept) {
+        if (maskAnd(wx, ry)) why = "RAW";
+        else if (maskAnd(rx, wy)) why = "WAR";
+        else if (ox.barrier & oy.barrier) why = "barrier";
+        else {
+          RegMask waw{};
+          for (int w = 0; w < 5; ++w) waw[w] = wx[w] & wy[w] & observed[y][w];
+          if (maskAnd(waw, waw)) why = "WAW";
+        }
+      }
+      if (!why && !argKept) {
+        if (maskAnd(wx, argRd[y])) why = "call-arg RAW";
+        else if (maskAnd(argRd[x], wy)) why = "call-arg WAR";
+      }
+      if (why)
+        return fail(std::string(why) + " order broken: '" + idText(cf, x) + "' must stay before '" +
+                    idText(cf, y) + "'");
+    }
+  }
+  return true;
 }
 
 CompactState compactInitialState(const CompactFunc &cf) {
@@ -122,12 +335,55 @@ CompactState compactInitialState(const CompactFunc &cf) {
 
 // --- reorder range (port of asmGetReorderIndices) ----------------------------
 
+namespace {
+
+// The moving item's dependency data, possibly with $acc masked out.
+struct Mover {
+  RegMask src, tgt;
+  uint32_t barrier;
+  bool isOp;
+};
+
+Mover moverOf(const CompactOp &o) { return Mover{o.src, o.tgt, o.barrier, o.isOp}; }
+
+void moverMaskAcc(Mover &m) {
+  const int acc = accRegIndex();
+  m.src[acc / 64] &= ~(1ULL << (acc % 64));
+  m.tgt[acc / 64] &= ~(1ULL << (acc % 64));
+}
+
+// does `later` depend on the mover placed before it?
+bool depOnMover(const CompactOp &later, const Mover &m) {
+  if (!later.isOp || !m.isOp) return true;
+  if (maskAnd(m.tgt, later.src)) return true;
+  if (maskAnd(m.src, later.tgt)) return true;
+  return (later.barrier & m.barrier) != 0;
+}
+// does the mover depend on `earlier`?
+bool moverDepOn(const Mover &m, const CompactOp &earlier) {
+  if (!m.isOp || !earlier.isOp) return true;
+  if (maskAnd(earlier.tgt, m.src)) return true;
+  if (maskAnd(earlier.src, m.tgt)) return true;
+  return (m.barrier & earlier.barrier) != 0;
+}
+
+} // namespace
+
 void compactReorderIndices(const CompactFunc &cf, const CompactState &st, int i,
-                           std::vector<int> &res) {
+                           std::vector<int> &res, CompactRange *range) {
   res.clear();
   const auto &seq = st.seq;
+  const int size = (int)seq.size();
   const CompactOp &A = cf.ops[seq[i]];
+  if (range) { range->plainLo = i; range->plainHi = i; }
   if (A.flags & OpFlag::OP_FLAG_IS_IMMOVABLE) { res.push_back(i); return; }
+
+  const int myChain = cf.chainOf[seq[i]];
+  const int myChainSize = myChain >= 0 ? (int)cf.chains[myChain].ids.size() : 0;
+  const bool chainMoves = range && range->chainMoves && myChain >= 0 &&
+                          cf.chains[myChain].movable;
+  Mover m = moverOf(A);
+  if (range && range->maskAcc) moverMaskAcc(m);
 
   // Generation-stamped last-write table: a slot counts as set only when its
   // stamp matches the current call, so there is no per-call clear of the
@@ -136,27 +392,35 @@ void compactReorderIndices(const CompactFunc &cf, const CompactState &st, int i,
   static thread_local uint32_t lastWriteGen[REG_INDEX_SIZE];
   static thread_local uint32_t gen = 0;
   if (++gen == 0) { std::fill(std::begin(lastWriteGen), std::end(lastWriteGen), 0u); gen = 1; }
-  RegMask lastWriteMask{}, lastReadMask{};
-  const int size = (int)seq.size();
-  int pos = size;
-  bool isPastBranch = false;
-  int f;
-  for (f = i + 1; f < size; ++f) {
-    const CompactOp &next = cf.ops[seq[f]];
-    const CompactOp *prevPrev = (f >= 2) ? &cf.ops[seq[f - 2]] : nullptr;
-    bool isFilledBranch = isBranch(next) && !((f + 1 < size) && cf.ops[seq[f + 1]].isNop);
-    isPastBranch = prevPrev && isBranch(*prevPrev);
-    if (isFilledBranch || isPastBranch || backwardDep(next, A)) { pos = f; break; }
-    for (int reg : next.tgtIdx) {
-      lastWritePos[reg] = f; lastWriteGen[reg] = gen; maskSetBit(lastWriteMask, reg);
+  RegMask lastWriteMask{};
+  auto recordWrites = [&](const CompactOp &o, int at) {
+    for (int reg : o.tgtIdx) {
+      lastWritePos[reg] = at; lastWriteGen[reg] = gen; maskSetBit(lastWriteMask, reg);
     }
-  }
-  // The reads-below scan only matters when an item inside the forward range
-  // writes a register A also writes (a WAW pair whose later reader must not
-  // see A instead). Without such a pair the scan cannot shrink `pos`, so
-  // skip the walk to the end of the function entirely.
-  if (maskAnd(A.tgt, lastWriteMask)) {
-    int fRead = isPastBranch ? f - 2 : f;
+  };
+
+  // Forward walk from `from`: stops at a branch whose slot is taken, one
+  // past a delay slot, or at the first item depending on the mover.
+  bool isPastBranch = false;
+  auto walkForward = [&](int from) {
+    int f;
+    for (f = from; f < size; ++f) {
+      const CompactOp &next = cf.ops[seq[f]];
+      const CompactOp *prevPrev = (f >= 2) ? &cf.ops[seq[f - 2]] : nullptr;
+      bool isFilledBranch = isBranch(next) && !((f + 1 < size) && cf.ops[seq[f + 1]].isNop);
+      isPastBranch = prevPrev && isBranch(*prevPrev);
+      if (isFilledBranch || isPastBranch || depOnMover(next, m)) return f;
+      recordWrites(next, f);
+    }
+    return f;
+  };
+  // WAW rule: an item inside the forward window wrote a register the mover
+  // also writes, and someone at/after the stop reads it — the mover must
+  // stay before that writer.
+  auto wawTrim = [&](int stop, int pos) {
+    if (!maskAnd(m.tgt, lastWriteMask)) return pos;
+    RegMask lastReadMask{};
+    int fRead = isPastBranch ? stop - 2 : stop;
     for (; fRead < size; ++fRead) {
       const CompactOp &o = cf.ops[seq[fRead]];
       for (int w = 0; w < 5; ++w) lastReadMask[w] |= o.src[w];
@@ -164,18 +428,100 @@ void compactReorderIndices(const CompactFunc &cf, const CompactState &st, int i,
     }
     for (int reg : A.tgtIdx) {
       if (lastWriteGen[reg] != gen) continue;
-      if (maskGetBit(lastReadMask, reg)) pos = std::min(lastWritePos[reg], pos);
+      if (maskGetBit(m.tgt, reg) && maskGetBit(lastReadMask, reg))
+        pos = std::min(lastWritePos[reg], pos);
     }
-  }
+    return pos;
+  };
+
+  // --- plain band, forward part
+  int fStop = walkForward(i + 1);
+  int pos = wawTrim(fStop, fStop);
   for (int r = i; r <= pos - 1; ++r) res.push_back(r);
-  RegMask writeCheck = A.tgt;
+  const int plainHi = pos - 1;
+  if (range) range->plainHi = plainHi;
+
+  // --- plain band, backward part
+  RegMask writeCheck = m.tgt;
   for (int w = 0; w < 5; ++w) writeCheck[w] &= ~lastWriteMask[w];
-  for (int b = i - 1; b >= 0; --b) {
+  int b;
+  for (b = i - 1; b >= 0; --b) {
     const CompactOp &prev = cf.ops[seq[b]];
-    bool stop = (b >= 1 && isBranch(cf.ops[seq[b - 1]])) || backwardDep(A, prev) ||
-                maskAnd(prev.tgt, writeCheck);
-    if (stop) break;
+    if (b >= 1 && isBranch(cf.ops[seq[b - 1]])) break;
+    if (moverDepOn(m, prev)) break;
+    if (maskAnd(prev.tgt, writeCheck)) break;
     res.push_back(b);
+  }
+  const int plainLo = b + 1;
+  if (range) range->plainLo = plainLo;
+  if (!chainMoves) return;
+
+  // --- chain targets: the same walks with $acc masked. A sibling ends the
+  // walk (only the chain's last member going forward / first member going
+  // backward gets anywhere, no special casing needed); a foreign chain is
+  // crossed whole, landing is allowed before its head and after its tail
+  // but never in between, and never in a delay slot unless this chain has
+  // a single member (followers could not get behind the branch).
+  moverMaskAcc(m);
+  auto landingOk = [&](int p) {
+    if (isBranch(cf.ops[seq[p]])) return false;
+    return myChainSize == 1 || !(p >= 1 && isBranch(cf.ops[seq[p - 1]]));
+  };
+
+  // forward
+  if (++gen == 0) { std::fill(std::begin(lastWriteGen), std::end(lastWriteGen), 0u); gen = 1; }
+  lastWriteMask = RegMask{};
+  {
+    const int first = (int)res.size();
+    int inside = -1, seen = 0;
+    int f;
+    for (f = i + 1; f < size; ++f) {
+      const CompactOp &next = cf.ops[seq[f]];
+      const CompactOp *prevPrev = (f >= 2) ? &cf.ops[seq[f - 2]] : nullptr;
+      bool isFilledBranch = isBranch(next) && !((f + 1 < size) && cf.ops[seq[f + 1]].isNop);
+      isPastBranch = prevPrev && isBranch(*prevPrev);
+      if (isFilledBranch || isPastBranch || depOnMover(next, m)) break;
+      int c = cf.chainOf[seq[f]];
+      if (c == myChain) break;
+      bool valid;
+      if (c >= 0) {
+        // first member met is that chain's head: landing before it is fine
+        valid = inside < 0;
+        seen = (inside < 0) ? 1 : seen + 1;
+        inside = (seen == (int)cf.chains[c].ids.size()) ? -1 : c;
+      } else {
+        valid = inside < 0;
+      }
+      recordWrites(next, f);
+      if (valid && f > plainHi && landingOk(f)) res.push_back(f);
+    }
+    int cpos = wawTrim(f, f);
+    while ((int)res.size() > first && res.back() >= cpos) res.pop_back();
+  }
+
+  // backward
+  for (int w = 0; w < 5; ++w) writeCheck[w] = m.tgt[w] & ~lastWriteMask[w];
+  {
+    int inside = -1, seen = 0;
+    for (b = i - 1; b >= 0; --b) {
+      const CompactOp &prev = cf.ops[seq[b]];
+      if (b >= 1 && isBranch(cf.ops[seq[b - 1]])) break;
+      if (moverDepOn(m, prev) || maskAnd(prev.tgt, writeCheck)) break;
+      int c = cf.chainOf[seq[b]];
+      if (c == myChain) break;
+      bool valid;
+      if (c >= 0) {
+        // walking backward the first member met is that chain's tail;
+        // landing is fine only before its head
+        seen = (inside < 0) ? 1 : seen + 1;
+        bool head = seen == (int)cf.chains[c].ids.size();
+        inside = head ? -1 : c;
+        valid = head;
+      } else {
+        valid = inside < 0;
+      }
+      if (valid && b < plainLo && landingOk(b)) res.push_back(b);
+    }
   }
 }
 
@@ -216,6 +562,55 @@ void compactRelocate(const CompactFunc &cf, CompactState &st, int from, int to) 
       seq.insert(seq.begin() + to, inst);
     }
   }
+}
+
+// --- chain relocate ----------------------------------------------------------
+
+static int findPos(const std::vector<int> &seq, int id) {
+  for (int p = 0; p < (int)seq.size(); ++p) if (seq[p] == id) return p;
+  return -1;
+}
+
+bool compactRelocateChain(const CompactFunc &cf, CompactState &st, int leaderPos, int target) {
+  auto &seq = st.seq;
+  if (leaderPos == target) return true;
+  const int lid = seq[leaderPos];
+  const int c = cf.chainOf[lid];
+  if (c < 0) return false;
+  const bool fwd = target > leaderPos;
+
+  // members in current order (readers may have swapped, so not ids order)
+  static thread_local std::vector<int> members;
+  members.clear();
+  for (int p = 0; p < (int)seq.size(); ++p) if (cf.chainOf[seq[p]] == c) members.push_back(seq[p]);
+  if (fwd ? members.back() != lid : members.front() != lid) return false;
+
+  static thread_local std::vector<int> backup, range;
+  backup = seq;
+
+  compactRelocate(cf, st, leaderPos, target);
+  int anchor = findPos(seq, lid);
+  CompactRange r;
+  r.maskAcc = true;
+  const int n = (int)members.size();
+  for (int k = 1; k < n; ++k) {
+    int fid = fwd ? members[n - 1 - k] : members[k];
+    int pf = findPos(seq, fid);
+    compactReorderIndices(cf, st, pf, range, &r);
+    bool ok;
+    if (fwd) {
+      // land directly before the anchor: everything up to it is crossable
+      ok = pf < anchor && r.plainHi >= anchor - 1;
+      if (ok) compactRelocate(cf, st, pf, anchor);
+    } else {
+      // land directly after the anchor
+      ok = pf > anchor && r.plainLo <= anchor + 1;
+      if (ok) compactRelocate(cf, st, pf, anchor + 1);
+    }
+    if (!ok) { seq = backup; return false; }
+    anchor = findPos(seq, fid);
+  }
+  return true;
 }
 
 // --- rebase hop (port of asmTryRebaseCross) ----------------------------------

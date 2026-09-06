@@ -135,6 +135,36 @@ static bool rebaseHopEnabled() {
   return enabled;
 }
 
+// RSPL_VERIFY_REORDER=1: run compactVerifySeq over every variant the search
+// produces and abort on the first illegal order. Slow (quadratic per check);
+// a debugging aid for changes to the move rules.
+static bool verifyReorderEnabled() {
+  static const bool enabled = [] {
+    const char *e = std::getenv("RSPL_VERIFY_REORDER");
+    return e && e[0] != '0';
+  }();
+  return enabled;
+}
+
+static void verifyVariant(const CompactFunc &cf, const CompactState &st,
+                          const std::string &funcName, const char *where) {
+  std::string err;
+  if (compactVerifySeq(cf, st.seq, &err)) return;
+  std::cerr << "[" << funcName << "] reorder verification failed (" << where << "): "
+            << err << std::endl;
+  std::abort();
+}
+
+// Whole-chain moves past foreign $acc chains (compactRelocateChain).
+// Disable with RSPL_CHAIN_MOVES=0.
+static bool chainMovesEnabled() {
+  static const bool enabled = [] {
+    const char *e = std::getenv("RSPL_CHAIN_MOVES");
+    return !(e && e[0] == '0');
+  }();
+  return enabled;
+}
+
 // --- optimizeStep: one random legal move ------------------------------------
 
 static int optimizeStep(const CompactFunc &cf, CompactState &st) {
@@ -154,9 +184,11 @@ static int optimizeStep(const CompactFunc &cf, CompactState &st) {
 
   int i = 0;
   static thread_local std::vector<int> reorderIndices;
+  CompactRange range;
+  range.chainMoves = chainMovesEnabled();
   for (int r = 0; r < 50; ++r) {
     i = randIndex(sz);
-    compactReorderIndices(cf, st, i, reorderIndices);
+    compactReorderIndices(cf, st, i, reorderIndices, &range);
     if ((int)reorderIndices.size() > 1) break;
   }
   if ((int)reorderIndices.size() <= 1) return 0;
@@ -198,6 +230,9 @@ static int optimizeStep(const CompactFunc &cf, CompactState &st) {
     }
   }
 
+  // a target outside the plain band moves the whole $acc chain
+  if (targetIdx < range.plainLo || targetIdx > range.plainHi)
+    return compactRelocateChain(cf, st, i, targetIdx) ? 1 : 0;
   compactRelocate(cf, st, i, targetIdx);
   return 1;
 }
@@ -518,6 +553,9 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
       pool.runParallel(cf, optAnneal ? cur : best, results, 0, effectivePool,
                        batchSeed);
     }
+    if (verifyReorderEnabled()) {
+      for (const auto &r : results) verifyVariant(cf, r.st, funcName, "batch");
+    }
     if (optAnneal) {
       // pick the best variant of this batch, accept it into `cur` if it is
       // not worse, or with probability exp(-delta/T) otherwise; track best
@@ -589,6 +627,8 @@ void asmOptimize(AsmFunc &func, int maxTimeMs, int optWorkers,
     g_totalIterations += i;
     g_totalWallMs += funcElapsedMs;
   }
+
+  if (verifyReorderEnabled()) verifyVariant(cf, best, funcName, "best");
 
   // Materialize the best order back into the function.
   compactApply(cf, best, func);

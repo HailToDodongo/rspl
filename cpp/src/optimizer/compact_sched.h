@@ -16,6 +16,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace rspl {
@@ -55,12 +56,28 @@ struct CompactPlan {
   bool valid = false;           // false: eval falls back to a full walk
 };
 
+// $acc chains (docs/plan-mac-group-reorder.md). Every op touching the
+// accumulator belongs to exactly one chain: an op that writes $acc without
+// reading it starts a chain, each following reader extends it. Membership
+// is derived from the initial order and never changes during the search
+// (members cannot cross each other or another chain's members, and no VU op
+// can enter a chain), so the table is keyed by item id.
+struct CompactChain {
+  std::vector<int> ids;   // member ids in program order
+  // no label / branch between the first and last member (members never
+  // cross branches, so this is fixed too); only movable chains get chain
+  // targets from the range scan
+  bool movable = true;
+};
+
 struct CompactFunc {
   std::vector<CompactOp> ops;   // item id -> data (last entry: the NOP)
   int nopId = -1;
   std::vector<AsmInst> orig;    // item id -> original instruction (apply)
   std::vector<uint8_t> likelyHot, likelyCold; // per item id: taken-branch bubble
   CompactPlan plan;
+  std::vector<CompactChain> chains;
+  std::vector<int> chainOf;     // per item id: chain index, -1 = none
 };
 
 struct CompactState {
@@ -75,14 +92,39 @@ struct CompactState {
 CompactFunc compactBuild(const AsmFunc &func);
 CompactState compactInitialState(const CompactFunc &cf);
 
+// Options / results of the range scan beyond the plain single-item band.
+struct CompactRange {
+  // in: when the scan stops on an $acc dependency with a member of a
+  // *foreign* chain, keep going with $acc masked and emit the positions
+  // where the whole chain could land (never strictly inside another chain,
+  // never in a delay slot unless the chain has a single member). Targets
+  // outside [plainLo, plainHi] must go through compactRelocateChain.
+  bool chainMoves = false;
+  // in: treat $acc as free from the start (follower placement inside
+  // compactRelocateChain); no chain-landing filter
+  bool maskAcc = false;
+  // out: the band of ordinary single-item targets, plainLo <= pos <= plainHi
+  int plainLo = 0, plainHi = 0;
+};
+
 /// Positions the item at `pos` may legally occupy (port of asmGetReorderIndices)
 std::vector<int> compactReorderIndices(const CompactFunc &cf, const CompactState &st, int pos);
 /// Same, written into a caller-owned buffer (cleared first; no allocation
 /// once its capacity has grown) — the annealer's hot loop uses this form.
+/// A target t means "insert before the item currently at t" (or replace it
+/// when it is a NOP); positions inside the plain band come first.
 void compactReorderIndices(const CompactFunc &cf, const CompactState &st, int pos,
-                           std::vector<int> &out);
+                           std::vector<int> &out, CompactRange *range = nullptr);
 /// Move item from `from` to `to` (port of relocateElement, incl. NOP handling)
 void compactRelocate(const CompactFunc &cf, CompactState &st, int from, int to);
+/// Move the whole $acc chain of the item at `leaderPos` so that this item
+/// lands at `target` (a chain target from compactReorderIndices) and the
+/// other members follow it, one by one, each placed directly next to the
+/// previously placed one. The leader must be the chain's last member in the
+/// current order for a forward move, its first for a backward move.
+/// Returns false and leaves the state untouched when a member cannot reach
+/// its slot.
+bool compactRelocateChain(const CompactFunc &cf, CompactState &st, int leaderPos, int target);
 /// Offset-rebase hop (port of asmTryRebaseCross)
 bool compactTryRebaseCross(const CompactFunc &cf, CompactState &st, int pos, bool forward);
 /// Weighted path-aware cost (port of evalFunctionCost); sets st.hotCycles
@@ -94,5 +136,16 @@ int compactEvalCostLinear(const CompactFunc &cf, CompactState &st);
 /// Materialize the state back into func.asm_ (rebased offsets rewritten,
 /// dependency data re-initialized)
 void compactApply(const CompactFunc &cf, const CompactState &st, AsmFunc &func);
+
+/// Safety net for the reorder search: checks that `seq` is a legal
+/// reordering of the initial order. Every op keeps its segment (labels and
+/// branch/delay-slot pairs split the function), every RAW / WAR / barrier
+/// pair keeps its order, a WAW pair keeps its order when the later write is
+/// observed by a read, and the $acc-touching subsequence is a concatenation
+/// of intact chains. Offset-rebase hops across the matching increment are
+/// allowed. On failure returns false and describes the first violation in
+/// `err` (if given).
+bool compactVerifySeq(const CompactFunc &cf, const std::vector<int> &seq,
+                      std::string *err = nullptr);
 
 } // namespace rspl
