@@ -376,7 +376,7 @@ void compactReorderIndices(const CompactFunc &cf, const CompactState &st, int i,
   const int size = (int)seq.size();
   const CompactOp &A = cf.ops[seq[i]];
   if (range) { range->plainLo = i; range->plainHi = i; }
-  if (A.flags & OpFlag::OP_FLAG_IS_IMMOVABLE) { res.push_back(i); return; }
+  if (!A.isOp || (A.flags & OpFlag::OP_FLAG_IS_IMMOVABLE)) { res.push_back(i); return; }
 
   const int myChain = cf.chainOf[seq[i]];
   const int myChainSize = myChain >= 0 ? (int)cf.chains[myChain].ids.size() : 0;
@@ -434,11 +434,22 @@ void compactReorderIndices(const CompactFunc &cf, const CompactState &st, int i,
     return pos;
   };
 
+  // Landing *before* the item that stopped a forward walk keeps the
+  // original relative order and is legal when the stop was a dependency or
+  // the WAW trim (the position of the write to stay behind). It is not
+  // when the stop is the branch itself (relocate refuses branch targets),
+  // the item after a delay slot (that would cross the branch), or the end.
+  auto stopIsTarget = [&](int stop, int pos) {
+    if (pos >= size) return false;
+    if (pos == stop && isPastBranch) return false;
+    return !isBranch(cf.ops[seq[pos]]);
+  };
+
   // --- plain band, forward part
   int fStop = walkForward(i + 1);
   int pos = wawTrim(fStop, fStop);
-  for (int r = i; r <= pos - 1; ++r) res.push_back(r);
-  const int plainHi = pos - 1;
+  const int plainHi = stopIsTarget(fStop, pos) ? pos : pos - 1;
+  for (int r = i; r <= plainHi; ++r) res.push_back(r);
   if (range) range->plainHi = plainHi;
 
   // --- plain band, backward part
@@ -495,8 +506,15 @@ void compactReorderIndices(const CompactFunc &cf, const CompactState &st, int i,
       recordWrites(next, f);
       if (valid && f > plainHi && landingOk(f)) res.push_back(f);
     }
+    // the stop position itself, same rule as the plain band (never inside
+    // a foreign chain, never before a sibling: that is plain territory)
+    if (f < size && inside < 0 && f > plainHi && cf.chainOf[seq[f]] != myChain &&
+        !isPastBranch && landingOk(f))
+      res.push_back(f);
+    // WAW trim: landing before the write to stay behind is still fine, so
+    // a walked (and filtered) position equal to the trim stays
     int cpos = wawTrim(f, f);
-    while ((int)res.size() > first && res.back() >= cpos) res.pop_back();
+    while ((int)res.size() > first && res.back() > cpos) res.pop_back();
   }
 
   // backward
@@ -600,7 +618,7 @@ bool compactRelocateChain(const CompactFunc &cf, CompactState &st, int leaderPos
     bool ok;
     if (fwd) {
       // land directly before the anchor: everything up to it is crossable
-      ok = pf < anchor && r.plainHi >= anchor - 1;
+      ok = pf < anchor && r.plainHi >= anchor;
       if (ok) compactRelocate(cf, st, pf, anchor);
     } else {
       // land directly after the anchor

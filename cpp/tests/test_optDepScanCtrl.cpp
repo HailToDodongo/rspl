@@ -39,7 +39,9 @@ TEST_CASE("Optimizer - Dependency Scanner - Control - Stop at Label",
       asmOp("or", {"$t2", "$zero", "$zero"}),
   };
   auto deps = asmLinesToDeps(lines);
-  std::vector<std::vector<int>> expected = {{0, 1}, {0, 1}, {2}, {3}};
+  // a forward target t means "insert before item t": landing before the
+  // label (2) stays in the segment
+  std::vector<std::vector<int>> expected = {{0, 1, 2}, {0, 1, 2}, {2}, {3}};
   REQUIRE(deps == expected);
 }
 

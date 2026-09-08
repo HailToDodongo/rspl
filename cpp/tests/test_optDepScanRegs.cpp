@@ -43,7 +43,7 @@ TEST_CASE("Optimizer - Dependency Scanner - Basic Write Dep", "[optDepScan]") {
   };
   auto deps = asmLinesToDeps(lines);
   std::vector<std::vector<int>> expected = {
-      {0, 1}, {0, 1, 2, 3}, {1, 2, 3}, {0, 1, 2, 3}};
+      {0, 1, 2}, {0, 1, 2, 3}, {1, 2, 3}, {0, 1, 2, 3}};
   REQUIRE(deps == expected);
 }
 
@@ -58,7 +58,7 @@ TEST_CASE("Optimizer - Dependency Scanner - Nested Write Dep",
   };
   auto deps = asmLinesToDeps(lines);
   std::vector<std::vector<int>> expected = {
-      {0, 1}, {0, 1, 2, 3, 4}, {1, 2}, {3, 4}, {0, 1, 2, 3, 4}};
+      {0, 1, 2}, {0, 1, 2, 3, 4}, {1, 2, 3}, {3, 4}, {0, 1, 2, 3, 4}};
   REQUIRE(deps == expected);
 }
 
@@ -70,7 +70,7 @@ TEST_CASE("Optimizer - Dependency Scanner - MTC2 partial write",
       asmOp("mtc2", {"$at", "$v25.e6"}),
   };
   auto deps = asmLinesToDeps(lines);
-  std::vector<std::vector<int>> expected = {{0, 1, 2}, {0, 1}, {2}};
+  std::vector<std::vector<int>> expected = {{0, 1, 2}, {0, 1, 2}, {2}};
   REQUIRE(deps == expected);
 }
 
@@ -121,7 +121,7 @@ TEST_CASE("Optimizer - Dependency Scanner - Ignore Write no read deps",
   };
   auto deps = asmLinesToDeps(lines);
   std::vector<std::vector<int>> expected = {
-      {0}, {1}, {2}, {3, 4}, {4}};
+      {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4}};
   REQUIRE(deps == expected);
 }
 
@@ -136,7 +136,7 @@ TEST_CASE("Optimizer - Dependency Scanner - Hidden Regs simple",
   };
   auto deps = asmLinesToDeps(lines);
   std::vector<std::vector<int>> expected = {
-      {0, 1, 2}, {0, 1, 2, 3, 4}, {0, 1, 2, 3, 4}, {1, 2, 3, 4}, {3, 4}};
+      {0, 1, 2, 3}, {0, 1, 2, 3, 4}, {0, 1, 2, 3, 4}, {1, 2, 3, 4}, {3, 4}};
   REQUIRE(deps == expected);
 }
 
@@ -148,7 +148,7 @@ TEST_CASE("Optimizer - Dependency Scanner - Regs Single-Lane", "[optDepScan]") {
       asmOp("vmov", {"$v08.e1", "$v05.e1"}),
   };
   auto deps = asmLinesToDeps(lines);
-  std::vector<std::vector<int>> expected = {{0, 1}, {0, 1, 2, 3}, {1, 2, 3}, {3}};
+  std::vector<std::vector<int>> expected = {{0, 1, 2}, {0, 1, 2, 3}, {1, 2, 3}, {3}};
   REQUIRE(deps == expected);
 }
 
@@ -161,7 +161,7 @@ TEST_CASE("Optimizer - Dependency Scanner - Offset Syntax", "[optDepScan]") {
   };
   auto deps = asmLinesToDeps(lines);
   std::vector<std::vector<int>> expected = {
-      {0, 1}, {0, 1, 2, 3}, {1, 2, 3}, {0, 1, 2, 3}};
+      {0, 1, 2}, {0, 1, 2, 3}, {1, 2, 3}, {0, 1, 2, 3}};
   REQUIRE(deps == expected);
 }
 
@@ -176,7 +176,7 @@ TEST_CASE("Optimizer - Dependency Scanner - Vector mul+add", "[optDepScan]") {
   };
   auto deps = asmLinesToDeps(lines);
   std::vector<std::vector<int>> expected = {
-      {0}, {1}, {2}, {3}, {4}, {5}};
+      {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5}};
   REQUIRE(deps == expected);
 }
 
@@ -187,7 +187,7 @@ TEST_CASE("Optimizer - Dependency Scanner - Vector vabs", "[optDepScan]") {
       asmOp("vmacf", {"$v27", "$v27", "$v27"}),
   };
   auto deps = asmLinesToDeps(lines);
-  std::vector<std::vector<int>> expected = {{0}, {1}, {2}};
+  std::vector<std::vector<int>> expected = {{0, 1}, {1, 2}, {2}};
   REQUIRE(deps == expected);
 }
 
@@ -198,6 +198,6 @@ TEST_CASE("Optimizer - Dependency Scanner - Vector VCE", "[optDepScan]") {
       asmOp("vcl", {"$v03", "$v03", "$v03"}),
   };
   auto deps = asmLinesToDeps(lines);
-  std::vector<std::vector<int>> expected = {{0, 1}, {0, 1, 2}, {1, 2}};
+  std::vector<std::vector<int>> expected = {{0, 1, 2}, {0, 1, 2}, {1, 2}};
   REQUIRE(deps == expected);
 }

@@ -495,7 +495,7 @@ TEST_CASE("Compact - chain move: tail forward past a foreign chain", "[compact][
   CompactRange r;
   auto range = rangeOf(b, 3, r); // vmadn of chain A (tail)
   REQUIRE(r.plainLo == 3);
-  REQUIRE(r.plainHi == 3);
+  REQUIRE(r.plainHi == 4); // before B's head is the current spot
   // before B's head (4) and after B's tail (6); never inside B (5), never
   // the jr (7) or its delay slot (8)
   REQUIRE(has(range, 4));
@@ -518,7 +518,7 @@ TEST_CASE("Compact - chain move: head backward past a foreign chain", "[compact]
   CompactRange r;
   auto range = rangeOf(b, 4, r); // vmudh of chain B (head)
   REQUIRE(r.plainLo == 4);
-  REQUIRE(r.plainHi == 4);
+  REQUIRE(r.plainHi == 5); // before its own follower
   REQUIRE(has(range, 2));      // before A's head
   REQUIRE_FALSE(has(range, 3)); // inside A
   REQUIRE(has(range, 1));
@@ -600,7 +600,7 @@ L:
 [0] nop
 )");
   range = rangeOf(c, 0, r); // the lone vand, past the 2-member chain
-  REQUIRE(r.plainHi == 0);
+  REQUIRE(r.plainHi == 1); // before the chain head: the current spot
   REQUIRE_FALSE(has(range, 2)); // inside the chain
   REQUIRE(has(range, 4));       // the delay slot
   REQUIRE(compactRelocateChain(c.cf, c.st, 0, 4));
@@ -636,4 +636,45 @@ TEST_CASE("Compact - chain move: random plain + chain moves stay legal", "[compa
   runRandomChainMoves(SAMPLE_C, 17, 1500, true);
   runRandomChainMoves(SAMPLE_A, 1, 600, false);
   runRandomChainMoves(SAMPLE_B, 3, 600, false);
+}
+
+// A forward walk's stop position is a legal target (landing directly before
+// the blocker keeps the original order) — but not a branch, not the item
+// after a delay slot, and not the end of the function.
+TEST_CASE("Compact - forward range ends before the blocker, branch rules kept", "[compact]") {
+  Built b = buildOf(R"(
+[0] addiu $t0, $t0, 1
+[0] addiu $t1, $t1, 1
+[0] sw $t0, 0($t3)
+[0] addiu $t4, $t4, 1
+[0] bne $t2, $zero, L # unlikely
+[0] nop
+L:
+[0] addiu $t5, $t5, 1
+[0] bne $t6, $zero, L # unlikely
+[0] addiu $t7, $t7, 1
+[0] jr $ra
+[0] nop
+)");
+  CompactRange r;
+  // item 0 stops at the sw (reads $t0): landing before it (2) is allowed
+  auto range = rangeOf(b, 0, r, false);
+  REQUIRE(has(range, 2));
+  REQUIRE_FALSE(has(range, 3));
+  // item 3 walks over the branch with an empty slot: the slot (5) is a
+  // target, the label after it (6) is not
+  range = rangeOf(b, 3, r, false);
+  REQUIRE(has(range, 5));
+  REQUIRE_FALSE(has(range, 6));
+  REQUIRE(r.plainHi == 5);
+  // item 7 stops at a branch with a filled slot: the branch (8) is no target
+  range = rangeOf(b, 7, r, false);
+  REQUIRE(r.plainHi == 7);
+  REQUIRE(r.plainLo == 7); // and cannot move back before the label either
+  // item 9 sits in a delay slot: nothing forward, backward past the branch
+  range = rangeOf(b, 9, r, false);
+  REQUIRE(r.plainHi == 9);
+  REQUIRE(has(range, 7));
+  // the NOP (5), the label (6) and branches (4, 8) never move
+  for (int p : {4, 5, 6, 8}) REQUIRE(rangeOf(b, p, r, false) == std::vector<int>{p});
 }

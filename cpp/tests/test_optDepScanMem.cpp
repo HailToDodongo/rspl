@@ -70,7 +70,7 @@ TEST_CASE("Optimizer - Dependency Scanner - Memory - Read vs Write Barrier",
 
   auto deps = asmLinesToDeps(lines);
   std::vector<std::vector<int>> expected = {
-      {0, 1}, {0, 1, 2, 3}, {1, 2, 3}, {0, 1, 2, 3}};
+      {0, 1, 2}, {0, 1, 2, 3}, {1, 2, 3}, {0, 1, 2, 3}};
   REQUIRE(deps == expected);
 }
 

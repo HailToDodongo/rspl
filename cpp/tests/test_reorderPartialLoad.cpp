@@ -26,8 +26,9 @@ static std::vector<AsmInst> build() {
 TEST_CASE("Reorder partial load", "[reorderPartialLoad]") {
   auto list = build();
   auto range = asmGetReorderIndices(list, 0);
+  // target t = "insert before item t": 1 is the current spot, 2 is between
   bool canLandBetweenLdvs =
-      std::find(range.begin(), range.end(), 1) != range.end();
+      std::find(range.begin(), range.end(), 2) != range.end();
   REQUIRE(canLandBetweenLdvs == false);
 }
 
