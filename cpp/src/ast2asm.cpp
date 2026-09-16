@@ -280,8 +280,9 @@ static VarDef resolveFlatVal(FlatElem &elem,
   if (elem.isNested) {
     // Recursively decompose the nested sub-expression into a temp variable
     std::string tmpName = "__tmp_" + std::to_string(tmpCounter++);
-    state.declareVar(tmpName, toString(varRes.type),
-                     state.allocRegister(toString(varRes.type)));
+    auto regs = state.allocRegisters(toString(varRes.type));
+    state.declareVar(tmpName, toString(varRes.type), regs.reg, false, false,
+                     regs.regFract);
     VarDef tmpVar = state.getRequiredVarCopy(tmpName, "tmp");
     decomposeParts(elem.nested, tmpVar, out, tmpCounter);
     return tmpVar;
@@ -875,15 +876,18 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
 
           if constexpr (std::is_same_v<T, ast::StmtVarDecl>) {
             bool ownsReg = true, ownsFract = true;
-            std::string reg =
-                s.reg.empty()
-                    ? state.allocRegister(s.varType)
-                    : resolveRegSlot(s.reg, s.regAlias, s.varName, ownsReg);
-            std::string regFract =
-                s.regFract.empty()
-                    ? std::string{}
-                    : resolveRegSlot(s.regFract, s.regFractAlias, s.varName,
-                                     ownsFract);
+            std::string reg, regFract;
+            if (s.reg.empty()) {
+              auto regs = state.allocRegisters(s.varType);
+              reg = regs.reg;
+              regFract = regs.regFract;
+            } else {
+              reg = resolveRegSlot(s.reg, s.regAlias, s.varName, ownsReg);
+            }
+            if (!s.regFract.empty()) {
+              regFract = resolveRegSlot(s.regFract, s.regFractAlias, s.varName,
+                                        ownsFract);
+            }
             state.declareVar(s.varName, s.varType, reg, s.isConst, false,
                              regFract, ownsReg, ownsFract);
           }
@@ -904,9 +908,11 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
             }
             for (size_t i = 0; i < s.varNames.size(); ++i) {
               bool ownsReg = true, ownsFract = true;
-              std::string reg;
+              std::string reg, regFract;
               if (s.reg.empty()) {
-                reg = state.allocRegister(s.varType);
+                auto regs = state.allocRegisters(s.varType);
+                reg = regs.reg;
+                regFract = regs.regFract;
               } else if (s.regAlias) {
                 reg = resolveRegSlot(s.reg, true, s.varNames[i], ownsReg);
               } else {
@@ -915,11 +921,10 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
                 reg = reg::nextReg(s.reg, offset) ? *reg::nextReg(s.reg, offset)
                                                   : s.reg;
               }
-              std::string regFract =
-                  s.regFract.empty()
-                      ? std::string{}
-                      : resolveRegSlot(s.regFract, s.regFractAlias,
-                                       s.varNames[i], ownsFract);
+              if (!s.regFract.empty()) {
+                regFract = resolveRegSlot(s.regFract, s.regFractAlias,
+                                          s.varNames[i], ownsFract);
+              }
               state.declareVar(s.varNames[i], s.varType, reg, s.isConst,
                                false, regFract, ownsReg, ownsFract);
             }
@@ -934,15 +939,18 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
               effectiveType = toString(inferCalcResultType(*s.calc, s.varType));
             }
             bool ownsReg = true, ownsFract = true;
-            std::string declReg =
-                s.reg.empty()
-                    ? state.allocRegister(effectiveType)
-                    : resolveRegSlot(s.reg, s.regAlias, baseName, ownsReg);
-            std::string declFract =
-                s.regFract.empty()
-                    ? std::string{}
-                    : resolveRegSlot(s.regFract, s.regFractAlias, baseName,
-                                     ownsFract);
+            std::string declReg, declFract;
+            if (s.reg.empty()) {
+              auto regs = state.allocRegisters(effectiveType);
+              declReg = regs.reg;
+              declFract = regs.regFract;
+            } else {
+              declReg = resolveRegSlot(s.reg, s.regAlias, baseName, ownsReg);
+            }
+            if (!s.regFract.empty()) {
+              declFract = resolveRegSlot(s.regFract, s.regFractAlias, baseName,
+                                         ownsFract);
+            }
             state.declareVar(baseName, effectiveType, declReg, s.isConst,
                              false, declFract, ownsReg, ownsFract);
             if (s.calc) {
@@ -1286,16 +1294,18 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
                                     reg::Reg::A2, reg::Reg::A3};
     std::vector<AsmInst> funcAsm;
     for (const auto &arg : fn.args) {
-      std::string reg;
+      std::string reg, regFract = arg.regFract;
       if (!arg.reg.empty()) {
         reg = arg.reg;
       } else if (argSize < 4) {
         reg = argRegs[argSize];
       } else {
-        reg = state.allocRegister(toString(arg.type));
+        auto regs = state.allocRegisters(toString(arg.type));
+        reg = regs.reg;
+        if (regFract.empty()) regFract = regs.regFract;
       }
       state.declareVar(arg.name, toString(arg.type), reg, false, false,
-                       arg.regFract);
+                       regFract);
 
       // The RSPQ dispatcher only provides the first 4 command args in $a0-$a3.
       // anything past that is fetched from the command buffer

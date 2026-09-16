@@ -23,7 +23,7 @@ TEST_CASE("state register allocation scalar", "[state]") {
   state.reset();
   state.enterFunction("test", "function", 0);
 
-  std::string reg = state.allocRegister("u32");
+  std::string reg = state.allocRegisters("u32").reg;
   REQUIRE(!reg.empty());
   REQUIRE(!reg::isVecReg(reg)); // Scalar type gets scalar register
 
@@ -31,7 +31,7 @@ TEST_CASE("state register allocation scalar", "[state]") {
   REQUIRE(state.varExists("a"));
 
   // Register is marked used; next allocation gets a different one
-  std::string reg2 = state.allocRegister("u32");
+  std::string reg2 = state.allocRegisters("u32").reg;
   REQUIRE(reg2 != reg);
 
   state.leaveFunction();
@@ -41,7 +41,7 @@ TEST_CASE("state register allocation vector", "[state]") {
   state.reset();
   state.enterFunction("test", "function", 0);
 
-  std::string reg = state.allocRegister("vec16");
+  std::string reg = state.allocRegisters("vec16").reg;
   REQUIRE(!reg.empty());
   REQUIRE(reg::isVecReg(reg));
 
@@ -52,12 +52,12 @@ TEST_CASE("state scope push/pop", "[state]") {
   state.reset();
   state.enterFunction("test", "function", 0);
 
-  std::string reg = state.allocRegister("u32");
+  std::string reg = state.allocRegisters("u32").reg;
   state.declareVar("outer", "u32", reg);
 
   state.pushScope();
   REQUIRE(state.varExists("outer")); // Inherited from parent
-  state.declareVar("inner", "u32", state.allocRegister("u32"));
+  state.declareVar("inner", "u32", state.allocRegisters("u32").reg);
   REQUIRE(state.varExists("inner"));
   state.popScope();
 
@@ -83,7 +83,7 @@ TEST_CASE("state const and modify tracking", "[state]") {
   state.reset();
   state.enterFunction("test", "function", 0);
 
-  std::string reg = state.allocRegister("u32");
+  std::string reg = state.allocRegisters("u32").reg;
   state.declareVar("x", "u32", reg, true); // const
 
   state.markVarModified("x");

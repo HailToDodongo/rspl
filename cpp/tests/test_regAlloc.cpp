@@ -82,6 +82,25 @@ TEST_CASE("RegAlloc - both halves of a vec32 are kept clear", "[regAlloc]") {
   REQUIRE(asm_.find("vadd $v02, $v02, $v02.v") != std::string::npos);
 }
 
+TEST_CASE("RegAlloc - a vec32 takes two non-adjacent registers when no pair is free",
+          "[regAlloc]") {
+  // everything but $v02 and $v11 is pinned: no adjacent pair exists, but
+  // the two halves of a vec32 do not have to be adjacent
+  std::string src = "function test()\n{\n";
+  for (int v = 1; v <= 28; ++v) {
+    if (v == 2 || v == 11) continue;
+    char buf[64];
+    snprintf(buf, sizeof(buf), "  vec16<$v%02d> p%02d;\n", v, v);
+    src += buf;
+  }
+  src += "  vec32 auto32;\n  auto32 += auto32;\n}\n";
+
+  auto asm_ = asmFor(src.c_str());
+  INFO(asm_);
+  REQUIRE(asm_.find("vaddc $v11, $v11, $v11.v") != std::string::npos);
+  REQUIRE(asm_.find("vadd $v02, $v02, $v02.v") != std::string::npos);
+}
+
 TEST_CASE("RegAlloc - falls back when nothing else is free", "[regAlloc]") {
   // every allocatable scalar but $t9 is taken, and $t9 is wanted later:
   // the allocator must still hand it out rather than give up

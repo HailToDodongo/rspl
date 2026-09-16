@@ -518,7 +518,7 @@ VarOrMem State::getRequiredVarOrMem(const std::string &name,
 
 // --- Register allocation ----------------------------------------------
 
-std::string State::allocRegister(const std::string &type) {
+State::RegPair State::allocRegisters(const std::string &type) {
   if (!regAllocAllowed) {
     throwError("Register allocation not allowed in this function!");
   }
@@ -538,24 +538,12 @@ std::string State::allocRegister(const std::string &type) {
     auto it = wanted.find(reg);
     return it != wanted.end() && it->second > line;
   };
-
-  auto tryAlloc = [&](const std::string &reg) -> std::string {
-    if (scope.regVarMap.count(reg)) return {};
-    if (avoidExplicit && wantedLater(reg)) return {};
-    if (twoRegs) {
-      const std::string *nR = reg::nextReg(reg);
-      if (avoidExplicit && nR && wantedLater(*nR)) return {};
-    }
-    if (twoRegs) {
-      const std::string *nextR = reg::nextReg(reg);
-      if (!nextR ||
-          std::find(regList.begin(), regList.end(), *nextR) ==
-              regList.end() ||
-          scope.regVarMap.count(*nextR)) {
-        return {};
-      }
-    }
-    return reg;
+  auto inList = [&](const std::string &reg) {
+    return std::find(regList.begin(), regList.end(), reg) != regList.end();
+  };
+  auto isFree = [&](const std::string &reg) {
+    if (scope.regVarMap.count(reg)) return false;
+    return !(avoidExplicit && wantedLater(reg));
   };
 
   auto dumpUsed = [&]() {
@@ -567,31 +555,54 @@ std::string State::allocRegister(const std::string &type) {
     }
     return used;
   };
-  (void)dumpUsed;
 
-  for (int pass = 0; pass < 2; ++pass) {
-    avoidExplicit = (pass == 0);
-    auto take = [&](const std::string &found) {
-      // pass 1 means we had to step on a register wanted further down
-      if (pass == 1) {
-        fallbackAllocRegs.insert(found);
-        if (twoRegs) {
-          const std::string *nR = reg::nextReg(found);
-          if (nR) fallbackAllocRegs.insert(*nR);
-        }
-      }
-      return found;
-    };
+  // pass 1 means we had to step on a register wanted further down
+  auto take = [&](int pass, RegPair found) {
+    if (pass == 1) {
+      fallbackAllocRegs.insert(found.reg);
+      if (!found.regFract.empty()) fallbackAllocRegs.insert(found.regFract);
+    }
+    return found;
+  };
+  // walk the pool in allocation order, stop at the first hit
+  auto scan = [&](auto &&visit) -> RegPair {
     if (reverse) {
       for (auto it = regList.rbegin(); it != regList.rend(); ++it) {
-        std::string found = tryAlloc(*it);
-        if (!found.empty()) return take(found);
+        RegPair r = visit(*it);
+        if (!r.reg.empty()) return r;
       }
     } else {
       for (const auto &reg : regList) {
-        std::string found = tryAlloc(reg);
-        if (!found.empty()) return take(found);
+        RegPair r = visit(reg);
+        if (!r.reg.empty()) return r;
       }
+    }
+    return {};
+  };
+
+  // single register, or an adjacent pair
+  for (int pass = 0; pass < 2; ++pass) {
+    avoidExplicit = (pass == 0);
+    RegPair found = scan([&](const std::string &reg) -> RegPair {
+      if (!isFree(reg)) return {};
+      if (!twoRegs) return {reg, {}};
+      const std::string *nR = reg::nextReg(reg);
+      if (!nR || !inList(*nR) || !isFree(*nR)) return {};
+      return {reg, *nR};
+    });
+    if (!found.reg.empty()) return take(pass, found);
+  }
+  // no adjacent pair left: any two free registers
+  if (twoRegs) {
+    for (int pass = 0; pass < 2; ++pass) {
+      avoidExplicit = (pass == 0);
+      std::string first;
+      RegPair found = scan([&](const std::string &reg) -> RegPair {
+        if (!isFree(reg)) return {};
+        if (first.empty()) { first = reg; return {}; }
+        return {first, reg};
+      });
+      if (!found.reg.empty()) return take(pass, found);
     }
   }
 

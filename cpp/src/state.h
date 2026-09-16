@@ -188,7 +188,11 @@ public:
   // name — only happens when nothing else was free. Remembered so the
   // resulting clash can say it is register pressure, not a naming mistake.
   std::unordered_set<std::string> fallbackAllocRegs;
-  std::string allocRegister(const std::string &type);
+  // Auto-allocation. Two-register types get an adjacent pair when one is
+  // free and otherwise any two free registers (the halves of a vec32 need
+  // not be adjacent, every operation reads the stored pair).
+  struct RegPair { std::string reg, regFract; };
+  RegPair allocRegisters(const std::string &type);
   bool regAllocAllowed = true;
 
   // -- Labels ----------------------------------------------------------
