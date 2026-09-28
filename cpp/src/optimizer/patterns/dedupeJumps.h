@@ -6,6 +6,9 @@
 
 namespace rspl {
 
+// "LABEL: j X" means LABEL is X: branches in this function go to X
+// directly. The label itself (with its jump) is only removed when the
+// compiler generated it; a user label may be referenced from elsewhere.
 inline void dedupeJumps(AsmFunc &func) {
   std::vector<std::pair<std::string, std::string>> labelReplace;
   for (size_t i = 0; i < func.asm_.size(); ++i) {
@@ -13,7 +16,8 @@ inline void dedupeJumps(AsmFunc &func) {
       if (i + 1 < func.asm_.size() && func.asm_[i + 1].op == Op::J()) {
         labelReplace.push_back(
             {func.asm_[i].cold->label, func.asm_[i + 1].args[0]});
-        if (i >= 2 && func.asm_[i - 2].op == Op::J() &&
+        if (isGeneratedLabel(func, func.asm_[i].cold->label) &&
+            i >= 2 && func.asm_[i - 2].op == Op::J() &&
             func.asm_[i - 1].type == AsmType::OP &&
             func.asm_[i - 1].op == Op::NOP()) {
           func.asm_.erase(func.asm_.begin() + i,

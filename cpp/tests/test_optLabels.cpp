@@ -39,22 +39,69 @@ TEST_CASE("Optimizer E2E - Labels - De-dupe Labels", "[optLabels]") {
   goto LABEL_A;
 })");
   REQUIRE(res.warn.empty());
+  // user labels are never dropped or renamed (they may be referenced from
+  // other functions or hand-written assembly), labels are free anyway
   REQUIRE(res.asm_ == R"(test:
+  LABEL_A:
+  LABEL_B:
   LABEL_C:
-  j LABEL_C
+  j LABEL_A
   nop)");
 }
 
-TEST_CASE("Optimizer - dedupeLabels - consecutive labels deduped to last",
+TEST_CASE("Optimizer - dedupeLabels - consecutive generated labels deduped to last",
           "[optLabels]") {
   rspl::AsmFunc func;
-  func.asm_ = {B("j", {"LABEL_A"}, "LABEL_A"), O("nop"), L("LABEL_A"),
-               L("LABEL_B"), O("addiu", {"$t0", "$zero", "1"})};
+  func.name = "test";
+  func.asm_ = {B("j", {"LABEL_test_0001"}, "LABEL_test_0001"), O("nop"),
+               L("LABEL_test_0001"), L("LABEL_test_0002"),
+               O("addiu", {"$t0", "$zero", "1"})};
   rspl::dedupeLabels(func);
   REQUIRE(func.asm_.size() == 4);
-  REQUIRE(func.asm_[0].args[0] == "LABEL_B");
-  REQUIRE(func.asm_[0].cold->labelEnd == "LABEL_B");
-  REQUIRE(func.asm_[2].cold->label == "LABEL_B");
+  REQUIRE(func.asm_[0].args[0] == "LABEL_test_0002");
+  REQUIRE(func.asm_[0].cold->labelEnd == "LABEL_test_0002");
+  REQUIRE(func.asm_[2].cold->label == "LABEL_test_0002");
+}
+
+TEST_CASE("Optimizer - dedupeLabels - a generated label folds into the user label, either order",
+          "[optLabels]") {
+  for (bool generatedFirst : {true, false}) {
+    rspl::AsmFunc func;
+    func.name = "test";
+    func.asm_ = {B("j", {"LABEL_test_0001"}, "LABEL_test_0001"), O("nop"),
+                 L(generatedFirst ? "LABEL_test_0001" : "USER"),
+                 L(generatedFirst ? "USER" : "LABEL_test_0001"),
+                 O("addiu", {"$t0", "$zero", "1"})};
+    rspl::dedupeLabels(func);
+    REQUIRE(func.asm_.size() == 4);
+    REQUIRE(func.asm_[0].args[0] == "USER");
+    REQUIRE(func.asm_[0].cold->labelEnd == "USER");
+    REQUIRE(func.asm_[2].cold->label == "USER");
+  }
+}
+
+TEST_CASE("Optimizer - dedupeLabels - two user labels are both kept",
+          "[optLabels]") {
+  rspl::AsmFunc func;
+  func.name = "test";
+  func.asm_ = {B("j", {"USER_A"}, "USER_A"), O("nop"), L("USER_A"),
+               L("USER_B"), O("addiu", {"$t0", "$zero", "1"})};
+  rspl::dedupeLabels(func);
+  REQUIRE(func.asm_.size() == 5);
+  REQUIRE(func.asm_[0].args[0] == "USER_A");
+  REQUIRE(func.asm_[2].cold->label == "USER_A");
+  REQUIRE(func.asm_[3].cold->label == "USER_B");
+}
+
+TEST_CASE("Optimizer - isGeneratedLabel", "[optLabels]") {
+  rspl::AsmFunc func;
+  func.name = "test";
+  REQUIRE(rspl::isGeneratedLabel(func, "LABEL_test_0001"));
+  REQUIRE(rspl::isGeneratedLabel(func, "LABEL_test_00FF"));
+  REQUIRE_FALSE(rspl::isGeneratedLabel(func, "LABEL_A"));
+  REQUIRE_FALSE(rspl::isGeneratedLabel(func, "LABEL_other_0001"));
+  REQUIRE_FALSE(rspl::isGeneratedLabel(func, "LABEL_test_001"));
+  REQUIRE_FALSE(rspl::isGeneratedLabel(func, "LABEL_test_00G1"));
 }
 
 TEST_CASE("Optimizer - dedupeLabels - __ labels are never deduplicated",

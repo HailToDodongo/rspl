@@ -7,6 +7,21 @@ namespace rspl {
 /// Run pattern-based optimizations (dedupe labels, dedupe jumps, etc.)
 void asmOptimizePattern(AsmFunc &func);
 
+/// True for a label the compiler generated for this function
+/// (State::generateLabel: "LABEL_<func>_XXXX"). Only those may be removed
+/// or renamed by a pattern pass: a user-written label can be referenced
+/// from other functions or from hand-written assembly the pass cannot see.
+inline bool isGeneratedLabel(const AsmFunc &func, const std::string &label) {
+  const std::string prefix = "LABEL_" + func.name + "_";
+  if (label.size() != prefix.size() + 4 || label.compare(0, prefix.size(), prefix) != 0)
+    return false;
+  for (size_t i = prefix.size(); i < label.size(); ++i) {
+    char c = label[i];
+    if (!((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F'))) return false;
+  }
+  return true;
+}
+
 /// Fill NOP delay slots by moving independent instructions forward.
 /// Must be called after asmScanDeps.
 void fillDelaySlots(AsmFunc &func);

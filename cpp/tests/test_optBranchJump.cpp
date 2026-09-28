@@ -56,6 +56,8 @@ TEST_CASE("Optimizer E2E - Branch-Jump - Loop - Used Label", "[optBranchJump]") 
   }
 })");
   REQUIRE(res.warn.empty());
+  // LOOP_END is a user label: it stays (with the loop's own back-jump
+  // behind it), only the compiler's labels get folded away
   REQUIRE(res.asm_ == R"(test:
   LABEL_test_0001:
   addiu $at, $zero, 1
@@ -65,6 +67,9 @@ TEST_CASE("Optimizer E2E - Branch-Jump - Loop - Used Label", "[optBranchJump]") 
   bne $t0, $zero, LABEL_test_0001
   nop
   j SOME_LABEL
+  nop
+  LOOP_END:
+  j LABEL_test_0001
   nop
   LABEL_test_0002:
   jr $ra
@@ -84,16 +89,61 @@ TEST_CASE("Optimizer E2E - Branch-Jump - Loop - Unused Label", "[optBranchJump]"
   }
 })");
   REQUIRE(res.warn.empty());
+  // user labels are kept even when nothing in this function targets them:
+  // another function or hand-written assembly may
   REQUIRE(res.asm_ == R"(test:
   LABEL_test_0001:
   addiu $at, $zero, 1
   beq $t0, $at, LABEL_test_0001
   nop
+  SOME_LABEL:
   bne $t0, $zero, LABEL_test_0001
   nop
+  j LABEL_test_0001
+  nop
+  LOOP_END:
   j LABEL_test_0001
   nop
   LABEL_test_0002:
   jr $ra
   nop)");
+}
+
+// Regression: "if(..) goto X;" directly followed by a user label. The
+// compiler's else-label and the user label are adjacent, dedupeLabels
+// folds the else-label into the user one, and branchJump then saw a branch
+// to a label nothing else in *this* function used and deleted it — even
+// though another function jumps there.
+TEST_CASE("Optimizer E2E - Branch-Jump - user label after if-goto survives",
+          "[optBranchJump]") {
+  auto res = optTranspile(R"(state { extern u16 RSPQ_Loop; }
+function other()
+{
+  goto L_B;
+}
+function test()
+{
+  u32<$t0> a;
+  u32<$t1> b;
+  L_A:
+    a += 1;
+    if(a == b) goto RSPQ_Loop;
+  L_B:
+  {
+    a += 2;
+  }
+  goto L_A;
+})");
+  REQUIRE(res.warn.empty());
+  REQUIRE(res.asm_ == R"(other:
+  j L_B
+  nop
+test:
+  L_A:
+  addiu $t0, $t0, 1
+  beq $t0, $t1, RSPQ_Loop
+  nop
+  L_B:
+  j L_A
+  addiu $t0, $t0, 2)");
 }

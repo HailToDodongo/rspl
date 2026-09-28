@@ -22,8 +22,10 @@ inline void branchJump(AsmFunc &func) {
     if (func.asm_[i + 4].cold->label != b.cold->labelEnd) continue;
 
     std::string tempLabel = b.cold->labelEnd;
-    bool labelUsed = false;
+    // a user label counts as used: it may be a target outside this function
+    bool labelUsed = !isGeneratedLabel(func, tempLabel);
     for (const auto &inst : func.asm_) {
+      if (labelUsed) break;
       if (&inst == &b) continue;
       if (inst.cold->labelEnd == tempLabel) { labelUsed = true; break; }
       for (const auto &arg : inst.args)
