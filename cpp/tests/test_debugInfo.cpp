@@ -19,8 +19,7 @@ TEST_CASE("Debug Info - Basic operations", "[debugInfo]") {
   nop                                                ## L:4    |     *5 | })");
 }
 
-TEST_CASE("Debug Info - @Tag annotation prefix on instruction",
-          "[debugInfo]") {
+TEST_CASE("Debug Info - @Tag annotation prefix on instruction", "[debugInfo]") {
   auto result = rspl::transpileSource(
       R"(function test() {
       u32 a;
@@ -35,8 +34,7 @@ TEST_CASE("Debug Info - @Tag annotation prefix on instruction",
   nop                                                ## L:4    |     *4 | })");
 }
 
-TEST_CASE("Debug Info - @Tag annotation on used label",
-          "[debugInfo]") {
+TEST_CASE("Debug Info - @Tag annotation on used label", "[debugInfo]") {
   auto result = rspl::transpileSource(
       R"(function test() {
       @Tag("Start") LOOP:
@@ -53,8 +51,7 @@ TEST_CASE("Debug Info - @Tag annotation on used label",
   nop                                                ## L:4    |     *4 | goto LOOP;)");
 }
 
-TEST_CASE("Debug Info - Transpose builtin shares line and barrier info",
-          "[debugInfo]") {
+TEST_CASE("Debug Info - Transpose builtin shares line and barrier info", "[debugInfo]") {
   auto result = rspl::transpileSource(
       R"(function test() {
       vec16<$v08> v0;
@@ -81,8 +78,7 @@ TEST_CASE("Debug Info - Transpose builtin shares line and barrier info",
   nop                                                ## L:5    |    *15 | })");
 }
 
-TEST_CASE("Debug Info - Disabled produces no padding or comments",
-          "[debugInfo]") {
+TEST_CASE("Debug Info - Disabled produces no padding or comments", "[debugInfo]") {
   auto result = rspl::transpileSource(
       R"(function test() {
       u32 a = 0;

@@ -26,14 +26,14 @@ struct VarDef {
   bool ownsInt = true;
   bool ownsFract = true;
   TypeClass type = TypeClass::Unknown;
-  std::string name;         // for memory label references
+  std::string name;                            // for memory label references
   TypeClass originalType = TypeClass::Unknown; // before cast
-  CastType castType = CastType::None;         // e.g. ufract, sfract, s8
-  std::string swizzle;      // optional swizzle suffix
-  double value = 0.0;        // numeric value when reg is empty
+  CastType castType = CastType::None;          // e.g. ufract, sfract, s8
+  std::string swizzle;                         // optional swizzle suffix
+  double value = 0.0;                          // numeric value when reg is empty
   bool isConst = false;
   int modifyCount = 0;
-  bool isGlobal = false;     // file-level register-pinned var, not undef-able
+  bool isGlobal = false; // file-level register-pinned var, not undef-able
 
   // Backward-compat accessors for code that still uses strings
   std::string typeStr() const { return toString(type); }
@@ -52,8 +52,8 @@ struct MemVarDef {
 struct VarOrMem {
   std::string name;
   std::string type;
-  std::string reg;    // empty -> this is a memory variable
-  int arraySize = 1;  // only set for memory variables
+  std::string reg;   // empty -> this is a memory variable
+  int arraySize = 1; // only set for memory variables
 };
 
 struct FuncDef {
@@ -65,7 +65,7 @@ struct FuncDef {
 struct AnnotationDef {
   std::string name;
   std::string value;
-  std::string mode;  // Barrier: "" | "strict" | "before" | "after"
+  std::string mode; // Barrier: "" | "strict" | "before" | "after"
 };
 
 // --- Scope ------------------------------------------------------------
@@ -94,39 +94,34 @@ public:
   void reset();
 
   // -- Error / warning / info ------------------------------------------
-  [[noreturn]] void throwError(const std::string &msg,
-                                const std::string &context = "{}") const;
+  [[noreturn]] void throwError(const std::string &msg, const std::string &context = "{}") const;
 
   void logWarning(const std::string &msg, const std::string &context = "{}");
   void logInfo(const std::string &msg);
 
   // -- Source tracking -------------------------------------------------
-  std::vector<std::string> sourceLines;   // preprocessed text, one per line
-  std::vector<SourceLoc> sourceOrigins;   // parallel: real file + line
+  std::vector<std::string> sourceLines; // preprocessed text, one per line
+  std::vector<SourceLoc> sourceOrigins; // parallel: real file + line
   /// "line 12" / "line 42 (inc/math.rspl)" for a preprocessed line number
   std::string describeLine(uint32_t lineNo) const;
   /// The line plus its neighbours, ready to append to a message
   std::string sourceContext(uint32_t lineNo) const;
-  std::string func;       // current function name
-  std::string funcType;   // "function", "command", "macro"
+  std::string func;     // current function name
+  std::string funcType; // "function", "command", "macro"
   int argSize = 0;
   uint32_t line = 0;
   std::string outWarn;
   std::string outInfo;
 
   // -- Function management ---------------------------------------------
-  void declareFunction(const std::string &name,
-                       const std::vector<ast::FuncDefArg> &args,
-                       bool isRelative = false);
-  void enterFunction(const std::string &name, const std::string &type,
-                     int argSize);
+  void declareFunction(const std::string &name, const std::vector<ast::FuncDefArg> &args, bool isRelative = false);
+  void enterFunction(const std::string &name, const std::string &type, int argSize);
   void leaveFunction();
   const FuncDef *getFunction(const std::string &name) const;
 
   // -- Scope management ------------------------------------------------
   Scope &getScope();
-  void pushScope(const std::string &labelStart = "",
-                 const std::string &labelEnd = "");
+  void pushScope(const std::string &labelStart = "", const std::string &labelEnd = "");
   void popScope();
 
   // -- Global register variables ---------------------------------------
@@ -139,43 +134,33 @@ public:
   };
   // Registered once per program; re-declared into every function's root
   // scope by enterFunction().
-  void declareGlobalVar(const std::string &name, const std::string &type,
-                        const std::string &reg, bool isConst,
+  void declareGlobalVar(const std::string &name, const std::string &type, const std::string &reg, bool isConst,
                         const std::string &regFract = {});
 
   // -- Variable management ---------------------------------------------
   // `regFract`: second register of a vec32. Empty picks the register right
   // after `reg` — the only place that fallback exists; from here on the pair
   // is carried explicitly.
-  void declareVar(const std::string &name, const std::string &type,
-                  const std::string &reg, bool isConst = false,
-                  bool ignoreReserved = false,
-                  const std::string &regFract = {},
-                  bool ownsReg = true, bool ownsFract = true);
-  void declareVarAlias(const std::string &aliasName,
-                       const std::string &varName);
+  void declareVar(const std::string &name, const std::string &type, const std::string &reg, bool isConst = false,
+                  bool ignoreReserved = false, const std::string &regFract = {}, bool ownsReg = true,
+                  bool ownsFract = true);
+  void declareVarAlias(const std::string &aliasName, const std::string &varName);
   void undefVar(const std::string &varName);
   VarDef *getVar(const std::string &name);
-  const VarDef *getRequiredVar(const std::string &name,
-                                const std::string &contextName,
-                                const std::string &context = "{}");
+  const VarDef *getRequiredVar(const std::string &name, const std::string &contextName,
+                               const std::string &context = "{}");
   const std::string *getVarReg(const std::string &name) const;
   bool varExists(const std::string &name) const;
   void markVarModified(const std::string &name);
-  VarDef getRequiredVarCopy(const std::string &name,
-                             const std::string &contextName,
-                             const std::string &context = "{}");
+  VarDef getRequiredVarCopy(const std::string &name, const std::string &contextName, const std::string &context = "{}");
 
   // -- Memory variables (global state labels) --------------------------
-  void declareMemVar(const std::string &name, const std::string &type,
-                     int arraySize);
-  const MemVarDef *getRequiredMem(const std::string &name,
-                                   const std::string &contextName,
-                                   const std::string &context = "{}") const;
+  void declareMemVar(const std::string &name, const std::string &type, int arraySize);
+  const MemVarDef *getRequiredMem(const std::string &name, const std::string &contextName,
+                                  const std::string &context = "{}") const;
   const MemVarDef *getMemVarOrNull(const std::string &name) const;
-  VarOrMem getRequiredVarOrMem(const std::string &name,
-                                   const std::string &contextName,
-                                   const std::string &context = "{}") const;
+  VarOrMem getRequiredVarOrMem(const std::string &name, const std::string &contextName,
+                               const std::string &context = "{}") const;
 
   // -- Register allocation ---------------------------------------------
   // Per emitted block: the registers that block (or anything nested in it)
@@ -191,7 +176,9 @@ public:
   // Auto-allocation. Two-register types get an adjacent pair when one is
   // free and otherwise any two free registers (the halves of a vec32 need
   // not be adjacent, every operation reads the stored pair).
-  struct RegPair { std::string reg, regFract; };
+  struct RegPair {
+    std::string reg, regFract;
+  };
   RegPair allocRegisters(const std::string &type);
   bool regAllocAllowed = true;
 
@@ -201,14 +188,13 @@ public:
   // -- Annotations -----------------------------------------------------
   void addAnnotation(const std::string &name, const std::string &mode, const std::string &value,
                      bool valueIsString = true);
-  std::vector<AnnotationDef> getAnnotations(
-      const std::string &name = "") const;
+  std::vector<AnnotationDef> getAnnotations(const std::string &name = "") const;
   void clearAnnotations();
 
   // -- Barrier masks ---------------------------------------------------
   uint32_t getBarrierMask(const std::string &name);
-  //ordering bit for a barrier tag: pseudo-register index offset (0..24),
-  //used above the real register space in the reorder dependency masks
+  // ordering bit for a barrier tag: pseudo-register index offset (0..24),
+  // used above the real register space in the reorder dependency masks
   int getBarrierBit(const std::string &name);
 
 private:

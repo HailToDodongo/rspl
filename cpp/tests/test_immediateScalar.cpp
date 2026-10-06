@@ -18,7 +18,8 @@ function test()
   LOAD_H:  c = 0xFFFF8000;
   LOAD_I:  c = 0xFFFFF;
   LOAD_J:  c = 0xFFFFFFFF;
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
@@ -62,7 +63,8 @@ function test()
   LOAD_F:  c = -1048575;
   LOAD_G:  c = -2147483648;
   LOAD_H:  c = 2147483647;
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:

@@ -12,7 +12,7 @@
 using namespace rspl;
 
 static std::vector<AsmInst> build(std::vector<AsmInst> list) {
-  for (auto &a : list) asmInitDep(a);
+  for(auto &a : list) asmInitDep(a);
   return list;
 }
 
@@ -21,10 +21,14 @@ static std::vector<AsmInst> build(std::vector<AsmInst> list) {
 static std::vector<int> effectiveAddresses(const std::vector<AsmInst> &list) {
   std::vector<int> res;
   int incSums[32] = {};
-  for (const auto &inst : list) {
-    if (inst.rebaseKind == RebaseKind::MemOp) {
+  for(const auto &inst : list)
+  {
+    if(inst.rebaseKind == RebaseKind::MemOp)
+    {
       res.push_back(inst.rebaseValue + incSums[inst.rebaseBase]);
-    } else if (inst.rebaseKind == RebaseKind::Increment) {
+    }
+    else if(inst.rebaseKind == RebaseKind::Increment)
+    {
       incSums[inst.rebaseBase] += inst.rebaseValue;
     }
   }
@@ -71,8 +75,7 @@ TEST_CASE("RebaseHop - scalar store, offset(base) rewrite", "[rebaseHop]") {
   REQUIRE(list[1].args[1] == "4($t0)");
 }
 
-TEST_CASE("RebaseHop - crosses independent instructions on the way",
-          "[rebaseHop]") {
+TEST_CASE("RebaseHop - crosses independent instructions on the way", "[rebaseHop]") {
   // blocker is not adjacent; the ops in between are unrelated
   auto list = build({
       asmOp("sqv", {"$v01", "0", "0", "$t0"}),
@@ -136,7 +139,7 @@ TEST_CASE("RebaseHop - rejects misaligned result (sqv)", "[rebaseHop]") {
       asmOp("or", {"$t2", "$zero", "$zero"}),
   });
   REQUIRE(asmTryRebaseCross(list, 0, true) == false);
-  REQUIRE(list[0].args[2] == "0"); // unchanged
+  REQUIRE(list[0].args[2] == "0");             // unchanged
   REQUIRE(getOpcodeName(list[0].op) == "sqv"); // not moved
 }
 
@@ -170,8 +173,7 @@ TEST_CASE("RebaseHop - rejects crossing a branch", "[rebaseHop]") {
   REQUIRE(asmTryRebaseCross(list, 0, true) == false);
 }
 
-TEST_CASE("RebaseHop - rejects when blocked by a real dependency",
-          "[rebaseHop]") {
+TEST_CASE("RebaseHop - rejects when blocked by a real dependency", "[rebaseHop]") {
   // something reads the stored range's base before the increment — crossing
   // the reader is fine (read-read), but a writer of the base blocks
   auto list = build({
@@ -195,8 +197,7 @@ TEST_CASE("RebaseHop - WAW guard for loads", "[rebaseHop]") {
   REQUIRE(asmTryRebaseCross(list, 0, true) == false);
 }
 
-TEST_CASE("RebaseHop - load crossing works and keeps deps valid",
-          "[rebaseHop]") {
+TEST_CASE("RebaseHop - load crossing works and keeps deps valid", "[rebaseHop]") {
   auto list = build({
       asmOp("lqv", {"$v05", "0", "16", "$s0"}),
       asmOp("addiu", {"$s0", "$s0", "32"}),

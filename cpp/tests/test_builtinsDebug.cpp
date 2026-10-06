@@ -21,8 +21,7 @@ TEST_CASE("Builtins - Debug - set_rsp_status() - scalar", "[builtinsDebug]") {
   nop)");
 }
 
-TEST_CASE("Builtins - Debug - set_rsp_status() - scalar literal",
-          "[builtinsDebug]") {
+TEST_CASE("Builtins - Debug - set_rsp_status() - scalar literal", "[builtinsDebug]") {
   auto result = rspl::transpileSource(
       R"(function test() {
       set_rsp_status(42);
@@ -37,38 +36,32 @@ TEST_CASE("Builtins - Debug - set_rsp_status() - scalar literal",
   nop)");
 }
 
-TEST_CASE("Builtins - Debug - set_rsp_status() - fails with no argument",
-          "[builtinsDebug]") {
-  REQUIRE_THROWS_WITH(
-      rspl::transpileSource(
-          R"(function test() {
+TEST_CASE("Builtins - Debug - set_rsp_status() - fails with no argument", "[builtinsDebug]") {
+  REQUIRE_THROWS_WITH(rspl::transpileSource(
+                          R"(function test() {
       set_rsp_status();
     })",
-          {.rspqWrapper = false}),
-      Catch::Matchers::ContainsSubstring("requires 1 scalar"));
+                          {.rspqWrapper = false}),
+                      Catch::Matchers::ContainsSubstring("requires 1 scalar"));
 }
 
-TEST_CASE("Builtins - Debug - set_rsp_status() - fails with left side",
-          "[builtinsDebug]") {
-  REQUIRE_THROWS_WITH(
-      rspl::transpileSource(
-          R"(function test() {
+TEST_CASE("Builtins - Debug - set_rsp_status() - fails with left side", "[builtinsDebug]") {
+  REQUIRE_THROWS_WITH(rspl::transpileSource(
+                          R"(function test() {
       u32<$t0> a = set_rsp_status();
     })",
-          {.rspqWrapper = false}),
-      Catch::Matchers::ContainsSubstring("must not have a left side"));
+                          {.rspqWrapper = false}),
+                      Catch::Matchers::ContainsSubstring("must not have a left side"));
 }
 
-TEST_CASE("Builtins - Debug - set_rsp_status() - fails with vector",
-          "[builtinsDebug]") {
-  REQUIRE_THROWS_WITH(
-      rspl::transpileSource(
-          R"(function test() {
+TEST_CASE("Builtins - Debug - set_rsp_status() - fails with vector", "[builtinsDebug]") {
+  REQUIRE_THROWS_WITH(rspl::transpileSource(
+                          R"(function test() {
       vec16<$v01> a;
       set_rsp_status(a);
     })",
-          {.rspqWrapper = false}),
-      Catch::Matchers::ContainsSubstring("scalar argument"));
+                          {.rspqWrapper = false}),
+                      Catch::Matchers::ContainsSubstring("scalar argument"));
 }
 
 // --- print ---
@@ -128,62 +121,52 @@ TEST_CASE("Builtins - Debug - print() - string", "[builtinsDebug]") {
   nop)");
 }
 
-TEST_CASE("Builtins - Debug - print() - fails with no arguments",
-          "[builtinsDebug]") {
-  REQUIRE_THROWS_WITH(
-      rspl::transpileSource(
-          R"(function test() {
+TEST_CASE("Builtins - Debug - print() - fails with no arguments", "[builtinsDebug]") {
+  REQUIRE_THROWS_WITH(rspl::transpileSource(
+                          R"(function test() {
       print();
     })",
-          {.rspqWrapper = false}),
-      Catch::Matchers::ContainsSubstring("requires at least one argument"));
+                          {.rspqWrapper = false}),
+                      Catch::Matchers::ContainsSubstring("requires at least one argument"));
 }
 
-TEST_CASE("Builtins - Debug - print() - fails with left side",
-          "[builtinsDebug]") {
-  REQUIRE_THROWS_WITH(
-      rspl::transpileSource(
-          R"(function test() {
+TEST_CASE("Builtins - Debug - print() - fails with left side", "[builtinsDebug]") {
+  REQUIRE_THROWS_WITH(rspl::transpileSource(
+                          R"(function test() {
       u32<$t0> a = print();
     })",
-          {.rspqWrapper = false}),
-      Catch::Matchers::ContainsSubstring("cannot have a left side"));
+                          {.rspqWrapper = false}),
+                      Catch::Matchers::ContainsSubstring("cannot have a left side"));
 }
 
-TEST_CASE("Builtins - Debug - print() - fails with mixed types",
-          "[builtinsDebug]") {
-  REQUIRE_THROWS_WITH(
-      rspl::transpileSource(
-          R"(function test() {
+TEST_CASE("Builtins - Debug - print() - fails with mixed types", "[builtinsDebug]") {
+  REQUIRE_THROWS_WITH(rspl::transpileSource(
+                          R"(function test() {
       u32<$t0> a;
       print(a, "hello");
     })",
-          {.rspqWrapper = false}),
-      Catch::Matchers::ContainsSubstring("same type"));
+                          {.rspqWrapper = false}),
+                      Catch::Matchers::ContainsSubstring("same type"));
 }
 
-TEST_CASE("Builtins - Debug - print() - fails with number literal",
-          "[builtinsDebug]") {
-  REQUIRE_THROWS_WITH(
-      rspl::transpileSource(
-          R"(function test() {
+TEST_CASE("Builtins - Debug - print() - fails with number literal", "[builtinsDebug]") {
+  REQUIRE_THROWS_WITH(rspl::transpileSource(
+                          R"(function test() {
       print(42);
     })",
-          {.rspqWrapper = false}),
-      Catch::Matchers::ContainsSubstring("variables or strings"));
+                          {.rspqWrapper = false}),
+                      Catch::Matchers::ContainsSubstring("variables or strings"));
 }
 
-TEST_CASE("Builtins - Debug - print() - fails with mixed scalar/vector",
-          "[builtinsDebug]") {
-  REQUIRE_THROWS_WITH(
-      rspl::transpileSource(
-          R"(function test() {
+TEST_CASE("Builtins - Debug - print() - fails with mixed scalar/vector", "[builtinsDebug]") {
+  REQUIRE_THROWS_WITH(rspl::transpileSource(
+                          R"(function test() {
       u32<$t0> a;
       vec16<$v01> b;
       print(a, b);
     })",
-          {.rspqWrapper = false}),
-      Catch::Matchers::ContainsSubstring("mixed scalar/vector"));
+                          {.rspqWrapper = false}),
+                      Catch::Matchers::ContainsSubstring("mixed scalar/vector"));
 }
 
 // --- printf ---
@@ -206,8 +189,7 @@ TEST_CASE("Builtins - Debug - printf() - basic scalar", "[builtinsDebug]") {
   nop)");
 }
 
-TEST_CASE("Builtins - Debug - printf() - vec32 with swizzle",
-          "[builtinsDebug]") {
+TEST_CASE("Builtins - Debug - printf() - vec32 with swizzle", "[builtinsDebug]") {
   auto result = rspl::transpileSource(
       R"(function test() {
       vec32<$v01> a;
@@ -245,36 +227,30 @@ TEST_CASE("Builtins - Debug - printf() - string only", "[builtinsDebug]") {
   REQUIRE(result.asm_.find("hello world") != std::string::npos);
 }
 
-TEST_CASE("Builtins - Debug - printf() - fails with no arguments",
-          "[builtinsDebug]") {
-  REQUIRE_THROWS_WITH(
-      rspl::transpileSource(
-          R"(function test() {
+TEST_CASE("Builtins - Debug - printf() - fails with no arguments", "[builtinsDebug]") {
+  REQUIRE_THROWS_WITH(rspl::transpileSource(
+                          R"(function test() {
       printf();
     })",
-          {.rspqWrapper = false}),
-      Catch::Matchers::ContainsSubstring("requires at least one argument"));
+                          {.rspqWrapper = false}),
+                      Catch::Matchers::ContainsSubstring("requires at least one argument"));
 }
 
-TEST_CASE("Builtins - Debug - printf() - fails with left side",
-          "[builtinsDebug]") {
-  REQUIRE_THROWS_WITH(
-      rspl::transpileSource(
-          R"(function test() {
+TEST_CASE("Builtins - Debug - printf() - fails with left side", "[builtinsDebug]") {
+  REQUIRE_THROWS_WITH(rspl::transpileSource(
+                          R"(function test() {
       u32<$t0> a = printf("hello");
     })",
-          {.rspqWrapper = false}),
-      Catch::Matchers::ContainsSubstring("cannot have a left side"));
+                          {.rspqWrapper = false}),
+                      Catch::Matchers::ContainsSubstring("cannot have a left side"));
 }
 
-TEST_CASE("Builtins - Debug - printf() - fails with non-string first arg",
-          "[builtinsDebug]") {
-  REQUIRE_THROWS_WITH(
-      rspl::transpileSource(
-          R"(function test() {
+TEST_CASE("Builtins - Debug - printf() - fails with non-string first arg", "[builtinsDebug]") {
+  REQUIRE_THROWS_WITH(rspl::transpileSource(
+                          R"(function test() {
       u32<$t0> a;
       printf(a);
     })",
-          {.rspqWrapper = false}),
-      Catch::Matchers::ContainsSubstring("first argument to be a string"));
+                          {.rspqWrapper = false}),
+                      Catch::Matchers::ContainsSubstring("first argument to be a string"));
 }

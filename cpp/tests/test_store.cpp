@@ -16,7 +16,8 @@ function test_scalar_store()
 
   store(val, TEST_CONST);
   store(val, TEST_CONST, 0x10);
-})", CONF);
+})",
+                                      CONF);
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test_scalar_store:
   sw $t0, ($t1)
@@ -41,7 +42,8 @@ function test_scalar_store()
   store(val:s32, dst);
   store(val:s16, dst);
   store(val:s8, dst);
-})", CONF);
+})",
+                                      CONF);
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test_scalar_store:
   sw $t0, ($t1)
@@ -72,7 +74,8 @@ function test_vector_store()
   store(val.zw, dst, 0x10);
   store(val.XYZW, dst);
   store(val.XYZW, dst, 0x10);
-})", CONF);
+})",
+                                      CONF);
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test_vector_store:
   WholeVector:
@@ -116,7 +119,8 @@ function test_vector_store()
   store_unaligned(val.zw, dst, 0x10);
   store_unaligned(val.XYZW, dst);
   store_unaligned(val.XYZW, dst, 0x10);
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test_vector_store:
@@ -165,7 +169,8 @@ function test_vector_store()
   store_unaligned(val.zw, dst, 0x10);
   store_unaligned(val.XYZW, dst);
   store_unaligned(val.XYZW, dst, 0x10);
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test_vector_store:
@@ -200,7 +205,8 @@ function test_vector_store()
   Swizzle:
   store(val:uint.XYZW, dst);
   store(val:ufract.XYZW, dst);
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test_vector_store:
@@ -231,7 +237,8 @@ TEST_CASE("Store - Vector Packed", "[store]") {
   store_vec_s8(val, dst, 0x10);
   store_vec_s8(val.y, dst);
   store_vec_s8(val.z, dst, 0x10);
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
@@ -262,7 +269,8 @@ TEST_CASE("Store - Vector Transposed", "[store]") {
   store_transposed(b, 4, ptr, 0x20);
   store_transposed(b, 7, ptr, 0x30);
   END:
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
@@ -281,10 +289,18 @@ TEST_CASE("Store - Invalid Transposed reg", "[store]") {
   u32<$t0> ptr;
   vec32<$v04> v;
   store_transposed(v, 0, ptr, 0x00);
-})", CONF), std::runtime_error);
-  try { rspl::transpileSource(R"(function test() { u32<$t0> ptr; vec32<$v04> v; store_transposed(v, 0, ptr, 0x00); })", CONF); }
-  catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find("store_transposed() requires target register to be $v00, $v08, $v16 or $v24") != std::string::npos);
+})",
+                                          CONF),
+                    std::runtime_error);
+  try
+  {
+    rspl::transpileSource(R"(function test() { u32<$t0> ptr; vec32<$v04> v; store_transposed(v, 0, ptr, 0x00); })",
+                          CONF);
+  }
+  catch(const std::runtime_error &e)
+  {
+    REQUIRE(std::string(e.what()).find("store_transposed() requires target register to be $v00, $v08, $v16 or $v24") !=
+            std::string::npos);
   }
 }
 
@@ -293,9 +309,16 @@ TEST_CASE("Store - Invalid Transposed offset", "[store]") {
   u32<$t0> ptr;
   vec32<$v16> v;
   store_transposed(v, 0, ptr, 0x04);
-})", CONF), std::runtime_error);
-  try { rspl::transpileSource(R"(function test() { u32<$t0> ptr; vec32<$v16> v; store_transposed(v, 0, ptr, 0x04); })", CONF); }
-  catch (const std::runtime_error &e) {
+})",
+                                          CONF),
+                    std::runtime_error);
+  try
+  {
+    rspl::transpileSource(R"(function test() { u32<$t0> ptr; vec32<$v16> v; store_transposed(v, 0, ptr, 0x04); })",
+                          CONF);
+  }
+  catch(const std::runtime_error &e)
+  {
     REQUIRE(std::string(e.what()).find("store_transposed() requires offset to be multiple of 16") != std::string::npos);
   }
 }

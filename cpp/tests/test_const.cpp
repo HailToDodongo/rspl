@@ -23,45 +23,43 @@ TEST_CASE("Const - Declaration", "[const]") {
 }
 
 TEST_CASE("Const - Invalid (scalar reassignment)", "[const]") {
-  REQUIRE_THROWS_AS(
-      rspl::transpileSource(
-          R"(function test() {
+  REQUIRE_THROWS_AS(rspl::transpileSource(
+                        R"(function test() {
   const u32<$t0> a = 1234;
   a += 1;
 })",
-          {.rspqWrapper = false}),
-      std::runtime_error);
-  try {
+                        {.rspqWrapper = false}),
+                    std::runtime_error);
+  try
+  {
     rspl::transpileSource(
         R"(function test() {
   const u32<$t0> a = 1234;
   a += 1;
 })",
         {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find(
-        "Cannot assign to constant variable") != std::string::npos);
   }
+  catch(const std::runtime_error &e)
+  { REQUIRE(std::string(e.what()).find("Cannot assign to constant variable") != std::string::npos); }
 }
 
 TEST_CASE("Const - Invalid (vector reassignment)", "[const]") {
-  REQUIRE_THROWS_AS(
-      rspl::transpileSource(
-          R"(function test() {
+  REQUIRE_THROWS_AS(rspl::transpileSource(
+                        R"(function test() {
   const vec16<$v01> a = 0;
   a += a;
 })",
-          {.rspqWrapper = false}),
-      std::runtime_error);
-  try {
+                        {.rspqWrapper = false}),
+                    std::runtime_error);
+  try
+  {
     rspl::transpileSource(
         R"(function test() {
   const vec16<$v01> a = 0;
   a += a;
 })",
         {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find(
-        "Cannot assign to constant variable") != std::string::npos);
   }
+  catch(const std::runtime_error &e)
+  { REQUIRE(std::string(e.what()).find("Cannot assign to constant variable") != std::string::npos); }
 }

@@ -15,30 +15,44 @@
 static std::string runJsParser(const std::string &path) {
   std::string cmd = "node scripts/parse.js --preprocessed \"" + path + "\"";
   FILE *pipe = popen(cmd.c_str(), "r");
-  if (!pipe) throw std::runtime_error("cannot start JS parser");
+  if(!pipe) throw std::runtime_error("cannot start JS parser");
   std::string result;
   char buf[4096];
-  while (fgets(buf, sizeof(buf), pipe)) result += buf;
-  if (pclose(pipe) != 0) throw std::runtime_error("JS parser failed:\n" + result);
+  while(fgets(buf, sizeof(buf), pipe)) result += buf;
+  if(pclose(pipe) != 0) throw std::runtime_error("JS parser failed:\n" + result);
   return result;
 }
 
 int main(int argc, char **argv) {
-  if (argc < 3) { std::cerr << "usage: astdump native|js <file>\n"; return 1; }
+  if(argc < 3)
+  {
+    std::cerr << "usage: astdump native|js <file>\n";
+    return 1;
+  }
   std::string mode = argv[1];
-  try {
+  try
+  {
     rspl::ast::Program prog;
-    if (mode == "native") {
+    if(mode == "native")
+    {
       std::ifstream f(argv[2]);
-      if (!f) { std::cerr << "cannot open " << argv[2] << "\n"; return 1; }
+      if(!f)
+      {
+        std::cerr << "cannot open " << argv[2] << "\n";
+        return 1;
+      }
       std::ostringstream ss;
       ss << f.rdbuf();
       prog = rspl::parser::parseProgram(ss.str());
-    } else {
+    }
+    else
+    {
       prog = rspl::ast::parseJson(runJsParser(argv[2]));
     }
     std::cout << rspl::astToJson(prog, true) << "\n";
-  } catch (const std::exception &e) {
+  }
+  catch(const std::exception &e)
+  {
     std::cerr << e.what() << "\n";
     return 1;
   }

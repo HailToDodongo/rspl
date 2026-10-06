@@ -43,7 +43,7 @@ std::string jsAstJson(const std::string &preprocessed) {
   REQUIRE(pipe != nullptr);
   std::string result;
   char buf[4096];
-  while (fgets(buf, sizeof(buf), pipe)) result += buf;
+  while(fgets(buf, sizeof(buf), pipe)) result += buf;
   REQUIRE(pclose(pipe) == 0);
   auto prog = rspl::ast::parseJson(result);
   return rspl::astToJson(prog);
@@ -61,7 +61,7 @@ void requireSameAst(const std::string &preprocessed) {
 } // namespace
 
 TEST_CASE("ParserDiff - corpus files", "[parserDiff]") {
-  if (!nodeAvailable()) SKIP("node not available");
+  if(!nodeAvailable()) SKIP("node not available");
 
   // All standalone-parseable .rspl files in the repo (tpxLoops.rspl is a
   // template with unexpanded ${} defines and cannot parse on its own).
@@ -75,7 +75,8 @@ TEST_CASE("ParserDiff - corpus files", "[parserDiff]") {
       "src/tests/examples/t3d/rsp_tinypx.rspl",
   };
 
-  for (const auto &path : corpus) {
+  for(const auto &path : corpus)
+  {
     INFO("file: " << path);
     auto slash = path.rfind('/');
     std::string dir = path.substr(0, slash);
@@ -86,7 +87,7 @@ TEST_CASE("ParserDiff - corpus files", "[parserDiff]") {
 }
 
 TEST_CASE("ParserDiff - statement and calc constructs", "[parserDiff]") {
-  if (!nodeAvailable()) SKIP("node not available");
+  if(!nodeAvailable()) SKIP("node not available");
 
   const std::vector<std::string> snippets = {
       // declarations, self-ops, swizzled assignment
@@ -182,7 +183,8 @@ shader s() {
 })",
   };
 
-  for (size_t i = 0; i < snippets.size(); ++i) {
+  for(size_t i = 0; i < snippets.size(); ++i)
+  {
     INFO("snippet " << i);
     requireSameAst(snippets[i]);
   }

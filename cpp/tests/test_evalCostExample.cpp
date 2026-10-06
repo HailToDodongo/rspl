@@ -19,14 +19,15 @@ static std::vector<int> textToAsmCycle(const std::string &text) {
   std::vector<std::string> annotations;
   std::istringstream ss(text);
   std::string line;
-  while (std::getline(ss, line)) {
+  while(std::getline(ss, line))
+  {
     auto lb = line.find('[');
     auto rb = line.find(']');
-    if (lb == std::string::npos || rb == std::string::npos) continue;
+    if(lb == std::string::npos || rb == std::string::npos) continue;
     std::string a = line.substr(lb + 1, rb - lb - 1);
     // trim
     size_t s = a.find_first_not_of(" \t");
-    if (s == std::string::npos) continue;
+    if(s == std::string::npos) continue;
     size_t e = a.find_last_not_of(" \t");
     a = a.substr(s, e - s + 1);
     annotations.push_back(a);
@@ -34,13 +35,16 @@ static std::vector<int> textToAsmCycle(const std::string &text) {
 
   std::vector<int> cycles;
   int lastCycle = 0;
-  for (size_t i = 0; i < annotations.size(); ++i) {
-    int stars = static_cast<int>(
-        std::count(annotations[i].begin(), annotations[i].end(), '*'));
-    if (!annotations[i].starts_with("^")) {
+  for(size_t i = 0; i < annotations.size(); ++i)
+  {
+    int stars = static_cast<int>(std::count(annotations[i].begin(), annotations[i].end(), '*'));
+    if(!annotations[i].starts_with("^"))
+    {
       lastCycle = std::stoi(annotations[i]);
-    } else {
-      if (i > 0) cycles[i - 1] += stars;
+    }
+    else
+    {
+      if(i > 0) cycles[i - 1] += stars;
     }
     lastCycle += stars;
     cycles.push_back(lastCycle + 1);
@@ -54,8 +58,7 @@ static std::vector<int> linesToCycles(std::vector<AsmInst> &lines) {
   asmInitDeps(func);
   evalFunctionCostLinear(func); // engine semantics: plain linear walk
   std::vector<int> cycles;
-  for (const auto &inst : func.asm_)
-    cycles.push_back(inst.debug.cycle);
+  for(const auto &inst : func.asm_) cycles.push_back(inst.debug.cycle);
   return cycles;
 }
 
@@ -181,13 +184,15 @@ TEST_CASE("Eval - Cost (Examples) - T3D Vertex Loop - 0", "[evalCostExample]") {
   auto cycles = linesToCycles(lines);
 
   REQUIRE(cycles.size() == cyclesExp.size());
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     INFO("Line " << line);
     REQUIRE(cycles[line] == cyclesExp[line]);
   }
 }
 
-// ares-measured ground truth (00_quad single triangle, segment 0: entry pc 0x280, 173 instr, 97 cycles)
+// ares-measured ground truth (00_quad single triangle, segment 0: entry pc 0x280, 173 instr, 97
+// cycles)
 static const std::string TRI_RSPL_SEG0 = R"(
 [  0] srl $a2, $a1, 16
 [  1] lbu $v0, %lo(FACE_CULLING + 0)
@@ -378,12 +383,12 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL seg0", "[evalCostExample]") {
   // rule (ares rsp.cpp: "if(branch.pc & 4) pipeline.singleIssue = 1").
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) +
-                ": model=" + std::to_string(cycles[line]) +
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
                 " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
@@ -391,7 +396,8 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL seg0", "[evalCostExample]") {
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-// ares-measured ground truth (00_quad single triangle, segment 1: entry pc 0x540, 12 instr, 7 cycles)
+// ares-measured ground truth (00_quad single triangle, segment 1: entry pc 0x540, 12 instr, 7
+// cycles)
 static const std::string TRI_RSPL_SEG1 = R"(
 [  0] vmrg $v10, $v10, $v03
 [  0] srl $t3, $t3, 4
@@ -421,12 +427,12 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL seg1", "[evalCostExample]") {
   // rule (ares rsp.cpp: "if(branch.pc & 4) pipeline.singleIssue = 1").
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) +
-                ": model=" + std::to_string(cycles[line]) +
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
                 " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
@@ -434,7 +440,8 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL seg1", "[evalCostExample]") {
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-// ares-measured ground truth (00_quad single triangle, segment 2: entry pc 0x574, 48 instr, 26 cycles)
+// ares-measured ground truth (00_quad single triangle, segment 2: entry pc 0x574, 48 instr, 26
+// cycles)
 static const std::string TRI_RSPL_SEG2 = R"(
 [  0] vsubc $v29, $v00, $v00
 [  1] vsub $v12, $v10, $v09.v
@@ -500,12 +507,12 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL seg2", "[evalCostExample]") {
   // rule (ares rsp.cpp: "if(branch.pc & 4) pipeline.singleIssue = 1").
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) +
-                ": model=" + std::to_string(cycles[line]) +
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
                 " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
@@ -513,7 +520,8 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL seg2", "[evalCostExample]") {
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-// ares-measured ground truth (00_quad single triangle, segment 3: entry pc 0x66c, 29 instr, 19 cycles)
+// ares-measured ground truth (00_quad single triangle, segment 3: entry pc 0x66c, 29 instr, 19
+// cycles)
 static const std::string TRI_RSPL_SEG3 = R"(
 [  0] vmudh $v29, $v09, $v30.e7
 [  1] sw $a0, %lo(RDPQ_CURRENT)($zero)
@@ -560,12 +568,12 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL seg3", "[evalCostExample]") {
   // rule (ares rsp.cpp: "if(branch.pc & 4) pipeline.singleIssue = 1").
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) +
-                ": model=" + std::to_string(cycles[line]) +
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
                 " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
@@ -573,7 +581,8 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL seg3", "[evalCostExample]") {
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-// ares-measured ground truth (00_quad single triangle, segment 0: entry pc 0x280, 184 instr, 103 cycles)
+// ares-measured ground truth (00_quad single triangle, segment 0: entry pc 0x280, 184 instr, 103
+// cycles)
 static const std::string TRI_REF_SEG0 = R"(
 [  0] srl $a2, $a1, 16
 [  1] lbu $v0, 1016($zero)
@@ -775,12 +784,12 @@ TEST_CASE("Eval - Cost (Examples) - TRI REF seg0", "[evalCostExample]") {
   // rule (ares rsp.cpp: "if(branch.pc & 4) pipeline.singleIssue = 1").
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) +
-                ": model=" + std::to_string(cycles[line]) +
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
                 " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
@@ -788,7 +797,8 @@ TEST_CASE("Eval - Cost (Examples) - TRI REF seg0", "[evalCostExample]") {
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-// ares-measured ground truth (00_quad single triangle, segment 1: entry pc 0x564, 78 instr, 43 cycles)
+// ares-measured ground truth (00_quad single triangle, segment 1: entry pc 0x564, 78 instr, 43
+// cycles)
 static const std::string TRI_REF_SEG1 = R"(
 [  0] vsubc $v00, $v00, $v00
 [  1] vsub $v12, $v10, $v09
@@ -884,12 +894,12 @@ TEST_CASE("Eval - Cost (Examples) - TRI REF seg1", "[evalCostExample]") {
   // rule (ares rsp.cpp: "if(branch.pc & 4) pipeline.singleIssue = 1").
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) +
-                ": model=" + std::to_string(cycles[line]) +
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
                 " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
@@ -897,8 +907,8 @@ TEST_CASE("Eval - Cost (Examples) - TRI REF seg1", "[evalCostExample]") {
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-
-// ares-measured ground truth (00_quad, @Unlikely layout, 158-cycle schedule, segment 0: entry pc 0x280, 185 instr, 104 cycles)
+// ares-measured ground truth (00_quad, @Unlikely layout, 158-cycle schedule, segment 0: entry pc
+// 0x280, 185 instr, 104 cycles)
 static const std::string TRI_RSPL2_SEG0 = R"(
 [  0] srl $a2, $a1, 16
 [  1] lbu $v0, %lo(FACE_CULLING + 0)
@@ -1094,18 +1104,21 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL2 seg0", "[evalCostExample]") {
   REQUIRE(cycles.size() == cyclesExp.size());
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) + " real=" + std::to_string(cyclesExp[line]) + "\n";
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
+                " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
   REQUIRE(report.empty());
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-// ares-measured ground truth (00_quad, @Unlikely layout, 158-cycle schedule, segment 1: entry pc 0x568, 77 instr, 45 cycles)
+// ares-measured ground truth (00_quad, @Unlikely layout, 158-cycle schedule, segment 1: entry pc
+// 0x568, 77 instr, 45 cycles)
 static const std::string TRI_RSPL2_SEG1 = R"(
 [  0] vsubc $v29, $v00, $v00
 [  1] vsub $v12, $v10, $v09.v
@@ -1193,19 +1206,21 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL2 seg1", "[evalCostExample]") {
   REQUIRE(cycles.size() == cyclesExp.size());
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) + " real=" + std::to_string(cyclesExp[line]) + "\n";
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
+                " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
   REQUIRE(report.empty());
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-
-// ares-measured ground truth (00_quad, 156-cycle schedule after pairing fix, segment 0: entry pc 0x280, 185 instr, 102 cycles)
+// ares-measured ground truth (00_quad, 156-cycle schedule after pairing fix, segment 0: entry pc
+// 0x280, 185 instr, 102 cycles)
 static const std::string TRI_RSPL3_SEG0 = R"(
 [  0] lbu $v0, %lo(FACE_CULLING + 0)
 [  1] srl $a2, $a1, 16
@@ -1401,18 +1416,21 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL3 seg0", "[evalCostExample]") {
   REQUIRE(cycles.size() == cyclesExp.size());
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) + " real=" + std::to_string(cyclesExp[line]) + "\n";
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
+                " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
   REQUIRE(report.empty());
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-// ares-measured ground truth (00_quad, 156-cycle schedule after pairing fix, segment 1: entry pc 0x568, 77 instr, 45 cycles)
+// ares-measured ground truth (00_quad, 156-cycle schedule after pairing fix, segment 1: entry pc
+// 0x568, 77 instr, 45 cycles)
 static const std::string TRI_RSPL3_SEG1 = R"(
 [  0] vsubc $v29, $v00, $v00
 [  0] ssv $v16, 0, 16, $s3
@@ -1500,19 +1518,21 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL3 seg1", "[evalCostExample]") {
   REQUIRE(cycles.size() == cyclesExp.size());
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) + " real=" + std::to_string(cyclesExp[line]) + "\n";
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
+                " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
   REQUIRE(report.empty());
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-
-// ares-measured ground truth (00_quad, CP-SAT exact-scheduler order, segment 0: entry pc 0x288, 183 instr, 101 cycles)
+// ares-measured ground truth (00_quad, CP-SAT exact-scheduler order, segment 0: entry pc 0x288, 183
+// instr, 101 cycles)
 static const std::string TRI_RSPL4_SEG0 = R"(
 [  0] llv $v01, 0, 0, $a0
 [  1] mtc2 $a1, $v02.e3
@@ -1706,18 +1726,21 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL4 seg0", "[evalCostExample]") {
   REQUIRE(cycles.size() == cyclesExp.size());
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) + " real=" + std::to_string(cyclesExp[line]) + "\n";
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
+                " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
   REQUIRE(report.empty());
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-// ares-measured ground truth (00_quad, CP-SAT exact-scheduler order, segment 1: entry pc 0x568, 77 instr, 45 cycles)
+// ares-measured ground truth (00_quad, CP-SAT exact-scheduler order, segment 1: entry pc 0x568, 77
+// instr, 45 cycles)
 static const std::string TRI_RSPL4_SEG1 = R"(
 [  0] vsubc $v29, $v00, $v00
 [  0] lw $a2, %lo(RDPQ_SENTINEL + 0)
@@ -1806,19 +1829,21 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL4 seg1", "[evalCostExample]") {
   REQUIRE(cycles.size() == cyclesExp.size());
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) + " real=" + std::to_string(cyclesExp[line]) + "\n";
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
+                " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
   REQUIRE(report.empty());
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-
-// ares-measured ground truth (00_quad, CP-SAT proven-optimal 146 order, segment 0: entry pc 0x288, 183 instr, 101 cycles)
+// ares-measured ground truth (00_quad, CP-SAT proven-optimal 146 order, segment 0: entry pc 0x288,
+// 183 instr, 101 cycles)
 static const std::string TRI_RSPL5_SEG0 = R"(
 [  0] llv $v01, 0, 0, $a0
 [  1] mtc2 $a1, $v02.e3
@@ -2012,18 +2037,21 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL5 seg0", "[evalCostExample]") {
   REQUIRE(cycles.size() == cyclesExp.size());
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) + " real=" + std::to_string(cyclesExp[line]) + "\n";
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
+                " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
   REQUIRE(report.empty());
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-// ares-measured ground truth (00_quad, CP-SAT proven-optimal 146 order, segment 1: entry pc 0x568, 77 instr, 44 cycles)
+// ares-measured ground truth (00_quad, CP-SAT proven-optimal 146 order, segment 1: entry pc 0x568,
+// 77 instr, 44 cycles)
 static const std::string TRI_RSPL5_SEG1 = R"(
 [  0] vsubc $v29, $v00, $v00
 [  0] lw $a2, %lo(RDPQ_SENTINEL + 0)
@@ -2112,19 +2140,21 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL5 seg1", "[evalCostExample]") {
   REQUIRE(cycles.size() == cyclesExp.size());
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) + " real=" + std::to_string(cyclesExp[line]) + "\n";
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
+                " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
   REQUIRE(report.empty());
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-
-// ares-measured ground truth (00_quad, CP-SAT chain order incl. T3DCmd_TriDraw entry, segment 0: entry pc 0x280, 185 instr, 103 cycles)
+// ares-measured ground truth (00_quad, CP-SAT chain order incl. T3DCmd_TriDraw entry, segment 0:
+// entry pc 0x280, 185 instr, 103 cycles)
 static const std::string TRI_RSPL6_SEG0 = R"(
 [  0] lbu $v0, %lo(FACE_CULLING + 0)
 [  1] srl $a2, $a1, 16
@@ -2320,18 +2350,21 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL6 seg0", "[evalCostExample]") {
   REQUIRE(cycles.size() == cyclesExp.size());
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) + " real=" + std::to_string(cyclesExp[line]) + "\n";
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
+                " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
   REQUIRE(report.empty());
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-// ares-measured ground truth (00_quad, CP-SAT chain order incl. T3DCmd_TriDraw entry, segment 1: entry pc 0x568, 77 instr, 45 cycles)
+// ares-measured ground truth (00_quad, CP-SAT chain order incl. T3DCmd_TriDraw entry, segment 1:
+// entry pc 0x568, 77 instr, 45 cycles)
 static const std::string TRI_RSPL6_SEG1 = R"(
 [  0] vsubc $v29, $v00, $v00
 [  0] lw $a2, %lo(RDPQ_SENTINEL + 0)
@@ -2420,19 +2453,21 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL6 seg1", "[evalCostExample]") {
   REQUIRE(cycles.size() == cyclesExp.size());
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) + " real=" + std::to_string(cyclesExp[line]) + "\n";
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
+                " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
   REQUIRE(report.empty());
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-
-// ares-measured ground truth (00_quad, installed 156-cycle order incl. T3DCmd_TriDraw entry, segment 0: entry pc 0x280, 185 instr, 102 cycles)
+// ares-measured ground truth (00_quad, installed 156-cycle order incl. T3DCmd_TriDraw entry,
+// segment 0: entry pc 0x280, 185 instr, 102 cycles)
 static const std::string TRI_RSPL7_SEG0 = R"(
 [  0] lbu $v0, %lo(FACE_CULLING + 0)
 [  1] srl $a2, $a1, 16
@@ -2628,18 +2663,21 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL7 seg0", "[evalCostExample]") {
   REQUIRE(cycles.size() == cyclesExp.size());
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) + " real=" + std::to_string(cyclesExp[line]) + "\n";
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
+                " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
   REQUIRE(report.empty());
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-// ares-measured ground truth (00_quad, installed 156-cycle order incl. T3DCmd_TriDraw entry, segment 1: entry pc 0x568, 77 instr, 45 cycles)
+// ares-measured ground truth (00_quad, installed 156-cycle order incl. T3DCmd_TriDraw entry,
+// segment 1: entry pc 0x568, 77 instr, 45 cycles)
 static const std::string TRI_RSPL7_SEG1 = R"(
 [  0] vsubc $v29, $v00, $v00
 [  0] ssv $v16, 0, 16, $s3
@@ -2728,20 +2766,21 @@ TEST_CASE("Eval - Cost (Examples) - TRI RSPL7 seg1", "[evalCostExample]") {
   REQUIRE(cycles.size() == cyclesExp.size());
   std::string report;
   int run = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
     run = (d != 0) ? run + 1 : 0;
-    if (run > 2)
-      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) + " real=" + std::to_string(cyclesExp[line]) + "\n";
+    if(run > 2)
+      report += "persistent divergence at line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
+                " real=" + std::to_string(cyclesExp[line]) + "\n";
   }
   INFO("model-vs-ares:\n" << report);
   REQUIRE(report.empty());
   REQUIRE(cycles.back() == cyclesExp.back());
 }
 
-
-
-// ares-measured ground truth (99_testscene, Tri Strip -> jal RDPQ_Triangle_Send_Async, full triangle, segment 0: entry pc 0x288, 262 instr, 144 cycles)
+// ares-measured ground truth (99_testscene, Tri Strip -> jal RDPQ_Triangle_Send_Async, full
+// triangle, segment 0: entry pc 0x288, 262 instr, 144 cycles)
 static const std::string TRI_JAL_SEG0 = R"(
 [  0] llv $v01, 0, 0, $a0
 [  1] mtc2 $a1, $v02.e3
@@ -3014,9 +3053,15 @@ TEST_CASE("Eval - Cost (Examples) - TRI JAL seg0", "[evalCostExample]") {
   REQUIRE(cycles.size() == cyclesExp.size());
   std::string report;
   int prevDelta = 0;
-  for (size_t line = 0; line < cycles.size(); ++line) {
+  for(size_t line = 0; line < cycles.size(); ++line)
+  {
     int d = cycles[line] - cyclesExp[line];
-    if (d != prevDelta) { report += "line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) + " real=" + std::to_string(cyclesExp[line]) + " (delta " + std::to_string(d) + ")\n"; prevDelta = d; }
+    if(d != prevDelta)
+    {
+      report += "line " + std::to_string(line) + ": model=" + std::to_string(cycles[line]) +
+                " real=" + std::to_string(cyclesExp[line]) + " (delta " + std::to_string(d) + ")\n";
+      prevDelta = d;
+    }
   }
   INFO("model-vs-ares delta changes:\n" << report);
   REQUIRE(cycles.back() == cyclesExp.back());
@@ -3030,12 +3075,16 @@ static void dumpWindow(const std::string &text, const char *name, int from, int 
   auto cyclesExp = textToAsmCycle(text);
   auto cycles = linesToCycles(lines);
   std::istringstream ss(text);
-  std::string l; std::vector<std::string> raw;
-  while (std::getline(ss, l)) { if (l.find(']') != std::string::npos) raw.push_back(l); }
+  std::string l;
+  std::vector<std::string> raw;
+  while(std::getline(ss, l))
+  {
+    if(l.find(']') != std::string::npos) raw.push_back(l);
+  }
   std::cout << "=== " << name << " lines " << from << ".." << to << " (model | real)\n";
-  for (int i = from; i <= to && i < (int)cycles.size(); ++i)
-    std::cout << (cycles[i] == cyclesExp[i] ? "  " : "! ")
-              << std::to_string(cycles[i]) << "\t" << cyclesExp[i] << "\t" << raw[i] << "\n";
+  for(int i = from; i <= to && i < (int)cycles.size(); ++i)
+    std::cout << (cycles[i] == cyclesExp[i] ? "  " : "! ") << std::to_string(cycles[i]) << "\t" << cyclesExp[i] << "\t"
+              << raw[i] << "\n";
 }
 TEST_CASE("Eval - triage dump", "[.triage]") {
   dumpWindow(TRI_RSPL_SEG0, "RSPL seg0", 38, 50);

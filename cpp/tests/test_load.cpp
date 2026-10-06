@@ -17,7 +17,8 @@ function test_scalar_load()
   dst = load(TEST_CONST);
   dst = load(TEST_CONST, 0x10);
   // dst = load(TEST_CONST, TEST_CONST); Invalid
-})", CONF);
+})",
+                                      CONF);
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test_scalar_load:
   lw $t1, 0($t0)
@@ -42,7 +43,8 @@ function test_scalar_load()
   dst:s32 = load(src, 0x10);
   dst:s16 = load(src, 0x10);
   dst:s8 = load(src, 0x10);
-})", CONF);
+})",
+                                      CONF);
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test_scalar_load:
   lw $t1, 16($t0)
@@ -59,10 +61,15 @@ TEST_CASE("Load - Invalid vector load (const not % 16)", "[load]") {
   REQUIRE_THROWS_AS(rspl::transpileSource(R"(function test() {
   u32<$t0> a;
   vec16 err = load(a, 5);
-})", CONF), std::runtime_error);
-  try { rspl::transpileSource(R"(function test() { u32<$t0> a; vec16 err = load(a, 5); })", CONF); }
-  catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find("Invalid full vector-load offset, must be a multiple of 16") != std::string::npos);
+})",
+                                          CONF),
+                    std::runtime_error);
+  try
+  { rspl::transpileSource(R"(function test() { u32<$t0> a; vec16 err = load(a, 5); })", CONF); }
+  catch(const std::runtime_error &e)
+  {
+    REQUIRE(std::string(e.what()).find("Invalid full vector-load offset, must be a multiple of 16") !=
+            std::string::npos);
   }
 }
 
@@ -71,11 +78,16 @@ TEST_CASE("Load - Invalid vector load (vector as addr)", "[load]") {
 function test() {
   vec32<$v01> a;
   a = load(a, TEST_CONST);
-})", CONF), std::runtime_error);
-  try { rspl::transpileSource(R"(state { u32 TEST_CONST; } function test() { vec32<$v01> a; a = load(a, TEST_CONST); })", CONF); }
-  catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find("load() requires first argument to be a scalar") != std::string::npos);
+})",
+                                          CONF),
+                    std::runtime_error);
+  try
+  {
+    rspl::transpileSource(R"(state { u32 TEST_CONST; } function test() { vec32<$v01> a; a = load(a, TEST_CONST); })",
+                          CONF);
   }
+  catch(const std::runtime_error &e)
+  { REQUIRE(std::string(e.what()).find("load() requires first argument to be a scalar") != std::string::npos); }
 }
 
 TEST_CASE("Load - Vector 32-Bit", "[load]") {
@@ -102,7 +114,8 @@ function test_vector_load()
   //dst = load(src, TEST_CONST).xyzwxyzw; Invalid
   //dst = load(TEST_CONST).xyzwxyzw; Invalid
   //dst = load(TEST_CONST, 0x10).xyzwxyzw; Invalid
-})", CONF);
+})",
+                                      CONF);
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test_vector_load:
   WholeVector:
@@ -148,7 +161,8 @@ TEST_CASE("Load - Vector 32-Bit Split", "[load]") {
   RightSide:
   dst.XYZW = load(src, 0x00).XYZW;
   dst.XYZW = load(src, 0x10).XYZW;
-})", CONF);
+})",
+                                      CONF);
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
   LeftSide:
@@ -183,7 +197,8 @@ function test_vector_load()
   dst = load_unaligned(src, 0x10).xyzwxyzw;
   dst.y = load_unaligned(src).xyzwxyzw;
   dst.z = load_unaligned(src, 0x10).xyzwxyzw;
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test_vector_load:
@@ -239,7 +254,8 @@ TEST_CASE("Load - Vector Cast", "[load]") {
 
   dst:sint.z   = load(addr, 0x10).XY;
   dst:ufract.z = load(addr, 0x10).XY;
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
@@ -266,7 +282,8 @@ TEST_CASE("Load - Vector Packed", "[load]") {
   Signed:
   dst.x = load_vec_s8(src, 0x00);
   dst.z = load_vec_s8(src, 0x10);
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
@@ -293,7 +310,8 @@ TEST_CASE("Load - Vector Transposed", "[load]") {
   b = load_transposed(4, ptr, 0x20);
   b = load_transposed(7, ptr, 0x30);
   END:
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
@@ -312,10 +330,18 @@ TEST_CASE("Load - Invalid Transposed reg", "[load]") {
   u32<$t0> ptr;
   vec32<$v04> v;
   v = load_transposed(0, ptr, 0x00);
-})", CONF), std::runtime_error);
-  try { rspl::transpileSource(R"(function test() { u32<$t0> ptr; vec32<$v04> v; v = load_transposed(0, ptr, 0x00); })", CONF); }
-  catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find("load_transposed() requires result register to be $v00, $v08, $v16 or $v24") != std::string::npos);
+})",
+                                          CONF),
+                    std::runtime_error);
+  try
+  {
+    rspl::transpileSource(R"(function test() { u32<$t0> ptr; vec32<$v04> v; v = load_transposed(0, ptr, 0x00); })",
+                          CONF);
+  }
+  catch(const std::runtime_error &e)
+  {
+    REQUIRE(std::string(e.what()).find("load_transposed() requires result register to be $v00, $v08, $v16 or $v24") !=
+            std::string::npos);
   }
 }
 
@@ -324,9 +350,16 @@ TEST_CASE("Load - Invalid Transposed offset", "[load]") {
   u32<$t0> ptr;
   vec32<$v16> v;
   v = load_transposed(0, ptr, 0x04);
-})", CONF), std::runtime_error);
-  try { rspl::transpileSource(R"(function test() { u32<$t0> ptr; vec32<$v16> v; v = load_transposed(0, ptr, 0x04); })", CONF); }
-  catch (const std::runtime_error &e) {
+})",
+                                          CONF),
+                    std::runtime_error);
+  try
+  {
+    rspl::transpileSource(R"(function test() { u32<$t0> ptr; vec32<$v16> v; v = load_transposed(0, ptr, 0x04); })",
+                          CONF);
+  }
+  catch(const std::runtime_error &e)
+  {
     REQUIRE(std::string(e.what()).find("load_transposed() requires offset to be multiple of 16") != std::string::npos);
   }
 }

@@ -8,11 +8,11 @@
 // after the first is picked, once, at declaration.
 
 static void requirePairThrowsWith(const char *src, const char *msgPart) {
-  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}),
-                    std::runtime_error);
-  try {
-    rspl::transpileSource(src, {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
+  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}), std::runtime_error);
+  try
+  { rspl::transpileSource(src, {.rspqWrapper = false}); }
+  catch(const std::runtime_error &e)
+  {
     INFO(e.what());
     REQUIRE(std::string(e.what()).find(msgPart) != std::string::npos);
   }
@@ -109,8 +109,7 @@ TEST_CASE("Vec32Pair - loads and stores hit both halves", "[vec32Pair]") {
   nop)");
 }
 
-TEST_CASE("Vec32Pair - a single register still pairs with the next one",
-          "[vec32Pair]") {
+TEST_CASE("Vec32Pair - a single register still pairs with the next one", "[vec32Pair]") {
   auto result = rspl::transpileSource(
       R"(function test() {
       vec32<$v05> tmp;
@@ -132,12 +131,14 @@ TEST_CASE("Vec32Pair - both halves are reserved", "[vec32Pair]") {
   requirePairThrowsWith(R"(function test() {
       vec32<$v05, $v12> t;
       vec16<$v12> other;
-    })", "already used for variable 't'");
+    })",
+                        "already used for variable 't'");
 
   requirePairThrowsWith(R"(function test() {
       vec16<$v12> other;
       vec32<$v05, $v12> t;
-    })", "already used for variable 'other'");
+    })",
+                        "already used for variable 'other'");
 
   // undef releases both of them again
   auto result = rspl::transpileSource(
@@ -154,25 +155,28 @@ TEST_CASE("Vec32Pair - both halves are reserved", "[vec32Pair]") {
 TEST_CASE("Vec32Pair - errors", "[vec32Pair]") {
   requirePairThrowsWith(R"(function test() {
       vec32<$v05, $v05> t;
-    })", "two different registers");
+    })",
+                        "two different registers");
 
   requirePairThrowsWith(R"(function test() {
       vec16<$v05, $v12> t;
-    })", "Only vec32 variables can specify two registers");
+    })",
+                        "Only vec32 variables can specify two registers");
 
   requirePairThrowsWith(R"(function test() {
       vec32<$v05, $t0> t;
-    })", "is not a vector register");
+    })",
+                        "is not a vector register");
 
   requirePairThrowsWith(R"(function test() {
       vec32<$v05, $v12> a, b;
-    })", "declares a single variable");
+    })",
+                        "declares a single variable");
 }
 
 // --- alias(): borrow the register another variable already lives in ------
 
-TEST_CASE("Alias - vec32 built from two in-use vec16 registers",
-          "[vec32Pair]") {
+TEST_CASE("Alias - vec32 built from two in-use vec16 registers", "[vec32Pair]") {
   auto result = rspl::transpileSource(
       R"(function test() {
       vec16<$v08> fogScaleOffset;
@@ -241,7 +245,8 @@ TEST_CASE("Alias - borrowed registers are not reserved", "[vec32Pair]") {
       vec16<$v08> foo;
       vec32<alias(foo), $v09> t;
       vec16<$v09> other;
-    })", "already used for variable 't'");
+    })",
+                        "already used for variable 't'");
 }
 
 TEST_CASE("Alias - undef guard", "[vec32Pair]") {
@@ -249,7 +254,8 @@ TEST_CASE("Alias - undef guard", "[vec32Pair]") {
       vec16<$v08> foo;
       vec32<alias(foo), $v09> t;
       undef foo;
-    })", "while 't' still aliases one of its registers");
+    })",
+                        "while 't' still aliases one of its registers");
 
   // dropping the alias first releases the host again
   auto result = rspl::transpileSource(
@@ -269,14 +275,17 @@ TEST_CASE("Alias - errors", "[vec32Pair]") {
       vec32<$v13> big;
       vec16<$v08> f;
       vec32<alias(big), alias(f)> t;
-    })", "ambiguous for a vec32");
+    })",
+                        "ambiguous for a vec32");
 
   requirePairThrowsWith(R"(function test() {
       vec16<$v08> foo;
       vec32<alias(foo), alias(foo)> t;
-    })", "two different registers");
+    })",
+                        "two different registers");
 
   requirePairThrowsWith(R"(function test() {
       vec16<alias(nope)> t;
-    })", "nope not known");
+    })",
+                        "nope not known");
 }

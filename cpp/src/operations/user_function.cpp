@@ -6,11 +6,12 @@
 
 namespace rspl::ops {
 
-std::vector<AsmInst> callUserFunction(
-    const std::string &name, const std::vector<ast::FuncArg> &args) {
+std::vector<AsmInst> callUserFunction(const std::string &name, const std::vector<ast::FuncArg> &args) {
   const FuncDef *userFunc = state.getFunction(name);
-  if (!userFunc) {
-    if (!state.varExists(name)) {
+  if(!userFunc)
+  {
+    if(!state.varExists(name))
+    {
       state.throwError("Function " + name + " not known!");
     }
     // Indirect call through register variable
@@ -22,44 +23,44 @@ std::vector<AsmInst> callUserFunction(
 
   std::vector<AsmInst> res;
 
-  if (userFunc->args.size() != args.size()) {
-    state.throwError("Function " + name + " expects " +
-                     std::to_string(userFunc->args.size()) +
-                     " arguments, got " +
+  if(userFunc->args.size() != args.size())
+  {
+    state.throwError("Function " + name + " expects " + std::to_string(userFunc->args.size()) + " arguments, got " +
                      std::to_string(args.size()) + "!");
   }
 
-  for (size_t i = 0; i < args.size(); ++i) {
+  for(size_t i = 0; i < args.size(); ++i)
+  {
     const auto &argUser = args[i];
     const auto &argDef = userFunc->args[i];
-    if (argUser.type == ArgType::Num) {
-      auto load =
-          loadImmediate(argDef.reg, argUser.value);
+    if(argUser.type == ArgType::Num)
+    {
+      auto load = loadImmediate(argDef.reg, argUser.value);
       res.insert(res.end(), load.begin(), load.end());
-    } else {
-      const VarDef *argVar =
-          state.getRequiredVar(argUser.value, "arg" + std::to_string(i));
-      if (toString(argVar->type) != toString(argDef.type)) {
-        state.throwError("Function " + name +
-                         " expects argument " + std::to_string(i) +
-                         " to be of type " + toString(argDef.type) +
-                         ", got " + toString(argVar->type) + "!");
+    }
+    else
+    {
+      const VarDef *argVar = state.getRequiredVar(argUser.value, "arg" + std::to_string(i));
+      if(toString(argVar->type) != toString(argDef.type))
+      {
+        state.throwError("Function " + name + " expects argument " + std::to_string(i) + " to be of type " +
+                         toString(argDef.type) + ", got " + toString(argVar->type) + "!");
       }
-      if (argVar->reg != argDef.reg) {
-        state.throwError("Function " + name +
-                         " expects argument " + std::to_string(i) +
-                         " to be in register " + argDef.reg +
-                         ", got " + argVar->reg + "!");
+      if(argVar->reg != argDef.reg)
+      {
+        state.throwError("Function " + name + " expects argument " + std::to_string(i) + " to be in register " +
+                         argDef.reg + ", got " + argVar->reg + "!");
       }
     }
   }
 
   bool isRelative = userFunc->isRelative;
   auto annos = state.getAnnotations("Relative");
-  if (!annos.empty()) isRelative = true;
+  if(!annos.empty()) isRelative = true;
 
   std::vector<std::string> regsArg;
-  for (const auto &arg : userFunc->args) {
+  for(const auto &arg : userFunc->args)
+  {
     regsArg.push_back(arg.reg);
   }
 

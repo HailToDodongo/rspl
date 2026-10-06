@@ -31,13 +31,13 @@ namespace rspl {
 // scoped block on top. Local macros register into the top frame at their
 // declaration point, so they are callable only after it and die with the
 // enclosing block. Lookup walks top-down, letting locals shadow globals.
-static std::vector<std::unordered_map<std::string, const ast::Function *>>
-    macroScopes;
+static std::vector<std::unordered_map<std::string, const ast::Function *>> macroScopes;
 
 static const ast::Function *findMacro(const std::string &name) {
-  for (auto it = macroScopes.rbegin(); it != macroScopes.rend(); ++it) {
+  for(auto it = macroScopes.rbegin(); it != macroScopes.rend(); ++it)
+  {
     auto f = it->find(name);
-    if (f != it->end()) return f->second;
+    if(f != it->end()) return f->second;
   }
   return nullptr;
 }
@@ -49,43 +49,42 @@ struct MacroScopeGuard {
 
 // --- Forward declarations ---------------------------------------------
 
-static std::vector<AsmInst>
-scopedBlockToAsm(const ast::ScopedBlock &block);
+static std::vector<AsmInst> scopedBlockToAsm(const ast::ScopedBlock &block);
 
 // Resolve one declaration register slot: either a register written
 // literally, or `alias(var)` which borrows the register `var` lives in.
 // `owned` reports whether the slot claims the register for itself.
-static std::string resolveRegSlot(const std::string &spec, bool isAlias,
-                                  const std::string &declName, bool &owned) {
+static std::string resolveRegSlot(const std::string &spec, bool isAlias, const std::string &declName, bool &owned) {
   owned = !isAlias;
-  if (!isAlias) return spec;
+  if(!isAlias) return spec;
   VarDef target = state.getRequiredVarCopy(spec, "alias");
-  if (target.type == TypeClass::Vec32) {
-    state.throwError("alias(" + spec + ") is ambiguous for a vec32, pick a "
-                     "half with ':sint' or ':ufract'!", declName);
+  if(target.type == TypeClass::Vec32)
+  {
+    state.throwError("alias(" + spec +
+                         ") is ambiguous for a vec32, pick a "
+                         "half with ':sint' or ':ufract'!",
+                     declName);
   }
   return target.reg;
 }
 
 // --- Macro inlining ---------------------------------------------------
 
-static std::vector<AsmInst>
-inlineMacroCall(const std::string &macroName,
-                const std::vector<ast::FuncArg> &args) {
+static std::vector<AsmInst> inlineMacroCall(const std::string &macroName, const std::vector<ast::FuncArg> &args) {
   const ast::Function *found = findMacro(macroName);
-  if (!found) return {};
+  if(!found) return {};
 
   const ast::Function &macro = *found;
-  if (macro.args.size() != args.size()) {
-    state.throwError("Macro '" + macroName + "' expects " +
-                     std::to_string(macro.args.size()) +
-                     " arguments, got " + std::to_string(args.size()) +
-                     "!");
+  if(macro.args.size() != args.size())
+  {
+    state.throwError("Macro '" + macroName + "' expects " + std::to_string(macro.args.size()) + " arguments, got " +
+                     std::to_string(args.size()) + "!");
   }
 
   std::vector<AsmInst> res;
   state.pushScope("", "");
-  for (size_t i = 0; i < args.size(); ++i) {
+  for(size_t i = 0; i < args.size(); ++i)
+  {
     state.declareVarAlias(macro.args[i].name, args[i].value);
   }
 
@@ -98,45 +97,53 @@ inlineMacroCall(const std::string &macroName,
 // Collect every register a function asks for by name, with the last line that
 // does so. `alias(...)` slots are skipped: they borrow a register that is
 // already owned, so they never compete with the allocator.
-static void collectExplicitRegs(const ast::ScopedBlock &block,
-                                std::unordered_map<std::string, uint32_t> &out);
+static void collectExplicitRegs(const ast::ScopedBlock &block, std::unordered_map<std::string, uint32_t> &out);
 
 static void noteReg(const std::string &reg, bool isAlias, uint32_t line,
                     std::unordered_map<std::string, uint32_t> &out) {
-  if (reg.empty() || isAlias) return;
+  if(reg.empty() || isAlias) return;
   auto it = out.find(reg);
-  if (it == out.end() || it->second < line) out[reg] = line;
+  if(it == out.end() || it->second < line) out[reg] = line;
 }
 
-static void collectExplicitRegs(const ast::ScopedBlock &block,
-                                std::unordered_map<std::string, uint32_t> &out) {
-  for (const auto &stmt : block.statements) {
+static void collectExplicitRegs(const ast::ScopedBlock &block, std::unordered_map<std::string, uint32_t> &out) {
+  for(const auto &stmt : block.statements)
+  {
     std::visit(
         [&](const auto &s) {
           using T = std::decay_t<decltype(s)>;
-          if constexpr (std::is_same_v<T, ast::StmtVarDecl> ||
-                        std::is_same_v<T, ast::StmtVarDeclAssign>) {
+          if constexpr(std::is_same_v<T, ast::StmtVarDecl> || std::is_same_v<T, ast::StmtVarDeclAssign>)
+          {
             noteReg(s.reg, s.regAlias, s.line, out);
             noteReg(s.regFract, s.regFractAlias, s.line, out);
-          } else if constexpr (std::is_same_v<T, ast::StmtVarDeclMulti>) {
+          }
+          else if constexpr(std::is_same_v<T, ast::StmtVarDeclMulti>)
+          {
             noteReg(s.regFract, s.regFractAlias, s.line, out);
-            if (s.reg.empty() || s.regAlias) return;
+            if(s.reg.empty() || s.regAlias) return;
             int step = isTwoRegType(s.varType) ? 2 : 1;
-            for (size_t i = 0; i < s.varNames.size(); ++i) {
-              const std::string *r =
-                  reg::nextReg(s.reg, static_cast<int>(i) * step);
+            for(size_t i = 0; i < s.varNames.size(); ++i)
+            {
+              const std::string *r = reg::nextReg(s.reg, static_cast<int>(i) * step);
               noteReg(r ? *r : s.reg, false, s.line, out);
             }
-          } else if constexpr (std::is_same_v<T, ast::StmtIf>) {
-            if (s.blockIf) collectExplicitRegs(*s.blockIf, out);
-            if (s.blockElse) collectExplicitRegs(*s.blockElse, out);
-          } else if constexpr (std::is_same_v<T, ast::StmtWhile> ||
-                               std::is_same_v<T, ast::StmtLoop>) {
-            if (s.block) collectExplicitRegs(*s.block, out);
-          } else if constexpr (std::is_same_v<T, ast::StmtScopedBlock>) {
-            if (s.body) collectExplicitRegs(*s.body, out);
-          } else if constexpr (std::is_same_v<T, ast::StmtMacroDef>) {
-            if (s.def && s.def->body) collectExplicitRegs(*s.def->body, out);
+          }
+          else if constexpr(std::is_same_v<T, ast::StmtIf>)
+          {
+            if(s.blockIf) collectExplicitRegs(*s.blockIf, out);
+            if(s.blockElse) collectExplicitRegs(*s.blockElse, out);
+          }
+          else if constexpr(std::is_same_v<T, ast::StmtWhile> || std::is_same_v<T, ast::StmtLoop>)
+          {
+            if(s.block) collectExplicitRegs(*s.block, out);
+          }
+          else if constexpr(std::is_same_v<T, ast::StmtScopedBlock>)
+          {
+            if(s.body) collectExplicitRegs(*s.body, out);
+          }
+          else if constexpr(std::is_same_v<T, ast::StmtMacroDef>)
+          {
+            if(s.def && s.def->body) collectExplicitRegs(*s.def->body, out);
           }
         },
         stmt);
@@ -147,42 +154,52 @@ static const std::string LABEL_CMD_LOOP = "RSPQ_Loop";
 
 // --- Type inference for declarations ----------------------------------
 
-static TypeClass inferCalcResultType(const ast::Calc &calc,
-                                        const std::string &declType) {
+static TypeClass inferCalcResultType(const ast::Calc &calc, const std::string &declType) {
   return std::visit(
       [&](const auto &c) -> TypeClass {
         using T = std::decay_t<decltype(c)>;
-        if constexpr (std::is_same_v<T, ast::CalcNum>) {
+        if constexpr(std::is_same_v<T, ast::CalcNum>)
+        {
           return toTypeClass(declType);
-        } else if constexpr (std::is_same_v<T, ast::CalcVar>) {
+        }
+        else if constexpr(std::is_same_v<T, ast::CalcVar>)
+        {
           return toTypeClass(declType);
-        } else if constexpr (std::is_same_v<T, ast::CalcLR>) {
+        }
+        else if constexpr(std::is_same_v<T, ast::CalcLR>)
+        {
           const VarDef *l = state.getVar(c.left.value);
-          if (!c.rightVarName.empty()) {
+          if(!c.rightVarName.empty())
+          {
             const VarDef *r = state.getVar(c.rightVarName);
-            if (l && r && (isVecType(l->type) || isVecType(r->type)))
-              return isVecType(l->type) ? l->type : r->type;
+            if(l && r && (isVecType(l->type) || isVecType(r->type))) return isVecType(l->type) ? l->type : r->type;
           }
-          if (l && isVecType(l->type)) return l->type;
+          if(l && isVecType(l->type)) return l->type;
           return toTypeClass(declType);
-        } else if constexpr (std::is_same_v<T, ast::CalcMulti>) {
+        }
+        else if constexpr(std::is_same_v<T, ast::CalcMulti>)
+        {
           // If the declared type is already a vector type, trust it.
           // This matters for mixed-type expressions like vec16 * vec32
           // whose result should be vec32 if the variable is declared as
           // vec32. Without this the left operand's type (vec16) wins and
           // later type-sensitive operations (e.g. clip()) receive wrong
           // types.
-          if (isVecType(declType)) return toTypeClass(declType);
+          if(isVecType(declType)) return toTypeClass(declType);
           const VarDef *l = state.getVar(c.left.value);
-          if (l && isVecType(l->type)) return l->type;
-          for (const auto &p : c.parts) {
-            if (!p.right.value.empty()) {
+          if(l && isVecType(l->type)) return l->type;
+          for(const auto &p : c.parts)
+          {
+            if(!p.right.value.empty())
+            {
               const VarDef *r = state.getVar(p.right.value);
-              if (r && isVecType(r->type)) return r->type;
+              if(r && isVecType(r->type)) return r->type;
             }
           }
           return toTypeClass(declType);
-        } else {
+        }
+        else
+        {
           return toTypeClass(declType);
         }
       },
@@ -191,8 +208,7 @@ static TypeClass inferCalcResultType(const ast::Calc &calc,
 
 // --- Forward declaration ----------------------------------------------
 
-static std::vector<AsmInst>
-calcToAsm(const ast::Calc &calc, const VarDef &varRes);
+static std::vector<AsmInst> calcToAsm(const ast::Calc &calc, const VarDef &varRes);
 
 // --- Group decomposition for CalcMulti ---------------------------------
 // Port of JS astCalcNormalizer + astCalcPartsToASM.
@@ -210,25 +226,28 @@ static std::vector<FlatElem> flattenCalcMulti(const ast::CalcMulti &cm) {
   rparen.opStr = ")";
 
   auto addBrackets = [&](int count, const FlatElem &b) {
-    for (int i = 0; i < count; ++i) out.push_back(b);
+    for(int i = 0; i < count; ++i) out.push_back(b);
   };
   addBrackets(cm.groupStart, lparen);
-  if (cm.leftVal.has_value()) {
-    out.push_back({FlatElem::VAL, {}, cm.leftVal.value(), {},
-                   cm.swizzleLeft, true});
-  } else {
-    out.push_back({FlatElem::VAL, {}, 0, cm.left.value,
-                   cm.swizzleLeft, false});
+  if(cm.leftVal.has_value())
+  {
+    out.push_back({FlatElem::VAL, {}, cm.leftVal.value(), {}, cm.swizzleLeft, true});
   }
-  for (const auto &p : cm.parts) {
+  else
+  {
+    out.push_back({FlatElem::VAL, {}, 0, cm.left.value, cm.swizzleLeft, false});
+  }
+  for(const auto &p : cm.parts)
+  {
     out.push_back({FlatElem::OP, p.op});
     addBrackets(p.groupStart, lparen);
-    if (p.rightVal.has_value()) {
-      out.push_back({FlatElem::VAL, {}, p.rightVal.value(), {},
-                     p.swizzleRight, true});
-    } else {
-      out.push_back({FlatElem::VAL, {}, 0, p.right.value,
-                     p.swizzleRight, false});
+    if(p.rightVal.has_value())
+    {
+      out.push_back({FlatElem::VAL, {}, p.rightVal.value(), {}, p.swizzleRight, true});
+    }
+    else
+    {
+      out.push_back({FlatElem::VAL, {}, 0, p.right.value, p.swizzleRight, false});
     }
     addBrackets(p.groupEnd, rparen);
   }
@@ -237,18 +256,22 @@ static std::vector<FlatElem> flattenCalcMulti(const ast::CalcMulti &cm) {
 
 // Convert bracket markers "(" / ")" into nested FlatElem vectors.
 static void partsToTree(std::vector<FlatElem> &parts) {
-  for (size_t i = 0; i < parts.size();) {
-    if (parts[i].kind == FlatElem::OP && parts[i].opStr == "(") {
+  for(size_t i = 0; i < parts.size();)
+  {
+    if(parts[i].kind == FlatElem::OP && parts[i].opStr == "(")
+    {
       int depth = 1;
       size_t start = i;
       size_t j = i + 1;
-      for (; j < parts.size() && depth > 0; ++j) {
-        if (parts[j].kind == FlatElem::OP && parts[j].opStr == "(") depth++;
-        else if (parts[j].kind == FlatElem::OP && parts[j].opStr == ")") depth--;
+      for(; j < parts.size() && depth > 0; ++j)
+      {
+        if(parts[j].kind == FlatElem::OP && parts[j].opStr == "(")
+          depth++;
+        else if(parts[j].kind == FlatElem::OP && parts[j].opStr == ")")
+          depth--;
       }
       // Extract sub-expression between brackets
-      std::vector<FlatElem> sub(parts.begin() + start + 1,
-                                parts.begin() + j - 1);
+      std::vector<FlatElem> sub(parts.begin() + start + 1, parts.begin() + j - 1);
       partsToTree(sub); // recurse into sub-expression
       // Replace the bracket group with a single nested FlatElem
       parts.erase(parts.begin() + start, parts.begin() + j);
@@ -259,35 +282,33 @@ static void partsToTree(std::vector<FlatElem> &parts) {
       nested.isNested = true;
       parts.insert(parts.begin() + start, std::move(nested));
       i = start + 1; // continue after the inserted element
-    } else {
+    }
+    else
+    {
       ++i;
     }
   }
 }
 
 // Forward declaration for mutual recursion.
-static void decomposeParts(std::vector<FlatElem> &parts,
-                           const VarDef &varRes,
-                           std::vector<AsmInst> &out,
+static void decomposeParts(std::vector<FlatElem> &parts, const VarDef &varRes, std::vector<AsmInst> &out,
                            int &tmpCounter);
 
 // Resolve a FlatElem value into a VarDef.  For nested sub-expressions,
 // recursively decompose into temp variables and return the temp var.
-static VarDef resolveFlatVal(FlatElem &elem,
-                             const VarDef &varRes,
-                             std::vector<AsmInst> &out,
-                             int &tmpCounter) {
-  if (elem.isNested) {
+static VarDef resolveFlatVal(FlatElem &elem, const VarDef &varRes, std::vector<AsmInst> &out, int &tmpCounter) {
+  if(elem.isNested)
+  {
     // Recursively decompose the nested sub-expression into a temp variable
     std::string tmpName = "__tmp_" + std::to_string(tmpCounter++);
     auto regs = state.allocRegisters(toString(varRes.type));
-    state.declareVar(tmpName, toString(varRes.type), regs.reg, false, false,
-                     regs.regFract);
+    state.declareVar(tmpName, toString(varRes.type), regs.reg, false, false, regs.regFract);
     VarDef tmpVar = state.getRequiredVarCopy(tmpName, "tmp");
     decomposeParts(elem.nested, tmpVar, out, tmpCounter);
     return tmpVar;
   }
-  if (elem.isNum) {
+  if(elem.isNum)
+  {
     VarDef v;
     v.value = elem.numVal;
     v.type = varRes.type;
@@ -300,11 +321,9 @@ static VarDef resolveFlatVal(FlatElem &elem,
 
 // Decompose a parts vector into ASM instructions, accumulating into
 // `varRes`.  Nested sub-expressions are emitted into temp variables.
-static void decomposeParts(std::vector<FlatElem> &parts,
-                           const VarDef &varRes,
-                           std::vector<AsmInst> &out,
+static void decomposeParts(std::vector<FlatElem> &parts, const VarDef &varRes, std::vector<AsmInst> &out,
                            int &tmpCounter) {
-  if (parts.empty()) return;
+  if(parts.empty()) return;
 
   // Resolve first value
   size_t pos = 0;
@@ -312,135 +331,241 @@ static void decomposeParts(std::vector<FlatElem> &parts,
   bool accIsConst = false;
   double accConst = 0;
 
-  if (pos < parts.size() && parts[pos].kind == FlatElem::VAL) {
-    if (parts[pos].isNested) {
+  if(pos < parts.size() && parts[pos].kind == FlatElem::VAL)
+  {
+    if(parts[pos].isNested)
+    {
       accVar = resolveFlatVal(parts[pos], varRes, out, tmpCounter);
-    } else if (parts[pos].isNum) {
+    }
+    else if(parts[pos].isNum)
+    {
       accIsConst = true;
       accConst = parts[pos].numVal;
-    } else {
+    }
+    else
+    {
       accVar = state.getRequiredVarCopy(parts[pos].varName, "left");
       accVar.swizzle = parts[pos].swizzle;
     }
     ++pos;
   }
 
-  if (pos >= parts.size()) {
+  if(pos >= parts.size())
+  {
     VarDef finalLeft;
-    if (accIsConst) {
+    if(accIsConst)
+    {
       finalLeft.value = accConst;
       finalLeft.type = varRes.type;
-    } else {
+    }
+    else
+    {
       finalLeft = accVar;
     }
-    auto mv = isVecType(varRes.type) ? ops::opMoveVec(varRes, finalLeft)
-                                      : ops::opMove(varRes, finalLeft);
+    auto mv = isVecType(varRes.type) ? ops::opMoveVec(varRes, finalLeft) : ops::opMove(varRes, finalLeft);
     out.insert(out.end(), mv.begin(), mv.end());
     return;
   }
 
   bool isFirst = true;
   VarDef firstLeft;
-  if (!accIsConst) firstLeft = accVar;
+  if(!accIsConst) firstLeft = accVar;
 
-  while (pos + 1 <= parts.size() &&
-         (pos < parts.size() && parts[pos].kind == FlatElem::OP)) {
+  while(pos + 1 <= parts.size() && (pos < parts.size() && parts[pos].kind == FlatElem::OP))
+  {
     std::string op = parts[pos].opStr;
     // Skip bracket sentinels (shouldn't appear after partsToTree)
-    if (op == "(" || op == ")") { ++pos; continue; }
+    if(op == "(" || op == ")")
+    {
+      ++pos;
+      continue;
+    }
     ++pos;
     VarDef right;
-    if (pos < parts.size() && parts[pos].kind == FlatElem::VAL) {
+    if(pos < parts.size() && parts[pos].kind == FlatElem::VAL)
+    {
       right = resolveFlatVal(parts[pos], varRes, out, tmpCounter);
       ++pos;
     }
 
-    if (isFirst) {
+    if(isFirst)
+    {
       isFirst = false;
-      if (accIsConst) {
+      if(accIsConst)
+      {
         VarDef cl;
         cl.value = accConst;
         cl.type = varRes.type;
-        auto mv = isVecType(varRes.type) ? ops::opMoveVec(varRes, cl)
-                                          : ops::opMove(varRes, cl);
+        auto mv = isVecType(varRes.type) ? ops::opMoveVec(varRes, cl) : ops::opMove(varRes, cl);
         out.insert(out.end(), mv.begin(), mv.end());
         accIsConst = false;
         // Apply op to varRes
-        if (!isVecType(varRes.type)) {
-          if (op == "+") { auto a = ops::opAdd(varRes, varRes, right); out.insert(out.end(), a.begin(), a.end()); }
-          else if (op == "-") { auto s = ops::opSub(varRes, varRes, right); out.insert(out.end(), s.begin(), s.end()); }
-          else if (op == "*") { auto m = ops::opMul(varRes, varRes, right); out.insert(out.end(), m.begin(), m.end()); }
+        if(!isVecType(varRes.type))
+        {
+          if(op == "+")
+          {
+            auto a = ops::opAdd(varRes, varRes, right);
+            out.insert(out.end(), a.begin(), a.end());
+          }
+          else if(op == "-")
+          {
+            auto s = ops::opSub(varRes, varRes, right);
+            out.insert(out.end(), s.begin(), s.end());
+          }
+          else if(op == "*")
+          {
+            auto m = ops::opMul(varRes, varRes, right);
+            out.insert(out.end(), m.begin(), m.end());
+          }
         }
-      } else {
+      }
+      else
+      {
         // Try to fuse move + first op by calling the appropriate op directly
-        if (!isVecType(varRes.type)) {
-          if (op == "+") {
+        if(!isVecType(varRes.type))
+        {
+          if(op == "+")
+          {
             auto a = ops::opAdd(varRes, firstLeft, right);
             out.insert(out.end(), a.begin(), a.end());
-          } else if (op == "-") {
+          }
+          else if(op == "-")
+          {
             auto s = ops::opSub(varRes, firstLeft, right);
             out.insert(out.end(), s.begin(), s.end());
-          } else if (op == "*") {
+          }
+          else if(op == "*")
+          {
             auto m = ops::opMul(varRes, firstLeft, right);
             out.insert(out.end(), m.begin(), m.end());
-          } else if (op == "/") {
+          }
+          else if(op == "/")
+          {
             auto d = ops::opDiv(varRes, firstLeft, right);
             out.insert(out.end(), d.begin(), d.end());
-          } else if (op == "&") {
+          }
+          else if(op == "&")
+          {
             auto a = ops::opAnd(varRes, firstLeft, right);
             out.insert(out.end(), a.begin(), a.end());
-          } else if (op == "|") {
+          }
+          else if(op == "|")
+          {
             auto o = ops::opOr(varRes, firstLeft, right);
             out.insert(out.end(), o.begin(), o.end());
-          } else if (op == "^") {
+          }
+          else if(op == "^")
+          {
             auto x = ops::opXOR(varRes, firstLeft, right);
             out.insert(out.end(), x.begin(), x.end());
-          } else if (op == "<<") {
+          }
+          else if(op == "<<")
+          {
             auto s = ops::opShiftLeft(varRes, firstLeft, right);
             out.insert(out.end(), s.begin(), s.end());
-          } else if (op == ">>") {
+          }
+          else if(op == ">>")
+          {
             auto s = ops::opShiftRight(varRes, firstLeft, right, false);
             out.insert(out.end(), s.begin(), s.end());
-          } else if (op == ">>>") {
+          }
+          else if(op == ">>>")
+          {
             auto s = ops::opShiftRight(varRes, firstLeft, right, true);
             out.insert(out.end(), s.begin(), s.end());
-          } else {
+          }
+          else
+          {
             // Unknown op: move then apply
             auto mv = ops::opMove(varRes, firstLeft);
             out.insert(out.end(), mv.begin(), mv.end());
           }
-        } else {
+        }
+        else
+        {
           // Vec ops
-          if (op == "+") {
+          if(op == "+")
+          {
             auto a = ops::opAddVec(varRes, firstLeft, right);
             out.insert(out.end(), a.begin(), a.end());
-          } else if (op == "-") {
+          }
+          else if(op == "-")
+          {
             auto s = ops::opSubVec(varRes, firstLeft, right);
             out.insert(out.end(), s.begin(), s.end());
-          } else if (op == "*") {
+          }
+          else if(op == "*")
+          {
             auto m = ops::opMulVec(varRes, firstLeft, right, true);
             out.insert(out.end(), m.begin(), m.end());
-          } else if (op == "+*") {
+          }
+          else if(op == "+*")
+          {
             auto m = ops::opMulVec(varRes, firstLeft, right, false);
             out.insert(out.end(), m.begin(), m.end());
-          } else {
+          }
+          else
+          {
             auto mv = ops::opMoveVec(varRes, firstLeft);
             out.insert(out.end(), mv.begin(), mv.end());
           }
         }
       }
-    } else {
-      if (!isVecType(varRes.type)) {
-        if (op == "+") { auto a = ops::opAdd(varRes, varRes, right); out.insert(out.end(), a.begin(), a.end()); }
-        else if (op == "-") { auto s = ops::opSub(varRes, varRes, right); out.insert(out.end(), s.begin(), s.end()); }
-        else if (op == "*") { auto m = ops::opMul(varRes, varRes, right); out.insert(out.end(), m.begin(), m.end()); }
-        else if (op == "/") { auto d = ops::opDiv(varRes, varRes, right); out.insert(out.end(), d.begin(), d.end()); }
-        else if (op == "&") { auto a = ops::opAnd(varRes, varRes, right); out.insert(out.end(), a.begin(), a.end()); }
-        else if (op == "|") { auto o = ops::opOr(varRes, varRes, right); out.insert(out.end(), o.begin(), o.end()); }
-        else if (op == "^") { auto x = ops::opXOR(varRes, varRes, right); out.insert(out.end(), x.begin(), x.end()); }
-        else if (op == "<<") { auto s = ops::opShiftLeft(varRes, varRes, right); out.insert(out.end(), s.begin(), s.end()); }
-        else if (op == ">>") { auto s = ops::opShiftRight(varRes, varRes, right, false); out.insert(out.end(), s.begin(), s.end()); }
-        else if (op == ">>>") { auto s = ops::opShiftRight(varRes, varRes, right, true); out.insert(out.end(), s.begin(), s.end()); }
+    }
+    else
+    {
+      if(!isVecType(varRes.type))
+      {
+        if(op == "+")
+        {
+          auto a = ops::opAdd(varRes, varRes, right);
+          out.insert(out.end(), a.begin(), a.end());
+        }
+        else if(op == "-")
+        {
+          auto s = ops::opSub(varRes, varRes, right);
+          out.insert(out.end(), s.begin(), s.end());
+        }
+        else if(op == "*")
+        {
+          auto m = ops::opMul(varRes, varRes, right);
+          out.insert(out.end(), m.begin(), m.end());
+        }
+        else if(op == "/")
+        {
+          auto d = ops::opDiv(varRes, varRes, right);
+          out.insert(out.end(), d.begin(), d.end());
+        }
+        else if(op == "&")
+        {
+          auto a = ops::opAnd(varRes, varRes, right);
+          out.insert(out.end(), a.begin(), a.end());
+        }
+        else if(op == "|")
+        {
+          auto o = ops::opOr(varRes, varRes, right);
+          out.insert(out.end(), o.begin(), o.end());
+        }
+        else if(op == "^")
+        {
+          auto x = ops::opXOR(varRes, varRes, right);
+          out.insert(out.end(), x.begin(), x.end());
+        }
+        else if(op == "<<")
+        {
+          auto s = ops::opShiftLeft(varRes, varRes, right);
+          out.insert(out.end(), s.begin(), s.end());
+        }
+        else if(op == ">>")
+        {
+          auto s = ops::opShiftRight(varRes, varRes, right, false);
+          out.insert(out.end(), s.begin(), s.end());
+        }
+        else if(op == ">>>")
+        {
+          auto s = ops::opShiftRight(varRes, varRes, right, true);
+          out.insert(out.end(), s.begin(), s.end());
+        }
       }
     }
     accIsConst = false;
@@ -448,19 +573,21 @@ static void decomposeParts(std::vector<FlatElem> &parts,
   }
 }
 
-static std::vector<AsmInst>
-decomposeCalcMulti(const ast::CalcMulti &cm, const VarDef &varRes) {
+static std::vector<AsmInst> decomposeCalcMulti(const ast::CalcMulti &cm, const VarDef &varRes) {
   // Fast path: single part, no groups, variable left
-  if (cm.parts.size() == 1 && cm.groupStart == 0 &&
-      cm.parts[0].groupStart == 0 && cm.parts[0].groupEnd == 0 &&
-      !cm.leftVal.has_value()) {
+  if(cm.parts.size() == 1 && cm.groupStart == 0 && cm.parts[0].groupStart == 0 && cm.parts[0].groupEnd == 0 &&
+     !cm.leftVal.has_value())
+  {
     ast::CalcLR lrCalc;
     lrCalc.left = cm.left;
     lrCalc.swizzleLeft = cm.swizzleLeft;
     lrCalc.op = cm.parts[0].op;
-    if (cm.parts[0].rightVal.has_value()) {
+    if(cm.parts[0].rightVal.has_value())
+    {
       lrCalc.rightNum = ast::ExprNum{cm.parts[0].rightVal.value()};
-    } else {
+    }
+    else
+    {
       lrCalc.rightVarName = cm.parts[0].right.value;
     }
     lrCalc.swizzleRight = cm.parts[0].swizzleRight;
@@ -474,20 +601,21 @@ decomposeCalcMulti(const ast::CalcMulti &cm, const VarDef &varRes) {
   partsToTree(parts);
 
   // Step 2.5: apply operator precedence within nested groups
-  for (auto &e : parts) {
-    if (e.isNested) applyPrecedence(e.nested);
+  for(auto &e : parts)
+  {
+    if(e.isNested) applyPrecedence(e.nested);
   }
 
   // Step 3: evaluate constant sub-expressions (delegated to partsEval)
   auto evalResult = partsEval(parts);
-  if (std::holds_alternative<FlatElem>(evalResult)) {
+  if(std::holds_alternative<FlatElem>(evalResult))
+  {
     // Entire expression folded to a single constant
     FlatElem &elem = std::get<FlatElem>(evalResult);
     VarDef v;
     v.value = elem.numVal;
     v.type = varRes.type;
-    return isVecType(varRes.type) ? ops::opMoveVec(varRes, v)
-                                   : ops::opMove(varRes, v);
+    return isVecType(varRes.type) ? ops::opMoveVec(varRes, v) : ops::opMove(varRes, v);
   }
   // partsEval returned the (possibly modified) parts vector
   parts = std::get<std::vector<FlatElem>>(std::move(evalResult));
@@ -501,7 +629,8 @@ decomposeCalcMulti(const ast::CalcMulti &cm, const VarDef &varRes) {
   // every temp after the statement (astCalcNormalizer.js: tmpVarStack).
   // Without this, each nested calc would leak its registers for the rest
   // of the function.
-  for (int i = 0; i < tmpCounter; ++i) {
+  for(int i = 0; i < tmpCounter; ++i)
+  {
     state.undefVar("__tmp_" + std::to_string(i));
   }
   return res;
@@ -509,67 +638,74 @@ decomposeCalcMulti(const ast::CalcMulti &cm, const VarDef &varRes) {
 
 // --- Calculation to ASM -----------------------------------------------
 
-static std::vector<AsmInst>
-calcToAsm(const ast::Calc &calc, const VarDef &varRes) {
+static std::vector<AsmInst> calcToAsm(const ast::Calc &calc, const VarDef &varRes) {
   return std::visit(
       [&](const auto &c) -> std::vector<AsmInst> {
         using T = std::decay_t<decltype(c)>;
 
-        if constexpr (std::is_same_v<T, ast::CalcNum>) {
+        if constexpr(std::is_same_v<T, ast::CalcNum>)
+        {
           VarDef vRight;
           vRight.value = c.right.value;
-          if (isVecType(varRes.type)) {
+          if(isVecType(varRes.type))
+          {
             return ops::opMoveVec(varRes, vRight);
           }
           return ops::opMove(varRes, vRight);
         }
 
-        else if constexpr (std::is_same_v<T, ast::CalcVar>) {
+        else if constexpr(std::is_same_v<T, ast::CalcVar>)
+        {
           // Check if the variable is actually a label / state memory
           // (JS: astNormalize.js lines 161-166)
           const auto *memVar = state.getMemVarOrNull(c.right.value);
-          if (memVar) {
+          if(memVar)
+          {
             // Convert label reference to %lo(NAME) immediate
             VarDef vRight;
             vRight.value = 0;
             vRight.type = varRes.type;
             vRight.reg = "%lo(" + c.right.value + ")";
-            if (isVecType(varRes.type))
-              return ops::opMoveVec(varRes, vRight);
+            if(isVecType(varRes.type)) return ops::opMoveVec(varRes, vRight);
             return ops::opMove(varRes, vRight);
           }
-          VarDef vRight =
-              state.getRequiredVarCopy(c.right.value, "right");
+          VarDef vRight = state.getRequiredVarCopy(c.right.value, "right");
           vRight.swizzle = c.swizzleRight;
-          if (c.op == "~") {
-            if (isVecType(varRes.type))
-              return ops::opBitFlipVec(varRes, vRight);
+          if(c.op == "~")
+          {
+            if(isVecType(varRes.type)) return ops::opBitFlipVec(varRes, vRight);
             return ops::opBitFlip(varRes, vRight);
           }
-          if (isVecType(varRes.type)) {
+          if(isVecType(varRes.type))
+          {
             return ops::opMoveVec(varRes, vRight);
           }
           return ops::opMove(varRes, vRight);
         }
 
-        else if constexpr (std::is_same_v<T, ast::CalcLR>) {
-          VarDef vLeft =
-              state.getRequiredVarCopy(c.left.value, "Left");
+        else if constexpr(std::is_same_v<T, ast::CalcLR>)
+        {
+          VarDef vLeft = state.getRequiredVarCopy(c.left.value, "Left");
           vLeft.swizzle = c.swizzleLeft;
 
           VarDef vRight;
-          if (!c.rightVarName.empty()) {
+          if(!c.rightVarName.empty())
+          {
             // Check for label / state-memory reference (JS: astNormalize.js:161-166)
-            const auto *memVar =
-                state.getMemVarOrNull(c.rightVarName);
-            if (memVar) {
+            const auto *memVar = state.getMemVarOrNull(c.rightVarName);
+            if(memVar)
+            {
               vRight.value = 0;
               vRight.type = varRes.type;
               vRight.reg = "%lo(" + c.rightVarName + ")";
-            } else {
+            }
+            else
+            {
               vRight = state.getRequiredVarCopy(c.rightVarName, "right");
             }
-          } else {
+          }
+          else
+          {
             vRight.value = c.rightNum.value;
             vRight.type = varRes.type;
           }
@@ -578,99 +714,98 @@ calcToAsm(const ast::Calc &calc, const VarDef &varRes) {
           bool isVec = isVecType(varRes.type);
           std::string op = c.op;
 
-          if (!isVec) {
-            if (!c.swizzleLeft.empty() && !vLeft.reg.empty() &&
-                !isVecType(vLeft.type))
-              state.throwError(
-                  "Swizzling not allowed for scalar operations!");
-            if (!c.swizzleRight.empty() && !vRight.reg.empty() &&
-                !isVecType(vRight.type))
-              state.throwError(
-                  "Swizzling not allowed for scalar operations!");
+          if(!isVec)
+          {
+            if(!c.swizzleLeft.empty() && !vLeft.reg.empty() && !isVecType(vLeft.type))
+              state.throwError("Swizzling not allowed for scalar operations!");
+            if(!c.swizzleRight.empty() && !vRight.reg.empty() && !isVecType(vRight.type))
+              state.throwError("Swizzling not allowed for scalar operations!");
           }
 
-          if (isVec) {
-            if (op == "+") return ops::opAddVec(varRes, vLeft, vRight);
-            if (op == "-") return ops::opSubVec(varRes, vLeft, vRight);
-            if (op == "*" || op == "+*")
-              return ops::opMulVec(varRes, vLeft, vRight, op == "*");
-            if (op == "&") return ops::opAndVec(varRes, vLeft, vRight);
-            if (op == "|") return ops::opOrVec(varRes, vLeft, vRight);
-            if (op == "^") return ops::opXORVec(varRes, vLeft, vRight);
-            if (op == "<<")
-              return ops::opShiftLeftVec(varRes, vLeft, vRight);
-            if (op == ">>")
-              return ops::opShiftRightVec(varRes, vLeft, vRight, false);
-            if (op == ">>>")
-              return ops::opShiftRightVec(varRes, vLeft, vRight, true);
-          } else {
-            if (op == "+") return ops::opAdd(varRes, vLeft, vRight);
-            if (op == "-") return ops::opSub(varRes, vLeft, vRight);
-            if (op == "*") return ops::opMul(varRes, vLeft, vRight);
-            if (op == "/") return ops::opDiv(varRes, vLeft, vRight);
-            if (op == "&") return ops::opAnd(varRes, vLeft, vRight);
-            if (op == "|") return ops::opOr(varRes, vLeft, vRight);
-            if (op == "^") return ops::opXOR(varRes, vLeft, vRight);
-            if (op == "~|") return ops::opNOR(varRes, vLeft, vRight);
-            if (op == "<<")
-              return ops::opShiftLeft(varRes, vLeft, vRight);
-            if (op == ">>")
-              return ops::opShiftRight(varRes, vLeft, vRight, false);
-            if (op == ">>>")
-              return ops::opShiftRight(varRes, vLeft, vRight, true);
+          if(isVec)
+          {
+            if(op == "+") return ops::opAddVec(varRes, vLeft, vRight);
+            if(op == "-") return ops::opSubVec(varRes, vLeft, vRight);
+            if(op == "*" || op == "+*") return ops::opMulVec(varRes, vLeft, vRight, op == "*");
+            if(op == "&") return ops::opAndVec(varRes, vLeft, vRight);
+            if(op == "|") return ops::opOrVec(varRes, vLeft, vRight);
+            if(op == "^") return ops::opXORVec(varRes, vLeft, vRight);
+            if(op == "<<") return ops::opShiftLeftVec(varRes, vLeft, vRight);
+            if(op == ">>") return ops::opShiftRightVec(varRes, vLeft, vRight, false);
+            if(op == ">>>") return ops::opShiftRightVec(varRes, vLeft, vRight, true);
+          }
+          else
+          {
+            if(op == "+") return ops::opAdd(varRes, vLeft, vRight);
+            if(op == "-") return ops::opSub(varRes, vLeft, vRight);
+            if(op == "*") return ops::opMul(varRes, vLeft, vRight);
+            if(op == "/") return ops::opDiv(varRes, vLeft, vRight);
+            if(op == "&") return ops::opAnd(varRes, vLeft, vRight);
+            if(op == "|") return ops::opOr(varRes, vLeft, vRight);
+            if(op == "^") return ops::opXOR(varRes, vLeft, vRight);
+            if(op == "~|") return ops::opNOR(varRes, vLeft, vRight);
+            if(op == "<<") return ops::opShiftLeft(varRes, vLeft, vRight);
+            if(op == ">>") return ops::opShiftRight(varRes, vLeft, vRight, false);
+            if(op == ">>>") return ops::opShiftRight(varRes, vLeft, vRight, true);
           }
           state.throwError("Unknown operator: " + op);
           return {};
         }
 
-        else if constexpr (std::is_same_v<T, ast::CalcMulti>) {
+        else if constexpr(std::is_same_v<T, ast::CalcMulti>)
+        {
           return decomposeCalcMulti(c, varRes);
         }
 
-        else if constexpr (std::is_same_v<T, ast::CalcFunc>) {
-          if (findMacro(c.funcName)) {
+        else if constexpr(std::is_same_v<T, ast::CalcFunc>)
+        {
+          if(findMacro(c.funcName))
+          {
             std::vector<ast::FuncArg> callArgs;
-            callArgs.push_back(
-                {.type = ArgType::Var, .value = varRes.name, .swizzle = ""});
-            for (auto &a : c.args) callArgs.push_back(a);
+            callArgs.push_back({.type = ArgType::Var, .value = varRes.name, .swizzle = ""});
+            for(auto &a : c.args) callArgs.push_back(a);
             return inlineMacroCall(c.funcName, callArgs);
           }
           auto *bf = builtins::lookup(c.funcName);
-          if (!bf)
-            state.throwError("Unknown builtin: " + c.funcName);
+          if(!bf) state.throwError("Unknown builtin: " + c.funcName);
           VarDef resCopy = varRes;
           return (*bf)(&resCopy, c.args, c.swizzleRight);
         }
 
-        else if constexpr (std::is_same_v<T, ast::CalcCompare>) {
+        else if constexpr(std::is_same_v<T, ast::CalcCompare>)
+        {
           bool isVec = isVecType(varRes.type);
-          if (isVec) {
-            VarDef vLeft =
-                state.getRequiredVarCopy(c.left, "left");
+          if(isVec)
+          {
+            VarDef vLeft = state.getRequiredVarCopy(c.left, "left");
             VarDef vRight;
-            if (c.rightVal.has_value()) {
-              auto pIt =
-                  POW2_SWIZZLE_VAR.find(c.rightVal.value());
-              if (pIt == POW2_SWIZZLE_VAR.end())
-                state.throwError("Constant must be a power of two!");
+            if(c.rightVal.has_value())
+            {
+              auto pIt = POW2_SWIZZLE_VAR.find(c.rightVal.value());
+              if(pIt == POW2_SWIZZLE_VAR.end()) state.throwError("Constant must be a power of two!");
               vRight.reg = pIt->second.reg;
               vRight.swizzle = pIt->second.swizzle;
               vRight.type = TypeClass::Vec16;
-            } else {
+            }
+            else
+            {
               vRight = state.getRequiredVarCopy(c.right, "right");
               vRight.swizzle = c.swizzleRight;
             }
-            const ast::TernaryPart *tp =
-                c.ternary.has_value() ? &c.ternary.value() : nullptr;
+            const ast::TernaryPart *tp = c.ternary.has_value() ? &c.ternary.value() : nullptr;
             return ops::opCompareVec(varRes, vLeft, vRight, c.op, tp);
-          } else {
-            VarDef vLeft =
-                state.getRequiredVarCopy(c.left, "left");
+          }
+          else
+          {
+            VarDef vLeft = state.getRequiredVarCopy(c.left, "left");
             VarDef vRight;
-            if (c.rightVal.has_value()) {
+            if(c.rightVal.has_value())
+            {
               vRight.value = c.rightVal.value();
               vRight.type = varRes.type;
-            } else {
+            }
+            else
+            {
               vRight = state.getRequiredVarCopy(c.right, "right");
             }
             return ops::opCompare(varRes, vLeft, vRight, c.op, false);
@@ -691,14 +826,12 @@ calcToAsm(const ast::Calc &calc, const VarDef &varRes) {
 static std::vector<AsmInst> coldBlocks;
 
 static std::vector<AsmInst> ifToAsm(const ast::StmtIf &st) {
-  const VarDef *varLeft =
-      state.getRequiredVar(st.compare.left.value, "left");
-  if (reg::isVecReg(varLeft->reg))
-    state.throwError("IF-Statements must use scalar-registers!");
+  const VarDef *varLeft = state.getRequiredVar(st.compare.left.value, "left");
+  if(reg::isVecReg(varLeft->reg)) state.throwError("IF-Statements must use scalar-registers!");
 
-  if (!state.getAnnotations("Unlikely").empty()) {
-    if (st.blockElse)
-      state.throwError("@Unlikely if-statements cannot have an else-block!");
+  if(!state.getAnnotations("Unlikely").empty())
+  {
+    if(st.blockElse) state.throwError("@Unlikely if-statements cannot have an else-block!");
     state.clearAnnotations();
 
     std::string labelCold = state.generateLabel();
@@ -709,10 +842,9 @@ static std::vector<AsmInst> ifToAsm(const ast::StmtIf &st) {
     // taken, so drop the likely-flags (the cost eval then prices the hot
     // path without a taken-branch bubble).
     std::vector<AsmInst> res = ops::opBranch(st.compare, labelCold, true);
-    for (auto &inst : res) {
-      if (inst.opFlags & OP_FLAG_IS_BRANCH)
-        inst.opFlags &=
-            ~(OP_FLAG_IS_LIKELY | OP_FLAG_LIKELY_BRANCH);
+    for(auto &inst : res)
+    {
+      if(inst.opFlags & OP_FLAG_IS_BRANCH) inst.opFlags &= ~(OP_FLAG_IS_LIKELY | OP_FLAG_LIKELY_BRANCH);
     }
     res.push_back(asmLabel(labelJoin));
 
@@ -728,8 +860,7 @@ static std::vector<AsmInst> ifToAsm(const ast::StmtIf &st) {
   }
 
   std::string labelElse = state.generateLabel();
-  std::string labelEnd =
-      st.blockElse ? state.generateLabel() : labelElse;
+  std::string labelEnd = st.blockElse ? state.generateLabel() : labelElse;
 
   std::vector<AsmInst> res;
   auto branch = ops::opBranch(st.compare, labelElse);
@@ -738,14 +869,15 @@ static std::vector<AsmInst> ifToAsm(const ast::StmtIf &st) {
   state.pushScope("", "");
   auto ifBlock = scopedBlockToAsm(*st.blockIf);
   res.insert(res.end(), ifBlock.begin(), ifBlock.end());
-  if (st.blockElse) {
-    res.push_back(
-        asmBranch("beq", {"$zero", "$zero", labelEnd}, labelEnd));
+  if(st.blockElse)
+  {
+    res.push_back(asmBranch("beq", {"$zero", "$zero", labelEnd}, labelEnd));
     res.push_back(asmNOP());
   }
   state.popScope();
 
-  if (st.blockElse) {
+  if(st.blockElse)
+  {
     state.pushScope("", labelElse);
     res.push_back(asmLabel(labelElse));
     auto elseBlock = scopedBlockToAsm(*st.blockElse);
@@ -757,10 +889,8 @@ static std::vector<AsmInst> ifToAsm(const ast::StmtIf &st) {
 }
 
 static std::vector<AsmInst> whileToAsm(const ast::StmtWhile &st) {
-  const VarDef *varLeft =
-      state.getRequiredVar(st.compare.left.value, "left");
-  if (reg::isVecReg(varLeft->reg))
-    state.throwError("While-Statements must use scalar-registers!");
+  const VarDef *varLeft = state.getRequiredVar(st.compare.left.value, "left");
+  if(reg::isVecReg(varLeft->reg)) state.throwError("While-Statements must use scalar-registers!");
 
   std::string labelStart = state.generateLabel();
   std::string labelEnd = state.generateLabel();
@@ -787,23 +917,21 @@ static std::vector<AsmInst> loopToAsm(const ast::StmtLoop &st) {
   std::string labelEnd = state.generateLabel();
 
   // loop { body } while(cond) — emit conditional branch at the tail
-  if (st.compare.has_value()) {
-        if (st.compare->left.type == ArgType::Num) {
-      state.throwError(
-          "Loop-Statements with numeric left-hand-side not implemented!");
+  if(st.compare.has_value())
+  {
+    if(st.compare->left.type == ArgType::Num)
+    {
+      state.throwError("Loop-Statements with numeric left-hand-side not implemented!");
     }
-    const VarDef *varLeft =
-        state.getRequiredVar(st.compare->left.value, "left");
-    if (reg::isVecReg(varLeft->reg))
-      state.throwError("Loop-Statements must use scalar-registers!");
+    const VarDef *varLeft = state.getRequiredVar(st.compare->left.value, "left");
+    if(reg::isVecReg(varLeft->reg)) state.throwError("Loop-Statements must use scalar-registers!");
 
     std::vector<AsmInst> res;
     res.push_back(asmLabel(labelStart));
     state.pushScope(labelStart, labelEnd);
     auto body = scopedBlockToAsm(*st.block);
     res.insert(res.end(), body.begin(), body.end());
-    auto branchOps =
-        ops::opBranch(*st.compare, labelStart, /*invert=*/true);
+    auto branchOps = ops::opBranch(*st.compare, labelStart, /*invert=*/true);
     res.insert(res.end(), branchOps.begin(), branchOps.end());
     state.popScope();
     res.push_back(asmLabel(labelEnd));
@@ -828,25 +956,34 @@ static std::vector<AsmInst> loopToAsm(const ast::StmtLoop &st) {
 // Pre-scan scoped blocks for label declarations and register them as
 // memory variables.  Ported from JS astNormalize.js lines 19-28.
 static void predeclareLabels(const ast::ScopedBlock &block) {
-  for (const auto &stmt : block.statements) {
-    if (std::holds_alternative<ast::StmtLabelDecl>(stmt)) {
+  for(const auto &stmt : block.statements)
+  {
+    if(std::holds_alternative<ast::StmtLabelDecl>(stmt))
+    {
       auto &ld = std::get<ast::StmtLabelDecl>(stmt);
       state.declareMemVar(ld.name, "u16", 1);
-    } else if (auto *sb = std::get_if<ast::StmtScopedBlock>(&stmt)) {
+    }
+    else if(auto *sb = std::get_if<ast::StmtScopedBlock>(&stmt))
+    {
       predeclareLabels(*sb->body);
-    } else if (auto *si = std::get_if<ast::StmtIf>(&stmt)) {
-      if (si->blockIf) predeclareLabels(*si->blockIf);
-      if (si->blockElse) predeclareLabels(*si->blockElse);
-    } else if (auto *sw = std::get_if<ast::StmtWhile>(&stmt)) {
-      if (sw->block) predeclareLabels(*sw->block);
-    } else if (auto *sl = std::get_if<ast::StmtLoop>(&stmt)) {
-      if (sl->block) predeclareLabels(*sl->block);
+    }
+    else if(auto *si = std::get_if<ast::StmtIf>(&stmt))
+    {
+      if(si->blockIf) predeclareLabels(*si->blockIf);
+      if(si->blockElse) predeclareLabels(*si->blockElse);
+    }
+    else if(auto *sw = std::get_if<ast::StmtWhile>(&stmt))
+    {
+      if(sw->block) predeclareLabels(*sw->block);
+    }
+    else if(auto *sl = std::get_if<ast::StmtLoop>(&stmt))
+    {
+      if(sl->block) predeclareLabels(*sl->block);
     }
   }
 }
 
-static std::vector<AsmInst>
-scopedBlockToAsm(const ast::ScopedBlock &block) {
+static std::vector<AsmInst> scopedBlockToAsm(const ast::ScopedBlock &block) {
   state.line = block.line;
   // Pre-scan labels so forward references resolve (JS: astNormalize.js:19-28)
   predeclareLabels(block);
@@ -866,7 +1003,8 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
 
   std::vector<AsmInst> res;
 
-  for (const auto &stmt : block.statements) {
+  for(const auto &stmt : block.statements)
+  {
     // Update state.line from the statement's line number (for debug info)
     std::visit([&](const auto &s) { state.line = s.line; }, stmt);
 
@@ -874,145 +1012,164 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
         [&](const auto &s) {
           using T = std::decay_t<decltype(s)>;
 
-          if constexpr (std::is_same_v<T, ast::StmtVarDecl>) {
+          if constexpr(std::is_same_v<T, ast::StmtVarDecl>)
+          {
             bool ownsReg = true, ownsFract = true;
             std::string reg, regFract;
-            if (s.reg.empty()) {
+            if(s.reg.empty())
+            {
               auto regs = state.allocRegisters(s.varType);
               reg = regs.reg;
               regFract = regs.regFract;
-            } else {
+            }
+            else
+            {
               reg = resolveRegSlot(s.reg, s.regAlias, s.varName, ownsReg);
             }
-            if (!s.regFract.empty()) {
-              regFract = resolveRegSlot(s.regFract, s.regFractAlias, s.varName,
-                                        ownsFract);
+            if(!s.regFract.empty())
+            {
+              regFract = resolveRegSlot(s.regFract, s.regFractAlias, s.varName, ownsFract);
             }
-            state.declareVar(s.varName, s.varType, reg, s.isConst, false,
-                             regFract, ownsReg, ownsFract);
+            state.declareVar(s.varName, s.varType, reg, s.isConst, false, regFract, ownsReg, ownsFract);
           }
 
-          else if constexpr (std::is_same_v<T,
-                                             ast::StmtVarDeclMulti>) {
+          else if constexpr(std::is_same_v<T, ast::StmtVarDeclMulti>)
+          {
             // An explicit register pair names exactly one variable's two
             // halves, so it cannot be stepped across several declarations.
-            if (!s.regFract.empty() && s.varNames.size() > 1) {
+            if(!s.regFract.empty() && s.varNames.size() > 1)
+            {
               state.throwError("A register pair declares a single variable, "
                                "declare the others separately!",
                                s.varNames[0]);
             }
-            if (s.regAlias && s.varNames.size() > 1) {
+            if(s.regAlias && s.varNames.size() > 1)
+            {
               state.throwError("An alias declares a single variable, "
                                "declare the others separately!",
                                s.varNames[0]);
             }
-            for (size_t i = 0; i < s.varNames.size(); ++i) {
+            for(size_t i = 0; i < s.varNames.size(); ++i)
+            {
               bool ownsReg = true, ownsFract = true;
               std::string reg, regFract;
-              if (s.reg.empty()) {
+              if(s.reg.empty())
+              {
                 auto regs = state.allocRegisters(s.varType);
                 reg = regs.reg;
                 regFract = regs.regFract;
-              } else if (s.regAlias) {
+              }
+              else if(s.regAlias)
+              {
                 reg = resolveRegSlot(s.reg, true, s.varNames[i], ownsReg);
-              } else {
+              }
+              else
+              {
                 int step = isTwoRegType(s.varType) ? 2 : 1;
                 int offset = static_cast<int>(i) * step;
-                reg = reg::nextReg(s.reg, offset) ? *reg::nextReg(s.reg, offset)
-                                                  : s.reg;
+                reg = reg::nextReg(s.reg, offset) ? *reg::nextReg(s.reg, offset) : s.reg;
               }
-              if (!s.regFract.empty()) {
-                regFract = resolveRegSlot(s.regFract, s.regFractAlias,
-                                          s.varNames[i], ownsFract);
+              if(!s.regFract.empty())
+              {
+                regFract = resolveRegSlot(s.regFract, s.regFractAlias, s.varNames[i], ownsFract);
               }
-              state.declareVar(s.varNames[i], s.varType, reg, s.isConst,
-                               false, regFract, ownsReg, ownsFract);
+              state.declareVar(s.varNames[i], s.varType, reg, s.isConst, false, regFract, ownsReg, ownsFract);
             }
           }
 
-          else if constexpr (std::is_same_v<T,
-                                             ast::StmtVarDeclAssign>) {
-            std::string baseName =
-                s.varName.substr(0, s.varName.find(':'));
+          else if constexpr(std::is_same_v<T, ast::StmtVarDeclAssign>)
+          {
+            std::string baseName = s.varName.substr(0, s.varName.find(':'));
             std::string effectiveType = s.varType;
-            if (s.calc) {
+            if(s.calc)
+            {
               effectiveType = toString(inferCalcResultType(*s.calc, s.varType));
             }
             bool ownsReg = true, ownsFract = true;
             std::string declReg, declFract;
-            if (s.reg.empty()) {
+            if(s.reg.empty())
+            {
               auto regs = state.allocRegisters(effectiveType);
               declReg = regs.reg;
               declFract = regs.regFract;
-            } else {
+            }
+            else
+            {
               declReg = resolveRegSlot(s.reg, s.regAlias, baseName, ownsReg);
             }
-            if (!s.regFract.empty()) {
-              declFract = resolveRegSlot(s.regFract, s.regFractAlias, baseName,
-                                         ownsFract);
+            if(!s.regFract.empty())
+            {
+              declFract = resolveRegSlot(s.regFract, s.regFractAlias, baseName, ownsFract);
             }
-            state.declareVar(baseName, effectiveType, declReg, s.isConst,
-                             false, declFract, ownsReg, ownsFract);
-            if (s.calc) {
-              VarDef vr = state.getRequiredVarCopy(
-                  s.varName, "result");
+            state.declareVar(baseName, effectiveType, declReg, s.isConst, false, declFract, ownsReg, ownsFract);
+            if(s.calc)
+            {
+              VarDef vr = state.getRequiredVarCopy(s.varName, "result");
               auto calcAsm = calcToAsm(*s.calc, vr);
-              res.insert(res.end(), calcAsm.begin(),
-                         calcAsm.end());
+              res.insert(res.end(), calcAsm.begin(), calcAsm.end());
               state.markVarModified(baseName);
             }
           }
 
-          else if constexpr (std::is_same_v<T,
-                                             ast::StmtVarDeclAlias>) {
+          else if constexpr(std::is_same_v<T, ast::StmtVarDeclAlias>)
+          {
             state.declareVarAlias(s.aliasName, s.varName);
           }
 
-          else if constexpr (std::is_same_v<T,
-                                             ast::StmtVarUndef>) {
-            for (const auto &name : s.varNames) state.undefVar(name);
+          else if constexpr(std::is_same_v<T, ast::StmtVarUndef>)
+          {
+            for(const auto &name : s.varNames) state.undefVar(name);
           }
 
-          else if constexpr (std::is_same_v<T,
-                                             ast::StmtVarAssignCalc>) {
+          else if constexpr(std::is_same_v<T, ast::StmtVarAssignCalc>)
+          {
             bool handledAsFuncCall = false;
-            if (auto *cf = std::get_if<ast::CalcFunc>(s.calc.get())) {
-              if (!builtins::lookup(cf->funcName)) {
+            if(auto *cf = std::get_if<ast::CalcFunc>(s.calc.get()))
+            {
+              if(!builtins::lookup(cf->funcName))
+              {
                 std::vector<ast::FuncArg> callArgs;
-                callArgs.push_back(
-                    {.type = ArgType::Var, .value = s.varName, .swizzle = s.swizzle});
-                for (auto &a : cf->args) callArgs.push_back(a);
-                if (findMacro(cf->funcName)) {
+                callArgs.push_back({.type = ArgType::Var, .value = s.varName, .swizzle = s.swizzle});
+                for(auto &a : cf->args) callArgs.push_back(a);
+                if(findMacro(cf->funcName))
+                {
                   auto inlineRes = inlineMacroCall(cf->funcName, callArgs);
                   res.insert(res.end(), inlineRes.begin(), inlineRes.end());
-                } else {
+                }
+                else
+                {
                   auto callRes = ops::callUserFunction(cf->funcName, callArgs);
                   res.insert(res.end(), callRes.begin(), callRes.end());
                 }
                 handledAsFuncCall = true;
               }
             }
-            if (!handledAsFuncCall) {
-              VarDef vr =
-                  state.getRequiredVarCopy(s.varName, "result");
+            if(!handledAsFuncCall)
+            {
+              VarDef vr = state.getRequiredVarCopy(s.varName, "result");
               vr.swizzle = s.swizzle;
 
-              if (vr.isConst && vr.modifyCount > 0) {
+              if(vr.isConst && vr.modifyCount > 0)
+              {
                 state.throwError("Cannot assign to constant variable!");
               }
               state.markVarModified(s.varName);
 
               std::string op = s.assignType;
-              if (op.size() >= 1 && op != "=") {
+              if(op.size() >= 1 && op != "=")
+              {
                 std::string baseOp = op.substr(0, op.size() - 1);
-                if (auto *cn = std::get_if<ast::CalcNum>(s.calc.get())) {
+                if(auto *cn = std::get_if<ast::CalcNum>(s.calc.get()))
+                {
                   ast::CalcLR lrCalc;
                   lrCalc.left = ast::ExprVarName{s.varName};
                   lrCalc.op = baseOp;
                   lrCalc.rightNum = cn->right;
                   auto calcAsm = calcToAsm(ast::Calc(lrCalc), vr);
                   res.insert(res.end(), calcAsm.begin(), calcAsm.end());
-                } else if (auto *cv = std::get_if<ast::CalcVar>(s.calc.get())) {
+                }
+                else if(auto *cv = std::get_if<ast::CalcVar>(s.calc.get()))
+                {
                   ast::CalcLR lrCalc;
                   lrCalc.left = ast::ExprVarName{s.varName};
                   lrCalc.swizzleLeft = s.swizzle;
@@ -1021,7 +1178,9 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
                   lrCalc.swizzleRight = cv->swizzleRight;
                   auto calcAsm = calcToAsm(ast::Calc(lrCalc), vr);
                   res.insert(res.end(), calcAsm.begin(), calcAsm.end());
-                } else if (auto *cm = std::get_if<ast::CalcMulti>(s.calc.get())) {
+                }
+                else if(auto *cm = std::get_if<ast::CalcMulti>(s.calc.get()))
+                {
                   // Wrap compound assign: a += expr  ->  a = a + (expr)
                   // Structure: left=a, part0 opens group for expr.
                   ast::CalcMulti wrapped;
@@ -1030,9 +1189,12 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
                   // First part: a + (expr) - open a bracket for expr
                   ast::CalcMultiPart firstPart;
                   firstPart.op = baseOp;
-                  if (cm->leftVal.has_value()) {
+                  if(cm->leftVal.has_value())
+                  {
                     firstPart.rightVal = cm->leftVal;
-                  } else {
+                  }
+                  else
+                  {
                     firstPart.right = cm->left;
                   }
                   firstPart.swizzleRight = cm->swizzleLeft;
@@ -1040,106 +1202,123 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
                   firstPart.groupEnd = 0;
                   wrapped.parts.push_back(std::move(firstPart));
                   // Copy original parts, closing the bracket at the end
-                  for (auto &p : cm->parts) {
+                  for(auto &p : cm->parts)
+                  {
                     wrapped.parts.push_back(p);
                   }
                   wrapped.parts.back().groupEnd += 1; // close sub-expr
                   auto calcAsm = calcToAsm(ast::Calc(wrapped), vr);
                   res.insert(res.end(), calcAsm.begin(), calcAsm.end());
-                } else {
+                }
+                else
+                {
                   auto calcAsm = calcToAsm(*s.calc, vr);
                   res.insert(res.end(), calcAsm.begin(), calcAsm.end());
                 }
-              } else {
+              }
+              else
+              {
                 auto calcAsm = calcToAsm(*s.calc, vr);
                 res.insert(res.end(), calcAsm.begin(), calcAsm.end());
               }
             }
           }
 
-          else if constexpr (std::is_same_v<T,
-                                             ast::StmtFuncCall>) {
-            if (findMacro(s.func)) {
+          else if constexpr(std::is_same_v<T, ast::StmtFuncCall>)
+          {
+            if(findMacro(s.func))
+            {
               auto inlineRes = inlineMacroCall(s.func, s.args);
               res.insert(res.end(), inlineRes.begin(), inlineRes.end());
-            } else {
+            }
+            else
+            {
               auto *bf = builtins::lookup(s.func);
-              if (bf) {
+              if(bf)
+              {
                 auto callRes = (*bf)(nullptr, s.args, "");
                 res.insert(res.end(), callRes.begin(), callRes.end());
-              } else {
+              }
+              else
+              {
                 auto callRes = ops::callUserFunction(s.func, s.args);
                 res.insert(res.end(), callRes.begin(), callRes.end());
               }
             }
           }
 
-          else if constexpr (std::is_same_v<T, ast::StmtLabelDecl>) {
+          else if constexpr(std::is_same_v<T, ast::StmtLabelDecl>)
+          {
             res.push_back(asmLabel(s.name));
           }
 
-          else if constexpr (std::is_same_v<T, ast::StmtGoto>) {
+          else if constexpr(std::is_same_v<T, ast::StmtGoto>)
+          {
             // the target may be a variable holding an address (JS: getVarReg)
             const std::string *reg = state.getVarReg(s.label);
             res.push_back(asmOp("j", {reg ? *reg : s.label}));
             res.push_back(asmNOP());
           }
 
-          else if constexpr (std::is_same_v<T, ast::StmtIf>) {
+          else if constexpr(std::is_same_v<T, ast::StmtIf>)
+          {
             auto ifRes = ifToAsm(s);
             res.insert(res.end(), ifRes.begin(), ifRes.end());
           }
 
-          else if constexpr (std::is_same_v<T,
-                                             ast::StmtWhile>) {
+          else if constexpr(std::is_same_v<T, ast::StmtWhile>)
+          {
             auto wRes = whileToAsm(s);
             res.insert(res.end(), wRes.begin(), wRes.end());
           }
 
-          else if constexpr (std::is_same_v<T, ast::StmtLoop>) {
+          else if constexpr(std::is_same_v<T, ast::StmtLoop>)
+          {
             auto lRes = loopToAsm(s);
             res.insert(res.end(), lRes.begin(), lRes.end());
           }
 
-          else if constexpr (std::is_same_v<T,
-                                             ast::StmtBreak>) {
+          else if constexpr(std::is_same_v<T, ast::StmtBreak>)
+          {
             const Scope &scope = state.getScope();
-            if (!scope.labelEnd.empty()) {
+            if(!scope.labelEnd.empty())
+            {
               res.push_back(asmOp("j", {scope.labelEnd}));
               res.push_back(asmNOP());
             }
           }
 
-          else if constexpr (std::is_same_v<T,
-                                             ast::StmtContinue>) {
+          else if constexpr(std::is_same_v<T, ast::StmtContinue>)
+          {
             const Scope &scope = state.getScope();
-            if (!scope.labelStart.empty()) {
+            if(!scope.labelStart.empty())
+            {
               res.push_back(asmOp("j", {scope.labelStart}));
               res.push_back(asmNOP());
             }
           }
 
-          else if constexpr (std::is_same_v<T,
-                                             ast::StmtExit>) {
+          else if constexpr(std::is_same_v<T, ast::StmtExit>)
+          {
             res.push_back(asmOp("j", {LABEL_CMD_LOOP}));
             res.push_back(asmNOP());
           }
 
-          else if constexpr (std::is_same_v<T,
-                                             ast::StmtAnnotation>) {
+          else if constexpr(std::is_same_v<T, ast::StmtAnnotation>)
+          {
             state.addAnnotation(s.name, s.mode, s.value, s.valueIsString);
           }
 
-          else if constexpr (std::is_same_v<T,
-                                             ast::StmtScopedBlock>) {
+          else if constexpr(std::is_same_v<T, ast::StmtScopedBlock>)
+          {
             state.pushScope("", "");
             auto body = scopedBlockToAsm(*s.body);
             res.insert(res.end(), body.begin(), body.end());
             state.popScope();
           }
 
-          else if constexpr (std::is_same_v<T,
-                                             ast::StmtMacroDef>) {
+          else if constexpr(std::is_same_v<T, ast::StmtMacroDef>)
+          {
             // Registering mid-loop makes the macro callable only after
             // its declaration point. Emits no ASM.
             macroScopes.back()[s.def->name] = s.def.get();
@@ -1150,8 +1329,7 @@ scopedBlockToAsm(const ast::ScopedBlock &block) {
     // Clear per-statement annotations (matching JS ast2asm.js:394-395)
     // Annotation statements themselves are exempt so their annotations
     // apply to the next real statement.
-    if (!std::holds_alternative<ast::StmtAnnotation>(stmt))
-      state.clearAnnotations();
+    if(!std::holds_alternative<ast::StmtAnnotation>(stmt)) state.clearAnnotations();
   }
 
   return res;
@@ -1166,8 +1344,10 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
   // Register global macros in the bottom scope frame
   macroScopes.clear();
   macroScopes.emplace_back();
-  for (const auto &fn : ast.functions) {
-    if (fn.type == FuncType::Macro) {
+  for(const auto &fn : ast.functions)
+  {
+    if(fn.type == FuncType::Macro)
+    {
       macroScopes.back()[fn.name] = &fn;
     }
   }
@@ -1179,53 +1359,56 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
   {
     // registers the built-ins occupy in every function
     std::unordered_map<std::string, std::string> usedRegs = {
-        {reg::Reg::ZERO, "ZERO"},      {reg::Reg::VZERO, "VZERO"},
-        {reg::Reg::VSHIFT, "VSHIFT"},  {reg::Reg::VSHIFT8, "VSHIFT8"},
-        {reg::Reg::RA, "RA"},          {reg::Reg::GP, "GP"},
+        {reg::Reg::ZERO, "ZERO"},       {reg::Reg::VZERO, "VZERO"}, {reg::Reg::VSHIFT, "VSHIFT"},
+        {reg::Reg::VSHIFT8, "VSHIFT8"}, {reg::Reg::RA, "RA"},       {reg::Reg::GP, "GP"},
         {reg::Reg::VTEMP0, "VTEMP"},
     };
     std::unordered_set<std::string> usedNames;
-    for (const auto &g : ast.globalVars) {
+    for(const auto &g : ast.globalVars)
+    {
       state.line = g.line;
-      if (!usedNames.insert(g.varName).second) {
-        state.throwError("Global variable '" + g.varName +
-                         "' already declared!", g.varName);
+      if(!usedNames.insert(g.varName).second)
+      {
+        state.throwError("Global variable '" + g.varName + "' already declared!", g.varName);
       }
-      if (std::find(reg::REGS_FORBIDDEN.begin(), reg::REGS_FORBIDDEN.end(),
-                    g.reg) != reg::REGS_FORBIDDEN.end()) {
-        state.throwError("Cannot use reserved register '" + g.reg +
-                         "' for a global variable!", g.varName);
+      if(std::find(reg::REGS_FORBIDDEN.begin(), reg::REGS_FORBIDDEN.end(), g.reg) != reg::REGS_FORBIDDEN.end())
+      {
+        state.throwError("Cannot use reserved register '" + g.reg + "' for a global variable!", g.varName);
       }
-      if (isVecType(g.varType) && !reg::isVecReg(g.reg)) {
-        state.throwError("Cannot use scalar register for vector variable!",
-                         g.varName);
+      if(isVecType(g.varType) && !reg::isVecReg(g.reg))
+      {
+        state.throwError("Cannot use scalar register for vector variable!", g.varName);
       }
-      if (!isVecType(g.varType) && reg::isVecReg(g.reg)) {
-        state.throwError("Cannot use vector register for scalar variable!",
-                         g.varName);
+      if(!isVecType(g.varType) && reg::isVecReg(g.reg))
+      {
+        state.throwError("Cannot use vector register for scalar variable!", g.varName);
       }
       auto claimReg = [&](const std::string &r) {
         auto it = usedRegs.find(r);
-        if (it != usedRegs.end()) {
-          state.throwError("Register '" + r + "' already used for variable '" +
-                           it->second + "'!", g.varName);
+        if(it != usedRegs.end())
+        {
+          state.throwError("Register '" + r + "' already used for variable '" + it->second + "'!", g.varName);
         }
         usedRegs[r] = g.varName;
       };
       claimReg(g.reg);
       std::string gFract = g.regFract;
-      if (isTwoRegType(g.varType)) {
-        if (gFract.empty()) {
+      if(isTwoRegType(g.varType))
+      {
+        if(gFract.empty())
+        {
           const std::string *nextR = reg::nextReg(g.reg);
-          if (!nextR) {
+          if(!nextR)
+          {
             state.throwError("No next register for two-reg type!", g.varName);
           }
           gFract = *nextR;
         }
         claimReg(gFract);
-      } else if (!gFract.empty()) {
-        state.throwError("Only vec32 variables can specify two registers!",
-                         g.varName);
+      }
+      else if(!gFract.empty())
+      {
+        state.throwError("Only vec32 variables can specify two registers!", g.varName);
       }
       state.declareGlobalVar(g.varName, g.varType, g.reg, g.isConst, gFract);
     }
@@ -1233,83 +1416,85 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
   }
 
   // Pre-declare memory variables from state/data/bss sections
-  for (const auto &sec : ast.states) {
-    for (const auto &sv : sec.vars) {
+  for(const auto &sec : ast.states)
+  {
+    for(const auto &sv : sec.vars)
+    {
       int64_t arraySize = 1;
-      for (auto dim : sv.arraySize)
-        arraySize *= dim;
-      if (arraySize < 1) arraySize = 1;
-      state.declareMemVar(sv.varName, sv.varType,
-                          static_cast<int>(arraySize));
+      for(auto dim : sv.arraySize) arraySize *= dim;
+      if(arraySize < 1) arraySize = 1;
+      state.declareMemVar(sv.varName, sv.varType, static_cast<int>(arraySize));
     }
   }
 
   // Uniform contents are addressable just like state memory
-  for (const auto &uniform : ast.uniforms) {
-    for (const auto &sv : uniform.state) {
+  for(const auto &uniform : ast.uniforms)
+  {
+    for(const auto &sv : uniform.state)
+    {
       int64_t arraySize = 1;
-      for (auto dim : sv.arraySize)
-        arraySize *= dim;
-      if (arraySize < 1) arraySize = 1;
-      state.declareMemVar(sv.varName, sv.varType,
-                          static_cast<int>(arraySize));
+      for(auto dim : sv.arraySize) arraySize *= dim;
+      if(arraySize < 1) arraySize = 1;
+      state.declareMemVar(sv.varName, sv.varType, static_cast<int>(arraySize));
     }
   }
 
   // Pre-declare all functions so they can reference each other
-  for (const auto &fn : ast.functions) {
-    if (fn.type == FuncType::Function || fn.type == FuncType::Command ||
-        fn.type == FuncType::Shader) {
+  for(const auto &fn : ast.functions)
+  {
+    if(fn.type == FuncType::Function || fn.type == FuncType::Command || fn.type == FuncType::Shader)
+    {
       bool isRelative = false;
-      for (const auto &ann : fn.annotations) {
-        if (ann.name == "Relative") isRelative = true;
+      for(const auto &ann : fn.annotations)
+      {
+        if(ann.name == "Relative") isRelative = true;
       }
       state.declareFunction(fn.name, fn.args, isRelative);
     }
   }
 
-  for (const auto &fn : ast.functions) {
-    if (fn.type == FuncType::Macro) continue; // already registered
-    if (!fn.body) continue; // forward declaration only — no body to generate
+  for(const auto &fn : ast.functions)
+  {
+    if(fn.type == FuncType::Macro) continue; // already registered
+    if(!fn.body) continue;                   // forward declaration only — no body to generate
 
     // argSize in bytes, matching JS getArgSize() = max(args.length * 4, 4)
-    int byteArgSize =
-        (fn.type == FuncType::Shader)
-            ? 8
-            : std::max(static_cast<int>(fn.args.size()) * 4, 4);
+    int byteArgSize = (fn.type == FuncType::Shader) ? 8 : std::max(static_cast<int>(fn.args.size()) * 4, 4);
     state.enterFunction(fn.name, toString(fn.type),
-                        (fn.type == FuncType::Command ||
-                         fn.type == FuncType::Shader)
-                            ? byteArgSize
-                            : fn.resultType.value_or(0));
+                        (fn.type == FuncType::Command || fn.type == FuncType::Shader) ? byteArgSize
+                                                                                      : fn.resultType.value_or(0));
 
-    bool isCommand = (fn.type == FuncType::Command ||
-                      fn.type == FuncType::Shader);
+    bool isCommand = (fn.type == FuncType::Command || fn.type == FuncType::Shader);
     // Built-in registers (ZERO, VZERO, RA, etc.) are already
     // declared by enterFunction().
 
     // Declare function arguments
     int argSize = 0;
-    static const char *argRegs[] = {reg::Reg::A0, reg::Reg::A1,
-                                    reg::Reg::A2, reg::Reg::A3};
+    static const char *argRegs[] = {reg::Reg::A0, reg::Reg::A1, reg::Reg::A2, reg::Reg::A3};
     std::vector<AsmInst> funcAsm;
-    for (const auto &arg : fn.args) {
+    for(const auto &arg : fn.args)
+    {
       std::string reg, regFract = arg.regFract;
-      if (!arg.reg.empty()) {
+      if(!arg.reg.empty())
+      {
         reg = arg.reg;
-      } else if (argSize < 4) {
+      }
+      else if(argSize < 4)
+      {
         reg = argRegs[argSize];
-      } else {
+      }
+      else
+      {
         auto regs = state.allocRegisters(toString(arg.type));
         reg = regs.reg;
-        if (regFract.empty()) regFract = regs.regFract;
+        if(regFract.empty()) regFract = regs.regFract;
       }
-      state.declareVar(arg.name, toString(arg.type), reg, false, false,
-                       regFract);
+      state.declareVar(arg.name, toString(arg.type), reg, false, false, regFract);
 
       // The RSPQ dispatcher only provides the first 4 command args in $a0-$a3.
       // anything past that is fetched from the command buffer
-      if (fn.type == FuncType::Command && argSize >= 4) {
+      if(fn.type == FuncType::Command && argSize >= 4)
+      {
         int offset = argSize * 4 - byteArgSize;
         VarDef argVar;
         argVar.reg = reg;
@@ -1317,8 +1502,7 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
         VarOrMem loc;
         loc.reg = reg::Reg::GP;
         VarOrMem off;
-        off.reg = std::string("%lo(RSPQ_DMEM_BUFFER") + " " +
-                  std::string(offset < 0 ? "" : "+") + " " +
+        off.reg = std::string("%lo(RSPQ_DMEM_BUFFER") + " " + std::string(offset < 0 ? "" : "+") + " " +
                   std::to_string(offset) + ")";
         auto load = ops::opLoad(argVar, loc, off);
         funcAsm.insert(funcAsm.end(), load.begin(), load.end());
@@ -1334,14 +1518,19 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
 
     // Check @NoReturn annotation (matching JS ast2asm.js:445)
     bool needsReturn = true;
-    for (const auto &ann : fn.annotations) {
-      if (ann.name == "NoReturn") needsReturn = false;
+    for(const auto &ann : fn.annotations)
+    {
+      if(ann.name == "NoReturn") needsReturn = false;
     }
-    if (needsReturn) {
-      if (isCommand) {
+    if(needsReturn)
+    {
+      if(isCommand)
+      {
         funcAsm.push_back(asmOp("j", {LABEL_CMD_LOOP}));
         funcAsm.push_back(asmNOP());
-      } else {
+      }
+      else
+      {
         funcAsm.push_back(asmOp("jr", {reg::Reg::RA}));
         funcAsm.push_back(asmNOP());
       }
@@ -1349,7 +1538,8 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
 
     // Flush @Unlikely blocks after the function tail (they jump back to
     // their join label, so they stay self-contained within the function).
-    if (!coldBlocks.empty()) {
+    if(!coldBlocks.empty())
+    {
       funcAsm.insert(funcAsm.end(), coldBlocks.begin(), coldBlocks.end());
       coldBlocks.clear();
     }
@@ -1360,7 +1550,8 @@ std::vector<AsmFunc> ast2asm(const ast::Program &ast) {
     af.asm_ = std::move(funcAsm);
     af.argSize = argSize;
     af.resultType = fn.resultType.value_or(0);
-    for (const auto &ann : fn.annotations) {
+    for(const auto &ann : fn.annotations)
+    {
       af.annotations.push_back({ann.name, ann.value});
     }
 

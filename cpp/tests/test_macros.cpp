@@ -231,14 +231,11 @@ TEST_CASE("Macros - Local dies with enclosing block", "[macros]") {
         }
         inc(a);
       })";
-  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}),
-                    std::runtime_error);
-  try {
-    rspl::transpileSource(src, {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find("Function inc not known") !=
-            std::string::npos);
-  }
+  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}), std::runtime_error);
+  try
+  { rspl::transpileSource(src, {.rspqWrapper = false}); }
+  catch(const std::runtime_error &e)
+  { REQUIRE(std::string(e.what()).find("Function inc not known") != std::string::npos); }
 }
 
 TEST_CASE("Macros - Local not visible before declaration", "[macros]") {
@@ -248,14 +245,11 @@ TEST_CASE("Macros - Local not visible before declaration", "[macros]") {
         inc(a);
         macro inc(u32 v) { v += 1; }
       })";
-  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}),
-                    std::runtime_error);
-  try {
-    rspl::transpileSource(src, {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find("Function inc not known") !=
-            std::string::npos);
-  }
+  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}), std::runtime_error);
+  try
+  { rspl::transpileSource(src, {.rspqWrapper = false}); }
+  catch(const std::runtime_error &e)
+  { REQUIRE(std::string(e.what()).find("Function inc not known") != std::string::npos); }
 }
 
 TEST_CASE("Macros - Local parse errors", "[macros]") {

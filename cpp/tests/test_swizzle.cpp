@@ -19,8 +19,7 @@ TEST_CASE("Syntax - Swizzle - Assign single (vec32 <- vec32)", "[swizzle]") {
   nop)");
 }
 
-TEST_CASE("Syntax - Swizzle - Assign single (vec32 <- vec32, cast)",
-          "[swizzle]") {
+TEST_CASE("Syntax - Swizzle - Assign single (vec32 <- vec32, cast)", "[swizzle]") {
   auto result = rspl::transpileSource(
       R"(function test() {
       vec32<$v01> a, b;
@@ -101,47 +100,45 @@ TEST_CASE("Syntax - Swizzle - Assign single (vec16 <- vec32)", "[swizzle]") {
 }
 
 TEST_CASE("Syntax - Swizzle - Invalid on Scalar (calc)", "[swizzle]") {
-  REQUIRE_THROWS_AS(
-      rspl::transpileSource(
-          R"(function test() {
+  REQUIRE_THROWS_AS(rspl::transpileSource(
+                        R"(function test() {
       u32<$t0> a;
       a += a.x;
     })",
-          {.rspqWrapper = false}),
-      std::runtime_error);
-  try {
+                        {.rspqWrapper = false}),
+                    std::runtime_error);
+  try
+  {
     rspl::transpileSource(
         R"(function test() {
       u32<$t0> a;
       a += a.x;
     })",
         {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find(
-        "Swizzling not allowed for scalar operations") != std::string::npos);
   }
+  catch(const std::runtime_error &e)
+  { REQUIRE(std::string(e.what()).find("Swizzling not allowed for scalar operations") != std::string::npos); }
 }
 
 TEST_CASE("Syntax - Swizzle - Invalid on Scalar (assign)", "[swizzle]") {
-  REQUIRE_THROWS_AS(
-      rspl::transpileSource(
-          R"(function test() {
+  REQUIRE_THROWS_AS(rspl::transpileSource(
+                        R"(function test() {
       u32<$t0> a;
       a = a.x;
     })",
-          {.rspqWrapper = false}),
-      std::runtime_error);
-  try {
+                        {.rspqWrapper = false}),
+                    std::runtime_error);
+  try
+  {
     rspl::transpileSource(
         R"(function test() {
       u32<$t0> a;
       a = a.x;
     })",
         {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find(
-        "Swizzling not allowed for scalar operations") != std::string::npos);
   }
+  catch(const std::runtime_error &e)
+  { REQUIRE(std::string(e.what()).find("Swizzling not allowed for scalar operations") != std::string::npos); }
 }
 
 TEST_CASE("Syntax - Swizzle - Alias (integer index)", "[swizzle]") {

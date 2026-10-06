@@ -25,9 +25,9 @@ struct CliArgs {
   bool reorder = false;
   bool magma = false;
   int optimizeTime = 30'000;
-  int optWorkers = 0; // 0 = auto (hw threads - 1)
+  int optWorkers = 0;        // 0 = auto (hw threads - 1)
   unsigned long optSeed = 0; // 0 = random
-  long optIters = 0;  // 0 = use wall-time budget
+  long optIters = 0;         // 0 = use wall-time budget
   bool optAnneal = false;
   bool rspqWrapper = true;
   bool includeGuards = false;
@@ -70,79 +70,156 @@ Options:
 
 CliArgs parseArgs(int argc, char **argv) {
   CliArgs args;
-  for (int i = 1; i < argc; ++i) {
+  for(int i = 1; i < argc; ++i)
+  {
     std::string arg = argv[i];
-    if (arg == "-h" || arg == "--help") { args.help = true; }
-    else if (arg == "--ast-dump") { args.astDump = true; }
-    else if (arg == "-o" && i + 1 < argc) { args.outputFile = argv[++i]; }
-    else if (arg == "--no-optimize") { args.optimize = false; }
-    else if (arg == "--reorder") { args.reorder = true; }
-    else if (arg == "--no-rspq" || arg == "--no-rspq=raw") { args.rspqWrapper = false; }
-    else if (arg == "--no-rspq=include") { args.rspqWrapper = false; args.includeGuards = true; }
-    else if (arg == "--no-debug-info") { args.debugInfo = false; }
-    else if (arg == "--magma") { args.magma = true; }
-    else if (arg == "--patch") {
-      if (i + 1 >= argc) {
+    if(arg == "-h" || arg == "--help")
+    {
+      args.help = true;
+    }
+    else if(arg == "--ast-dump")
+    {
+      args.astDump = true;
+    }
+    else if(arg == "-o" && i + 1 < argc)
+    {
+      args.outputFile = argv[++i];
+    }
+    else if(arg == "--no-optimize")
+    {
+      args.optimize = false;
+    }
+    else if(arg == "--reorder")
+    {
+      args.reorder = true;
+    }
+    else if(arg == "--no-rspq" || arg == "--no-rspq=raw")
+    {
+      args.rspqWrapper = false;
+    }
+    else if(arg == "--no-rspq=include")
+    {
+      args.rspqWrapper = false;
+      args.includeGuards = true;
+    }
+    else if(arg == "--no-debug-info")
+    {
+      args.debugInfo = false;
+    }
+    else if(arg == "--magma")
+    {
+      args.magma = true;
+    }
+    else if(arg == "--patch")
+    {
+      if(i + 1 >= argc)
+      {
         std::cerr << "Error: missing patch function name in arguments!\n";
         std::exit(1);
       }
       std::string list = argv[++i];
       size_t start = 0;
-      while (start <= list.size()) {
+      while(start <= list.size())
+      {
         auto comma = list.find(',', start);
-        auto len = (comma == std::string::npos) ? list.size() - start
-                                                : comma - start;
-        if (len > 0) args.patchFunctions.push_back(list.substr(start, len));
-        if (comma == std::string::npos) break;
+        auto len = (comma == std::string::npos) ? list.size() - start : comma - start;
+        if(len > 0) args.patchFunctions.push_back(list.substr(start, len));
+        if(comma == std::string::npos) break;
         start = comma + 1;
       }
-      if (args.patchFunctions.empty()) {
+      if(args.patchFunctions.empty())
+      {
         std::cerr << "Error: missing patch function name in arguments!\n";
         std::exit(1);
       }
     }
-    else if (arg == "-D" && i + 1 < argc) { args.defines.push_back(argv[++i]); }
-    else if (arg.starts_with("-D")) { args.defines.push_back(arg.substr(2)); }
-    else if (arg.starts_with("--opt-time=")) { args.optimizeTime = std::stoi(arg.substr(11)) * 1000; }
-    else if (arg.starts_with("--opt-workers=")) { args.optWorkers = std::stoi(arg.substr(14)); }
-    else if (arg.starts_with("--opt-seed=")) { args.optSeed = std::stoul(arg.substr(11)); }
-    else if (arg.starts_with("--opt-iters=")) { args.optIters = std::stol(arg.substr(12)); }
-    else if (arg == "--opt-anneal") { args.optAnneal = true; }
-    else if (!arg.starts_with("-")) { args.inputFile = arg; }
+    else if(arg == "-D" && i + 1 < argc)
+    {
+      args.defines.push_back(argv[++i]);
+    }
+    else if(arg.starts_with("-D"))
+    {
+      args.defines.push_back(arg.substr(2));
+    }
+    else if(arg.starts_with("--opt-time="))
+    {
+      args.optimizeTime = std::stoi(arg.substr(11)) * 1000;
+    }
+    else if(arg.starts_with("--opt-workers="))
+    {
+      args.optWorkers = std::stoi(arg.substr(14));
+    }
+    else if(arg.starts_with("--opt-seed="))
+    {
+      args.optSeed = std::stoul(arg.substr(11));
+    }
+    else if(arg.starts_with("--opt-iters="))
+    {
+      args.optIters = std::stol(arg.substr(12));
+    }
+    else if(arg == "--opt-anneal")
+    {
+      args.optAnneal = true;
+    }
+    else if(!arg.starts_with("-"))
+    {
+      args.inputFile = arg;
+    }
   }
   return args;
 }
 
 std::string readFile(const std::string &path) {
   std::ifstream f(path);
-  if (!f) { std::cerr << "Error: cannot open file: " << path << "\n"; std::exit(1); }
-  std::ostringstream ss; ss << f.rdbuf(); return ss.str();
+  if(!f)
+  {
+    std::cerr << "Error: cannot open file: " << path << "\n";
+    std::exit(1);
+  }
+  std::ostringstream ss;
+  ss << f.rdbuf();
+  return ss.str();
 }
 
 void writeFile(const std::string &path, const std::string &content) {
   std::ofstream f(path);
-  if (!f) { std::cerr << "Error: cannot write file: " << path << "\n"; std::exit(1); }
+  if(!f)
+  {
+    std::cerr << "Error: cannot write file: " << path << "\n";
+    std::exit(1);
+  }
   f << content;
 }
 
 std::string execJsParser(const std::string &rsplPath, bool skipPreproc) {
   const char *scriptPath = std::getenv("RSPL_PARSE_JS");
   std::string cmd;
-  if (scriptPath) {
+  if(scriptPath)
+  {
     cmd = std::string("node ") + scriptPath;
-  } else {
+  }
+  else
+  {
     cmd = "node scripts/parse.js";
   }
   cmd += skipPreproc ? " --preprocessed " : " ";
   cmd += rsplPath;
 
   FILE *pipe = popen(cmd.c_str(), "r");
-  if (!pipe) { std::cerr << "Error: cannot start JS parser\n"; std::exit(1); }
+  if(!pipe)
+  {
+    std::cerr << "Error: cannot start JS parser\n";
+    std::exit(1);
+  }
   std::string result;
   char buf[4096];
-  while (fgets(buf, sizeof(buf), pipe)) result += buf;
+  while(fgets(buf, sizeof(buf), pipe)) result += buf;
   int rc = pclose(pipe);
-  if (rc != 0) { std::cerr << "Error: JS parser exited with code " << rc << "\n"; std::exit(1); }
+  if(rc != 0)
+  {
+    std::cerr << "Error: JS parser exited with code " << rc << "\n";
+    std::exit(1);
+  }
   return result;
 }
 
@@ -151,20 +228,34 @@ std::string execJsParser(const std::string &rsplPath, bool skipPreproc) {
 int main(int argc, char **argv) {
   CliArgs args = parseArgs(argc, argv);
 
-  if (args.help) { printHelp(); return 0; }
+  if(args.help)
+  {
+    printHelp();
+    return 0;
+  }
 
   // Read source
   std::string source;
-  if (!args.inputFile.empty()) {
+  if(!args.inputFile.empty())
+  {
     source = readFile(args.inputFile);
-  } else {
-    std::ostringstream ss; ss << std::cin.rdbuf(); source = ss.str();
   }
-  if (source.empty()) { std::cerr << "Error: no input provided\n"; return 1; }
+  else
+  {
+    std::ostringstream ss;
+    ss << std::cin.rdbuf();
+    source = ss.str();
+  }
+  if(source.empty())
+  {
+    std::cerr << "Error: no input provided\n";
+    return 1;
+  }
 
   // Parse defines
   std::unordered_map<std::string, rspl::DefineEntry> defines;
-  for (const auto &d : args.defines) {
+  for(const auto &d : args.defines)
+  {
     auto eq = d.find('=');
     std::string key = d.substr(0, eq);
     std::string val = (eq != std::string::npos) ? d.substr(eq + 1) : "1";
@@ -173,41 +264,52 @@ int main(int argc, char **argv) {
 
   // Run C++ preprocessor (strip comments + defines + includes)
   std::string sourceDir = ".";
-  if (!args.inputFile.empty()) {
+  if(!args.inputFile.empty())
+  {
     auto slash = args.inputFile.find_last_of('/');
-    if (slash != std::string::npos)
-      sourceDir = args.inputFile.substr(0, slash);
+    if(slash != std::string::npos) sourceDir = args.inputFile.substr(0, slash);
   }
   std::vector<rspl::DefineEntry> defineOrder;
   // top-level file name stays empty: only lines spliced in from an
   // #include need naming, the main file is obvious
   std::vector<rspl::SourceLoc> origins;
-  std::string preprocessed =
-      rspl::preprocFull(source, defines, sourceDir, &defineOrder, &origins);
+  std::string preprocessed = rspl::preprocFull(source, defines, sourceDir, &defineOrder, &origins);
 
   // Parse: native by default; RSPL_USE_JS_PARSER=1 keeps the old
   // node-subprocess path as an escape hatch / oracle.
   rspl::ast::Program prog;
-  if (std::getenv("RSPL_USE_JS_PARSER")) {
+  if(std::getenv("RSPL_USE_JS_PARSER"))
+  {
     std::string tmpPath = "/tmp/rspl_preprocessed.rspl";
     writeFile(tmpPath, preprocessed);
     std::string astJson = execJsParser(tmpPath, true);
-    if (args.astDump) { std::cout << astJson; return 0; }
+    if(args.astDump)
+    {
+      std::cout << astJson;
+      return 0;
+    }
     prog = rspl::ast::parseJson(astJson);
-  } else {
-    try {
-      prog = rspl::parser::parseProgram(preprocessed);
-    } catch (const std::exception &e) {
+  }
+  else
+  {
+    try
+    { prog = rspl::parser::parseProgram(preprocessed); }
+    catch(const std::exception &e)
+    {
       std::cerr << "Error: " << e.what() << "\n";
       return 1;
     }
-    if (args.astDump) { std::cout << rspl::astToJson(prog, true) << "\n"; return 0; }
+    if(args.astDump)
+    {
+      std::cout << rspl::astToJson(prog, true) << "\n";
+      return 0;
+    }
   }
 
   // Emit #define lines in source order (skipping later #undef'd ones)
-  for (const auto &def : defineOrder) {
-    if (defines.count(def.name))
-      prog.defines.push_back({def.name, def.value});
+  for(const auto &def : defineOrder)
+  {
+    if(defines.count(def.name)) prog.defines.push_back({def.name, def.value});
   }
   rspl::loadSourceLines(preprocessed, &origins);
 
@@ -227,52 +329,54 @@ int main(int argc, char **argv) {
   cfg.patchFunctions = args.patchFunctions;
 
   rspl::TranspileResult result;
-  try {
-    result = rspl::runPipelineProgram(prog, cfg);
-  } catch (const std::exception &e) {
+  try
+  { result = rspl::runPipelineProgram(prog, cfg); }
+  catch(const std::exception &e)
+  {
     std::cerr << "Error: " << e.what() << "\n";
     return 1;
   }
 
   // Determine output path: explicit -o flag, or derive from input
   std::string outPath = args.outputFile;
-  if (outPath.empty() && !args.inputFile.empty()) {
+  if(outPath.empty() && !args.inputFile.empty())
+  {
     outPath = args.inputFile;
     // Replace .rspl extension with .S
-    if (outPath.ends_with(".rspl"))
+    if(outPath.ends_with(".rspl"))
       outPath = outPath.substr(0, outPath.size() - 5) + ".S";
     else
       outPath += ".S";
   }
 
-  if (!outPath.empty()) {
-    if (!args.patchFunctions.empty()) {
+  if(!outPath.empty())
+  {
+    if(!args.patchFunctions.empty())
+    {
       // Splice only the requested functions into the existing output,
       // leaving every other byte of that file as it was.
       std::cerr << "// Patching functions";
-      for (size_t i = 0; i < args.patchFunctions.size(); ++i)
-        std::cerr << (i ? ", " : " ") << args.patchFunctions[i];
+      for(size_t i = 0; i < args.patchFunctions.size(); ++i) std::cerr << (i ? ", " : " ") << args.patchFunctions[i];
       std::cerr << std::endl;
 
       std::string oldAsm = readFile(outPath);
-      try {
-        writeFile(outPath,
-                  rspl::patchAsmFunctions(oldAsm, result.asm_,
-                                          args.patchFunctions));
-      } catch (const std::exception &e) {
+      try
+      { writeFile(outPath, rspl::patchAsmFunctions(oldAsm, result.asm_, args.patchFunctions)); }
+      catch(const std::exception &e)
+      {
         std::cerr << "Error: " << e.what() << "\n";
         return 1;
       }
-    } else {
+    }
+    else
+    {
       writeFile(outPath, result.asm_);
     }
   }
 
-  std::cerr << "// DMEM: " << result.sizeDMEM
-            << " bytes, IMEM: " << result.sizeIMEM << " bytes" << std::endl;
+  std::cerr << "// DMEM: " << result.sizeDMEM << " bytes, IMEM: " << result.sizeIMEM << " bytes" << std::endl;
 
-  if (!result.warn.empty())
-    std::cerr << result.warn << std::flush;
+  if(!result.warn.empty()) std::cerr << result.warn << std::flush;
 
   return 0;
 }

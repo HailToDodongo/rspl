@@ -34,9 +34,7 @@ struct AsmWriteResult {
   std::unordered_map<int, int> lineStallMap;
 };
 
-AsmWriteResult writeASM(const ast::Program &ast,
-                        const std::vector<AsmFunc> &functions,
-                        const WriteConfig &config);
+AsmWriteResult writeASM(const ast::Program &ast, const std::vector<AsmFunc> &functions, const WriteConfig &config);
 
 // Extracted for testing: format a single instruction to text
 std::string stringifyInstr(const AsmInst &inst);

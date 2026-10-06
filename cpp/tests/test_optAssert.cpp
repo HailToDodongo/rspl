@@ -2,8 +2,7 @@
 #include "pipeline.h"
 
 static rspl::TranspileResult transpile(const std::string &src, bool optimize) {
-  return rspl::transpileSource(src,
-                               {.rspqWrapper = false, .optimize = optimize});
+  return rspl::transpileSource(src, {.rspqWrapper = false, .optimize = optimize});
 }
 
 TEST_CASE("Optimizer E2E - Assertion - Assert variations (unopt)", "[optAssert]") {

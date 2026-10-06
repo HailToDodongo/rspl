@@ -14,16 +14,14 @@ static std::string asmFor(const char *src) {
 }
 
 static std::string errorFor(const char *src) {
-  try {
-    rspl::transpileSource(src, {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
-    return e.what();
-  }
+  try
+  { rspl::transpileSource(src, {.rspqWrapper = false}); }
+  catch(const std::runtime_error &e)
+  { return e.what(); }
   return {};
 }
 
-TEST_CASE("RegAlloc - auto vars avoid a register needed later in the block",
-          "[regAlloc]") {
+TEST_CASE("RegAlloc - auto vars avoid a register needed later in the block", "[regAlloc]") {
   auto asm_ = asmFor(R"(function callee(u32<$t0> arg);
 function test()
 {
@@ -43,8 +41,7 @@ function test()
   REQUIRE(asm_.find("addiu $t1, $t1, 1") != std::string::npos);
 }
 
-TEST_CASE("RegAlloc - a sibling block does not reserve anything",
-          "[regAlloc]") {
+TEST_CASE("RegAlloc - a sibling block does not reserve anything", "[regAlloc]") {
   // the explicit $t0 lives in a later, separate block; `temp` is long dead by
   // then, so it should still get the first free register
   auto asm_ = asmFor(R"(function test()
@@ -82,13 +79,13 @@ TEST_CASE("RegAlloc - both halves of a vec32 are kept clear", "[regAlloc]") {
   REQUIRE(asm_.find("vadd $v02, $v02, $v02.v") != std::string::npos);
 }
 
-TEST_CASE("RegAlloc - a vec32 takes two non-adjacent registers when no pair is free",
-          "[regAlloc]") {
+TEST_CASE("RegAlloc - a vec32 takes two non-adjacent registers when no pair is free", "[regAlloc]") {
   // everything but $v02 and $v11 is pinned: no adjacent pair exists, but
   // the two halves of a vec32 do not have to be adjacent
   std::string src = "function test()\n{\n";
-  for (int v = 1; v <= 28; ++v) {
-    if (v == 2 || v == 11) continue;
+  for(int v = 1; v <= 28; ++v)
+  {
+    if(v == 2 || v == 11) continue;
     char buf[64];
     snprintf(buf, sizeof(buf), "  vec16<$v%02d> p%02d;\n", v, v);
     src += buf;
@@ -105,9 +102,9 @@ TEST_CASE("RegAlloc - falls back when nothing else is free", "[regAlloc]") {
   // every allocatable scalar but $t9 is taken, and $t9 is wanted later:
   // the allocator must still hand it out rather than give up
   std::string src = "function test()\n{\n";
-  for (const char *r : {"t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8",
-                        "k0", "k1", "sp", "fp", "s0", "s1", "s2", "s3", "s4",
-                        "s5", "s6", "s7"}) {
+  for(const char *r : {"t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "k0", "k1",
+                       "sp", "fp", "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7"})
+  {
     src += "  u32<$" + std::string(r) + "> p_" + r + ";\n";
   }
   src += "  u32 autoVar;\n  autoVar = p_t0;\n";

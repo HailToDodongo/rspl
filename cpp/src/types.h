@@ -10,7 +10,7 @@ namespace rspl {
 // --- Type enums (replaces string-based type checks in hot paths) ----------
 
 enum class TypeClass : uint8_t {
-  Unknown = 0,  // must be 0 so VarDef{} zero-inits to Unknown, not Vec32
+  Unknown = 0, // must be 0 so VarDef{} zero-inits to Unknown, not Vec32
   Vec32,
   Vec16,
   U32,
@@ -25,15 +25,7 @@ enum class TypeClass : uint8_t {
   Uint,
 };
 
-enum class CastType : uint8_t {
-  None,
-  Sfract,
-  Ufract,
-  Sint,
-  Uint,
-  S8,
-  S16
-};
+enum class CastType : uint8_t { None, Sfract, Ufract, Sint, Uint, S8, S16 };
 
 enum class FuncType : uint8_t { Function, Command, Macro, Shader };
 
@@ -55,18 +47,24 @@ std::string toString(ArgType at);
 inline bool isVecType(TypeClass tc) {
   return tc == TypeClass::Vec32 || tc == TypeClass::Vec16;
 }
-inline bool isTwoRegType(TypeClass tc) { return tc == TypeClass::Vec32; }
+inline bool isTwoRegType(TypeClass tc) {
+  return tc == TypeClass::Vec32;
+}
 inline bool isSigned(TypeClass tc) {
-  return tc == TypeClass::S32 || tc == TypeClass::S16 || tc == TypeClass::S8 ||
-         tc == TypeClass::Sint || tc == TypeClass::Sfract;
+  return tc == TypeClass::S32 || tc == TypeClass::S16 || tc == TypeClass::S8 || tc == TypeClass::Sint ||
+         tc == TypeClass::Sfract;
 }
 
 // --- Backward-compat helpers for places that still use strings -----------
 
 // These overloads exist so call sites that currently pass strings
 // work during the transition.
-inline bool isVecType(const std::string &s) { return isVecType(toTypeClass(s)); }
-inline bool isTwoRegType(const std::string &s) { return s == "vec32"; }
+inline bool isVecType(const std::string &s) {
+  return isVecType(toTypeClass(s));
+}
+inline bool isTwoRegType(const std::string &s) {
+  return s == "vec32";
+}
 
 // --- Type size / alignment / reg count ----------------------------------
 
@@ -89,8 +87,7 @@ extern const std::vector<std::string> VEC_CASTS;
 
 inline std::string toHex(int64_t val, int pad = 2) {
   char buf[32];
-  snprintf(buf, sizeof(buf), "0x%0*llX", pad,
-           static_cast<long long>(val));
+  snprintf(buf, sizeof(buf), "0x%0*llX", pad, static_cast<long long>(val));
   return buf;
 }
 
@@ -98,7 +95,9 @@ inline bool u32InS16Range(uint32_t valueU32) {
   return valueU32 <= 0x7FFF || valueU32 >= 0xFFFF8000;
 }
 
-inline bool u32InU16Range(uint32_t valueU32) { return valueU32 <= 0xFFFF; }
+inline bool u32InU16Range(uint32_t valueU32) {
+  return valueU32 <= 0xFFFF;
+}
 
 inline uint32_t f32ToFP32(float valueF32) {
   return static_cast<uint32_t>(static_cast<int32_t>(valueF32 * (1 << 16)));

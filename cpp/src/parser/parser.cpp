@@ -25,7 +25,8 @@ namespace {
 
 // JSON.stringify-style number formatting (integral values have no ".0")
 std::string jsNumToString(double v) {
-  if (v == std::floor(v) && std::abs(v) < 9.2e18) {
+  if(v == std::floor(v) && std::abs(v) < 9.2e18)
+  {
     return std::to_string(static_cast<int64_t>(v));
   }
   char buf[32];
@@ -34,7 +35,8 @@ std::string jsNumToString(double v) {
 }
 
 std::string stripQuotes(const std::string &s) {
-  if (s.size() >= 2 && s.front() == '"' && s.back() == '"') {
+  if(s.size() >= 2 && s.front() == '"' && s.back() == '"')
+  {
     return s.substr(1, s.size() - 2);
   }
   return s;
@@ -47,28 +49,37 @@ public:
   ast::Program parse() {
     ast::Program prog;
     // main -> includes, states, uniforms, attributes, functions, post-incs
-    while (at(Tok::KWInclude)) {
+    while(at(Tok::KWInclude))
+    {
       next();
       prog.includes.push_back(expect(Tok::String).value); // keeps quotes
     }
 
-    while (at(Tok::VarName) || at(Tok::DataType) || at(Tok::KWConst)) {
-      if (at(Tok::VarName)) {
+    while(at(Tok::VarName) || at(Tok::DataType) || at(Tok::KWConst))
+    {
+      if(at(Tok::VarName))
+      {
         prog.states.push_back(parseStateSection());
-      } else {
+      }
+      else
+      {
         prog.globalVars.push_back(parseGlobalVarDecl());
       }
     }
-    while (at(Tok::KWUniform)) {
+    while(at(Tok::KWUniform))
+    {
       prog.uniforms.push_back(parseUniform());
     }
-    while (at(Tok::KWAttr)) {
+    while(at(Tok::KWAttr))
+    {
       prog.attributes.push_back(parseAttribute());
     }
-    while (at(Tok::FunctionType) || at(Tok::AnnoStart)) {
+    while(at(Tok::FunctionType) || at(Tok::AnnoStart))
+    {
       prog.functions.push_back(parseFunction());
     }
-    while (at(Tok::KWInclude)) {
+    while(at(Tok::KWInclude))
+    {
       next();
       prog.postIncludes.push_back(expect(Tok::String).value);
     }
@@ -83,46 +94,39 @@ private:
   // --- Token helpers ---------------------------------------------------
 
   const Token &cur() const { return toks[pos]; }
-  const Token &peekNext() const {
-    return toks[pos + 1 < toks.size() ? pos + 1 : toks.size() - 1];
-  }
+  const Token &peekNext() const { return toks[pos + 1 < toks.size() ? pos + 1 : toks.size() - 1]; }
   bool at(Tok t) const { return cur().type == t; }
   bool atAdj(Tok t) const { return cur().type == t && !cur().spaceBefore; }
-  bool atNumeric() const {
-    return at(Tok::ValueHex) || at(Tok::ValueBin) || at(Tok::ValueFloat) ||
-           at(Tok::ValueDec);
-  }
+  bool atNumeric() const { return at(Tok::ValueHex) || at(Tok::ValueBin) || at(Tok::ValueFloat) || at(Tok::ValueDec); }
   bool atNumericAdj() const { return atNumeric() && !cur().spaceBefore; }
 
   Token next() { return toks[pos++]; }
 
   [[noreturn]] void error() const {
     const Token &t = cur();
-    std::string what = (t.type == Tok::End)
-                           ? "unexpected end of input"
-                           : "unexpected " + std::string(tokName(t.type)) +
-                                 " token '" + t.value + "'";
-    throw std::runtime_error("Syntax error at line " + std::to_string(t.line) +
-                             " col " + std::to_string(t.col) + ": " + what);
+    std::string what = (t.type == Tok::End) ? "unexpected end of input"
+                                            : "unexpected " + std::string(tokName(t.type)) + " token '" + t.value + "'";
+    throw std::runtime_error("Syntax error at line " + std::to_string(t.line) + " col " + std::to_string(t.col) + ": " +
+                             what);
   }
 
   Token expect(Tok t) {
-    if (!at(t)) error();
+    if(!at(t)) error();
     return next();
   }
   // grammar wrote no `_` before this terminal -> must be adjacent
   Token expectAdj(Tok t) {
-    if (!atAdj(t)) error();
+    if(!atAdj(t)) error();
     return next();
   }
 
   double parseNumeric() {
-    if (!atNumeric()) error();
+    if(!atNumeric()) error();
     return parseNumericToken(next());
   }
   // ValueNumeric with no preceding `_` in the grammar
   double parseNumericAdj() {
-    if (!atNumericAdj()) error();
+    if(!atNumericAdj()) error();
     return parseNumericToken(next());
   }
 
@@ -133,7 +137,8 @@ private:
     ast::StateSection sec;
     sec.name = expect(Tok::VarName).value;
     expect(Tok::BlockStart);
-    while (!at(Tok::BlockEnd)) {
+    while(!at(Tok::BlockEnd))
+    {
       sec.vars.push_back(parseStateVarDef());
     }
     next(); // }
@@ -144,12 +149,14 @@ private:
   //                IndexDef:* StateValueDef:? _ %StmEnd _
   ast::StateVarDef parseStateVarDef() {
     ast::StateVarDef sv;
-    if (at(Tok::KWExtern)) {
+    if(at(Tok::KWExtern))
+    {
       next();
       sv.isExtern = true;
     }
     // StateAlign -> %KWAlign %ArgsStart ValueNumeric %ArgsEnd _  (all adjacent)
-    if (at(Tok::KWAlign)) {
+    if(at(Tok::KWAlign))
+    {
       next();
       expectAdj(Tok::ArgsStart);
       sv.align = static_cast<int64_t>(parseNumericAdj());
@@ -158,17 +165,20 @@ private:
     sv.varType = expect(Tok::DataType).value;
     sv.varName = expect(Tok::VarName).value;
     // IndexDef:* — each `[` adjacent to the name / previous `]`
-    while (atAdj(Tok::IdxStart)) {
+    while(atAdj(Tok::IdxStart))
+    {
       next();
       sv.arraySize.push_back(static_cast<int64_t>(parseNumeric()));
       expect(Tok::IdxEnd);
     }
     // StateValueDef -> _ %Assignment _ %BlockStart _ NumList _ %BlockEnd
-    if (at(Tok::Assignment)) {
+    if(at(Tok::Assignment))
+    {
       next();
       expect(Tok::BlockStart);
       sv.value.push_back(static_cast<int64_t>(parseNumeric()));
-      while (at(Tok::Seperator)) {
+      while(at(Tok::Seperator))
+      {
         next();
         sv.value.push_back(static_cast<int64_t>(parseNumeric()));
       }
@@ -183,36 +193,38 @@ private:
   // The register is mandatory and exactly one name is allowed.
   ast::StmtVarDecl parseGlobalVarDecl() {
     ast::StmtVarDecl s;
-    if (at(Tok::KWConst)) {
+    if(at(Tok::KWConst))
+    {
       next();
       s.isConst = true;
-      if (!cur().spaceBefore) error(); // (%KWConst __) — space required
+      if(!cur().spaceBefore) error(); // (%KWConst __) — space required
     }
     Token dt = expect(Tok::DataType);
     s.varType = dt.value;
     s.line = dt.line;
-    if (!atAdj(Tok::TypeStart)) {
-      throw std::runtime_error(
-          "Syntax error at line " + std::to_string(dt.line) +
-          ": global variables must specify a register, e.g. '" + dt.value +
-          "<$t0> name;'");
+    if(!atAdj(Tok::TypeStart))
+    {
+      throw std::runtime_error("Syntax error at line " + std::to_string(dt.line) +
+                               ": global variables must specify a register, e.g. '" + dt.value + "<$t0> name;'");
     }
     {
       RegDefPair p = parseRegDefPair();
-      s.reg = p.reg; s.regFract = p.regFract;
-      s.regAlias = p.regAlias; s.regFractAlias = p.regFractAlias;
+      s.reg = p.reg;
+      s.regFract = p.regFract;
+      s.regAlias = p.regAlias;
+      s.regFractAlias = p.regFractAlias;
     }
     s.varName = expect(Tok::VarName).value;
-    if (at(Tok::Seperator)) {
-      throw std::runtime_error(
-          "Syntax error at line " + std::to_string(dt.line) +
-          ": global variables must be declared one per statement "
-          "(each needs its own register)");
+    if(at(Tok::Seperator))
+    {
+      throw std::runtime_error("Syntax error at line " + std::to_string(dt.line) +
+                               ": global variables must be declared one per statement "
+                               "(each needs its own register)");
     }
-    if (at(Tok::Assignment)) {
-      throw std::runtime_error(
-          "Syntax error at line " + std::to_string(dt.line) +
-          ": global variables cannot have an initializer");
+    if(at(Tok::Assignment))
+    {
+      throw std::runtime_error("Syntax error at line " + std::to_string(dt.line) +
+                               ": global variables cannot have an initializer");
     }
     expect(Tok::StmEnd);
     return s;
@@ -230,8 +242,9 @@ private:
   // `alias(var)` borrows the register `var` already lives in instead of
   // claiming one; returns {name, isAlias}.
   std::pair<std::string, bool> parseRegSlot(bool adjacent) {
-    if (at(Tok::VarName) && cur().value == "alias") {
-      if (adjacent && cur().spaceBefore) error();
+    if(at(Tok::VarName) && cur().value == "alias")
+    {
+      if(adjacent && cur().spaceBefore) error();
       next(); // alias
       expectAdj(Tok::ArgsStart);
       Token v = expect(Tok::VarName);
@@ -254,7 +267,8 @@ private:
     next(); // <
     RegDefPair out;
     std::tie(out.reg, out.regAlias) = parseRegSlot(true);
-    if (at(Tok::Seperator)) {
+    if(at(Tok::Seperator))
+    {
       next();
       std::tie(out.regFract, out.regFractAlias) = parseRegSlot(false);
     }
@@ -265,14 +279,11 @@ private:
   // Single-register form, for places where a pair makes no sense.
   std::string parseRegDef() {
     RegDefPair p = parseRegDefPair();
-    if (!p.regFract.empty())
-      throw std::runtime_error("Syntax error at line " +
-                               std::to_string(cur().line) +
+    if(!p.regFract.empty())
+      throw std::runtime_error("Syntax error at line " + std::to_string(cur().line) +
                                ": only one register is allowed here");
-    if (p.regAlias)
-      throw std::runtime_error("Syntax error at line " +
-                               std::to_string(cur().line) +
-                               ": alias() is not allowed here");
+    if(p.regAlias)
+      throw std::runtime_error("Syntax error at line " + std::to_string(cur().line) + ": alias() is not allowed here");
     return p.reg;
   }
 
@@ -281,12 +292,13 @@ private:
   ast::Uniform parseUniform() {
     ast::Uniform u;
     next(); // uniform
-    if (atAdj(Tok::TypeStart)) u.binding = parseRegNumDef();
+    if(atAdj(Tok::TypeStart)) u.binding = parseRegNumDef();
     Token name = expect(Tok::VarName);
     u.name = name.value;
     u.line = name.line;
     expect(Tok::BlockStart);
-    while (!at(Tok::BlockEnd)) {
+    while(!at(Tok::BlockEnd))
+    {
       u.state.push_back(parseStateVarDef());
     }
     next(); // }
@@ -298,17 +310,19 @@ private:
   ast::Attribute parseAttribute() {
     ast::Attribute a;
     next(); // attribute
-    if (atAdj(Tok::TypeStart)) a.binding = parseRegNumDef();
+    if(atAdj(Tok::TypeStart)) a.binding = parseRegNumDef();
     a.type = expect(Tok::DataType).value;
     Token name = expect(Tok::VarName);
     a.name = name.value;
     a.line = name.line;
-    while (atAdj(Tok::IdxStart)) {
+    while(atAdj(Tok::IdxStart))
+    {
       next();
       a.arraySize.push_back(static_cast<int64_t>(parseNumeric()));
       expect(Tok::IdxEnd);
     }
-    if (atAdj(Tok::QuestionMark)) {
+    if(atAdj(Tok::QuestionMark))
+    {
       next();
       a.optional = true;
     }
@@ -324,7 +338,7 @@ private:
   struct AnnoResult {
     std::string name;
     std::string value;
-    std::string mode;  // optional bare-identifier 2nd arg, e.g. @Barrier("x", before)
+    std::string mode; // optional bare-identifier 2nd arg, e.g. @Barrier("x", before)
     bool hasValue = false;
     bool valueIsString = false;
     uint32_t line = 0;
@@ -335,18 +349,25 @@ private:
     Token atTok = next(); // @
     res.line = atTok.line;
     res.name = expectAdj(Tok::VarName).value;
-    if (atAdj(Tok::ArgsStart)) {
+    if(atAdj(Tok::ArgsStart))
+    {
       next();
-      if (atAdj(Tok::String)) {
+      if(atAdj(Tok::String))
+      {
         res.value = stripQuotes(next().value);
         res.valueIsString = true;
-      } else if (atNumericAdj()) {
+      }
+      else if(atNumericAdj())
+      {
         res.value = jsNumToString(parseNumericToken(next()));
-      } else {
+      }
+      else
+      {
         error();
       }
       res.hasValue = true;
-      if (atAdj(Tok::Seperator) || at(Tok::Seperator)) {
+      if(atAdj(Tok::Seperator) || at(Tok::Seperator))
+      {
         next();
         res.mode = expect(Tok::VarName).value;
       }
@@ -362,36 +383,45 @@ private:
   //             (ScopedBlock | %StmEnd)
   ast::Function parseFunction() {
     ast::Function fn;
-    while (at(Tok::AnnoStart)) {
+    while(at(Tok::AnnoStart))
+    {
       AnnoResult a = parseAnnotation();
       // function-level annotations go through optStr in the JSON path:
       // numbers become int64 strings, missing values become ""
-      fn.annotations.push_back(
-          {a.name, a.value, a.valueIsString});
+      fn.annotations.push_back({a.name, a.value, a.valueIsString});
     }
     Token ftype = expect(Tok::FunctionType);
     fn.type = toFuncType(ftype.value);
-    if (atAdj(Tok::TypeStart)) {
+    if(atAdj(Tok::TypeStart))
+    {
       fn.hasResultType = true;
-      if (toks[pos + 1].type == Tok::Register && !toks[pos + 1].spaceBefore) {
+      if(toks[pos + 1].type == Tok::Register && !toks[pos + 1].spaceBefore)
+      {
         parseRegDef(); // register result type: kept only as hasResultType
-      } else {
+      }
+      else
+      {
         fn.resultType = parseRegNumDef();
       }
     }
     fn.name = expect(Tok::VarName).value;
     expectAdj(Tok::ArgsStart);
-    if (!at(Tok::ArgsEnd)) {
+    if(!at(Tok::ArgsEnd))
+    {
       fn.args.push_back(parseFuncDefArg());
-      while (at(Tok::Seperator)) {
+      while(at(Tok::Seperator))
+      {
         next();
         fn.args.push_back(parseFuncDefArg());
       }
     }
     expect(Tok::ArgsEnd); // `_ %ArgsEnd` — space allowed
-    if (atAdj(Tok::StmEnd)) {
+    if(atAdj(Tok::StmEnd))
+    {
       next(); // forward declaration, no body
-    } else {
+    }
+    else
+    {
       fn.body = std::make_unique<ast::ScopedBlock>(parseScopedBlock());
     }
     return fn;
@@ -401,13 +431,14 @@ private:
   ast::FuncDefArg parseFuncDefArg() {
     ast::FuncDefArg arg;
     arg.type = toTypeClass(expect(Tok::DataType).value);
-    if (atAdj(Tok::TypeStart)) {
+    if(atAdj(Tok::TypeStart))
+    {
       RegDefPair p = parseRegDefPair();
-      if (p.regAlias || p.regFractAlias)
-        throw std::runtime_error("Syntax error at line " +
-                                 std::to_string(cur().line) +
+      if(p.regAlias || p.regFractAlias)
+        throw std::runtime_error("Syntax error at line " + std::to_string(cur().line) +
                                  ": alias() cannot be used on a function argument");
-      arg.reg = p.reg; arg.regFract = p.regFract;
+      arg.reg = p.reg;
+      arg.regFract = p.regFract;
     }
     arg.name = expect(Tok::VarName).value;
     return arg;
@@ -419,7 +450,8 @@ private:
   ast::ScopedBlock parseScopedBlock() {
     ast::ScopedBlock block;
     block.line = expect(Tok::BlockStart).line;
-    while (!at(Tok::BlockEnd)) {
+    while(!at(Tok::BlockEnd))
+    {
       parseStatementInto(block);
     }
     next(); // }
@@ -436,7 +468,8 @@ private:
   }
 
   void parseStatementInto(ast::ScopedBlock &block) {
-    if (at(Tok::BlockStart)) {
+    if(at(Tok::BlockStart))
+    {
       ast::StmtScopedBlock sb;
       auto inner = parseScopedBlock();
       sb.line = inner.line;
@@ -444,7 +477,8 @@ private:
       block.statements.push_back(std::move(sb));
       return;
     }
-    if (at(Tok::AnnoStart)) {
+    if(at(Tok::AnnoStart))
+    {
       AnnoResult a = parseAnnotation();
       ast::StmtAnnotation s;
       s.name = a.name;
@@ -455,39 +489,43 @@ private:
       block.statements.push_back(std::move(s));
       return;
     }
-    if (at(Tok::KWIf)) {
+    if(at(Tok::KWIf))
+    {
       block.statements.push_back(parseIf());
       return;
     }
-    if (at(Tok::KWWhile)) {
+    if(at(Tok::KWWhile))
+    {
       block.statements.push_back(parseWhile());
       return;
     }
-    if (at(Tok::KWLoop)) {
+    if(at(Tok::KWLoop))
+    {
       block.statements.push_back(parseLoop());
       return;
     }
     // Local macro definition
-    if (at(Tok::FunctionType)) {
+    if(at(Tok::FunctionType))
+    {
       uint32_t line = cur().line;
-      if (toFuncType(cur().value) != FuncType::Macro) {
-        throw std::runtime_error(
-            "Syntax error at line " + std::to_string(line) +
-            ": only macros can be declared inside a function ('" +
-            cur().value + "' must be global)");
+      if(toFuncType(cur().value) != FuncType::Macro)
+      {
+        throw std::runtime_error("Syntax error at line " + std::to_string(line) +
+                                 ": only macros can be declared inside a function ('" + cur().value +
+                                 "' must be global)");
       }
       ast::Function fn = parseFunction();
-      if (fn.hasResultType) {
-        throw std::runtime_error(
-            "Syntax error at line " + std::to_string(line) +
-            ": Macros must not specify a result-type (use 'macro' "
-            "without `< >`)!");
+      if(fn.hasResultType)
+      {
+        throw std::runtime_error("Syntax error at line " + std::to_string(line) +
+                                 ": Macros must not specify a result-type (use 'macro' "
+                                 "without `< >`)!");
       }
-      if (!fn.body) {
-        throw std::runtime_error(
-            "Syntax error at line " + std::to_string(line) +
-            ": local macros must have a body (forward declarations "
-            "are not allowed inside functions)");
+      if(!fn.body)
+      {
+        throw std::runtime_error("Syntax error at line " + std::to_string(line) +
+                                 ": local macros must have a body (forward declarations "
+                                 "are not allowed inside functions)");
       }
       ast::StmtMacroDef s;
       s.def = std::make_unique<ast::Function>(std::move(fn));
@@ -496,8 +534,8 @@ private:
       return;
     }
     // LabelDecl -> _ %VarName %Colon (colon adjacent)
-    if (at(Tok::VarName) && peekNext().type == Tok::Colon &&
-        !peekNext().spaceBefore) {
+    if(at(Tok::VarName) && peekNext().type == Tok::Colon && !peekNext().spaceBefore)
+    {
       Token name = next();
       next(); // :
       block.statements.push_back(ast::StmtLabelDecl{name.value, name.line});
@@ -516,12 +554,15 @@ private:
     s.compare = parseCompareExpr(/*allowBool=*/true);
     expect(Tok::ArgsEnd);
     s.blockIf = std::make_unique<ast::ScopedBlock>(parseBlockOrExpr());
-    if (at(Tok::KWElse)) {
+    if(at(Tok::KWElse))
+    {
       next();
-      if (at(Tok::KWIf)) {
-        s.blockElse = std::make_unique<ast::ScopedBlock>(
-            wrapInBlock(parseIf()));
-      } else {
+      if(at(Tok::KWIf))
+      {
+        s.blockElse = std::make_unique<ast::ScopedBlock>(wrapInBlock(parseIf()));
+      }
+      else
+      {
         s.blockElse = std::make_unique<ast::ScopedBlock>(parseBlockOrExpr());
       }
     }
@@ -529,7 +570,7 @@ private:
   }
 
   ast::ScopedBlock parseBlockOrExpr() {
-    if (at(Tok::BlockStart)) return parseScopedBlock();
+    if(at(Tok::BlockStart)) return parseScopedBlock();
     return wrapInBlock(parseExpressionStatement());
   }
 
@@ -551,7 +592,8 @@ private:
     ast::StmtLoop s;
     s.line = next().line; // loop
     s.block = std::make_unique<ast::ScopedBlock>(parseScopedBlock());
-    if (at(Tok::KWWhile)) {
+    if(at(Tok::KWWhile))
+    {
       next();
       expect(Tok::ArgsStart);
       s.compare = parseCompareExpr(/*allowBool=*/false);
@@ -567,22 +609,24 @@ private:
   ast::CompareExpr parseCompareExpr(bool allowBool) {
     ast::CompareExpr cmp;
     cmp.line = 0;
-    if (allowBool && at(Tok::OperatorUnary)) {
+    if(allowBool && at(Tok::OperatorUnary))
+    {
       Token op = next();
       // unary adjacent to the FuncArg
-      if (cur().spaceBefore) error();
+      if(cur().spaceBefore) error();
       cmp.left = parseFuncArg();
       cmp.op = (op.value == "!") ? "==" : "!=";
       cmp.right = ast::FuncArg{ArgType::Num, "0", ""};
       return cmp;
     }
     cmp.left = parseFuncArg();
-    if (at(Tok::OperatorCompare) || at(Tok::TypeStart) || at(Tok::TypeEnd)) {
+    if(at(Tok::OperatorCompare) || at(Tok::TypeStart) || at(Tok::TypeEnd))
+    {
       cmp.op = next().value;
       cmp.right = parseFuncArg();
       return cmp;
     }
-    if (!allowBool) error();
+    if(!allowBool) error();
     cmp.op = "!=";
     cmp.right = ast::FuncArg{ArgType::Num, "0", ""};
     return cmp;
@@ -590,19 +634,20 @@ private:
 
   // FuncArg -> %VarName %Swizzle:? | ValueNumeric | %String
   ast::FuncArg parseFuncArg() {
-    if (at(Tok::VarName)) {
+    if(at(Tok::VarName))
+    {
       Token name = next();
       std::string sw;
-      if (atAdj(Tok::Swizzle)) sw = next().value;
+      if(atAdj(Tok::Swizzle)) sw = next().value;
       return ast::FuncArg{ArgType::Var, name.value, sw};
     }
-    if (atNumeric()) {
+    if(atNumeric())
+    {
       // the JSON path renders numeric args through int64 (jsonAsStr)
-      return ast::FuncArg{
-          ArgType::Num,
-          std::to_string(static_cast<int64_t>(parseNumeric())), ""};
+      return ast::FuncArg{ArgType::Num, std::to_string(static_cast<int64_t>(parseNumeric())), ""};
     }
-    if (at(Tok::String)) {
+    if(at(Tok::String))
+    {
       return ast::FuncArg{ArgType::String, stripQuotes(next().value), ""};
     }
     error();
@@ -617,20 +662,23 @@ private:
 
   ast::Stmt parseExpression() {
     // ExprVarDeclAssign / ExprVarDecl
-    if (at(Tok::KWConst) || at(Tok::DataType)) {
+    if(at(Tok::KWConst) || at(Tok::DataType))
+    {
       bool isConst = false;
-      if (at(Tok::KWConst)) {
+      if(at(Tok::KWConst))
+      {
         next();
         isConst = true;
-        if (!cur().spaceBefore) error(); // (%KWConst __) — space required
+        if(!cur().spaceBefore) error(); // (%KWConst __) — space required
       }
       Token dt = expect(Tok::DataType);
       RegDefPair rp;
-      if (atAdj(Tok::TypeStart)) rp = parseRegDefPair();
+      if(atAdj(Tok::TypeStart)) rp = parseRegDefPair();
       const std::string &reg = rp.reg;
       const std::string &regFract = rp.regFract;
       Token firstName = expect(Tok::VarName);
-      if (at(Tok::Assignment)) {
+      if(at(Tok::Assignment))
+      {
         next();
         ast::StmtVarDeclAssign s;
         s.varType = dt.value;
@@ -653,48 +701,58 @@ private:
       s.isConst = isConst;
       s.line = dt.line;
       s.varNames.push_back(firstName.value);
-      while (at(Tok::Seperator)) {
+      while(at(Tok::Seperator))
+      {
         next();
         s.varNames.push_back(expect(Tok::VarName).value);
       }
       return ast::Stmt{std::move(s)};
     }
-    if (at(Tok::KWUndef)) {
+    if(at(Tok::KWUndef))
+    {
       Token kw = next();
       ast::StmtVarUndef s;
       s.line = kw.line;
       s.varNames.push_back(expect(Tok::VarName).value);
-      while (at(Tok::Seperator)) {
+      while(at(Tok::Seperator))
+      {
         next();
         s.varNames.push_back(expect(Tok::VarName).value);
       }
       return ast::Stmt{std::move(s)};
     }
-    if (at(Tok::KWGoto)) {
+    if(at(Tok::KWGoto))
+    {
       next();
       Token label = expect(Tok::VarName); // line comes from the label token
       return ast::Stmt{ast::StmtGoto{label.value, label.line}};
     }
-    if (at(Tok::KWContinue)) return ast::Stmt{ast::StmtContinue{next().line}};
-    if (at(Tok::KWBreak)) return ast::Stmt{ast::StmtBreak{next().line}};
-    if (at(Tok::KWExit)) return ast::Stmt{ast::StmtExit{next().line}};
+    if(at(Tok::KWContinue)) return ast::Stmt{ast::StmtContinue{next().line}};
+    if(at(Tok::KWBreak)) return ast::Stmt{ast::StmtBreak{next().line}};
+    if(at(Tok::KWExit)) return ast::Stmt{ast::StmtExit{next().line}};
 
-    if (at(Tok::VarName)) {
+    if(at(Tok::VarName))
+    {
       // ExprFuncCall -> %VarName %ArgsStart _ FuncArgs:* %ArgsEnd
-      if (peekNext().type == Tok::ArgsStart && !peekNext().spaceBefore) {
+      if(peekNext().type == Tok::ArgsStart && !peekNext().spaceBefore)
+      {
         Token name = next();
         next(); // (
         ast::StmtFuncCall s;
         s.func = name.value;
         s.line = name.line;
-        if (!at(Tok::ArgsEnd)) {
+        if(!at(Tok::ArgsEnd))
+        {
           s.args.push_back(parseFuncArg());
-          while (at(Tok::Seperator)) {
+          while(at(Tok::Seperator))
+          {
             next();
             s.args.push_back(parseFuncArg());
           }
           expectAdj(Tok::ArgsEnd); // no `_` before `)` at statement level
-        } else {
+        }
+        else
+        {
           next(); // )
         }
         return ast::Stmt{std::move(s)};
@@ -705,10 +763,13 @@ private:
       ast::StmtVarAssignCalc s;
       s.varName = name.value;
       s.line = name.line;
-      if (atAdj(Tok::Swizzle)) s.swizzle = next().value;
-      if (at(Tok::Assignment) || at(Tok::OperatorSelfR)) {
+      if(atAdj(Tok::Swizzle)) s.swizzle = next().value;
+      if(at(Tok::Assignment) || at(Tok::OperatorSelfR))
+      {
         s.assignType = next().value;
-      } else {
+      }
+      else
+      {
         error();
       }
       s.calc = std::make_unique<ast::Calc>(parseCalcAll());
@@ -722,52 +783,60 @@ private:
   // ExprCalcAll -> ExprCalcMulti | ExprCalcNum | ExprCalcVar |
   //                ExprCalcFunc | ExprCalcCompare
   ast::Calc parseCalcAll() {
-    if (at(Tok::ArgsStart)) {
+    if(at(Tok::ArgsStart))
+    {
       return parseCalcMulti();
     }
-    if (atNumeric()) {
+    if(atNumeric())
+    {
       Token numTok = next();
       double v = parseNumericToken(numTok);
-      if (at(Tok::OperatorLR)) {
+      if(at(Tok::OperatorLR))
+      {
         return parseCalcMultiFromNum(v);
       }
       return ast::Calc{ast::CalcNum{ast::ExprNum{v}}};
     }
     // ExprCalcVar -> %OperatorUnary:? %VarName %Swizzle:?  (all adjacent)
-    if (at(Tok::OperatorUnary)) {
+    if(at(Tok::OperatorUnary))
+    {
       Token op = next();
       Token name = expectAdj(Tok::VarName);
       std::string sw;
-      if (atAdj(Tok::Swizzle)) sw = next().value;
-      return ast::Calc{
-          ast::CalcVar{op.value, ast::ExprVarName{name.value}, sw}};
+      if(atAdj(Tok::Swizzle)) sw = next().value;
+      return ast::Calc{ast::CalcVar{op.value, ast::ExprVarName{name.value}, sw}};
     }
-    if (at(Tok::VarName)) {
+    if(at(Tok::VarName))
+    {
       // ExprCalcFunc -> %VarName %ArgsStart _ FuncArgs:* _ %ArgsEnd %Swizzle:?
-      if (peekNext().type == Tok::ArgsStart && !peekNext().spaceBefore) {
+      if(peekNext().type == Tok::ArgsStart && !peekNext().spaceBefore)
+      {
         Token name = next();
         next(); // (
         ast::CalcFunc cf;
         cf.funcName = name.value;
-        if (!at(Tok::ArgsEnd)) {
+        if(!at(Tok::ArgsEnd))
+        {
           cf.args.push_back(parseFuncArg());
-          while (at(Tok::Seperator)) {
+          while(at(Tok::Seperator))
+          {
             next();
             cf.args.push_back(parseFuncArg());
           }
         }
         expect(Tok::ArgsEnd); // `_ %ArgsEnd` — space allowed (unlike stmt call)
-        if (atAdj(Tok::Swizzle)) cf.swizzleRight = next().value;
+        if(atAdj(Tok::Swizzle)) cf.swizzleRight = next().value;
         return ast::Calc{std::move(cf)};
       }
       Token name = next();
       std::string sw;
-      if (atAdj(Tok::Swizzle)) sw = next().value;
-      if (at(Tok::OperatorLR)) {
+      if(atAdj(Tok::Swizzle)) sw = next().value;
+      if(at(Tok::OperatorLR))
+      {
         return parseCalcMultiFromVar(name.value, sw);
       }
-      if (sw.empty() && (at(Tok::OperatorCompare) || at(Tok::TypeStart) ||
-                         at(Tok::TypeEnd))) {
+      if(sw.empty() && (at(Tok::OperatorCompare) || at(Tok::TypeStart) || at(Tok::TypeEnd)))
+      {
         return parseCalcCompare(name.value);
       }
       return ast::Calc{ast::CalcVar{"", ast::ExprVarName{name.value}, sw}};
@@ -779,17 +848,21 @@ private:
   //                  (_ ExprCalcMultiPart):+
   ast::Calc parseCalcMulti() {
     ast::CalcMulti cm;
-    while (at(Tok::ArgsStart)) {
+    while(at(Tok::ArgsStart))
+    {
       next();
       ++cm.groupStart;
     }
-    if (at(Tok::VarName)) {
+    if(at(Tok::VarName))
+    {
       cm.left = ast::ExprVarName{next().value};
-    } else {
+    }
+    else
+    {
       // the JSON path reads calcMulti operand numbers through int64
       cm.leftVal = static_cast<double>(static_cast<int64_t>(parseNumeric()));
     }
-    if (atAdj(Tok::Swizzle)) cm.swizzleLeft = next().value;
+    if(atAdj(Tok::Swizzle)) cm.swizzleLeft = next().value;
     parseCalcMultiParts(cm);
     return ast::Calc{std::move(cm)};
   }
@@ -812,22 +885,27 @@ private:
   // ExprCalcMultiPart -> %OperatorLR _ (%ArgsStart _):* (ExprVarName|ExprNum)
   //                      %Swizzle:? (_ %ArgsEnd):*
   void parseCalcMultiParts(ast::CalcMulti &cm) {
-    if (!at(Tok::OperatorLR)) error(); // at least one part
-    while (at(Tok::OperatorLR)) {
+    if(!at(Tok::OperatorLR)) error(); // at least one part
+    while(at(Tok::OperatorLR))
+    {
       ast::CalcMultiPart part;
       part.op = next().value;
-      while (at(Tok::ArgsStart)) {
+      while(at(Tok::ArgsStart))
+      {
         next();
         ++part.groupStart;
       }
-      if (at(Tok::VarName)) {
+      if(at(Tok::VarName))
+      {
         part.right = ast::ExprVarName{next().value};
-      } else {
-        part.rightVal =
-            static_cast<double>(static_cast<int64_t>(parseNumeric()));
       }
-      if (atAdj(Tok::Swizzle)) part.swizzleRight = next().value;
-      while (at(Tok::ArgsEnd)) {
+      else
+      {
+        part.rightVal = static_cast<double>(static_cast<int64_t>(parseNumeric()));
+      }
+      if(atAdj(Tok::Swizzle)) part.swizzleRight = next().value;
+      while(at(Tok::ArgsEnd))
+      {
         next();
         ++part.groupEnd;
       }
@@ -841,25 +919,32 @@ private:
     ast::CalcCompare cc;
     cc.left = std::move(left);
     cc.op = next().value; // compare op / < / >
-    if (at(Tok::VarName)) {
+    if(at(Tok::VarName))
+    {
       cc.right = next().value;
-    } else {
+    }
+    else
+    {
       cc.rightVal = parseNumeric(); // kept as double in the JSON path
     }
-    if (atAdj(Tok::Swizzle)) cc.swizzleRight = next().value;
+    if(atAdj(Tok::Swizzle)) cc.swizzleRight = next().value;
     // ExprPartTernary -> _ %QuestionMark _ %VarName _ %Colon _
     //                    (%VarName | ValueNumeric) %Swizzle:? _
-    if (at(Tok::QuestionMark)) {
+    if(at(Tok::QuestionMark))
+    {
       next();
       ast::TernaryPart tp;
       tp.left = expect(Tok::VarName).value;
       expect(Tok::Colon);
-      if (at(Tok::VarName)) {
+      if(at(Tok::VarName))
+      {
         tp.right = next().value;
-      } else {
+      }
+      else
+      {
         tp.rightVal = parseNumeric();
       }
-      if (atAdj(Tok::Swizzle)) tp.swizzleRight = next().value;
+      if(atAdj(Tok::Swizzle)) tp.swizzleRight = next().value;
       cc.ternary = std::move(tp);
     }
     return ast::Calc{std::move(cc)};

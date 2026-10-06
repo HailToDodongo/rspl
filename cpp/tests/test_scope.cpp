@@ -25,18 +25,18 @@ TEST_CASE("Scope - Var Declaration", "[scope]") {
 }
 
 TEST_CASE("Scope - Var Un-Declaration", "[scope]") {
-  REQUIRE_THROWS_AS(
-      rspl::transpileSource(
-          R"(function test_scope()
+  REQUIRE_THROWS_AS(rspl::transpileSource(
+                        R"(function test_scope()
 {
   u32<$t0> a;
   a += 2;
   undef a;
   a = 2;
 })",
-          {.rspqWrapper = false}),
-      std::runtime_error);
-  try {
+                        {.rspqWrapper = false}),
+                    std::runtime_error);
+  try
+  {
     rspl::transpileSource(
         R"(function test_scope()
 {
@@ -46,15 +46,14 @@ TEST_CASE("Scope - Var Un-Declaration", "[scope]") {
   a = 2;
 })",
         {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find("Variable a not known") != std::string::npos);
   }
+  catch(const std::runtime_error &e)
+  { REQUIRE(std::string(e.what()).find("Variable a not known") != std::string::npos); }
 }
 
 TEST_CASE("Scope - Var Decl. invalid", "[scope]") {
-  REQUIRE_THROWS_AS(
-      rspl::transpileSource(
-          R"(function test_scope()
+  REQUIRE_THROWS_AS(rspl::transpileSource(
+                        R"(function test_scope()
 {
   u32<$t0> a;
   {
@@ -63,9 +62,10 @@ TEST_CASE("Scope - Var Decl. invalid", "[scope]") {
   }
   b += 2;
 })",
-          {.rspqWrapper = false}),
-      std::runtime_error);
-  try {
+                        {.rspqWrapper = false}),
+                    std::runtime_error);
+  try
+  {
     rspl::transpileSource(
         R"(function test_scope()
 {
@@ -77,9 +77,9 @@ TEST_CASE("Scope - Var Decl. invalid", "[scope]") {
   b += 2;
 })",
         {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find("Variable b not known") != std::string::npos);
   }
+  catch(const std::runtime_error &e)
+  { REQUIRE(std::string(e.what()).find("Variable b not known") != std::string::npos); }
 }
 
 TEST_CASE("Scope - Var Un-Declaration multiple", "[scope]") {
@@ -112,12 +112,9 @@ TEST_CASE("Scope - Var Un-Declaration multiple", "[scope]") {
   undef a, b;
   b += 1;
 })";
-  REQUIRE_THROWS_AS(rspl::transpileSource(srcErr, {.rspqWrapper = false}),
-                    std::runtime_error);
-  try {
-    rspl::transpileSource(srcErr, {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find("Variable b not known") !=
-            std::string::npos);
-  }
+  REQUIRE_THROWS_AS(rspl::transpileSource(srcErr, {.rspqWrapper = false}), std::runtime_error);
+  try
+  { rspl::transpileSource(srcErr, {.rspqWrapper = false}); }
+  catch(const std::runtime_error &e)
+  { REQUIRE(std::string(e.what()).find("Variable b not known") != std::string::npos); }
 }

@@ -95,12 +95,10 @@ TEST_CASE("Preproc - Define - Empty", "[preproc]") {
       }
     )";
   REQUIRE_THROWS_AS(preproc(src), std::runtime_error);
-  try {
-    preproc(src);
-  } catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find(
-        "Invalid #define statement") != std::string::npos);
-  }
+  try
+  { preproc(src); }
+  catch(const std::runtime_error &e)
+  { REQUIRE(std::string(e.what()).find("Invalid #define statement") != std::string::npos); }
 }
 
 TEST_CASE("Preproc - Ifdef - Basic", "[preproc]") {
@@ -175,12 +173,10 @@ TEST_CASE("Preproc - Ifdef - nested", "[preproc]") {
 
     )";
   REQUIRE_THROWS_AS(preproc(src), std::runtime_error);
-  try {
-    preproc(src);
-  } catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find(
-        "Nested #ifdef") != std::string::npos);
-  }
+  try
+  { preproc(src); }
+  catch(const std::runtime_error &e)
+  { REQUIRE(std::string(e.what()).find("Nested #ifdef") != std::string::npos); }
 }
 
 TEST_CASE("Preproc - Defines emitted in source order", "[preproc]") {
@@ -196,8 +192,7 @@ TEST_CASE("Preproc - Defines emitted in source order", "[preproc]") {
   REQUIRE(defineOrder[1].name == "LIGHT_COUNT");
 }
 
-TEST_CASE("Preproc - #undef removes define from ordered output",
-          "[preproc]") {
+TEST_CASE("Preproc - #undef removes define from ordered output", "[preproc]") {
   std::unordered_map<std::string, rspl::DefineEntry> defines;
   std::vector<rspl::DefineEntry> defineOrder;
   auto src = R"(
@@ -212,8 +207,7 @@ TEST_CASE("Preproc - #undef removes define from ordered output",
   REQUIRE(defineOrder.size() == 2); // both were pushed before undef
 }
 
-TEST_CASE("Preproc - stripComments handles large block comments",
-          "[preproc]") {
+TEST_CASE("Preproc - stripComments handles large block comments", "[preproc]") {
   auto src = R"(/***************************************
  * Multi-line block comment
  ***************************************/

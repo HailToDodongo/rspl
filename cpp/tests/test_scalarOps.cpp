@@ -27,7 +27,8 @@ function test_scalar_ops()
 
   DIV:
   c = a / 8;
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test_scalar_ops:
@@ -92,7 +93,8 @@ function test_scalar_ops()
   sc = sa >>> 2;
 
   //c = a >> TEST_CONST; Invalid
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test_scalar_ops:
@@ -129,7 +131,8 @@ TEST_CASE("Scalar Ops - Multiplication (2^x)", "[scalarOps]") {
   auto result = rspl::transpileSource(R"(function test() {
   u32<$t0> a, b;
   a = b * 4;
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
@@ -142,7 +145,8 @@ TEST_CASE("Scalar Ops - Division (2^x)", "[scalarOps]") {
   auto result = rspl::transpileSource(R"(function test() {
   u32<$t0> a, b;
   a = b / 8;
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
@@ -155,7 +159,8 @@ TEST_CASE("Scalar Ops - Assign scalar", "[scalarOps]") {
   auto result = rspl::transpileSource(R"(function test() {
   u32<$t0> a;
   u32<$t1> b = a;
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
@@ -170,7 +175,8 @@ TEST_CASE("Scalar Ops - Assign Vector (ufract)", "[scalarOps]") {
   vec16 v1;
   u32 a = v0:ufract.y;
   u32 b = v1:ufract.y;
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
@@ -186,7 +192,8 @@ TEST_CASE("Scalar Ops - Assign Vector (sint)", "[scalarOps]") {
   vec16 v1;
   u32 a = v0:sint.y;
   u32 b = v1:sint.y;
-})", CONF);
+})",
+                                      CONF);
 
   REQUIRE(result.warn.empty());
   REQUIRE(result.asm_ == R"(test:
@@ -197,54 +204,62 @@ TEST_CASE("Scalar Ops - Assign Vector (sint)", "[scalarOps]") {
 }
 
 TEST_CASE("Scalar Ops - Invalid (multiplication)", "[scalarOps]") {
-  REQUIRE_THROWS_AS(
-      rspl::transpileSource(R"(function test() {
+  REQUIRE_THROWS_AS(rspl::transpileSource(R"(function test() {
   u32<$t0> a, b;
   a = a * b;
-})", CONF),
-      std::runtime_error);
-  try {
+})",
+                                          CONF),
+                    std::runtime_error);
+  try
+  {
     rspl::transpileSource(R"(function test() {
   u32<$t0> a, b;
   a = a * b;
-})", CONF);
-  } catch (const std::runtime_error &e) {
+})",
+                          CONF);
+  }
+  catch(const std::runtime_error &e)
+  {
     REQUIRE(std::string(e.what()).find("Scalar-Multiplication only allowed with a power-of-two") != std::string::npos);
   }
 }
 
 TEST_CASE("Scalar Ops - Invalid (division)", "[scalarOps]") {
-  REQUIRE_THROWS_AS(
-      rspl::transpileSource(R"(function test() {
+  REQUIRE_THROWS_AS(rspl::transpileSource(R"(function test() {
   u32<$t0> a, b;
   a = a / b;
-})", CONF),
-      std::runtime_error);
-  try {
+})",
+                                          CONF),
+                    std::runtime_error);
+  try
+  {
     rspl::transpileSource(R"(function test() {
   u32<$t0> a, b;
   a = a / b;
-})", CONF);
-  } catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find("Scalar-Division only allowed with a power-of-two") != std::string::npos);
+})",
+                          CONF);
   }
+  catch(const std::runtime_error &e)
+  { REQUIRE(std::string(e.what()).find("Scalar-Division only allowed with a power-of-two") != std::string::npos); }
 }
 
 TEST_CASE("Scalar Ops - Invalid (sub with label)", "[scalarOps]") {
-  REQUIRE_THROWS_AS(
-      rspl::transpileSource(R"(state { u32 TEST_CONST; }
+  REQUIRE_THROWS_AS(rspl::transpileSource(R"(state { u32 TEST_CONST; }
 function test() {
   u32<$t0> a;
   a = a - TEST_CONST;
-})", CONF),
-      std::runtime_error);
-  try {
+})",
+                                          CONF),
+                    std::runtime_error);
+  try
+  {
     rspl::transpileSource(R"(state { u32 TEST_CONST; }
 function test() {
   u32<$t0> a;
   a = a - TEST_CONST;
-})", CONF);
-  } catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find("Subtraction cannot use labels") != std::string::npos);
+})",
+                          CONF);
   }
+  catch(const std::runtime_error &e)
+  { REQUIRE(std::string(e.what()).find("Subtraction cannot use labels") != std::string::npos); }
 }

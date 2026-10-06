@@ -22,10 +22,8 @@ int getRegStallIndex(const std::string &name);
 int getRegStallIndex(const char *name, size_t len);
 
 // Hidden registers (read/written implicitly by certain ops)
-extern const std::unordered_map<Opcode, std::vector<std::string>>
-    HIDDEN_REGS_READ;
-extern const std::unordered_map<Opcode, std::vector<std::string>>
-    HIDDEN_REGS_WRITE;
+extern const std::unordered_map<Opcode, std::vector<std::string>> HIDDEN_REGS_READ;
+extern const std::unordered_map<Opcode, std::vector<std::string>> HIDDEN_REGS_WRITE;
 
 // Lane expansion for vector registers
 const std::vector<std::string> &expandRegister(const std::string &regName);
@@ -44,8 +42,7 @@ void asmInitDeps(AsmFunc &func);
 // the compact scheduler (compact_sched.cpp), which is the one implementation.
 
 // Get set of indices where instruction at position `i` can be safely reordered
-std::vector<int> asmGetReorderIndices(const std::vector<AsmInst> &asmList,
-                                      int i);
+std::vector<int> asmGetReorderIndices(const std::vector<AsmInst> &asmList, int i);
 
 // Offset-rebase hop: try to move the mem-op at index `i` across the nearest
 // blocking pure self-increment of its base register (forward = below it,

@@ -23,26 +23,21 @@ function test()
 
 static std::string runDet(uint32_t seed) {
   auto result = rspl::transpileSource(
-      DET_SRC, {.rspqWrapper = false,
-                .reorder = true,
-                .optWorkers = 2,
-                .optSeed = seed,
-                .optIters = 4});
+      DET_SRC, {.rspqWrapper = false, .reorder = true, .optWorkers = 2, .optSeed = seed, .optIters = 4});
   return result.asm_;
 }
 
-TEST_CASE("Optimizer - Determinism - same seed, same output",
-          "[optDeterminism]") {
+TEST_CASE("Optimizer - Determinism - same seed, same output", "[optDeterminism]") {
   auto a = runDet(1234);
   auto b = runDet(1234);
   REQUIRE(!a.empty());
   REQUIRE(a == b);
 }
 
-TEST_CASE("Optimizer - Determinism - repeated runs stay stable",
-          "[optDeterminism]") {
+TEST_CASE("Optimizer - Determinism - repeated runs stay stable", "[optDeterminism]") {
   auto first = runDet(99);
-  for (int i = 0; i < 2; ++i) {
+  for(int i = 0; i < 2; ++i)
+  {
     REQUIRE(runDet(99) == first);
   }
 }

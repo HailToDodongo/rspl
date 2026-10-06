@@ -37,8 +37,8 @@ struct FuncArg {
 
 struct FuncDefArg {
   TypeClass type = TypeClass::Unknown; // data type e.g. u32, vec16
-  std::string reg;  // optional register constraint, e.g. "$t0"
-  std::string regFract; // vec32 only: second register of the pair
+  std::string reg;                     // optional register constraint, e.g. "$t0"
+  std::string regFract;                // vec32 only: second register of the pair
   std::string name;
 };
 
@@ -67,7 +67,7 @@ struct CalcNum {
 };
 
 struct CalcVar {
-  std::string op;     // "!" / "~" / empty
+  std::string op; // "!" / "~" / empty
   ExprVarName right;
   std::string swizzleRight;
 };
@@ -75,15 +75,15 @@ struct CalcVar {
 struct CalcLR {
   ExprVarName left;
   std::string op;
-  ExprNum rightNum;          // filled when right is numeric
-  std::string rightVarName;  // filled when right is a variable
+  ExprNum rightNum;         // filled when right is numeric
+  std::string rightVarName; // filled when right is a variable
   std::string swizzleLeft;
   std::string swizzleRight;
 };
 
 struct CalcMultiPart {
   std::string op;
-  ExprVarName right;            // when right is a VarName
+  ExprVarName right;              // when right is a VarName
   std::optional<double> rightVal; // when right is a number
   std::string swizzleRight;
   int32_t groupStart = 0;
@@ -105,14 +105,14 @@ struct CalcFunc {
 };
 
 struct TernaryPart {
-  std::string left;              // variable name
-  std::string right;             // variable name
+  std::string left;               // variable name
+  std::string right;              // variable name
   std::optional<double> rightVal; // value when right is a number
   std::string swizzleRight;
 };
 
 struct CalcCompare {
-  std::string left;               // variable name
+  std::string left; // variable name
   std::string op;
   std::string right;              // variable name
   std::optional<double> rightVal; // value when right is a number
@@ -121,15 +121,7 @@ struct CalcCompare {
 };
 
 // Calc variant — includes all calculation node types
-using Calc = std::variant<
-    CalcNum,
-    CalcVar,
-    CalcLR,
-    CalcMulti,
-    CalcMultiPart,
-    CalcFunc,
-    CalcCompare
->;
+using Calc = std::variant<CalcNum, CalcVar, CalcLR, CalcMulti, CalcMultiPart, CalcFunc, CalcCompare>;
 
 // --- Statement types --------------------------------------------------
 
@@ -242,7 +234,7 @@ struct StmtExit {
 struct StmtAnnotation {
   std::string name;
   std::string value;
-  std::string mode;  // "" | "strict" | "before" | "after" (Barrier only)
+  std::string mode; // "" | "strict" | "before" | "after" (Barrier only)
   bool valueIsString = false;
   uint32_t line = 0;
 };
@@ -261,26 +253,9 @@ struct StmtMacroDef {
   uint32_t line = 0;
 };
 
-using Stmt = std::variant<
-    StmtVarDecl,
-    StmtVarDeclMulti,
-    StmtVarDeclAssign,
-    StmtVarDeclAlias,
-    StmtVarUndef,
-    StmtVarAssignCalc,
-    StmtFuncCall,
-    StmtLabelDecl,
-    StmtGoto,
-    StmtIf,
-    StmtWhile,
-    StmtLoop,
-    StmtBreak,
-    StmtContinue,
-    StmtExit,
-    StmtAnnotation,
-    StmtScopedBlock,
-    StmtMacroDef
->;
+using Stmt = std::variant<StmtVarDecl, StmtVarDeclMulti, StmtVarDeclAssign, StmtVarDeclAlias, StmtVarUndef,
+                          StmtVarAssignCalc, StmtFuncCall, StmtLabelDecl, StmtGoto, StmtIf, StmtWhile, StmtLoop,
+                          StmtBreak, StmtContinue, StmtExit, StmtAnnotation, StmtScopedBlock, StmtMacroDef>;
 
 struct ScopedBlock {
   std::vector<Stmt> statements;
@@ -329,7 +304,7 @@ struct Attribute {
 struct Function {
   std::vector<Annotation> annotations;
   FuncType type = FuncType::Function; // function, command, macro
-  std::optional<int64_t> resultType; // command index (numeric form only)
+  std::optional<int64_t> resultType;  // command index (numeric form only)
   // "< >" was present at all — it may hold a non-numeric value such as a
   // register, which is invalid for every function type but must still parse
   // so validation can report it.

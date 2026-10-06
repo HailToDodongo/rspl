@@ -19,8 +19,7 @@ static std::string examplesPath(const std::string &rel) {
 }
 
 // Transpile RSPL source, expect no errors and return the ASM.
-static std::string transpile(const std::string &src, bool optimize,
-                             bool debugInfo = false,
+static std::string transpile(const std::string &src, bool optimize, bool debugInfo = false,
                              const std::string &sourceDir = ".") {
   rspl::TranspileConfig cfg;
   cfg.rspqWrapper = true;
@@ -32,8 +31,7 @@ static std::string transpile(const std::string &src, bool optimize,
   return res.asm_;
 }
 
-static std::string transpileMagma(const std::string &src, bool optimize,
-                                  bool debugInfo = false,
+static std::string transpileMagma(const std::string &src, bool optimize, bool debugInfo = false,
                                   const std::string &sourceDir = ".") {
   rspl::TranspileConfig cfg;
   cfg.rspqWrapper = true;
@@ -46,8 +44,7 @@ static std::string transpileMagma(const std::string &src, bool optimize,
   return res.asm_;
 }
 
-static std::string transpileFile(const std::string &path, bool optimize,
-                                 bool debugInfo = false) {
+static std::string transpileFile(const std::string &path, bool optimize, bool debugInfo = false) {
   // Set sourceDir to the directory of the file so includes resolve correctly
   auto lastSlash = path.rfind('/');
   std::string dir = (lastSlash != std::string::npos) ? path.substr(0, lastSlash) : ".";
@@ -136,8 +133,7 @@ include "rsp_rdpq.inc"
 )";
   auto asm_ = transpile(src, false);
   // Trim trailing whitespace to match JS test's .trimEnd()
-  while (!asm_.empty() && (asm_.back() == '\n' || asm_.back() == ' '))
-    asm_.pop_back();
+  while(!asm_.empty() && (asm_.back() == '\n' || asm_.back() == ' ')) asm_.pop_back();
   // Golden output from JS test
   REQUIRE_ASM_EQ(R"(## Auto-generated file, transpiled with RSPL
 #include <rsp_queue.inc>
@@ -312,5 +308,6 @@ OVERLAY_CODE_END:
 
 .set at
 .set macro
-#include <rsp_rdpq.inc>)", asm_);
+#include <rsp_rdpq.inc>)",
+                 asm_);
 }

@@ -12,13 +12,13 @@ namespace rspl {
 struct FlatElem {
   enum Kind { VAL, OP };
   Kind kind;
-  std::string opStr;        // for OP ("+", "-", "*", "<<", "&", etc.)
-  double numVal = 0;        // for VAL when numeric
-  std::string varName;      // for VAL when variable
-  std::string swizzle;      // swizzle on the value
-  bool isNum = false;       // VAL is numeric
+  std::string opStr;            // for OP ("+", "-", "*", "<<", "&", etc.)
+  double numVal = 0;            // for VAL when numeric
+  std::string varName;          // for VAL when variable
+  std::string swizzle;          // swizzle on the value
+  bool isNum = false;           // VAL is numeric
   std::vector<FlatElem> nested; // nested sub-expression
-  bool isNested = false;    // true when wrapping a sub-expression
+  bool isNested = false;        // true when wrapping a sub-expression
 };
 
 inline const char NESTED_SENTINEL[] = "\x01";

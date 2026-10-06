@@ -7,11 +7,11 @@
 // element 0-15: element = lane * 2 + (low ? 1 : 0).
 
 static void requireByteThrowsWith(const char *src, const char *msgPart) {
-  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}),
-                    std::runtime_error);
-  try {
-    rspl::transpileSource(src, {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
+  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}), std::runtime_error);
+  try
+  { rspl::transpileSource(src, {.rspqWrapper = false}); }
+  catch(const std::runtime_error &e)
+  {
     INFO(e.what());
     REQUIRE(std::string(e.what()).find(msgPart) != std::string::npos);
   }

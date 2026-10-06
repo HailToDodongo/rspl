@@ -7,8 +7,7 @@
 // be loaded from the command buffer, addressed relative to $gp which points
 // past the current command (same math as the load_arg() builtin).
 
-TEST_CASE("Command Args - args past $a0-$a3 are loaded from the buffer",
-          "[commandArgs]") {
+TEST_CASE("Command Args - args past $a0-$a3 are loaded from the buffer", "[commandArgs]") {
   auto result = rspl::transpileSource(
       R"(command<0> Cmd_Test(u32 a, u32 b, u32 c, u32 d, u32<$s5> e, u16<$s6> f)
 {
@@ -27,8 +26,7 @@ TEST_CASE("Command Args - args past $a0-$a3 are loaded from the buffer",
   nop)");
 }
 
-TEST_CASE("Command Args - typed loads and auto-allocated register",
-          "[commandArgs]") {
+TEST_CASE("Command Args - typed loads and auto-allocated register", "[commandArgs]") {
   auto result = rspl::transpileSource(
       R"(command<1> Cmd_Auto(u32 a, u32 b, u32 c, u32 d, u32 e, u8<$t7> f)
 {
@@ -62,8 +60,7 @@ TEST_CASE("Command Args - exactly 4 args emit no loads", "[commandArgs]") {
   nop)");
 }
 
-TEST_CASE("Command Args - functions never load args from the buffer",
-          "[commandArgs]") {
+TEST_CASE("Command Args - functions never load args from the buffer", "[commandArgs]") {
   auto result = rspl::transpileSource(
       R"(function FuncManyArgs(u32 a, u32 b, u32 c, u32 d, u32<$s5> e)
 {
@@ -78,8 +75,7 @@ TEST_CASE("Command Args - functions never load args from the buffer",
   nop)");
 }
 
-TEST_CASE("Command Args - offsets scale with argument count",
-          "[commandArgs]") {
+TEST_CASE("Command Args - offsets scale with argument count", "[commandArgs]") {
   // 5 args -> argSize 20, arg 4 sits at 16 - 20 = -4
   auto result = rspl::transpileSource(
       R"(command<3> Cmd_Five(u32 a, u32 b, u32 c, u32 d, u32<$s5> e)

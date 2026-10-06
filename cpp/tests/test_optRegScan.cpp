@@ -8,11 +8,9 @@
 
 using namespace rspl;
 
-static std::vector<std::string> allLanes(const std::string &reg, int start = 0,
-                                          int count = 8) {
+static std::vector<std::string> allLanes(const std::string &reg, int start = 0, int count = 8) {
   std::vector<std::string> r;
-  for (int i = 0; i < count; ++i)
-    r.push_back(reg + "_" + std::to_string((start + i) % 8));
+  for(int i = 0; i < count; ++i) r.push_back(reg + "_" + std::to_string((start + i) % 8));
   return r;
 }
 
@@ -25,22 +23,17 @@ static std::string vReg(int n) {
 static std::vector<std::string> stvLanes(int base, int element) {
   int row = element / 2;
   std::vector<std::string> r;
-  for (int i = 0; i < 8; ++i)
-    r.push_back(vReg(base + i) + "_" +
-                std::to_string((8 + i - row) % 8));
+  for(int i = 0; i < 8; ++i) r.push_back(vReg(base + i) + "_" + std::to_string((8 + i - row) % 8));
   return r;
 }
 
-static std::vector<std::string> vecRange(const std::string &, int start,
-                                          int count) {
+static std::vector<std::string> vecRange(const std::string &, int start, int count) {
   std::vector<std::string> r;
-  for (int i = 0; i < count; ++i)
-    r.push_back(vReg(start + i));
+  for(int i = 0; i < count; ++i) r.push_back(vReg(start + i));
   return r;
 }
 
-static AsmInst makeAsm(const std::string &op,
-                       const std::vector<std::string> &args) {
+static AsmInst makeAsm(const std::string &op, const std::vector<std::string> &args) {
   AsmInst inst = asmOp(op, args);
   asmInitDep(inst);
   return inst;
@@ -58,13 +51,13 @@ template <typename C> static auto sorted(const C &c) {
 
 static std::vector<int> idxs(const std::vector<std::string> &regs) {
   std::vector<int> r;
-  for (const auto &s : regs) r.push_back(getRegIndex(s));
+  for(const auto &s : regs) r.push_back(getRegIndex(s));
   return r;
 }
 
 static std::vector<int> stallIdxs(const std::vector<std::string> &regs) {
   std::vector<int> r;
-  for (const auto &s : regs) r.push_back(getRegStallIndex(s));
+  for(const auto &s : regs) r.push_back(getRegStallIndex(s));
   return r;
 }
 
@@ -96,13 +89,13 @@ TEST_CASE("Optimizer - Register Scanner", "[optRegScan]") {
     expSrc.push_back("$s6");
     auto expSrcIdx = sorted([&]() {
       std::vector<int> r;
-      for (auto &s : expSrc) r.push_back(getRegIndex(s));
+      for(auto &s : expSrc) r.push_back(getRegIndex(s));
       return r;
     }());
     auto expStall = std::vector<std::string>{"$v08", "$s6"};
     auto expStallIdx = sorted([&]() {
       std::vector<int> r;
-      for (auto &s : expStall) r.push_back(getRegStallIndex(s));
+      for(auto &s : expStall) r.push_back(getRegStallIndex(s));
       return r;
     }());
     REQUIRE(sorted(a.depsSourceIdx) == expSrcIdx);
@@ -118,13 +111,13 @@ TEST_CASE("Optimizer - Register Scanner", "[optRegScan]") {
     expSrc.push_back("$s6");
     auto expSrcIdx = sorted([&]() {
       std::vector<int> r;
-      for (auto &s : expSrc) r.push_back(getRegIndex(s));
+      for(auto &s : expSrc) r.push_back(getRegIndex(s));
       return r;
     }());
     auto expStall = std::vector<std::string>{"$v08", "$s6"};
     auto expStallIdx = sorted([&]() {
       std::vector<int> r;
-      for (auto &s : expStall) r.push_back(getRegStallIndex(s));
+      for(auto &s : expStall) r.push_back(getRegStallIndex(s));
       return r;
     }());
     REQUIRE(sorted(a.depsSourceIdx) == expSrcIdx);

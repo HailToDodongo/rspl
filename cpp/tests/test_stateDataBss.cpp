@@ -6,8 +6,7 @@
 static std::string getDataSection(const std::string &asm_) {
   auto idxData = asm_.find(".data");
   auto idxText = asm_.find(".text");
-  if (idxData == std::string::npos || idxText == std::string::npos)
-    return "";
+  if(idxData == std::string::npos || idxText == std::string::npos) return "";
   return asm_.substr(idxData, idxText - idxData);
 }
 
@@ -203,8 +202,7 @@ TEST_CASE("State - Data + State + BSS", "[stateDataBss]") {
   REQUIRE(result.asm_.find("DDD: .ds.b 4") != std::string::npos);
 }
 
-TEST_CASE("State - Extern variables are registered for lookup",
-          "[stateDataBss]") {
+TEST_CASE("State - Extern variables are registered for lookup", "[stateDataBss]") {
   std::string src = R"(
 state {
   extern u32 RDPQ_CMD_STAGING;

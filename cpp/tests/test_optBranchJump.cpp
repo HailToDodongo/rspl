@@ -114,8 +114,7 @@ TEST_CASE("Optimizer E2E - Branch-Jump - Loop - Unused Label", "[optBranchJump]"
 // folds the else-label into the user one, and branchJump then saw a branch
 // to a label nothing else in *this* function used and deleted it — even
 // though another function jumps there.
-TEST_CASE("Optimizer E2E - Branch-Jump - user label after if-goto survives",
-          "[optBranchJump]") {
+TEST_CASE("Optimizer E2E - Branch-Jump - user label after if-goto survives", "[optBranchJump]") {
   auto res = optTranspile(R"(state { extern u16 RSPQ_Loop; }
 function other()
 {

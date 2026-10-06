@@ -40,34 +40,28 @@ struct TranspileResult {
 
 /// Run the full transpile pipeline on a JSON AST from the JS parser.
 /// Returns the transpile result. Throws std::runtime_error on errors.
-TranspileResult runPipeline(const std::string &astJson,
-                            const TranspileConfig &config = {});
+TranspileResult runPipeline(const std::string &astJson, const TranspileConfig &config = {});
 
 /// Same pipeline, starting from an already-parsed program (native parser).
-TranspileResult runPipelineProgram(ast::Program &prog,
-                                   const TranspileConfig &config = {});
+TranspileResult runPipelineProgram(ast::Program &prog, const TranspileConfig &config = {});
 
 /// Fills state.sourceLines from preprocessed source, enabling the source
 /// text column of the debug comments. Call before runPipelineProgram.
-void loadSourceLines(const std::string &preprocessed,
-                     const std::vector<SourceLoc> *origins = nullptr);
+void loadSourceLines(const std::string &preprocessed, const std::vector<SourceLoc> *origins = nullptr);
 
 /// Transpile an RSPL source string to assembly.
 /// Handles the JS parser subprocess internally.
 /// Throws std::runtime_error on parse/compile errors.
-TranspileResult transpileSource(const std::string &source,
-                                const TranspileConfig &config = {});
+TranspileResult transpileSource(const std::string &source, const TranspileConfig &config = {});
 
 /// Locates a function's text in an ASM listing, as a [start, end) byte range.
 /// The function ends at the first following line that starts in column 0.
 /// Throws std::runtime_error if the function or its end cannot be found.
-std::pair<size_t, size_t> getFunctionStartEnd(const std::string &source,
-                                              const std::string &funcName);
+std::pair<size_t, size_t> getFunctionStartEnd(const std::string &source, const std::string &funcName);
 
 /// Replaces each named function in `oldAsm` with its counterpart from
 /// `newAsm`, leaving the rest of `oldAsm` byte-for-byte intact.
-std::string patchAsmFunctions(const std::string &oldAsm,
-                              const std::string &newAsm,
+std::string patchAsmFunctions(const std::string &oldAsm, const std::string &newAsm,
                               const std::vector<std::string> &funcNames);
 
 } // namespace rspl

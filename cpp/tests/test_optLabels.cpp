@@ -14,17 +14,14 @@ static rspl::AsmInst L(const std::string &name) {
   inst.cold->label = name;
   return inst;
 }
-static rspl::AsmInst O(const std::string &op,
-                       std::vector<std::string> args = {}) {
+static rspl::AsmInst O(const std::string &op, std::vector<std::string> args = {}) {
   rspl::AsmInst inst;
   inst.type = rspl::AsmType::OP;
   inst.op = rspl::getOpcode(op);
   inst.args = std::move(args);
   return inst;
 }
-static rspl::AsmInst B(const std::string &op,
-                       std::vector<std::string> args,
-                       const std::string &labelEnd) {
+static rspl::AsmInst B(const std::string &op, std::vector<std::string> args, const std::string &labelEnd) {
   rspl::AsmInst inst = O(op, std::move(args));
   inst.cold->labelEnd = labelEnd;
   return inst;
@@ -49,12 +46,10 @@ TEST_CASE("Optimizer E2E - Labels - De-dupe Labels", "[optLabels]") {
   nop)");
 }
 
-TEST_CASE("Optimizer - dedupeLabels - consecutive generated labels deduped to last",
-          "[optLabels]") {
+TEST_CASE("Optimizer - dedupeLabels - consecutive generated labels deduped to last", "[optLabels]") {
   rspl::AsmFunc func;
   func.name = "test";
-  func.asm_ = {B("j", {"LABEL_test_0001"}, "LABEL_test_0001"), O("nop"),
-               L("LABEL_test_0001"), L("LABEL_test_0002"),
+  func.asm_ = {B("j", {"LABEL_test_0001"}, "LABEL_test_0001"), O("nop"), L("LABEL_test_0001"), L("LABEL_test_0002"),
                O("addiu", {"$t0", "$zero", "1"})};
   rspl::dedupeLabels(func);
   REQUIRE(func.asm_.size() == 4);
@@ -63,14 +58,13 @@ TEST_CASE("Optimizer - dedupeLabels - consecutive generated labels deduped to la
   REQUIRE(func.asm_[2].cold->label == "LABEL_test_0002");
 }
 
-TEST_CASE("Optimizer - dedupeLabels - a generated label folds into the user label, either order",
-          "[optLabels]") {
-  for (bool generatedFirst : {true, false}) {
+TEST_CASE("Optimizer - dedupeLabels - a generated label folds into the user label, either order", "[optLabels]") {
+  for(bool generatedFirst : {true, false})
+  {
     rspl::AsmFunc func;
     func.name = "test";
     func.asm_ = {B("j", {"LABEL_test_0001"}, "LABEL_test_0001"), O("nop"),
-                 L(generatedFirst ? "LABEL_test_0001" : "USER"),
-                 L(generatedFirst ? "USER" : "LABEL_test_0001"),
+                 L(generatedFirst ? "LABEL_test_0001" : "USER"), L(generatedFirst ? "USER" : "LABEL_test_0001"),
                  O("addiu", {"$t0", "$zero", "1"})};
     rspl::dedupeLabels(func);
     REQUIRE(func.asm_.size() == 4);
@@ -80,12 +74,10 @@ TEST_CASE("Optimizer - dedupeLabels - a generated label folds into the user labe
   }
 }
 
-TEST_CASE("Optimizer - dedupeLabels - two user labels are both kept",
-          "[optLabels]") {
+TEST_CASE("Optimizer - dedupeLabels - two user labels are both kept", "[optLabels]") {
   rspl::AsmFunc func;
   func.name = "test";
-  func.asm_ = {B("j", {"USER_A"}, "USER_A"), O("nop"), L("USER_A"),
-               L("USER_B"), O("addiu", {"$t0", "$zero", "1"})};
+  func.asm_ = {B("j", {"USER_A"}, "USER_A"), O("nop"), L("USER_A"), L("USER_B"), O("addiu", {"$t0", "$zero", "1"})};
   rspl::dedupeLabels(func);
   REQUIRE(func.asm_.size() == 5);
   REQUIRE(func.asm_[0].args[0] == "USER_A");
@@ -104,27 +96,23 @@ TEST_CASE("Optimizer - isGeneratedLabel", "[optLabels]") {
   REQUIRE_FALSE(rspl::isGeneratedLabel(func, "LABEL_test_00G1"));
 }
 
-TEST_CASE("Optimizer - dedupeLabels - __ labels are never deduplicated",
-          "[optLabels]") {
+TEST_CASE("Optimizer - dedupeLabels - __ labels are never deduplicated", "[optLabels]") {
   rspl::AsmFunc func;
-  func.asm_ = {B("j", {"SKIP"}, "SKIP"), O("nop"), L("__A"), L("__A"),
-               L("__A"), O("addiu", {"$t0", "$zero", "1"})};
+  func.asm_ = {B("j", {"SKIP"}, "SKIP"), O("nop"), L("__A"), L("__A"), L("__A"), O("addiu", {"$t0", "$zero", "1"})};
   rspl::dedupeLabels(func);
   int labelCount = 0;
-  for (auto &inst : func.asm_)
-    if (inst.type == rspl::AsmType::LABEL) ++labelCount;
+  for(auto &inst : func.asm_)
+    if(inst.type == rspl::AsmType::LABEL) ++labelCount;
   REQUIRE(labelCount == 3);
 }
 
-TEST_CASE("Optimizer - dedupeLabels - __ label breaks dedup chain",
-          "[optLabels]") {
+TEST_CASE("Optimizer - dedupeLabels - __ label breaks dedup chain", "[optLabels]") {
   rspl::AsmFunc func;
-  func.asm_ = {B("j", {"SKIP"}, "SKIP"), O("nop"), L("SKIP"), L("__B"),
-               L("SKIP"), O("addiu", {"$t0", "$zero", "1"})};
+  func.asm_ = {B("j", {"SKIP"}, "SKIP"), O("nop"), L("SKIP"), L("__B"), L("SKIP"), O("addiu", {"$t0", "$zero", "1"})};
   rspl::dedupeLabels(func);
   bool hasDunderB = false;
-  for (auto &inst : func.asm_)
-    if (inst.cold->label == "__B") hasDunderB = true;
+  for(auto &inst : func.asm_)
+    if(inst.cold->label == "__B") hasDunderB = true;
   REQUIRE(hasDunderB);
 }
 

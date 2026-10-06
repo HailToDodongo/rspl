@@ -8,7 +8,6 @@
 
 namespace rspl::ops {
 
-std::vector<AsmInst> callUserFunction(const std::string &name,
-                                      const std::vector<ast::FuncArg> &args);
+std::vector<AsmInst> callUserFunction(const std::string &name, const std::vector<ast::FuncArg> &args);
 
 } // namespace rspl::ops

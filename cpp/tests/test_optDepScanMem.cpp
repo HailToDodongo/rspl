@@ -9,14 +9,14 @@
 
 using namespace rspl;
 
-static std::vector<std::vector<int>>
-asmLinesToDeps(std::vector<AsmInst> &lines) {
+static std::vector<std::vector<int>> asmLinesToDeps(std::vector<AsmInst> &lines) {
   AsmFunc func;
   func.asm_ = lines;
   asmInitDeps(func);
   lines = std::move(func.asm_);
   std::vector<std::vector<int>> res;
-  for (size_t i = 0; i < lines.size(); ++i) {
+  for(size_t i = 0; i < lines.size(); ++i)
+  {
     auto r = asmGetReorderIndices(lines, static_cast<int>(i));
     std::sort(r.begin(), r.end());
     res.push_back(std::move(r));
@@ -24,8 +24,7 @@ asmLinesToDeps(std::vector<AsmInst> &lines) {
   return res;
 }
 
-TEST_CASE("Optimizer - Dependency Scanner - Memory - Read vs Read",
-          "[optDepScanMem]") {
+TEST_CASE("Optimizer - Dependency Scanner - Memory - Read vs Read", "[optDepScanMem]") {
   std::vector<AsmInst> lines = {
       asmOp("lw", {"$t0", "0($s1)"}),
       asmOp("or", {"$t1", "$zero", "$zero"}),
@@ -33,13 +32,11 @@ TEST_CASE("Optimizer - Dependency Scanner - Memory - Read vs Read",
       asmOp("or", {"$t3", "$zero", "$zero"}),
   };
   auto deps = asmLinesToDeps(lines);
-  std::vector<std::vector<int>> expected = {
-      {0, 1, 2, 3}, {0, 1, 2, 3}, {0, 1, 2, 3}, {0, 1, 2, 3}};
+  std::vector<std::vector<int>> expected = {{0, 1, 2, 3}, {0, 1, 2, 3}, {0, 1, 2, 3}, {0, 1, 2, 3}};
   REQUIRE(deps == expected);
 }
 
-TEST_CASE("Optimizer - Dependency Scanner - Memory - Read vs Write",
-          "[optDepScanMem]") {
+TEST_CASE("Optimizer - Dependency Scanner - Memory - Read vs Write", "[optDepScanMem]") {
   std::vector<AsmInst> lines = {
       asmOp("lw", {"$t0", "0($s1)"}),
       asmOp("or", {"$t1", "$zero", "$zero"}),
@@ -47,13 +44,11 @@ TEST_CASE("Optimizer - Dependency Scanner - Memory - Read vs Write",
       asmOp("or", {"$t3", "$zero", "$zero"}),
   };
   auto deps = asmLinesToDeps(lines);
-  std::vector<std::vector<int>> expected = {
-      {0, 1, 2, 3}, {0, 1, 2, 3}, {0, 1, 2, 3}, {0, 1, 2, 3}};
+  std::vector<std::vector<int>> expected = {{0, 1, 2, 3}, {0, 1, 2, 3}, {0, 1, 2, 3}, {0, 1, 2, 3}};
   REQUIRE(deps == expected);
 }
 
-TEST_CASE("Optimizer - Dependency Scanner - Memory - Read vs Write Barrier",
-          "[optDepScanMem]") {
+TEST_CASE("Optimizer - Dependency Scanner - Memory - Read vs Write Barrier", "[optDepScanMem]") {
   std::vector<AsmInst> lines = {
       asmOp("lw", {"$t0", "0($s1)"}),
       asmOp("or", {"$t1", "$zero", "$zero"}),
@@ -69,13 +64,11 @@ TEST_CASE("Optimizer - Dependency Scanner - Memory - Read vs Write Barrier",
   state.pushScope("", "");
 
   auto deps = asmLinesToDeps(lines);
-  std::vector<std::vector<int>> expected = {
-      {0, 1, 2}, {0, 1, 2, 3}, {1, 2, 3}, {0, 1, 2, 3}};
+  std::vector<std::vector<int>> expected = {{0, 1, 2}, {0, 1, 2, 3}, {1, 2, 3}, {0, 1, 2, 3}};
   REQUIRE(deps == expected);
 }
 
-TEST_CASE("Optimizer - Dependency Scanner - Memory - Write vs Write",
-          "[optDepScanMem]") {
+TEST_CASE("Optimizer - Dependency Scanner - Memory - Write vs Write", "[optDepScanMem]") {
   std::vector<AsmInst> lines = {
       asmOp("sw", {"$t0", "0($s2)"}),
       asmOp("or", {"$t1", "$zero", "$zero"}),
@@ -83,7 +76,6 @@ TEST_CASE("Optimizer - Dependency Scanner - Memory - Write vs Write",
       asmOp("or", {"$t3", "$zero", "$zero"}),
   };
   auto deps = asmLinesToDeps(lines);
-  std::vector<std::vector<int>> expected = {
-      {0, 1, 2, 3}, {0, 1, 2, 3}, {0, 1, 2, 3}, {0, 1, 2, 3}};
+  std::vector<std::vector<int>> expected = {{0, 1, 2, 3}, {0, 1, 2, 3}, {0, 1, 2, 3}, {0, 1, 2, 3}};
   REQUIRE(deps == expected);
 }

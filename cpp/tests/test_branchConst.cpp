@@ -26,8 +26,7 @@ TEST_CASE("Branch (Var vs. Const) - Equal - U32", "[branchConst]") {
   nop)");
 }
 
-TEST_CASE("Branch (Var vs. Const) - Equal - U32 (big number)",
-          "[branchConst]") {
+TEST_CASE("Branch (Var vs. Const) - Equal - U32 (big number)", "[branchConst]") {
   auto result = rspl::transpileSource(
       R"(function test_if() {
       u32<$v0> a;
@@ -97,8 +96,7 @@ TEST_CASE("Branch (Var vs. Const) - Greater - U32", "[branchConst]") {
   nop)");
 }
 
-TEST_CASE("Branch (Var vs. Const) - Greater - U32 (big number)",
-          "[branchConst]") {
+TEST_CASE("Branch (Var vs. Const) - Greater - U32 (big number)", "[branchConst]") {
   auto result = rspl::transpileSource(
       R"(function test_if() {
       u32<$v0> a;

@@ -8,16 +8,14 @@
 // line number is not the one in the editor).
 
 static std::string errorFor(const char *src) {
-  try {
-    rspl::transpileSource(src, {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
-    return e.what();
-  }
+  try
+  { rspl::transpileSource(src, {.rspqWrapper = false}); }
+  catch(const std::runtime_error &e)
+  { return e.what(); }
   return {};
 }
 
-TEST_CASE("ErrorContext - quotes the line and its neighbours",
-          "[errorContext]") {
+TEST_CASE("ErrorContext - quotes the line and its neighbours", "[errorContext]") {
   auto err = errorFor(R"(function test()
 {
   vec32<$v05> a;
@@ -48,8 +46,7 @@ TEST_CASE("ErrorContext - indentation is preserved", "[errorContext]") {
   REQUIRE(err.find("   5 |         vec32<$v05> a;") != std::string::npos);
 }
 
-TEST_CASE("ErrorContext - clamps at the start of the file",
-          "[errorContext]") {
+TEST_CASE("ErrorContext - clamps at the start of the file", "[errorContext]") {
   // an error on the first line must not walk off the front
   auto err = errorFor(R"(u32<$t0> dup;
 u32<$t0> dup2;

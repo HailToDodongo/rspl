@@ -48,8 +48,7 @@ TEST_CASE("Optimizer E2E - Delay-Slots - Fill - Complex", "[optDelaySlot]") {
   nop)");
 }
 
-TEST_CASE("Optimizer E2E - Delay-Slots - Fill across jal (scalar)",
-          "[optDelaySlot]") {
+TEST_CASE("Optimizer E2E - Delay-Slots - Fill across jal (scalar)", "[optDelaySlot]") {
   auto res = optTranspile(R"(
 function DMAWaitIdle();
 function test()

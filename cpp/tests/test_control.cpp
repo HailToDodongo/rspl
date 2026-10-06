@@ -84,9 +84,8 @@ function test()
 }
 
 TEST_CASE("Control - Unlikely If - else not allowed", "[control]") {
-  REQUIRE_THROWS_WITH(
-      rspl::transpileSource(
-          R"(state { u32 FOO; }
+  REQUIRE_THROWS_WITH(rspl::transpileSource(
+                          R"(state { u32 FOO; }
 function test()
 {
   u32<$t0> a = load(FOO);
@@ -97,6 +96,6 @@ function test()
   }
   store(a, FOO);
 })",
-          {.rspqWrapper = false}),
-      Catch::Matchers::ContainsSubstring("else-block"));
+                          {.rspqWrapper = false}),
+                      Catch::Matchers::ContainsSubstring("else-block"));
 }

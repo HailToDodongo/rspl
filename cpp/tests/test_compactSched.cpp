@@ -24,13 +24,18 @@ std::vector<AsmInst> parseWithLabels(const std::string &text) {
   std::vector<AsmInst> out;
   std::istringstream ss(text);
   std::string line;
-  while (std::getline(ss, line)) {
+  while(std::getline(ss, line))
+  {
     size_t a = line.find_first_not_of(" \t");
-    if (a == std::string::npos) continue;
+    if(a == std::string::npos) continue;
     std::string t = line.substr(a);
-    if (t.back() == ':') { out.push_back(asmLabel(t.substr(0, t.size() - 1))); continue; }
+    if(t.back() == ':')
+    {
+      out.push_back(asmLabel(t.substr(0, t.size() - 1)));
+      continue;
+    }
     auto v = textToAsmLines(t);
-    for (auto &i : v) out.push_back(std::move(i));
+    for(auto &i : v) out.push_back(std::move(i));
   }
   return out;
 }
@@ -38,29 +43,38 @@ std::vector<AsmInst> parseWithLabels(const std::string &text) {
 // reference relocate (the annealer's former relocateElement, with the
 // delay-slot-onto-NOP case fixed to move instead of copy)
 void relocateRef(std::vector<AsmInst> &arr, int from, int to) {
-  if (from == to) return;
-  if (arr[to].opFlags & OpFlag::OP_FLAG_IS_BRANCH) return;
+  if(from == to) return;
+  if(arr[to].opFlags & OpFlag::OP_FLAG_IS_BRANCH) return;
   bool targetIsNOP = arr[to].opFlags & OpFlag::OP_FLAG_IS_NOP;
   bool sourceInDelaySlot = (from >= 1) && (arr[from - 1].opFlags & OpFlag::OP_FLAG_IS_BRANCH);
-  if (sourceInDelaySlot) {
-    if (targetIsNOP) {
+  if(sourceInDelaySlot)
+  {
+    if(targetIsNOP)
+    {
       arr[to] = arr[from];
       arr[from] = asmNOP();
       asmInitDep(arr[from]);
-    } else {
+    }
+    else
+    {
       AsmInst inst = std::move(arr[from]);
       arr[from] = asmNOP();
       asmInitDep(arr[from]);
       arr.insert(arr.begin() + to, std::move(inst));
     }
-  } else {
-    if (targetIsNOP) {
+  }
+  else
+  {
+    if(targetIsNOP)
+    {
       arr[to] = std::move(arr[from]);
       arr.erase(arr.begin() + from);
-    } else {
+    }
+    else
+    {
       AsmInst inst = std::move(arr[from]);
       arr.erase(arr.begin() + from);
-      if (to > from) to--;
+      if(to > from) to--;
       arr.insert(arr.begin() + to, std::move(inst));
     }
   }
@@ -68,7 +82,7 @@ void relocateRef(std::vector<AsmInst> &arr, int from, int to) {
 
 std::vector<std::string> texts(const std::vector<AsmInst> &l) {
   std::vector<std::string> r;
-  for (const auto &i : l) r.push_back(i.type == AsmType::LABEL ? i.cold->label + ":" : stringifyInstr(i));
+  for(const auto &i : l) r.push_back(i.type == AsmType::LABEL ? i.cold->label + ":" : stringifyInstr(i));
   return r;
 }
 
@@ -148,7 +162,8 @@ END:
 // relocation on a plain AsmInst list. Also checks the plan-based cost stays
 // consistent with itself after every move (stable hot cycle count).
 void runRandomMoves(const char *text, uint32_t seed, int steps) {
-  AsmFunc f; f.asm_ = parseWithLabels(text);
+  AsmFunc f;
+  f.asm_ = parseWithLabels(text);
   asmInitDeps(f);
   CompactFunc cf = compactBuild(f);
   CompactState st = compactInitialState(cf);
@@ -157,24 +172,32 @@ void runRandomMoves(const char *text, uint32_t seed, int steps) {
 
   std::mt19937 rng(seed);
   int movesDone = 0;
-  for (int k = 0; k < steps; ++k) {
+  for(int k = 0; k < steps; ++k)
+  {
     int sz = (int)f.asm_.size();
     REQUIRE((int)st.seq.size() == sz);
     int i = (int)(rng() % sz);
     auto range = compactReorderIndices(cf, st, i);
-    if (range.size() > 1) {
+    if(range.size() > 1)
+    {
       int t = i;
-      while (t == i) t = range[rng() % range.size()];
+      while(t == i) t = range[rng() % range.size()];
       relocateRef(f.asm_, i, t);
       compactRelocate(cf, st, i, t);
       ++movesDone;
     }
     std::string err;
     bool ok = compactVerifySeq(cf, st.seq, &err);
-    if (!ok) { AsmFunc dbg; compactApply(cf, st, dbg); for (auto &x : texts(dbg.asm_)) UNSCOPED_INFO(x); }
+    if(!ok)
+    {
+      AsmFunc dbg;
+      compactApply(cf, st, dbg);
+      for(auto &x : texts(dbg.asm_)) UNSCOPED_INFO(x);
+    }
     INFO("step " << k << ": " << err);
     REQUIRE(ok);
-    AsmFunc g; compactApply(cf, st, g);
+    AsmFunc g;
+    compactApply(cf, st, g);
     REQUIRE(texts(g.asm_) == texts(f.asm_));
     // evaluating twice from the same order must agree
     int c1 = compactEvalCost(cf, st);
@@ -198,18 +221,22 @@ TEST_CASE("Compact - relocation matches reference on random moves (B)", "[compac
 }
 
 TEST_CASE("Compact - rebase hop rewrites the offset", "[compact]") {
-  AsmFunc f; f.asm_ = parseWithLabels(SAMPLE_A);
+  AsmFunc f;
+  f.asm_ = parseWithLabels(SAMPLE_A);
   asmInitDeps(f);
   CompactFunc cf = compactBuild(f);
   CompactState st = compactInitialState(cf);
   int hops = 0;
-  for (int i = 0; i < (int)st.seq.size(); ++i) {
-    for (bool fwd : {true, false}) {
-      if (compactTryRebaseCross(cf, st, i, fwd)) ++hops;
+  for(int i = 0; i < (int)st.seq.size(); ++i)
+  {
+    for(bool fwd : {true, false})
+    {
+      if(compactTryRebaseCross(cf, st, i, fwd)) ++hops;
     }
   }
   REQUIRE(hops > 0);
-  AsmFunc g; compactApply(cf, st, g);
+  AsmFunc g;
+  compactApply(cf, st, g);
   // every hop keeps the effective address: a rewritten offset shows up as a
   // different immediate, and the op count is unchanged
   REQUIRE(g.asm_.size() == f.asm_.size());
@@ -219,7 +246,8 @@ TEST_CASE("Compact - rebase hop rewrites the offset", "[compact]") {
 // Moving an op out of a branch delay slot onto a NOP must move it (slot
 // becomes NOP), not duplicate it.
 TEST_CASE("Compact - relocate out of delay slot onto NOP moves, not copies", "[compact]") {
-  AsmFunc f; f.asm_ = parseWithLabels(R"(
+  AsmFunc f;
+  f.asm_ = parseWithLabels(R"(
 [0] addiu $t0, $t0, 1
 [0] bne $t1, $zero, L # unlikely
 [0] addiu $t2, $t2, 4
@@ -232,14 +260,16 @@ L:
   CompactFunc cf = compactBuild(f);
   CompactState st = compactInitialState(cf);
   compactRelocate(cf, st, 2, 3);
-  AsmFunc g; compactApply(cf, st, g);
+  AsmFunc g;
+  compactApply(cf, st, g);
   auto t = texts(g.asm_);
   REQUIRE(t.size() == 7);
   REQUIRE(t[1] == "bne $t1, $zero, L");
   REQUIRE(t[2] == "nop");
   REQUIRE(t[3] == "addiu $t2, $t2, 4");
   int count = 0;
-  for (auto &x : t) if (x == "addiu $t2, $t2, 4") ++count;
+  for(auto &x : t)
+    if(x == "addiu $t2, $t2, 4") ++count;
   REQUIRE(count == 1);
 }
 
@@ -249,9 +279,10 @@ namespace {
 
 std::vector<std::vector<std::string>> chainTexts(const CompactFunc &cf) {
   std::vector<std::vector<std::string>> r;
-  for (const auto &c : cf.chains) {
+  for(const auto &c : cf.chains)
+  {
     std::vector<std::string> m;
-    for (int id : c.ids) m.push_back(stringifyInstr(cf.orig[id]));
+    for(int id : c.ids) m.push_back(stringifyInstr(cf.orig[id]));
     r.push_back(m);
   }
   return r;
@@ -269,7 +300,11 @@ const char *SAMPLE_CHAINS = R"(
 [0] nop
 )";
 
-struct Built { AsmFunc f; CompactFunc cf; CompactState st; };
+struct Built {
+  AsmFunc f;
+  CompactFunc cf;
+  CompactState st;
+};
 Built buildOf(const char *text) {
   Built b;
   b.f.asm_ = parseWithLabels(text);
@@ -281,7 +316,7 @@ Built buildOf(const char *text) {
 
 bool verify(const Built &b, std::vector<int> seq, std::string &err) {
   bool ok = compactVerifySeq(b.cf, seq, &err);
-  if (!ok) UNSCOPED_INFO(err);
+  if(!ok) UNSCOPED_INFO(err);
   return ok;
 }
 
@@ -292,13 +327,12 @@ TEST_CASE("Compact - chain table on the samples", "[compact][chains]") {
   auto ca = chainTexts(a.cf);
   REQUIRE(ca.size() == 6);
   REQUIRE(ca[0] == std::vector<std::string>{"vadd $v03, $v01, $v02"});
-  REQUIRE(ca[5] == std::vector<std::string>{"vmudh $v29, $v05, $v30.e7",
-                                            "vmadn $v08, $v06, $v30.e5",
-                                            "vsar $v09, COP2_ACC_MD"});
-  for (int id = 0; id < (int)a.cf.ops.size(); ++id) {
+  REQUIRE(ca[5] ==
+          std::vector<std::string>{"vmudh $v29, $v05, $v30.e7", "vmadn $v08, $v06, $v30.e5", "vsar $v09, COP2_ACC_MD"});
+  for(int id = 0; id < (int)a.cf.ops.size(); ++id)
+  {
     const CompactOp &o = a.cf.ops[id];
-    bool vu = o.isOp && (o.flags & OpFlag::OP_FLAG_IS_VECTOR) &&
-              stringifyInstr(a.cf.orig[id]).rfind("cfc2", 0) != 0;
+    bool vu = o.isOp && (o.flags & OpFlag::OP_FLAG_IS_VECTOR) && stringifyInstr(a.cf.orig[id]).rfind("cfc2", 0) != 0;
     // every $acc user has a chain, nothing else does
     REQUIRE((a.cf.chainOf[id] >= 0) == vu);
   }
@@ -306,8 +340,8 @@ TEST_CASE("Compact - chain table on the samples", "[compact][chains]") {
   Built b = buildOf(SAMPLE_B);
   auto cb = chainTexts(b.cf);
   REQUIRE(cb.size() == 4);
-  REQUIRE(cb[0].size() == 3);   // vmulf + 2x vmacf
-  REQUIRE(cb[1].size() == 10);  // vmudn .. vmadh + 2x vsar
+  REQUIRE(cb[0].size() == 3);  // vmulf + 2x vmacf
+  REQUIRE(cb[1].size() == 10); // vmudn .. vmadh + 2x vsar
   REQUIRE(cb[1].front() == "vmudn $v06, $v28, $v08.h0");
   REQUIRE(cb[1].back() == "vsar $v05, COP2_ACC_HI");
   REQUIRE(cb[2] == std::vector<std::string>{"vadd $v11, $v10, $v05"});
@@ -421,7 +455,8 @@ std::vector<int> rangeOf(const Built &b, int pos, CompactRange &r, bool chainMov
 }
 
 std::vector<std::string> seqTexts(const Built &b) {
-  AsmFunc g; compactApply(b.cf, b.st, g);
+  AsmFunc g;
+  compactApply(b.cf, b.st, g);
   return texts(g.asm_);
 }
 
@@ -458,26 +493,38 @@ void runRandomChainMoves(const char *text, uint32_t seed, int steps, bool expect
   std::mt19937 rng(seed);
   int chainMoves = 0, plainMoves = 0, rejected = 0;
   std::vector<int> range;
-  for (int k = 0; k < steps; ++k) {
+  for(int k = 0; k < steps; ++k)
+  {
     int sz = (int)b.st.seq.size();
     int i = (int)(rng() % sz);
-    CompactRange r; r.chainMoves = true;
+    CompactRange r;
+    r.chainMoves = true;
     compactReorderIndices(b.cf, b.st, i, range, &r);
-    if (range.size() > 1) {
+    if(range.size() > 1)
+    {
       int t = i;
-      while (t == i) t = range[rng() % range.size()];
-      if (t < r.plainLo || t > r.plainHi) {
+      while(t == i) t = range[rng() % range.size()];
+      if(t < r.plainLo || t > r.plainHi)
+      {
         std::vector<int> before = b.st.seq;
-        if (compactRelocateChain(b.cf, b.st, i, t)) ++chainMoves;
-        else { ++rejected; REQUIRE(b.st.seq == before); }
-      } else {
+        if(compactRelocateChain(b.cf, b.st, i, t))
+          ++chainMoves;
+        else
+        {
+          ++rejected;
+          REQUIRE(b.st.seq == before);
+        }
+      }
+      else
+      {
         compactRelocate(b.cf, b.st, i, t);
         ++plainMoves;
       }
     }
     std::string err;
     bool ok = compactVerifySeq(b.cf, b.st.seq, &err);
-    if (!ok) for (auto &x : seqTexts(b)) UNSCOPED_INFO(x);
+    if(!ok)
+      for(auto &x : seqTexts(b)) UNSCOPED_INFO(x);
     INFO("step " << k << ": " << err);
     REQUIRE(ok);
     int c1 = compactEvalCost(b.cf, b.st);
@@ -485,7 +532,7 @@ void runRandomChainMoves(const char *text, uint32_t seed, int steps, bool expect
     REQUIRE(c1 == c2);
   }
   REQUIRE(plainMoves > 0);
-  if (expectChainMoves) REQUIRE(chainMoves > 0);
+  if(expectChainMoves) REQUIRE(chainMoves > 0);
 }
 
 } // namespace
@@ -504,11 +551,9 @@ TEST_CASE("Compact - chain move: tail forward past a foreign chain", "[compact][
   REQUIRE_FALSE(has(range, 7));
   REQUIRE_FALSE(has(range, 8));
   REQUIRE(compactRelocateChain(b.cf, b.st, 3, 6));
-  REQUIRE(seqTexts(b) == std::vector<std::string>{
-      "lw $t0, 0($t1)", "addiu $t2, $t0, 1",
-      "vmudh $v06, $v07, $v03.e0", "vmadn $v08, $v09, $v03.e1",
-      "vmudh $v01, $v02, $v03.e0", "vmadn $v04, $v05, $v03.e1",
-      "sw $t2, 4($t1)", "jr $ra", "nop"});
+  REQUIRE(seqTexts(b) == std::vector<std::string>{"lw $t0, 0($t1)", "addiu $t2, $t0, 1", "vmudh $v06, $v07, $v03.e0",
+                                                  "vmadn $v08, $v09, $v03.e1", "vmudh $v01, $v02, $v03.e0",
+                                                  "vmadn $v04, $v05, $v03.e1", "sw $t2, 4($t1)", "jr $ra", "nop"});
   std::string err;
   REQUIRE(verify(b, b.st.seq, err));
 }
@@ -518,17 +563,15 @@ TEST_CASE("Compact - chain move: head backward past a foreign chain", "[compact]
   CompactRange r;
   auto range = rangeOf(b, 4, r); // vmudh of chain B (head)
   REQUIRE(r.plainLo == 4);
-  REQUIRE(r.plainHi == 5); // before its own follower
-  REQUIRE(has(range, 2));      // before A's head
+  REQUIRE(r.plainHi == 5);      // before its own follower
+  REQUIRE(has(range, 2));       // before A's head
   REQUIRE_FALSE(has(range, 3)); // inside A
   REQUIRE(has(range, 1));
   REQUIRE(has(range, 0));
   REQUIRE(compactRelocateChain(b.cf, b.st, 4, 2));
-  REQUIRE(seqTexts(b) == std::vector<std::string>{
-      "lw $t0, 0($t1)", "addiu $t2, $t0, 1",
-      "vmudh $v06, $v07, $v03.e0", "vmadn $v08, $v09, $v03.e1",
-      "vmudh $v01, $v02, $v03.e0", "vmadn $v04, $v05, $v03.e1",
-      "sw $t2, 4($t1)", "jr $ra", "nop"});
+  REQUIRE(seqTexts(b) == std::vector<std::string>{"lw $t0, 0($t1)", "addiu $t2, $t0, 1", "vmudh $v06, $v07, $v03.e0",
+                                                  "vmadn $v08, $v09, $v03.e1", "vmudh $v01, $v02, $v03.e0",
+                                                  "vmadn $v04, $v05, $v03.e1", "sw $t2, 4($t1)", "jr $ra", "nop"});
   std::string err;
   REQUIRE(verify(b, b.st.seq, err));
 }
@@ -544,7 +587,8 @@ TEST_CASE("Compact - chain move: middle members and inner ends keep the plain ra
 [0] nop
 )");
   CompactRange r;
-  for (int pos : {1, 0}) { // middle member; head going forward meets a sibling
+  for(int pos : {1, 0})
+  { // middle member; head going forward meets a sibling
     auto withChains = rangeOf(b, pos, r, true);
     auto plain = rangeOf(b, pos, r, false);
     REQUIRE(withChains == plain);
@@ -585,9 +629,9 @@ L:
 )");
   CompactRange r;
   auto range = rangeOf(b, 1, r); // tail of the 2-member chain
-  REQUIRE(has(range, 2));       // before the vand
-  REQUIRE_FALSE(has(range, 3)); // the branch
-  REQUIRE_FALSE(has(range, 4)); // its delay slot: followers cannot get behind it
+  REQUIRE(has(range, 2));        // before the vand
+  REQUIRE_FALSE(has(range, 3));  // the branch
+  REQUIRE_FALSE(has(range, 4));  // its delay slot: followers cannot get behind it
 
   Built c = buildOf(R"(
 [0] vand $v10, $v10, $v31.e1
@@ -599,8 +643,8 @@ L:
 [0] jr $ra
 [0] nop
 )");
-  range = rangeOf(c, 0, r); // the lone vand, past the 2-member chain
-  REQUIRE(r.plainHi == 1); // before the chain head: the current spot
+  range = rangeOf(c, 0, r);     // the lone vand, past the 2-member chain
+  REQUIRE(r.plainHi == 1);      // before the chain head: the current spot
   REQUIRE_FALSE(has(range, 2)); // inside the chain
   REQUIRE(has(range, 4));       // the delay slot
   REQUIRE(compactRelocateChain(c.cf, c.st, 0, 4));
@@ -624,7 +668,7 @@ TEST_CASE("Compact - chain move: follower conflict rejects and restores", "[comp
 )");
   CompactRange r;
   auto range = rangeOf(b, 2, r); // tail of A; B's head reads $v01 written by A's head
-  REQUIRE(has(range, 5));     // the leader alone could pass B
+  REQUIRE(has(range, 5));        // the leader alone could pass B
   std::vector<int> before = b.st.seq;
   REQUIRE_FALSE(compactRelocateChain(b.cf, b.st, 2, 5));
   REQUIRE(b.st.seq == before);
@@ -676,5 +720,5 @@ L:
   REQUIRE(r.plainHi == 9);
   REQUIRE(has(range, 7));
   // the NOP (5), the label (6) and branches (4, 8) never move
-  for (int p : {4, 5, 6, 8}) REQUIRE(rangeOf(b, p, r, false) == std::vector<int>{p});
+  for(int p : {4, 5, 6, 8}) REQUIRE(rangeOf(b, p, r, false) == std::vector<int>{p});
 }

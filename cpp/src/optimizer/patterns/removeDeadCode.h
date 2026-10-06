@@ -4,18 +4,20 @@
 namespace rspl {
 
 inline void removeDeadCode(AsmFunc &func) {
-  if (func.asm_.empty()) return;
+  if(func.asm_.empty()) return;
   int lastSafeIndex = -1;
-  for (int i = static_cast<int>(func.asm_.size()) - 1 - 2; i >= 0; --i) {
+  for(int i = static_cast<int>(func.asm_.size()) - 1 - 2; i >= 0; --i)
+  {
     const auto &inst = func.asm_[i];
-    if (inst.op == Op::J() || inst.op == Op::JR()) {
+    if(inst.op == Op::J() || inst.op == Op::JR())
+    {
       lastSafeIndex = i;
       break;
     }
-    if (inst.opFlags & OpFlag::OP_FLAG_IS_NOP) continue;
+    if(inst.opFlags & OpFlag::OP_FLAG_IS_NOP) continue;
     break;
   }
-  if (lastSafeIndex < 0) return;
+  if(lastSafeIndex < 0) return;
   func.asm_.erase(func.asm_.begin() + lastSafeIndex + 2, func.asm_.end());
 }
 

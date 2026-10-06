@@ -4,44 +4,31 @@
 
 #include <string>
 
-#define TRANSPILE(src)                                                         \
-  rspl::transpileSource(src, {.rspqWrapper = false})
+#define TRANSPILE(src) rspl::transpileSource(src, {.rspqWrapper = false})
 
 #define REQUIRE_NO_WARN(r) REQUIRE(r.warn.empty())
 #define REQUIRE_ASM(r, expected) REQUIRE(r.asm_ == expected)
-#define REQUIRE_THROWS_MSG(src, msg)                                           \
-  REQUIRE_THROWS_WITH(rspl::transpileSource(src, {.rspqWrapper = false}),      \
-                      Catch::Matchers::ContainsSubstring(msg))
+#define REQUIRE_THROWS_MSG(src, msg)                                                                                   \
+  REQUIRE_THROWS_WITH(rspl::transpileSource(src, {.rspqWrapper = false}), Catch::Matchers::ContainsSubstring(msg))
 
 // ==========================================================================
 // MFC0 Reads — parameterized via macro
 // ==========================================================================
 
-#define MFC0_READ_TESTS(name, cop0Reg)                                         \
-  TEST_CASE("Builtins - " name "() - basic", "[mfc0_reads]") {                 \
-    auto r = TRANSPILE("function test() {\n        u32<$t0> a = " name         \
-                       "();\n      }");                                        \
-    REQUIRE_NO_WARN(r);                                                        \
-    REQUIRE_ASM(r, "test:\n  mfc0 $t0, " cop0Reg "\n  jr $ra\n  nop");        \
-  }                                                                            \
-  TEST_CASE("Builtins - " name "() - fails with no left side",                 \
-            "[mfc0_reads]") {                                                  \
-    REQUIRE_THROWS_MSG("function test() {\n        " name                      \
-                       "();\n      }",                                         \
-                       "must have a left side");                               \
-  }                                                                            \
-  TEST_CASE("Builtins - " name "() - fails with arguments", "[mfc0_reads]") {  \
-    REQUIRE_THROWS_MSG(                                                        \
-        "function test() {\n        u32<$t0> a = " name                        \
-        "(42);\n      }",                                                      \
-        "requires no arguments");                                              \
-  }                                                                            \
-  TEST_CASE("Builtins - " name "() - fails with vector left side",             \
-            "[mfc0_reads]") {                                                  \
-    REQUIRE_THROWS_MSG(                                                        \
-        "function test() {\n        vec16<$v01> a = " name                     \
-        "();\n      }",                                                        \
-        "scalar variable");                                                    \
+#define MFC0_READ_TESTS(name, cop0Reg)                                                                                 \
+  TEST_CASE("Builtins - " name "() - basic", "[mfc0_reads]") {                                                         \
+    auto r = TRANSPILE("function test() {\n        u32<$t0> a = " name "();\n      }");                                \
+    REQUIRE_NO_WARN(r);                                                                                                \
+    REQUIRE_ASM(r, "test:\n  mfc0 $t0, " cop0Reg "\n  jr $ra\n  nop");                                                 \
+  }                                                                                                                    \
+  TEST_CASE("Builtins - " name "() - fails with no left side", "[mfc0_reads]") {                                       \
+    REQUIRE_THROWS_MSG("function test() {\n        " name "();\n      }", "must have a left side");                    \
+  }                                                                                                                    \
+  TEST_CASE("Builtins - " name "() - fails with arguments", "[mfc0_reads]") {                                          \
+    REQUIRE_THROWS_MSG("function test() {\n        u32<$t0> a = " name "(42);\n      }", "requires no arguments");     \
+  }                                                                                                                    \
+  TEST_CASE("Builtins - " name "() - fails with vector left side", "[mfc0_reads]") {                                   \
+    REQUIRE_THROWS_MSG("function test() {\n        vec16<$v01> a = " name "();\n      }", "scalar variable");          \
   }
 
 MFC0_READ_TESTS("get_dma_busy", "COP0_DMA_BUSY")
@@ -53,38 +40,25 @@ MFC0_READ_TESTS("get_rdp_current", "COP0_DP_CURRENT")
 // MTC0 Writes — parameterized via macro
 // ==========================================================================
 
-#define MTC0_WRITE_TESTS(name, cop0Reg)                                        \
-  TEST_CASE("Builtins - " name "() - basic - scalar variable",                 \
-            "[mtc0_writes]") {                                                 \
-    auto r = TRANSPILE("function test() {\n        u32<$t0> a;\n        " name \
-                       "(a);\n      }");                                       \
-    REQUIRE_NO_WARN(r);                                                        \
-    REQUIRE_ASM(r, "test:\n  mtc0 $t0, " cop0Reg "\n  jr $ra\n  nop");        \
-  }                                                                            \
-  TEST_CASE("Builtins - " name "() - basic - literal", "[mtc0_writes]") {      \
-    auto r = TRANSPILE("function test() {\n        " name "(42);\n      }");   \
-    REQUIRE_NO_WARN(r);                                                        \
-    REQUIRE_ASM(r, "test:\n  addiu $at, $zero, 42\n  mtc0 $at, " cop0Reg      \
-                   "\n  jr $ra\n  nop");                                       \
-  }                                                                            \
-  TEST_CASE("Builtins - " name "() - fails with left side",                    \
-            "[mtc0_writes]") {                                                 \
-    REQUIRE_THROWS_MSG(                                                        \
-        "function test() {\n        u32<$t0> a = " name                        \
-        "(42);\n      }",                                                      \
-        "must not have a left side");                                          \
-  }                                                                            \
-  TEST_CASE("Builtins - " name "() - fails with no argument",                  \
-            "[mtc0_writes]") {                                                 \
-    REQUIRE_THROWS_MSG("function test() {\n        " name "();\n      }",      \
-                       "requires 1 scalar");                                   \
-  }                                                                            \
-  TEST_CASE("Builtins - " name "() - fails with vector argument",              \
-            "[mtc0_writes]") {                                                 \
-    REQUIRE_THROWS_MSG(                                                        \
-        "function test() {\n        vec16<$v01> a;\n        " name             \
-        "(a);\n      }",                                                       \
-        "scalar argument");                                                    \
+#define MTC0_WRITE_TESTS(name, cop0Reg)                                                                                \
+  TEST_CASE("Builtins - " name "() - basic - scalar variable", "[mtc0_writes]") {                                      \
+    auto r = TRANSPILE("function test() {\n        u32<$t0> a;\n        " name "(a);\n      }");                       \
+    REQUIRE_NO_WARN(r);                                                                                                \
+    REQUIRE_ASM(r, "test:\n  mtc0 $t0, " cop0Reg "\n  jr $ra\n  nop");                                                 \
+  }                                                                                                                    \
+  TEST_CASE("Builtins - " name "() - basic - literal", "[mtc0_writes]") {                                              \
+    auto r = TRANSPILE("function test() {\n        " name "(42);\n      }");                                           \
+    REQUIRE_NO_WARN(r);                                                                                                \
+    REQUIRE_ASM(r, "test:\n  addiu $at, $zero, 42\n  mtc0 $at, " cop0Reg "\n  jr $ra\n  nop");                         \
+  }                                                                                                                    \
+  TEST_CASE("Builtins - " name "() - fails with left side", "[mtc0_writes]") {                                         \
+    REQUIRE_THROWS_MSG("function test() {\n        u32<$t0> a = " name "(42);\n      }", "must not have a left side"); \
+  }                                                                                                                    \
+  TEST_CASE("Builtins - " name "() - fails with no argument", "[mtc0_writes]") {                                       \
+    REQUIRE_THROWS_MSG("function test() {\n        " name "();\n      }", "requires 1 scalar");                        \
+  }                                                                                                                    \
+  TEST_CASE("Builtins - " name "() - fails with vector argument", "[mtc0_writes]") {                                   \
+    REQUIRE_THROWS_MSG("function test() {\n        vec16<$v01> a;\n        " name "(a);\n      }", "scalar argument"); \
   }
 
 MTC0_WRITE_TESTS("set_rdp_start", "COP0_DP_START")
@@ -154,8 +128,7 @@ TEST_CASE("Builtins - get_acc() - fails with arguments", "[get_acc]") {
                      "requires no arguments");
 }
 
-TEST_CASE("Builtins - get_acc() - fails with scalar left side",
-          "[get_acc]") {
+TEST_CASE("Builtins - get_acc() - fails with scalar left side", "[get_acc]") {
   REQUIRE_THROWS_MSG(R"(function test() {
       u32<$t0> a = get_acc();
     })",
@@ -173,32 +146,20 @@ TEST_CASE("Builtins - get_acc() - fails with vec16 left side", "[get_acc]") {
 // get_acc_high / get_acc_mid / get_acc_low
 // ==========================================================================
 
-#define ACC_SINGLE_TESTS(name, cop2Reg)                                        \
-  TEST_CASE("Builtins - " name "() - basic", "[acc_single]") {                 \
-    auto r = TRANSPILE("function test() {\n        vec16<$v03> a = " name      \
-                       "();\n      }");                                        \
-    REQUIRE_NO_WARN(r);                                                        \
-    REQUIRE_ASM(r, "test:\n  vsar $v03, " cop2Reg "\n  jr $ra\n  nop");       \
-  }                                                                            \
-  TEST_CASE("Builtins - " name "() - fails with scalar left side",             \
-            "[acc_single]") {                                                  \
-    REQUIRE_THROWS_MSG(                                                        \
-        "function test() {\n        u32<$t0> a = " name "();\n      }",        \
-        "vector variable");                                                    \
-  }                                                                            \
-  TEST_CASE("Builtins - " name "() - fails with vec32 left side",              \
-            "[acc_single]") {                                                  \
-    REQUIRE_THROWS_MSG(                                                        \
-        "function test() {\n        vec32<$v01> a = " name                     \
-        "();\n      }",                                                        \
-        "vec16");                                                              \
-  }                                                                            \
-  TEST_CASE("Builtins - " name "() - fails with arguments",                    \
-            "[acc_single]") {                                                  \
-    REQUIRE_THROWS_MSG(                                                        \
-        "function test() {\n        vec16<$v01> a = " name                     \
-        "(1);\n      }",                                                       \
-        "requires no arguments");                                              \
+#define ACC_SINGLE_TESTS(name, cop2Reg)                                                                                \
+  TEST_CASE("Builtins - " name "() - basic", "[acc_single]") {                                                         \
+    auto r = TRANSPILE("function test() {\n        vec16<$v03> a = " name "();\n      }");                             \
+    REQUIRE_NO_WARN(r);                                                                                                \
+    REQUIRE_ASM(r, "test:\n  vsar $v03, " cop2Reg "\n  jr $ra\n  nop");                                                \
+  }                                                                                                                    \
+  TEST_CASE("Builtins - " name "() - fails with scalar left side", "[acc_single]") {                                   \
+    REQUIRE_THROWS_MSG("function test() {\n        u32<$t0> a = " name "();\n      }", "vector variable");             \
+  }                                                                                                                    \
+  TEST_CASE("Builtins - " name "() - fails with vec32 left side", "[acc_single]") {                                    \
+    REQUIRE_THROWS_MSG("function test() {\n        vec32<$v01> a = " name "();\n      }", "vec16");                    \
+  }                                                                                                                    \
+  TEST_CASE("Builtins - " name "() - fails with arguments", "[acc_single]") {                                          \
+    REQUIRE_THROWS_MSG("function test() {\n        vec16<$v01> a = " name "(1);\n      }", "requires no arguments");   \
   }
 
 ACC_SINGLE_TESTS("get_acc_high", "COP2_ACC_HI")
@@ -359,8 +320,7 @@ TEST_CASE("Builtins - asm_op() - fails with left side", "[asm_op]") {
                      "cannot have a left side");
 }
 
-TEST_CASE("Builtins - asm_op() - fails with first arg not string",
-          "[asm_op]") {
+TEST_CASE("Builtins - asm_op() - fails with first arg not string", "[asm_op]") {
   REQUIRE_THROWS_MSG(R"(function test() {
       asm_op(42);
     })",
@@ -412,24 +372,21 @@ TEST_CASE("Builtins - get_cmd_address() - basic with offset", "[cmd]") {
   nop)");
 }
 
-TEST_CASE("Builtins - get_cmd_address() - fails with no left side",
-          "[cmd]") {
+TEST_CASE("Builtins - get_cmd_address() - fails with no left side", "[cmd]") {
   REQUIRE_THROWS_MSG(R"(function test() {
       get_cmd_address();
     })",
                      "must have a left side");
 }
 
-TEST_CASE("Builtins - get_cmd_address() - fails with too many arguments",
-          "[cmd]") {
+TEST_CASE("Builtins - get_cmd_address() - fails with too many arguments", "[cmd]") {
   REQUIRE_THROWS_MSG(R"(function test() {
       u32<$t0> a = get_cmd_address(1, 2);
     })",
                      "zero or one argument");
 }
 
-TEST_CASE("Builtins - get_cmd_address() - fails with non-number argument",
-          "[cmd]") {
+TEST_CASE("Builtins - get_cmd_address() - fails with non-number argument", "[cmd]") {
   REQUIRE_THROWS_MSG(R"(function test() {
       u32<$t0> a;
       u32<$t1> b = get_cmd_address(a);
@@ -437,8 +394,7 @@ TEST_CASE("Builtins - get_cmd_address() - fails with non-number argument",
                      "number");
 }
 
-TEST_CASE("Builtins - get_cmd_address() - fails with vector left side",
-          "[cmd]") {
+TEST_CASE("Builtins - get_cmd_address() - fails with vector left side", "[cmd]") {
   REQUIRE_THROWS_MSG(R"(function test() {
       vec16<$v01> a = get_cmd_address();
     })",

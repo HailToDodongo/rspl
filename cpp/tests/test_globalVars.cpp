@@ -8,11 +8,11 @@
 // function, excluded from auto-allocation, not undef-able.
 
 static void requireThrowsWith(const char *src, const char *msgPart) {
-  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}),
-                    std::runtime_error);
-  try {
-    rspl::transpileSource(src, {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
+  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}), std::runtime_error);
+  try
+  { rspl::transpileSource(src, {.rspqWrapper = false}); }
+  catch(const std::runtime_error &e)
+  {
     INFO(e.what());
     REQUIRE(std::string(e.what()).find(msgPart) != std::string::npos);
   }

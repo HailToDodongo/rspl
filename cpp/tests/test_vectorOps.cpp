@@ -149,8 +149,7 @@ TEST_CASE("Vector - Ops - Assign (swizzle, int-variable)", "[vectorOps]") {
   nop)");
 }
 
-TEST_CASE("Vector - Ops - Assign (no-swizzle, int-variable)",
-          "[vectorOps]") {
+TEST_CASE("Vector - Ops - Assign (no-swizzle, int-variable)", "[vectorOps]") {
   auto result = rspl::transpileSource(
       R"(function test() {
       u32 s;
@@ -857,8 +856,7 @@ TEST_CASE("Vector - Ops - Shift right Logical (vec32)", "[vectorOps]") {
   nop)");
 }
 
-TEST_CASE("VectorOps - Multiply-accumulate +* - vec32",
-          "[vectorOps]") {
+TEST_CASE("VectorOps - Multiply-accumulate +* - vec32", "[vectorOps]") {
   auto result = rspl::transpileSource(
       R"(function test() {
         vec32<$v01> a;
@@ -878,8 +876,7 @@ TEST_CASE("VectorOps - Multiply-accumulate +* - vec32",
   nop)");
 }
 
-TEST_CASE("VectorOps - Multiply vec16 * vec32 -> vec32",
-          "[vectorOps]") {
+TEST_CASE("VectorOps - Multiply vec16 * vec32 -> vec32", "[vectorOps]") {
   auto result = rspl::transpileSource(
       R"(function test() {
         vec16<$v01> a;
@@ -900,8 +897,7 @@ TEST_CASE("VectorOps - Multiply vec16 * vec32 -> vec32",
   nop)");
 }
 
-TEST_CASE("VectorOps - Multiply vec16 * vec32 with a swizzled vec32",
-          "[vectorOps]") {
+TEST_CASE("VectorOps - Multiply vec16 * vec32 with a swizzled vec32", "[vectorOps]") {
   auto result = rspl::transpileSource(
       R"(function test() {
         vec16<$v01> a;
@@ -922,27 +918,24 @@ TEST_CASE("VectorOps - Multiply vec16 * vec32 with a swizzled vec32",
   nop)");
 }
 
-TEST_CASE("VectorOps - Multiply rejects a swizzle on the left operand",
-          "[vectorOps]") {
+TEST_CASE("VectorOps - Multiply rejects a swizzle on the left operand", "[vectorOps]") {
   const char *src = R"(function test() {
         vec16<$v01> a;
         vec32<$v03> b;
         vec32<$v05> res;
         res = b.wwwwWWWW * a;
       })";
-  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}),
-                    std::runtime_error);
-  try {
-    rspl::transpileSource(src, {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
+  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}), std::runtime_error);
+  try
+  { rspl::transpileSource(src, {.rspqWrapper = false}); }
+  catch(const std::runtime_error &e)
+  {
     INFO(e.what());
-    REQUIRE(std::string(e.what()).find("swizzle on the right side") !=
-            std::string::npos);
+    REQUIRE(std::string(e.what()).find("swizzle on the right side") != std::string::npos);
   }
 }
 
-TEST_CASE("VectorOps - Half-move vec32 xyzw=XYZW (upper to lower)",
-          "[vectorOps]") {
+TEST_CASE("VectorOps - Half-move vec32 xyzw=XYZW (upper to lower)", "[vectorOps]") {
   auto result = rspl::transpileSource(
       R"(function test() {
         vec32<$v01> res, a;
@@ -961,8 +954,7 @@ TEST_CASE("VectorOps - Half-move vec32 xyzw=XYZW (upper to lower)",
   nop)");
 }
 
-TEST_CASE("VectorOps - Half-move vec32 XYZW=xyzw (lower to upper)",
-          "[vectorOps]") {
+TEST_CASE("VectorOps - Half-move vec32 XYZW=xyzw (lower to upper)", "[vectorOps]") {
   auto result = rspl::transpileSource(
       R"(function test() {
         vec32<$v01> res, a;
@@ -981,8 +973,7 @@ TEST_CASE("VectorOps - Half-move vec32 XYZW=xyzw (lower to upper)",
   nop)");
 }
 
-TEST_CASE("VectorOps - Half-move vec16 xyzw=XYZW (upper to lower)",
-          "[vectorOps]") {
+TEST_CASE("VectorOps - Half-move vec16 xyzw=XYZW (upper to lower)", "[vectorOps]") {
   auto result = rspl::transpileSource(
       R"(function test() {
         vec16<$v01> res, a;
@@ -1406,28 +1397,25 @@ TEST_CASE("Vector - Ops - Logic with non-pow2 constant throws", "[vectorOps]") {
       vec16<$v01> a;
       a &= 3;
     })";
-  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}),
-                    std::runtime_error);
-  try {
-    rspl::transpileSource(src, {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
-    REQUIRE(std::string(e.what()).find("powers of two") != std::string::npos);
-  }
+  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}), std::runtime_error);
+  try
+  { rspl::transpileSource(src, {.rspqWrapper = false}); }
+  catch(const std::runtime_error &e)
+  { REQUIRE(std::string(e.what()).find("powers of two") != std::string::npos); }
 }
 
 static void requireVecThrowsWith(const char *src, const char *msgPart) {
-  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}),
-                    std::runtime_error);
-  try {
-    rspl::transpileSource(src, {.rspqWrapper = false});
-  } catch (const std::runtime_error &e) {
+  REQUIRE_THROWS_AS(rspl::transpileSource(src, {.rspqWrapper = false}), std::runtime_error);
+  try
+  { rspl::transpileSource(src, {.rspqWrapper = false}); }
+  catch(const std::runtime_error &e)
+  {
     INFO(e.what());
     REQUIRE(std::string(e.what()).find(msgPart) != std::string::npos);
   }
 }
 
-TEST_CASE("Vector - Ops - Add on vec32 fraction view with uncast operand",
-          "[vectorOps]") {
+TEST_CASE("Vector - Ops - Add on vec32 fraction view with uncast operand", "[vectorOps]") {
   auto result = rspl::transpileSource(
       R"(function test() {
       vec32<$v02> nrT;
@@ -1458,18 +1446,19 @@ TEST_CASE("Vector - Ops - Add on vec32 fraction view with uncast operand",
   nop)");
 }
 
-TEST_CASE("Vector - Ops - Add with an operand cast to the opposite view throws",
-          "[vectorOps]") {
+TEST_CASE("Vector - Ops - Add with an operand cast to the opposite view throws", "[vectorOps]") {
   requireVecThrowsWith(R"(function test() {
       vec32<$v02> nrT;
       vec16<$v16> a;
       nrT:ufract += a:sint.x;
-    })", "integer operand on a fraction view");
+    })",
+                       "integer operand on a fraction view");
   requireVecThrowsWith(R"(function test() {
       vec32<$v02> nrT;
       vec16<$v16> a;
       nrT:sint += a:ufract.x;
-    })", "fraction operand on an integer view");
+    })",
+                       "fraction operand on an integer view");
 }
 
 TEST_CASE("Vector - Ops - Mul (vec16 fraction * vec32)", "[vectorOps]") {
@@ -1506,8 +1495,7 @@ TEST_CASE("Vector - Ops - Mul (vec16 fraction * vec32)", "[vectorOps]") {
 // A multi-step sequence parks intermediates in VTEMP purely for the
 // accumulator effect. VTEMP is shared with user code, so where the result
 // register is overwritten later anyway it is used instead.
-TEST_CASE("VectorOps - scratch uses the result register, not VTEMP",
-          "[vectorOps]") {
+TEST_CASE("VectorOps - scratch uses the result register, not VTEMP", "[vectorOps]") {
   auto result = rspl::transpileSource(
       R"(function test()
 {
@@ -1525,8 +1513,7 @@ TEST_CASE("VectorOps - scratch uses the result register, not VTEMP",
   nop)");
 }
 
-TEST_CASE("VectorOps - scratch keeps VTEMP when the result is also a source",
-          "[vectorOps]") {
+TEST_CASE("VectorOps - scratch keeps VTEMP when the result is also a source", "[vectorOps]") {
   auto result = rspl::transpileSource(
       R"(function test()
 {
@@ -1545,8 +1532,7 @@ TEST_CASE("VectorOps - scratch keeps VTEMP when the result is also a source",
   nop)");
 }
 
-TEST_CASE("VectorOps - a live VTEMP survives an unrelated multiply",
-          "[vectorOps]") {
+TEST_CASE("VectorOps - a live VTEMP survives an unrelated multiply", "[vectorOps]") {
   auto result = rspl::transpileSource(
       R"(function test()
 {

@@ -17,7 +17,9 @@ static const std::vector<std::string> LABELS = {
     "RSPQ_SCRATCH_MEM",
 };
 
-State::State() { reset(); }
+State::State() {
+  reset();
+}
 
 void State::reset() {
   nextLabelId = 0;
@@ -35,7 +37,8 @@ void State::reset() {
   barrierBitMap.clear();
   regAllocAllowed = true;
 
-  for (const auto &label : LABELS) {
+  for(const auto &label : LABELS)
+  {
     declareMemVar(label, "u16", 1);
   }
 }
@@ -43,11 +46,12 @@ void State::reset() {
 // --- Error handling ---------------------------------------------------
 
 std::string State::describeLine(uint32_t lineNo) const {
-  if (lineNo == 0) return "(???)";
-  if (lineNo <= sourceOrigins.size()) {
+  if(lineNo == 0) return "(???)";
+  if(lineNo <= sourceOrigins.size())
+  {
     const SourceLoc &loc = sourceOrigins[lineNo - 1];
     std::string out = std::to_string(loc.line);
-    if (!loc.file.empty()) out += " (" + loc.file + ")";
+    if(!loc.file.empty()) out += " (" + loc.file + ")";
     return out;
   }
   return std::to_string(lineNo);
@@ -58,60 +62,55 @@ std::string State::describeLine(uint32_t lineNo) const {
 //  >  12 |   vec16<$v05> b;
 //     13 | }
 std::string State::sourceContext(uint32_t lineNo) const {
-  if (lineNo == 0 || sourceLines.empty()) return {};
+  if(lineNo == 0 || sourceLines.empty()) return {};
   int cur = static_cast<int>(lineNo);
   int last = static_cast<int>(sourceLines.size());
-  if (cur > last) return {};
+  if(cur > last) return {};
 
   // number the lines the way the author sees them
   auto shownNo = [&](int n) {
-    if (n <= (int)sourceOrigins.size() && sourceOrigins[n - 1].line > 0)
-      return sourceOrigins[n - 1].line;
+    if(n <= (int)sourceOrigins.size() && sourceOrigins[n - 1].line > 0) return sourceOrigins[n - 1].line;
     return n;
   };
   int width = 1;
-  for (int n = std::max(1, cur - 1); n <= std::min(last, cur + 1); ++n)
+  for(int n = std::max(1, cur - 1); n <= std::min(last, cur + 1); ++n)
     width = std::max(width, (int)std::to_string(shownNo(n)).size());
 
   std::ostringstream oss;
-  for (int n = std::max(1, cur - 1); n <= std::min(last, cur + 1); ++n) {
+  for(int n = std::max(1, cur - 1); n <= std::min(last, cur + 1); ++n)
+  {
     std::string num = std::to_string(shownNo(n));
-    oss << "\n " << (n == cur ? ">" : " ") << " "
-        << std::string(width - num.size(), ' ') << num << " | "
+    oss << "\n " << (n == cur ? ">" : " ") << " " << std::string(width - num.size(), ' ') << num << " | "
         << sourceLines[n - 1];
   }
   return oss.str();
 }
 
-void State::throwError(const std::string &msg,
-                       const std::string &context) const {
+void State::throwError(const std::string &msg, const std::string &context) const {
   std::ostringstream oss;
-  oss << "Error in " << (func.empty() ? "(???)" : func) << ", line "
-      << describeLine(line) << ": " << msg << sourceContext(line)
-      << "\n  -> AST: " << context;
+  oss << "Error in " << (func.empty() ? "(???)" : func) << ", line " << describeLine(line) << ": " << msg
+      << sourceContext(line) << "\n  -> AST: " << context;
   throw std::runtime_error(oss.str());
 }
 
 void State::logWarning(const std::string &msg, const std::string &context) {
   std::ostringstream oss;
-  oss << "Warning in " << (func.empty() ? "(???)" : func) << ", line "
-      << describeLine(line) << ": " << msg << sourceContext(line)
-      << "\n  -> AST: " << context << "\n";
+  oss << "Warning in " << (func.empty() ? "(???)" : func) << ", line " << describeLine(line) << ": " << msg
+      << sourceContext(line) << "\n  -> AST: " << context << "\n";
   outWarn += oss.str();
 }
 
-void State::logInfo(const std::string &msg) { outInfo += msg + '\n'; }
+void State::logInfo(const std::string &msg) {
+  outInfo += msg + '\n';
+}
 
 // --- Function management ----------------------------------------------
 
-void State::declareFunction(const std::string &name,
-                            const std::vector<ast::FuncDefArg> &args,
-                            bool isRelative) {
+void State::declareFunction(const std::string &name, const std::vector<ast::FuncDefArg> &args, bool isRelative) {
   funcMap[name] = {name, args, isRelative};
 }
 
-void State::enterFunction(const std::string &name, const std::string &type,
-                          int argSize_) {
+void State::enterFunction(const std::string &name, const std::string &type, int argSize_) {
   func = name;
   funcType = type;
   argSize = argSize_ > 0 ? argSize_ : 0;
@@ -131,18 +130,18 @@ void State::enterFunction(const std::string &name, const std::string &type,
 
   // Global register variables live in every function's root scope; their
   // registers stay out of reach of the auto-allocator via regVarMap.
-  for (const auto &g : globalVars) {
+  for(const auto &g : globalVars)
+  {
     declareVar(g.name, g.type, g.reg, g.isConst, false, g.regFract);
     VarDef &def = getScope().varMap[g.name];
     def.isGlobal = true;
     // a const global has no initializer in RSPL code, so the usual
     // "one initializing write" allowance must not apply — any write errors
-    if (g.isConst) def.modifyCount = 1;
+    if(g.isConst) def.modifyCount = 1;
   }
 }
 
-void State::declareGlobalVar(const std::string &name, const std::string &type,
-                             const std::string &reg, bool isConst,
+void State::declareGlobalVar(const std::string &name, const std::string &type, const std::string &reg, bool isConst,
                              const std::string &regFract) {
   globalVars.push_back({name, type, reg, isConst, regFract});
 }
@@ -161,23 +160,27 @@ const FuncDef *State::getFunction(const std::string &name) const {
 
 // --- Scope management -------------------------------------------------
 
-Scope &State::getScope() { return scopeStack.back(); }
+Scope &State::getScope() {
+  return scopeStack.back();
+}
 
-void State::pushScope(const std::string &labelStart,
-                      const std::string &labelEnd) {
+void State::pushScope(const std::string &labelStart, const std::string &labelEnd) {
   Scope child = makeChildScope();
-  if (!labelStart.empty() || !labelEnd.empty()) {
-    child.labelStart =
-        labelStart.empty() ? child.labelStart : labelStart;
+  if(!labelStart.empty() || !labelEnd.empty())
+  {
+    child.labelStart = labelStart.empty() ? child.labelStart : labelStart;
     child.labelEnd = labelEnd.empty() ? child.labelEnd : labelEnd;
   }
   scopeStack.push_back(std::move(child));
 }
 
-void State::popScope() { scopeStack.pop_back(); }
+void State::popScope() {
+  scopeStack.pop_back();
+}
 
 Scope State::makeChildScope() const {
-  if (scopeStack.empty()) {
+  if(scopeStack.empty())
+  {
     return Scope{};
   }
   const auto &parent = scopeStack.back();
@@ -193,30 +196,34 @@ Scope State::makeChildScope() const {
 
 // --- Variable management ----------------------------------------------
 
-void State::declareVar(const std::string &name, const std::string &type,
-                       const std::string &reg, bool isConst,
-                       bool ignoreReserved, const std::string &regFract,
-                       bool ownsReg, bool ownsFract) {
-  if (name.find(':') != std::string::npos) {
+void State::declareVar(const std::string &name, const std::string &type, const std::string &reg, bool isConst,
+                       bool ignoreReserved, const std::string &regFract, bool ownsReg, bool ownsFract) {
+  if(name.find(':') != std::string::npos)
+  {
     throwError("Variable name cannot contain a cast (':')!", {name});
   }
   Scope &scope = getScope();
-  if (reg.empty()) {
+  if(reg.empty())
+  {
     throwError("Cannot declare variable without register!", {name});
   }
-  if (!ignoreReserved &&
-      std::find(reg::REGS_FORBIDDEN.begin(), reg::REGS_FORBIDDEN.end(),
-                reg) != reg::REGS_FORBIDDEN.end()) {
-    throwError("Cannot use reserved register '" + reg + "' for a variable!",
-               {name});
+  if(!ignoreReserved &&
+     std::find(reg::REGS_FORBIDDEN.begin(), reg::REGS_FORBIDDEN.end(), reg) != reg::REGS_FORBIDDEN.end())
+  {
+    throwError("Cannot use reserved register '" + reg + "' for a variable!", {name});
   }
 
-  if (isVecType(type)) {
-    if (!reg::isVecReg(reg)) {
+  if(isVecType(type))
+  {
+    if(!reg::isVecReg(reg))
+    {
       throwError("Cannot use scalar register for vector variable!", {name});
     }
-  } else {
-    if (reg::isVecReg(reg)) {
+  }
+  else
+  {
+    if(reg::isVecReg(reg))
+    {
       throwError("Cannot use vector register for scalar variable!", {name});
     }
   }
@@ -224,65 +231,62 @@ void State::declareVar(const std::string &name, const std::string &type,
   // Check for double-allocation
   auto checkReg = [&](const std::string &r) {
     auto it = scope.regVarMap.find(r);
-    if (it != scope.regVarMap.end()) {
+    if(it != scope.regVarMap.end())
+    {
       std::string extra;
-      if (fallbackAllocRegs.count(r)) {
+      if(fallbackAllocRegs.count(r))
+      {
         extra = "\n  -> '" + it->second + "' was auto-allocated to " + r +
                 " because every other register was already taken; this "
                 "function is out of " +
-                std::string(reg::isVecReg(r) ? "vector" : "scalar") +
-                " registers. Free one up, or give '" + it->second +
-                "' a register of its own.";
+                std::string(reg::isVecReg(r) ? "vector" : "scalar") + " registers. Free one up, or give '" +
+                it->second + "' a register of its own.";
       }
-      throwError("Register '" + r + "' already used for variable '" +
-                     it->second + "'!" + extra,
-                 {name});
+      throwError("Register '" + r + "' already used for variable '" + it->second + "'!" + extra, {name});
     }
   };
 
-  if (ownsReg) checkReg(reg);
+  if(ownsReg) checkReg(reg);
 
   // Resolve the register pair once, here. Every later use reads the stored
   // pair instead of deriving the second register.
   std::string rInt, rFract;
-  if (isTwoRegType(type)) {
+  if(isTwoRegType(type))
+  {
     rInt = reg;
     rFract = regFract;
-    if (rFract.empty()) {
+    if(rFract.empty())
+    {
       const std::string *nextR = reg::nextReg(reg);
-      if (!nextR) throwError("No next register for two-reg type!", {name});
+      if(!nextR) throwError("No next register for two-reg type!", {name});
       rFract = *nextR;
     }
-    if (rFract == rInt)
-      throwError("A vec32 needs two different registers, '" + rInt +
-                 "' given twice!", {name});
-    if (!reg::isVecReg(rFract))
-      throwError("'" + rFract + "' is not a vector register!", {name});
-  } else if (!regFract.empty()) {
+    if(rFract == rInt) throwError("A vec32 needs two different registers, '" + rInt + "' given twice!", {name});
+    if(!reg::isVecReg(rFract)) throwError("'" + rFract + "' is not a vector register!", {name});
+  }
+  else if(!regFract.empty())
+  {
     throwError("Only vec32 variables can specify two registers!", {name});
   }
 
-  VarDef def{reg,     rInt,    rFract, ownsReg, ownsFract,
-             toTypeClass(type), {}, {}, {}, {}, 0, isConst, 0};
+  VarDef def{reg, rInt, rFract, ownsReg, ownsFract, toTypeClass(type), {}, {}, {}, {}, 0, isConst, 0};
   scope.varMap[name] = def;
   // Borrowed registers stay owned by the variable they came from, so they
   // are neither claimed here nor freed by undef.
-  if (ownsReg) scope.regVarMap[reg] = name;
+  if(ownsReg) scope.regVarMap[reg] = name;
 
-  if (!rFract.empty() && ownsFract) {
+  if(!rFract.empty() && ownsFract)
+  {
     checkReg(rFract);
     scope.regVarMap[rFract] = name;
   }
 }
 
-void State::declareVarAlias(const std::string &aliasName,
-                            const std::string &varName) {
+void State::declareVarAlias(const std::string &aliasName, const std::string &varName) {
   getRequiredVar(varName, "alias");
   Scope &scope = getScope();
   auto it = scope.varAliasMap.find(varName);
-  const std::string &realName = (it != scope.varAliasMap.end())
-                                    ? it->second
-                                    : varName;
+  const std::string &realName = (it != scope.varAliasMap.end()) ? it->second : varName;
   scope.varAliasMap[aliasName] = realName;
 }
 
@@ -291,24 +295,29 @@ void State::undefVar(const std::string &varName) {
 
   scope.varAliasMap.erase(varName);
   std::vector<std::string> toErase;
-  for (const auto &[alias, target] : scope.varAliasMap) {
-    if (target == varName) toErase.push_back(alias);
+  for(const auto &[alias, target] : scope.varAliasMap)
+  {
+    if(target == varName) toErase.push_back(alias);
   }
-  for (const auto &a : toErase) {
+  for(const auto &a : toErase)
+  {
     scope.varAliasMap.erase(a);
   }
 
   std::string resolved = varName;
   auto aliasIt = scope.varAliasMap.find(varName);
-  if (aliasIt != scope.varAliasMap.end()) {
+  if(aliasIt != scope.varAliasMap.end())
+  {
     resolved = aliasIt->second;
   }
 
   auto varIt = scope.varMap.find(resolved);
-  if (varIt == scope.varMap.end()) {
+  if(varIt == scope.varMap.end())
+  {
     throwError("Variable " + resolved + " not known!");
   }
-  if (varIt->second.isGlobal) {
+  if(varIt->second.isGlobal)
+  {
     throwError("Cannot undef global register variable '" + resolved + "'!");
   }
 
@@ -317,26 +326,24 @@ void State::undefVar(const std::string &varName) {
   {
     const VarDef &me = varIt->second;
     std::vector<std::string> mine;
-    if (me.ownsInt) mine.push_back(me.reg);
-    if (me.ownsFract && !me.regFract.empty()) mine.push_back(me.regFract);
+    if(me.ownsInt) mine.push_back(me.reg);
+    if(me.ownsFract && !me.regFract.empty()) mine.push_back(me.regFract);
     auto isMine = [&](const std::string &r) {
-      return !r.empty() &&
-             std::find(mine.begin(), mine.end(), r) != mine.end();
+      return !r.empty() && std::find(mine.begin(), mine.end(), r) != mine.end();
     };
-    for (const auto &[otherName, other] : scope.varMap) {
-      if (otherName == resolved) continue;
-      if ((!other.ownsInt && isMine(other.reg)) ||
-          (!other.ownsFract && isMine(other.regFract))) {
-        throwError("Cannot undef '" + resolved + "' while '" + otherName +
-                   "' still aliases one of its registers!");
+    for(const auto &[otherName, other] : scope.varMap)
+    {
+      if(otherName == resolved) continue;
+      if((!other.ownsInt && isMine(other.reg)) || (!other.ownsFract && isMine(other.regFract)))
+      {
+        throwError("Cannot undef '" + resolved + "' while '" + otherName + "' still aliases one of its registers!");
       }
     }
   }
 
   // Free registers (borrowed ones belong to another variable)
-  if (varIt->second.ownsInt) scope.regVarMap.erase(varIt->second.reg);
-  if (varIt->second.ownsFract && !varIt->second.regFract.empty())
-    scope.regVarMap.erase(varIt->second.regFract);
+  if(varIt->second.ownsInt) scope.regVarMap.erase(varIt->second.reg);
+  if(varIt->second.ownsFract && !varIt->second.regFract.empty()) scope.regVarMap.erase(varIt->second.regFract);
   scope.varMap.erase(varIt);
 }
 
@@ -344,25 +351,28 @@ VarDef *State::getVar(const std::string &name) {
   Scope &scope = getScope();
   std::string nameNorm = name;
   auto colonPos = nameNorm.find(':');
-  if (colonPos != std::string::npos) {
+  if(colonPos != std::string::npos)
+  {
     nameNorm = nameNorm.substr(0, colonPos);
   }
   auto aliasIt = scope.varAliasMap.find(nameNorm);
-  if (aliasIt != scope.varAliasMap.end()) {
+  if(aliasIt != scope.varAliasMap.end())
+  {
     nameNorm = aliasIt->second;
   }
   auto it = scope.varMap.find(nameNorm);
   return it != scope.varMap.end() ? &it->second : nullptr;
 }
 
-const VarDef *State::getRequiredVar(const std::string &name,
-                                     const std::string &contextName,
-                                     const std::string &context) {
+const VarDef *State::getRequiredVar(const std::string &name, const std::string &contextName,
+                                    const std::string &context) {
   VarDef *var = getVar(name);
-  if (!var) {
+  if(!var)
+  {
     // Fallback: check memory variable map
     auto memIt = memVarMap.find(name);
-    if (memIt != memVarMap.end()) {
+    if(memIt != memVarMap.end())
+    {
       static thread_local VarDef memVar;
       memVar = VarDef{};
       memVar.type = toTypeClass(memIt->second.type);
@@ -375,9 +385,7 @@ const VarDef *State::getRequiredVar(const std::string &name,
   return var;
 }
 
-VarDef State::getRequiredVarCopy(const std::string &name,
-                                  const std::string &contextName,
-                                  const std::string &context) {
+VarDef State::getRequiredVarCopy(const std::string &name, const std::string &contextName, const std::string &context) {
   const VarDef *var = getRequiredVar(name, contextName, context);
   VarDef copy = *var;
   // Store the original variable name (without cast) for macro arg passing
@@ -386,32 +394,34 @@ VarDef State::getRequiredVarCopy(const std::string &name,
 
   // Handle cast suffix
   auto colonPos = name.find(':');
-  if (colonPos != std::string::npos) {
+  if(colonPos != std::string::npos)
+  {
     std::string castStr = name.substr(colonPos + 1);
     copy.originalType = copy.type;
     copy.castType = toCastType(castStr);
 
-    if (isVecType(copy.type)) {
-      if (std::find(VEC_CASTS.begin(), VEC_CASTS.end(), castStr) ==
-          VEC_CASTS.end()) {
-        throwError("Invalid cast type '" + castStr + "' for variable " +
-                       name + ", expected: uint,sint,ufract,sfract!",
+    if(isVecType(copy.type))
+    {
+      if(std::find(VEC_CASTS.begin(), VEC_CASTS.end(), castStr) == VEC_CASTS.end())
+      {
+        throwError("Invalid cast type '" + castStr + "' for variable " + name + ", expected: uint,sint,ufract,sfract!",
                    context);
       }
       // A fraction view of a vec32 points at the fraction register; the
       // pair (regInt/regFract) stays intact so the other half is still known.
-      if (copy.type == TypeClass::Vec32 &&
-          (toCastType(castStr) == CastType::Sfract || toCastType(castStr) == CastType::Ufract)) {
-        if (!copy.regFract.empty()) copy.reg = copy.regFract;
+      if(copy.type == TypeClass::Vec32 &&
+         (toCastType(castStr) == CastType::Sfract || toCastType(castStr) == CastType::Ufract))
+      {
+        if(!copy.regFract.empty()) copy.reg = copy.regFract;
       }
       copy.type = TypeClass::Vec16;
-    } else {
-      if (std::find(SCALAR_TYPES.begin(), SCALAR_TYPES.end(), castStr) ==
-          SCALAR_TYPES.end()) {
-        throwError(
-            "Invalid cast type '" + castStr + "' for variable " + name +
-                ", expected: s8,u8,s16,u16,s32,u32",
-            context);
+    }
+    else
+    {
+      if(std::find(SCALAR_TYPES.begin(), SCALAR_TYPES.end(), castStr) == SCALAR_TYPES.end())
+      {
+        throwError("Invalid cast type '" + castStr + "' for variable " + name + ", expected: s8,u8,s16,u16,s32,u32",
+                   context);
       }
       copy.type = toTypeClass(castStr);
     }
@@ -423,11 +433,13 @@ const std::string *State::getVarReg(const std::string &name) const {
   const Scope &scope = scopeStack.back();
   std::string nameNorm = name;
   auto colonPos = nameNorm.find(':');
-  if (colonPos != std::string::npos) {
+  if(colonPos != std::string::npos)
+  {
     nameNorm = nameNorm.substr(0, colonPos);
   }
   auto aliasIt = scope.varAliasMap.find(nameNorm);
-  if (aliasIt != scope.varAliasMap.end()) {
+  if(aliasIt != scope.varAliasMap.end())
+  {
     nameNorm = aliasIt->second;
   }
   auto it = scope.varMap.find(nameNorm);
@@ -438,11 +450,13 @@ bool State::varExists(const std::string &name) const {
   const Scope &scope = scopeStack.back();
   std::string nameNorm = name;
   auto colonPos = nameNorm.find(':');
-  if (colonPos != std::string::npos) {
+  if(colonPos != std::string::npos)
+  {
     nameNorm = nameNorm.substr(0, colonPos);
   }
   auto aliasIt = scope.varAliasMap.find(nameNorm);
-  if (aliasIt != scope.varAliasMap.end()) {
+  if(aliasIt != scope.varAliasMap.end())
+  {
     nameNorm = aliasIt->second;
   }
   return scope.varMap.count(nameNorm) > 0;
@@ -452,15 +466,18 @@ void State::markVarModified(const std::string &name) {
   Scope &scope = getScope();
   std::string nameNorm = name;
   auto colonPos = nameNorm.find(':');
-  if (colonPos != std::string::npos) {
+  if(colonPos != std::string::npos)
+  {
     nameNorm = nameNorm.substr(0, colonPos);
   }
   auto aliasIt = scope.varAliasMap.find(nameNorm);
-  if (aliasIt != scope.varAliasMap.end()) {
+  if(aliasIt != scope.varAliasMap.end())
+  {
     nameNorm = aliasIt->second;
   }
   auto it = scope.varMap.find(nameNorm);
-  if (it == scope.varMap.end()) {
+  if(it == scope.varMap.end())
+  {
     throwError("Variable " + name + " not known!");
   }
   it->second.modifyCount++;
@@ -468,16 +485,15 @@ void State::markVarModified(const std::string &name) {
 
 // --- Memory variables -------------------------------------------------
 
-void State::declareMemVar(const std::string &name, const std::string &type,
-                          int arraySize) {
+void State::declareMemVar(const std::string &name, const std::string &type, int arraySize) {
   memVarMap[name] = {name, type, arraySize};
 }
 
-const MemVarDef *State::getRequiredMem(const std::string &name,
-                                        const std::string &contextName,
-                                        const std::string &context) const {
+const MemVarDef *State::getRequiredMem(const std::string &name, const std::string &contextName,
+                                       const std::string &context) const {
   auto it = memVarMap.find(name);
-  if (it == memVarMap.end()) {
+  if(it == memVarMap.end())
+  {
     throwError(contextName + " Memory-Var " + name + " not known!", context);
   }
   return &it->second;
@@ -488,44 +504,44 @@ const MemVarDef *State::getMemVarOrNull(const std::string &name) const {
   return it != memVarMap.end() ? &it->second : nullptr;
 }
 
-VarOrMem State::getRequiredVarOrMem(const std::string &name,
-                                       const std::string &contextName,
-                                       const std::string &context) const {
+VarOrMem State::getRequiredVarOrMem(const std::string &name, const std::string &contextName,
+                                    const std::string &context) const {
   const Scope &scope = scopeStack.back();
 
   // Check memory map first
   auto memIt = memVarMap.find(name);
-  if (memIt != memVarMap.end()) {
-    return {memIt->second.name, memIt->second.type, "",
-            memIt->second.arraySize};
+  if(memIt != memVarMap.end())
+  {
+    return {memIt->second.name, memIt->second.type, "", memIt->second.arraySize};
   }
 
   // Check variable scope
   std::string nameNorm = name;
   auto aliasIt = scope.varAliasMap.find(nameNorm);
-  if (aliasIt != scope.varAliasMap.end()) {
+  if(aliasIt != scope.varAliasMap.end())
+  {
     nameNorm = aliasIt->second;
   }
   auto varIt = scope.varMap.find(nameNorm);
-  if (varIt != scope.varMap.end()) {
+  if(varIt != scope.varMap.end())
+  {
     return {varIt->first, toString(varIt->second.type), varIt->second.reg, 1};
   }
 
-  throwError(contextName + " Variable/Memory " + name + " not known!",
-             context);
+  throwError(contextName + " Variable/Memory " + name + " not known!", context);
   return {}; // unreachable
 }
 
 // --- Register allocation ----------------------------------------------
 
 State::RegPair State::allocRegisters(const std::string &type) {
-  if (!regAllocAllowed) {
+  if(!regAllocAllowed)
+  {
     throwError("Register allocation not allowed in this function!");
   }
 
   bool reverse = (funcType == "command");
-  const auto &regList = isVecType(type) ? reg::REGS_ALLOC_VECTOR
-                                        : reg::REGS_ALLOC_SCALAR;
+  const auto &regList = isVecType(type) ? reg::REGS_ALLOC_VECTOR : reg::REGS_ALLOC_SCALAR;
   const Scope &scope = getScope();
   bool twoRegs = isTwoRegType(type);
 
@@ -533,76 +549,87 @@ State::RegPair State::allocRegisters(const std::string &type) {
   // pass; the second pass ignores this so tight code keeps compiling.
   bool avoidExplicit = true;
   auto wantedLater = [&](const std::string &reg) {
-    if (explicitRegStack.empty()) return false;
+    if(explicitRegStack.empty()) return false;
     const auto &wanted = explicitRegStack.back();
     auto it = wanted.find(reg);
     return it != wanted.end() && it->second > line;
   };
-  auto inList = [&](const std::string &reg) {
-    return std::find(regList.begin(), regList.end(), reg) != regList.end();
-  };
+  auto inList = [&](const std::string &reg) { return std::find(regList.begin(), regList.end(), reg) != regList.end(); };
   auto isFree = [&](const std::string &reg) {
-    if (scope.regVarMap.count(reg)) return false;
+    if(scope.regVarMap.count(reg)) return false;
     return !(avoidExplicit && wantedLater(reg));
   };
 
   auto dumpUsed = [&]() {
     std::string used;
-    for (const auto &reg : regList) {
+    for(const auto &reg : regList)
+    {
       auto it = scope.regVarMap.find(reg);
-      if (it != scope.regVarMap.end())
-        used += reg + "=" + it->second + " ";
+      if(it != scope.regVarMap.end()) used += reg + "=" + it->second + " ";
     }
     return used;
   };
 
   // pass 1 means we had to step on a register wanted further down
   auto take = [&](int pass, RegPair found) {
-    if (pass == 1) {
+    if(pass == 1)
+    {
       fallbackAllocRegs.insert(found.reg);
-      if (!found.regFract.empty()) fallbackAllocRegs.insert(found.regFract);
+      if(!found.regFract.empty()) fallbackAllocRegs.insert(found.regFract);
     }
     return found;
   };
   // walk the pool in allocation order, stop at the first hit
   auto scan = [&](auto &&visit) -> RegPair {
-    if (reverse) {
-      for (auto it = regList.rbegin(); it != regList.rend(); ++it) {
+    if(reverse)
+    {
+      for(auto it = regList.rbegin(); it != regList.rend(); ++it)
+      {
         RegPair r = visit(*it);
-        if (!r.reg.empty()) return r;
+        if(!r.reg.empty()) return r;
       }
-    } else {
-      for (const auto &reg : regList) {
+    }
+    else
+    {
+      for(const auto &reg : regList)
+      {
         RegPair r = visit(reg);
-        if (!r.reg.empty()) return r;
+        if(!r.reg.empty()) return r;
       }
     }
     return {};
   };
 
   // single register, or an adjacent pair
-  for (int pass = 0; pass < 2; ++pass) {
+  for(int pass = 0; pass < 2; ++pass)
+  {
     avoidExplicit = (pass == 0);
     RegPair found = scan([&](const std::string &reg) -> RegPair {
-      if (!isFree(reg)) return {};
-      if (!twoRegs) return {reg, {}};
+      if(!isFree(reg)) return {};
+      if(!twoRegs) return {reg, {}};
       const std::string *nR = reg::nextReg(reg);
-      if (!nR || !inList(*nR) || !isFree(*nR)) return {};
+      if(!nR || !inList(*nR) || !isFree(*nR)) return {};
       return {reg, *nR};
     });
-    if (!found.reg.empty()) return take(pass, found);
+    if(!found.reg.empty()) return take(pass, found);
   }
   // no adjacent pair left: any two free registers
-  if (twoRegs) {
-    for (int pass = 0; pass < 2; ++pass) {
+  if(twoRegs)
+  {
+    for(int pass = 0; pass < 2; ++pass)
+    {
       avoidExplicit = (pass == 0);
       std::string first;
       RegPair found = scan([&](const std::string &reg) -> RegPair {
-        if (!isFree(reg)) return {};
-        if (first.empty()) { first = reg; return {}; }
+        if(!isFree(reg)) return {};
+        if(first.empty())
+        {
+          first = reg;
+          return {};
+        }
         return {first, reg};
       });
-      if (!found.reg.empty()) return take(pass, found);
+      if(!found.reg.empty()) return take(pass, found);
     }
   }
 
@@ -615,35 +642,35 @@ State::RegPair State::allocRegisters(const std::string &type) {
 std::string State::generateLabel() {
   ++nextLabelId;
   char buf[64];
-  snprintf(buf, sizeof(buf), "LABEL_%s_%04X",
-           func.c_str(), nextLabelId);
+  snprintf(buf, sizeof(buf), "LABEL_%s_%04X", func.c_str(), nextLabelId);
   return buf;
 }
 
 // --- Annotations ------------------------------------------------------
 
-void State::addAnnotation(const std::string &name, const std::string &mode,
-                          const std::string &value, bool valueIsString) {
+void State::addAnnotation(const std::string &name, const std::string &mode, const std::string &value,
+                          bool valueIsString) {
   validateAnnotation(name, value, mode, valueIsString);
   Scope &scope = getScope();
   scope.annotations.push_back({name, value, mode});
 }
 
-std::vector<AnnotationDef> State::getAnnotations(
-    const std::string &name) const {
-  if (scopeStack.empty()) return {};
+std::vector<AnnotationDef> State::getAnnotations(const std::string &name) const {
+  if(scopeStack.empty()) return {};
   const auto &annos = scopeStack.back().annotations;
-  if (name.empty()) return annos;
+  if(name.empty()) return annos;
 
   std::vector<AnnotationDef> result;
-  for (const auto &a : annos) {
-    if (a.name == name) result.push_back(a);
+  for(const auto &a : annos)
+  {
+    if(a.name == name) result.push_back(a);
   }
   return result;
 }
 
 void State::clearAnnotations() {
-  if (!scopeStack.empty()) {
+  if(!scopeStack.empty())
+  {
     scopeStack.back().annotations.clear();
   }
 }
@@ -652,10 +679,11 @@ void State::clearAnnotations() {
 
 uint32_t State::getBarrierMask(const std::string &name) {
   auto it = barrierMaskMap.find(name);
-  if (it != barrierMaskMap.end()) return it->second;
+  if(it != barrierMaskMap.end()) return it->second;
 
   int len = barrierMaskMap.size();
-  if (len >= 32) {
+  if(len >= 32)
+  {
     throwError("Too many different barriers, only up to 32 are supported!");
   }
   uint32_t mask = (1u << len);
@@ -669,10 +697,11 @@ uint32_t State::getBarrierMask(const std::string &name) {
 // among themselves), "after" ops read it, "strict" ops do both.
 int State::getBarrierBit(const std::string &name) {
   auto it = barrierBitMap.find(name);
-  if (it != barrierBitMap.end()) return it->second;
+  if(it != barrierBitMap.end()) return it->second;
 
   int len = barrierBitMap.size();
-  if (len >= 25) {
+  if(len >= 25)
+  {
     throwError("Too many different barriers, only up to 25 are supported!");
   }
   barrierBitMap[name] = len;

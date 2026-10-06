@@ -73,32 +73,107 @@ const std::string &getOpcodeName(Opcode op);
 // Cached Opcode constants for common comparisons (fast after first use).
 // Use: inst.op == OP_NOP instead of inst.op == getOpcode("nop").
 namespace Op {
-  inline Opcode NOP()   { static Opcode o = getOpcode("nop");    return o; }
-  inline Opcode J()     { static Opcode o = getOpcode("j");      return o; }
-  inline Opcode JR()    { static Opcode o = getOpcode("jr");     return o; }
-  inline Opcode JAL()   { static Opcode o = getOpcode("jal");    return o; }
-  inline Opcode BEQ()   { static Opcode o = getOpcode("beq");    return o; }
-  inline Opcode BNE()   { static Opcode o = getOpcode("bne");    return o; }
-  inline Opcode MTC2()  { static Opcode o = getOpcode("mtc2");   return o; }
-  inline Opcode MTC0()  { static Opcode o = getOpcode("mtc0");   return o; }
-  inline Opcode CTC2()  { static Opcode o = getOpcode("ctc2");   return o; }
-  inline Opcode STV()   { static Opcode o = getOpcode("stv");    return o; }
-  inline Opcode LTV()   { static Opcode o = getOpcode("ltv");    return o; }
-  inline Opcode LBV()   { static Opcode o = getOpcode("lbv");    return o; }
-  inline Opcode LSV()   { static Opcode o = getOpcode("lsv");    return o; }
-  inline Opcode LLV()   { static Opcode o = getOpcode("llv");    return o; }
-  inline Opcode LDV()   { static Opcode o = getOpcode("ldv");    return o; }
-  inline Opcode LUI()   { static Opcode o = getOpcode("lui");    return o; }
-  inline Opcode ADDIU() { static Opcode o = getOpcode("addiu");  return o; }
-  inline Opcode ADDU()  { static Opcode o = getOpcode("addu");   return o; }
-  inline Opcode ORI()   { static Opcode o = getOpcode("ori");    return o; }
-  inline Opcode VMUDL() { static Opcode o = getOpcode("vmudl");  return o; }
-  inline Opcode VXOR()  { static Opcode o = getOpcode("vxor");   return o; }
-  inline Opcode VRSQH() { static Opcode o = getOpcode("vrsqh");  return o; }
-  inline Opcode VRCPH() { static Opcode o = getOpcode("vrcph");  return o; }
-  inline Opcode VRSQL() { static Opcode o = getOpcode("vrsql");  return o; }
-  inline Opcode VRCPL() { static Opcode o = getOpcode("vrcpl");  return o; }
+inline Opcode NOP() {
+  static Opcode o = getOpcode("nop");
+  return o;
 }
+inline Opcode J() {
+  static Opcode o = getOpcode("j");
+  return o;
+}
+inline Opcode JR() {
+  static Opcode o = getOpcode("jr");
+  return o;
+}
+inline Opcode JAL() {
+  static Opcode o = getOpcode("jal");
+  return o;
+}
+inline Opcode BEQ() {
+  static Opcode o = getOpcode("beq");
+  return o;
+}
+inline Opcode BNE() {
+  static Opcode o = getOpcode("bne");
+  return o;
+}
+inline Opcode MTC2() {
+  static Opcode o = getOpcode("mtc2");
+  return o;
+}
+inline Opcode MTC0() {
+  static Opcode o = getOpcode("mtc0");
+  return o;
+}
+inline Opcode CTC2() {
+  static Opcode o = getOpcode("ctc2");
+  return o;
+}
+inline Opcode STV() {
+  static Opcode o = getOpcode("stv");
+  return o;
+}
+inline Opcode LTV() {
+  static Opcode o = getOpcode("ltv");
+  return o;
+}
+inline Opcode LBV() {
+  static Opcode o = getOpcode("lbv");
+  return o;
+}
+inline Opcode LSV() {
+  static Opcode o = getOpcode("lsv");
+  return o;
+}
+inline Opcode LLV() {
+  static Opcode o = getOpcode("llv");
+  return o;
+}
+inline Opcode LDV() {
+  static Opcode o = getOpcode("ldv");
+  return o;
+}
+inline Opcode LUI() {
+  static Opcode o = getOpcode("lui");
+  return o;
+}
+inline Opcode ADDIU() {
+  static Opcode o = getOpcode("addiu");
+  return o;
+}
+inline Opcode ADDU() {
+  static Opcode o = getOpcode("addu");
+  return o;
+}
+inline Opcode ORI() {
+  static Opcode o = getOpcode("ori");
+  return o;
+}
+inline Opcode VMUDL() {
+  static Opcode o = getOpcode("vmudl");
+  return o;
+}
+inline Opcode VXOR() {
+  static Opcode o = getOpcode("vxor");
+  return o;
+}
+inline Opcode VRSQH() {
+  static Opcode o = getOpcode("vrsqh");
+  return o;
+}
+inline Opcode VRCPH() {
+  static Opcode o = getOpcode("vrcph");
+  return o;
+}
+inline Opcode VRSQL() {
+  static Opcode o = getOpcode("vrsql");
+  return o;
+}
+inline Opcode VRCPL() {
+  static Opcode o = getOpcode("vrcpl");
+  return o;
+}
+} // namespace Op
 
 // --- SmallVec: fixed-capacity vector, no heap allocation ---------
 
@@ -113,14 +188,17 @@ template <typename T, size_t N> struct SmallVec {
   const T *end() const { return data_.data() + size_; }
   size_t size() const { return size_; }
   bool empty() const { return size_ == 0; }
-  void push_back(const T &v) { assert(size_ < N); data_[size_++] = v; }
+  void push_back(const T &v) {
+    assert(size_ < N);
+    data_[size_++] = v;
+  }
   void clear() { size_ = 0; }
   T &back() { return data_[size_ - 1]; }
   const T &back() const { return data_[size_ - 1]; }
   void pop_back() { --size_; }
   SmallVec &operator=(const std::vector<T> &v) {
     size_ = 0;
-    for (const auto &e : v) push_back(e);
+    for(const auto &e : v) push_back(e);
     return *this;
   }
 };
@@ -140,11 +218,11 @@ enum class RebaseKind : uint8_t {
 // --- ASM instruction --------------------------------------------------
 
 struct AsmInst {
-  Opcode op = 0;                      // mnemonic e.g. "add", "beq", "nop"
-  std::vector<std::string> args;      // operands
+  Opcode op = 0;                 // mnemonic e.g. "add", "beq", "nop"
+  std::vector<std::string> args; // operands
   AsmType type = AsmType::OP;
 
-  uint32_t opFlags = 0;               // bitfield of OpFlag
+  uint32_t opFlags = 0; // bitfield of OpFlag
   int stallLatency = 0;
 
   AsmDebug debug;
@@ -152,8 +230,8 @@ struct AsmInst {
 
   // -- Offset-rebase classification (filled by asmInitDep) --------------
   RebaseKind rebaseKind = RebaseKind::None;
-  int16_t rebaseBase = -1;            // stall index of the base register
-  int32_t rebaseValue = 0;            // Increment: delta / MemOp: offset
+  int16_t rebaseBase = -1; // stall index of the base register
+  int32_t rebaseValue = 0; // Increment: delta / MemOp: offset
 
   // -- Dependency tracking (filled by optimizer) -----------------------
   // Capacity must cover the worst case after lane-expansion: two vector args
@@ -190,7 +268,7 @@ struct AsmFunc {
   int cyclesAfter = 0;
   int costBefore = 0; // reorder objective (scaled cost) before / after
   int costAfter = 0;
-  int hotCycles = 0; // hot-path cycles from the last evalFunctionCost()
+  int hotCycles = 0;                      // hot-path cycles from the last evalFunctionCost()
   std::vector<AsmAnnotation> annotations; // from AST
   std::optional<int64_t> resultType;
   std::string nameOverride; // for command aliasing
@@ -209,18 +287,12 @@ struct AsmOutput {
 
 // --- Factory functions ------------------------------------------------
 
-AsmInst asmOp(const std::string &op,
-              const std::vector<std::string> &args = {});
+AsmInst asmOp(const std::string &op, const std::vector<std::string> &args = {});
 AsmInst asmNOP();
 AsmInst asmLabel(const std::string &label);
-AsmInst asmBranch(const std::string &op,
-                  const std::vector<std::string> &args,
-                  const std::string &labelEnd);
-AsmInst asmInline(const std::string &op,
-                  const std::vector<std::string> &args = {});
-AsmInst asmFunction(const std::string &target,
-                    const std::vector<std::string> &argRegs,
-                    bool relative = false);
+AsmInst asmBranch(const std::string &op, const std::vector<std::string> &args, const std::string &labelEnd);
+AsmInst asmInline(const std::string &op, const std::vector<std::string> &args = {});
+AsmInst asmFunction(const std::string &target, const std::vector<std::string> &argRegs, bool relative = false);
 
 // --- Op classification helpers ----------------------------------------
 

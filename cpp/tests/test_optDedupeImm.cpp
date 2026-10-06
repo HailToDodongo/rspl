@@ -7,8 +7,7 @@ static rspl::TranspileResult optTranspile(const std::string &src) {
   return rspl::transpileSource(src, {.rspqWrapper = false, .optimize = true});
 }
 
-TEST_CASE("Optimizer E2E - Dedupe Imm - $at cached across loads",
-          "[optDedupeImm]") {
+TEST_CASE("Optimizer E2E - Dedupe Imm - $at cached across loads", "[optDedupeImm]") {
   auto res = optTranspile(R"(
 state {
   vec16 MY_VAR[4];
@@ -29,8 +28,7 @@ function test()
   lqv $v01, 0, 0, $at)");
 }
 
-TEST_CASE("Optimizer E2E - Dedupe Imm - $at NOT cached across branch",
-          "[optDedupeImm]") {
+TEST_CASE("Optimizer E2E - Dedupe Imm - $at NOT cached across branch", "[optDedupeImm]") {
   auto res = optTranspile(R"(
 state {
   vec16 MY_VAR[4];
@@ -56,8 +54,7 @@ function test(u32 cond)
   lqv $v02, 0, 16, $at)");
 }
 
-TEST_CASE("Optimizer E2E - Dedupe Imm - $at changes across state vars",
-          "[optDedupeImm]") {
+TEST_CASE("Optimizer E2E - Dedupe Imm - $at changes across state vars", "[optDedupeImm]") {
   auto res = optTranspile(R"(
 state {
   vec16 VAR_A[4];
@@ -78,8 +75,7 @@ function test()
   lqv $v02, 0, 0, $at)");
 }
 
-TEST_CASE("Optimizer E2E - Dedupe Imm - $at recached after different var",
-          "[optDedupeImm]") {
+TEST_CASE("Optimizer E2E - Dedupe Imm - $at recached after different var", "[optDedupeImm]") {
   auto res = optTranspile(R"(
 state {
   vec16 VAR_A[4];
