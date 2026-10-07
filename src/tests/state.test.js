@@ -1,4 +1,6 @@
 import {transpileSource} from "../lib/transpiler";
+import state from "../lib/state.js";
+import {isVecReg} from "../lib/syntax/registers.js";
 
 const CONF = {rspqWrapper: true};
 
@@ -307,5 +309,97 @@ function test(u32 dummy)
     expect(warn).toBe("");
     expect(asm).toContain("%lo(RDPQ_CMD_STAGING)");
     expect(asm).toContain("%lo(RSPQ_Loop)");
+  });
+});
+
+describe('state', () =>
+{
+  test('basic lifecycle', () => {
+    state.reset();
+    state.enterFunction("test", "function", 0);
+
+    expect(state.func).toBe("test");
+    expect(state.funcType).toBe("function");
+    expect(state.varExists("ZERO")).toBe(true);
+    expect(state.varExists("VZERO")).toBe(true);
+    expect(state.varExists("RA")).toBe(true);
+
+    state.leaveFunction();
+    expect(state.func).toBe("");
+  });
+
+  test('register allocation scalar', () => {
+    state.reset();
+    state.enterFunction("test", "function", 0);
+
+    const reg = state.allocRegister("u32");
+    expect(reg).toBeTruthy();
+    expect(isVecReg(reg)).toBe(false); // Scalar type gets scalar register
+
+    state.declareVar("a", "u32", reg);
+    expect(state.varExists("a")).toBe(true);
+
+    // Register is marked used, next allocation gets a different one
+    const reg2 = state.allocRegister("u32");
+    expect(reg2).not.toBe(reg);
+
+    state.leaveFunction();
+  });
+
+  test('register allocation vector', () => {
+    state.reset();
+    state.enterFunction("test", "function", 0);
+
+    const reg = state.allocRegister("vec16");
+    expect(reg).toBeTruthy();
+    expect(isVecReg(reg)).toBe(true);
+
+    state.leaveFunction();
+  });
+
+  test('scope push/pop', () => {
+    state.reset();
+    state.enterFunction("test", "function", 0);
+
+    const reg = state.allocRegister("u32");
+    state.declareVar("outer", "u32", reg);
+
+    state.pushScope();
+    expect(state.varExists("outer")).toBe(true); // Inherited from parent
+    state.declareVar("inner", "u32", state.allocRegister("u32"));
+    expect(state.varExists("inner")).toBe(true);
+    state.popScope();
+
+    expect(state.varExists("outer")).toBe(true);
+    expect(state.varExists("inner")).toBe(false); // Gone after pop
+
+    state.leaveFunction();
+  });
+
+  test('label generation', () => {
+    state.reset();
+    state.enterFunction("myFunc", "function", 0);
+
+    const label1 = state.generateLabel();
+    const label2 = state.generateLabel();
+    expect(label1).not.toBe(label2);
+    expect(label1.startsWith("LABEL_myFunc_")).toBe(true);
+
+    state.leaveFunction();
+  });
+
+  test('const and modify tracking', () => {
+    state.reset();
+    state.enterFunction("test", "function", 0);
+
+    const reg = state.allocRegister("u32");
+    state.declareVar("x", "u32", reg, true); // const
+
+    state.markVarModified("x");
+    const v = state.getRequiredVar("x", "test", "");
+    expect(v.modifyCount).toBe(1);
+    expect(v.isConst).toBe(true);
+
+    state.leaveFunction();
   });
 });

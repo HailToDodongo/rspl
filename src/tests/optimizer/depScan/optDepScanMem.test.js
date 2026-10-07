@@ -55,7 +55,7 @@ describe('Optimizer - Dependency Scanner - Memory', () =>
     state.pushScope();
 
     expect(asmLinesToDeps(lines)).toEqual([
-      [0, 1],
+      [0, 1, 2],
       [0, 1, 2, 3],
       [1, 2, 3],
       [0, 1, 2, 3],

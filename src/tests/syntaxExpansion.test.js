@@ -330,3 +330,16 @@ describe('Syntax - Expansion', () =>
     });
   }
 });
+
+describe('Syntax Expansion', () =>
+{
+  test('nested calc temps are freed', async () => {
+    let body = "u32<$t0> a; u32<$t1> b; u32<$t2> c;\n";
+    for(let i = 0; i < 30; ++i) {
+      body += "      a = b + ((c & 15) << 5);\n";
+    }
+    const {asm, warn} = await transpileSource("function test() {\n" + body + "}", CONF);
+    expect(warn).toBe("");
+    expect(asm).toContain("test:");
+  });
+});

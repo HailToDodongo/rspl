@@ -134,4 +134,34 @@ describe('Syntax - Swizzle', () =>
   jr $ra
   nop`);
   });
+
+  test('Assign single (vec32 <- vec32, cast)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec32<$v01> a, b;
+      SINT:
+      a.x = b:sint.X;
+      a:sint.x = b:sint.X;
+      a:ufract.x = b:sint.X;
+
+      UFRACT:
+      a.x = b:ufract.X;
+      a:sint.x = b:ufract.X;
+      a:ufract.x = b:ufract.X;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  SINT:
+  vmov $v01.e0, $v03.e4
+  vmov $v02.e0, $v00.e4
+  vmov $v01.e0, $v03.e4
+  vmov $v02.e0, $v03.e4
+  UFRACT:
+  vmov $v01.e0, $v00.e4
+  vmov $v02.e0, $v04.e4
+  vmov $v01.e0, $v04.e4
+  vmov $v02.e0, $v04.e4
+  jr $ra
+  nop`);
+  });
 });

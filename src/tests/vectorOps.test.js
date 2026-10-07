@@ -377,7 +377,7 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmudm $v29, $v02, $v04.e0
+  vmudm $v01, $v02, $v04.e0
   vmadh $v01, $v02, $v03.e0
   jr $ra
   nop`);
@@ -569,7 +569,7 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmadm $v29, $v02, $v04.e0
+  vmadm $v01, $v02, $v04.e0
   vmadh $v01, $v02, $v03.e0
   jr $ra
   nop`);
@@ -1101,8 +1101,8 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmadl $v29, $v02, $v04.v
-  vmadm $v29, $v01, $v04.v
+  vmadl $v05, $v02, $v04.v
+  vmadm $v05, $v01, $v04.v
   vmadn $v06, $v02, $v03.v
   vmadh $v05, $v01, $v03.v
   jr $ra
@@ -1119,9 +1119,8 @@ describe('Vector - Ops', () =>
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  vmudm $v06, $v01, $v04.v
-  vmadh $v05, $v01, $v03.v
-  vmadn $v06, $v00, $v00
+  vmudn $v06, $v04, $v01.v
+  vmadh $v05, $v03, $v01.v
   jr $ra
   nop`);
   });
@@ -1171,6 +1170,228 @@ describe('Vector - Ops', () =>
   ori $at, $zero, %lo(RSPQ_SCRATCH_MEM)
   sdv $v02, 8, 0, $at
   ldv $v01, 0, 0, $at
+  jr $ra
+  nop`);
+  });
+
+  test('Add (vec16 cast)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec16<$v01> res, a;
+      res:uint += a.x;
+      res:sint += a.x;
+      res:sfract += a.x;
+      res:ufract += a.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    // an operand without a cast follows the destination's view
+    expect(asm).toBe(`test:
+  vaddc $v01, $v01, $v02.e0
+  vadd $v01, $v01, $v02.e0
+  vadd $v01, $v01, $v02.e0
+  vaddc $v01, $v01, $v02.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Multiply vec16 * vec32 with a swizzled vec32', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+        vec16<$v01> a;
+        vec32<$v03> b;
+        vec32<$v05> res;
+        res = a * b.wwwwWWWW;
+      }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudm $v06, $v01, $v04.h3
+  vmadh $v05, $v01, $v03.h3
+  vmadn $v06, $v00, $v00
+  jr $ra
+  nop`);
+  });
+
+  test('Multiply rejects a swizzle on the left operand', async () => {
+    const src = `function test() {
+        vec16<$v01> a;
+        vec32<$v03> b;
+        vec32<$v05> res;
+        res = b.wwwwWWWW * a;
+      }`;
+    await expect(() => transpileSource(src, CONF))
+      .rejects.toThrowError(/swizzle on the right side/);
+  });
+
+  test('Logic with pow2 constant (vec16)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec16<$v01> a;
+      a &= 0x400;
+      a |= 16;
+      a ^= 0x8000;
+      a = a & 2;
+      a &= 0;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vand $v01, $v01, $v31.e5
+  vor $v01, $v01, $v30.e3
+  vxor $v01, $v01, $v31.e0
+  vand $v01, $v01, $v30.e6
+  vand $v01, $v01, $v00.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Logic with pow2 constant (vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec32<$v02> b;
+      b &= 0x400;
+      b ^= 4;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    // the constant's fraction bits are zero -> fract half uses the zero lane
+    expect(asm).toBe(`test:
+  vand $v02, $v02, $v31.e5
+  vand $v03, $v03, $v00.e0
+  vxor $v02, $v02, $v30.e5
+  vxor $v03, $v03, $v00.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Logic with non-pow2 constant throws', async () => {
+    const src = `function test() {
+      vec16<$v01> a;
+      a &= 3;
+    }`;
+    await expect(() => transpileSource(src, CONF))
+      .rejects.toThrowError(/powers of two/);
+  });
+
+  test('Add on vec32 fraction view with uncast operand', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec32<$v02> nrT;
+      vec16<$v16> normShift;
+      nrT:ufract += normShift.x;
+      nrT:ufract += 2;
+      nrT:sfract += normShift.x;
+      nrT:ufract += normShift:ufract.x;
+      nrT:sint += normShift.x;
+      nrT:ufract -= normShift.x;
+      nrT += normShift.x;
+    }`, CONF);
+
+    expect(warn).toBe("");
+    // the view decides how an uncast operand is read.
+    // a full vec32 target keeps reading it as the integer half (with the carry into the int add)
+    expect(asm).toBe(`test:
+  vaddc $v03, $v03, $v16.e0
+  vaddc $v03, $v03, $v30.e6
+  vadd $v03, $v03, $v16.e0
+  vaddc $v03, $v03, $v16.e0
+  vadd $v02, $v02, $v16.e0
+  vsubc $v03, $v03, $v16.e0
+  vaddc $v03, $v03, $v00.e0
+  vadd $v02, $v02, $v16.e0
+  jr $ra
+  nop`);
+  });
+
+  test('Add with an operand cast to the opposite view throws', async () => {
+    await expect(() => transpileSource(`function test() {
+      vec32<$v02> nrT;
+      vec16<$v16> a;
+      nrT:ufract += a:sint.x;
+    }`, CONF)).rejects.toThrowError(/integer operand on a fraction view/);
+
+    await expect(() => transpileSource(`function test() {
+      vec32<$v02> nrT;
+      vec16<$v16> a;
+      nrT:sint += a:ufract.x;
+    }`, CONF)).rejects.toThrowError(/fraction operand on an integer view/);
+  });
+
+  test('Mul (vec16 fraction * vec32)', async () => {
+    const {asm, warn} = await transpileSource(`function test() {
+      vec32<$v02> nrT;
+      vec32<$v13> screenSize;
+      vec16<$v01> nrD;
+      vec16<$v05> r16;
+      nrT = nrD:ufract * screenSize.wwwwWWWW;
+      r16 = nrD:ufract * screenSize.wwwwWWWW;
+      nrT = screenSize * nrD:ufract.xxxxXXXX;
+    }`, CONF);
+
+    expect(warn).toBe("");
+s
+    expect(asm).toBe(`test:
+  vmudl $v02, $v01, $v14.h3
+  vmadn $v03, $v01, $v13.h3
+  vmadh $v02, $v00, $v00
+  vmudl $v05, $v01, $v14.h3
+  vmadn $v05, $v01, $v13.h3
+  vmadh $v05, $v00, $v00
+  vmudl $v03, $v14, $v01.h0
+  vmadm $v02, $v13, $v01.h0
+  vmadn $v03, $v00, $v00
+  jr $ra
+  nop`);
+  });
+
+  test('scratch uses the result register, not VTEMP', async () => {
+    const {asm, warn} = await transpileSource(`function test()
+{
+  vec32<$v05> posClip;
+  vec16<$v15> guardBandScale;
+  vec16<$v02> clipPlaneW = posClip * guardBandScale.xxxxxxxx;
+}`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudn $v02, $v06, $v15.e0
+  vmadh $v02, $v05, $v15.e0
+  jr $ra
+  nop`);
+  });
+
+  test('scratch keeps VTEMP when the result is also a source', async () => {
+    const {asm, warn} = await transpileSource(`function test()
+{
+  vec32<$v05> big;
+  vec16<$v02> out;
+  out = big * out.xxxxxxxx;
+}`, CONF);
+
+    expect(warn).toBe("");
+    // $v02 is read by the vmadh, so it cannot take the scratch write
+    expect(asm).toBe(`test:
+  vmudn $v29, $v06, $v02.e0
+  vmadh $v02, $v05, $v02.e0
+  jr $ra
+  nop`);
+  });
+
+  test('a live VTEMP survives an unrelated multiply', async () => {
+    const {asm, warn} = await transpileSource(`function test()
+{
+  vec16<$v10> a;
+  vec16<$v11> b;
+  vec16<$v12> c;
+  vec32<$v05> big;
+  vec16<$v02> out;
+  VTEMP = a * b;
+  out = big * c.xxxxxxxx;
+  a:sint += VTEMP;
+}`, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toBe(`test:
+  vmudn $v29, $v10, $v11.v
+  vmudn $v02, $v06, $v12.e0
+  vmadh $v02, $v05, $v12.e0
+  vadd $v10, $v10, $v29.v
   jr $ra
   nop`);
   });

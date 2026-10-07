@@ -14,19 +14,19 @@ function B(op, args, labelEnd) {
 describe('Optimizer - dedupeLabels', () => {
 
   test('Consecutive labels are deduplicated to the last one', () => {
-    let func = { asm: [
-      B("j", ["LABEL_A"], "LABEL_A"),
+
+    let func = { name: "test", asm: [
+      B("j", ["LABEL_test_0001"], "LABEL_test_0001"),
       O("nop"),
-      L("LABEL_A"),
-      L("LABEL_B"),
+      L("LABEL_test_0001"),
+      L("LABEL_test_0002"),
       O("addiu", ["$t0", "$zero", "1"]),
     ]};
     dedupeLabels(func);
-    // LABEL_B kept, LABEL_A deleted, branch patched to LABEL_B
-    const labels = func.asm.filter(a => a.label).map(a => a.label);
-    expect(labels).toEqual(["LABEL_B"]);
-    expect(func.asm[0].args[0]).toBe("LABEL_B");
-    // Note: JS only patches args, not labelEnd
+    expect(func.asm.length).toBe(4);
+    expect(func.asm[0].args[0]).toBe("LABEL_test_0002");
+    expect(func.asm[0].labelEnd).toBe("LABEL_test_0002");
+    expect(func.asm[2].label).toBe("LABEL_test_0002");
   });
 
   test('__-prefixed labels are NOT deduplicated', () => {

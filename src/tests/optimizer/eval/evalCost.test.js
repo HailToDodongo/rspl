@@ -1,4 +1,6 @@
-import {evalFunctionCost} from "../../../lib/optimizer/eval/evalCost.js";
+import * as evalCost from "../../../lib/optimizer/eval/evalCost.js";
+
+const evalFunctionCostLinear = evalCost.evalFunctionCostLinear ?? evalCost.evalFunctionCost;
 import {asm, asmLabel, asmNOP} from "../../../lib/intsructions/asmWriter.js";
 import {asmInitDeps, asmScanDeps} from "../../../lib/optimizer/asmScanDeps.js";
 
@@ -24,7 +26,7 @@ function linesToCycles(lines)
 {
   const func = {asm: lines};
   asmInitDeps(func);
-  evalFunctionCost(func);
+  evalFunctionCostLinear(func);
   /*for(const line of lines) {
     console.log(line.op, line.debug.stallReason);
   }*/
@@ -353,7 +355,8 @@ describe('Eval - Cost', () =>
     ]);
   });
 
-  test('CFC2 + VU - dual', async () => {
+  
+  test('CFC2 + VU - dual 2', async () => {
     const lines = textToAsmLines(`
       cfc2 $sp, $vcc
       vcl $v29, $v27, $v20
@@ -613,6 +616,71 @@ describe('Eval - Cost', () =>
       1,1,2,2,3,3,4,4,5,5,
       8,8
     ]);
+  });
+
+  test('VMRG + CFC2 - no dual (ctrl read counts as write)', async () => {
+    const lines = textToAsmLines(`
+      vmrg $v01, $v02, $v03
+      cfc2 $t0, $vcc
+    `);
+    expect(linesToCycles(lines)).toEqual([1, 2]);
+  });
+
+  test('CFC2 + VMRG - dual (swapped order is fine)', async () => {
+    const lines = textToAsmLines(`
+      cfc2 $t0, $vcc
+      vmrg $v01, $v02, $v03
+    `);
+    expect(linesToCycles(lines)).toEqual([1, 1]);
+  });
+
+  test('VMRG + CTC2 - no dual', async () => {
+    const lines = textToAsmLines(`
+      vmrg $v01, $v02, $v03
+      ctc2 $t0, $vcc
+    `);
+    expect(linesToCycles(lines)).toEqual([1, 2]);
+  });
+
+  test('CTC2 + VADD (reads VCO) - no dual', async () => {
+    const lines = textToAsmLines(`
+      ctc2 $t0, $vco
+      vadd $v01, $v02, $v03
+    `);
+    expect(linesToCycles(lines)).toEqual([1, 2]);
+  });
+
+  test('CTC2 VCC + VADD (VCO only) - dual', async () => {
+    const lines = textToAsmLines(`
+      ctc2 $t0, $vcc
+      vadd $v01, $v02, $v03
+    `);
+    expect(linesToCycles(lines)).toEqual([1, 1]);
+  });
+
+  test('VMRG + CFC2 VCO - no dual (vmrg really writes VCO)', async () => {
+    const lines = textToAsmLines(`
+      vmrg $v01, $v02, $v03
+      cfc2 $t0, $vco
+    `);
+    expect(linesToCycles(lines)).toEqual([1, 2]);
+  });
+
+  test('VMRG + CFC2 VCE - dual (untouched ctrl reg)', async () => {
+    const lines = textToAsmLines(`
+      vmrg $v01, $v02, $v03
+      cfc2 $t0, $vce
+    `);
+    expect(linesToCycles(lines)).toEqual([1, 1]);
+  });
+
+  test('CFC2 + MFC2 - memory port stall', async () => {
+    const lines = textToAsmLines(`
+      cfc2 $t0, $vcc
+      or $t1, $zero, $zero
+      mfc2 $a0, $v01.e3
+    `);
+    expect(linesToCycles(lines)).toEqual([1, 2, 4]);
   });
 
   // @TODO:

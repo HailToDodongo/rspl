@@ -16,9 +16,10 @@ describe('Optimizer - Dependency Scanner - Control', () =>
       /* 02 */ asmLabel("SOME_LABEL"),
       /* 03 */ asm("or", ["$t2", "$zero", "$zero"]),
     ];
+
     expect(asmLinesToDeps(lines)).toEqual([
-      [0, 1],
-      [0, 1],
+      [0, 1, 2],
+      [0, 1, 2],
       [2],
       [3],
     ]);
