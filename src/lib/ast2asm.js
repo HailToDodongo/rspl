@@ -274,12 +274,72 @@ function loopToASM(st)
 }
 
 /**
+ * Collect every register a block directly allocates
+ */
+function collectExplicitRegs(block, out = {})
+{
+  const note = (reg, isAlias, line) => {
+    if(!reg || isAlias)return;
+    if(out[reg] === undefined || out[reg] < line)out[reg] = line;
+  };
+  for(const st of (block && block.statements) || [])
+  {
+    switch(st.type) {
+      case "varDecl":
+      case "varDeclAssign":
+        note(st.reg, st.regAlias, st.line || 0);
+        note(st.regFract, st.regFractAlias, st.line || 0);
+      break;
+      case "varDeclMulti": {
+        note(st.regFract, st.regFractAlias, st.line || 0);
+        if(!st.reg || st.regAlias)break;
+        const step = isTwoRegType(st.varType) ? 2 : 1;
+        st.varNames.forEach((_, i) => note(nextReg(st.reg, i * step) || st.reg, false, st.line || 0));
+      } break;
+      case "if":
+        collectExplicitRegs(st.blockIf, out);
+        collectExplicitRegs(st.blockElse, out);
+      break;
+      case "while":
+      case "loop":
+        collectExplicitRegs(st.block, out);
+      break;
+      case "scopedBlock":
+        collectExplicitRegs(st, out);
+      break;
+    }
+  }
+  return out;
+}
+
+function resolveRegSlot(spec, isAlias, declName)
+{
+  if(!isAlias)return {reg: spec, owned: true};
+  const target = state.getRequiredVar(spec, "alias");
+  if(target.type === "vec32") {
+    state.throwError(`alias(${spec}) is ambiguous for a vec32, pick a half with ':sint' or ':ufract'!`, declName);
+  }
+  return {reg: target.reg, owned: false};
+}
+
+function scopedBlockToASM(block, args = [], isCommand = false)
+{
+  // registers wanted by name further down this block are kept clear by the allocator
+  state.explicitRegStack.push(collectExplicitRegs(block));
+  try {
+    return scopedBlockToASMInner(block, args, isCommand);
+  } finally {
+    state.explicitRegStack.pop();
+  }
+}
+
+/**
  * @param {ASTScopedBlock} block
  * @param {any[]} args
  * @param {boolean} isCommand
  * @returns {ASM[]}
  */
-function scopedBlockToASM(block, args = [], isCommand = false)
+function scopedBlockToASMInner(block, args = [], isCommand = false)
 {
   const res = [];
 
@@ -293,7 +353,7 @@ function scopedBlockToASM(block, args = [], isCommand = false)
       res.push(asm("lw", [arg.reg, `%lo(RSPQ_DMEM_BUFFER) - ${totalSize - argIdx*4}(${REG.GP})`]));
     }
 
-    state.declareVar(arg.name, arg.type, reg);
+    state.declareVar(arg.name, arg.type, reg, false, false, arg.regFract);
     ++argIdx;
   }
 
@@ -304,12 +364,25 @@ function scopedBlockToASM(block, args = [], isCommand = false)
     switch(st.type) 
     {
       case "varDecl": {
-        const reg = st.reg || state.allocRegister(st.varType);
-        state.declareVar(st.varName, st.varType, reg, st.isConst || false);
+        let reg = st.reg, regFract = st.regFract;
+        let ownsReg = true, ownsFract = true;
+        if(reg) {
+          ({reg, owned: ownsReg} = resolveRegSlot(reg, st.regAlias, st.varName));
+        } else {
+          const regs = state.allocRegisters(st.varType);
+          reg = regs.reg;
+          if(!regFract)regFract = regs.regFract;
+        }
+        if(regFract) {
+          ({reg: regFract, owned: ownsFract} = resolveRegSlot(regFract, st.regFractAlias, st.varName));
+        }
+        state.declareVar(st.varName, st.varType, reg, st.isConst || false, false, regFract, ownsReg, ownsFract);
       } break;
 
       case "varUndef": {
-        state.undefVar(st.varName);
+        for(const name of (st.varNames || [st.varName])) {
+          state.undefVar(name);
+        }
       } break;
 
       case "varDeclAlias":
@@ -340,7 +413,7 @@ function scopedBlockToASM(block, args = [], isCommand = false)
       } break;
 
       case "annotation": {
-        state.addAnnotation(st.name, st.value);
+        state.addAnnotation(st.name, st.value, st.mode || "");
       } break;
 
       case "labelDecl":

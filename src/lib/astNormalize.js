@@ -95,9 +95,15 @@ function normalizeScopedBlock(block, astState, macros)
       break;
 
       case "varDeclMulti":
+        if(st.regFract && st.varNames.length > 1) {
+          state.throwError("A register pair declares a single variable, declare the others separately!", st.varNames[0]);
+        }
+        if(st.regAlias && st.varNames.length > 1) {
+          state.throwError("An alias declares a single variable, declare the others separately!", st.varNames[0]);
+        }
         let regOffset = 0;
         for(const varName of st.varNames) {
-          const reg = nextReg(st.reg, regOffset);
+          const reg = st.regAlias ? st.reg : nextReg(st.reg, regOffset);
           statements.push({...st, varName, reg, type: "varDecl"});
           regOffset += TYPE_REG_COUNT[st.varType];
         }

@@ -175,6 +175,8 @@ const LTV_REG_MAP = {
 };
 
 const REG_MASK_MAP = {SIZE: REG_INDEX_MAP.SIZE};
+// bits of the real registers, everything above is @Barrier ordering bits
+const REAL_REG_MASK = (1n << BigInt(REG_INDEX_MAP.SIZE)) - 1n;
 let REG_MASK_ALL = 0n;
 
 for(let reg of Object.keys(REG_INDEX_MAP)) {
@@ -396,10 +398,19 @@ export function asmInitDep(asm)
   asm.depsStallTargetMask0 = tgt0;
   asm.depsStallTargetMask1 = tgt1;
 
+  // Barrier annotations:
+  // - strict: total, nothing can go past each other
+  // - before: write only, must stay before any "after"/"strict"
+  // - after: read only, waits for all "before"/"strict" ops, no "before" op can go below it
   asm.barrierMask = 0;
   for(const anno of asm.annotations) {
     if(anno.name === "Barrier") {
-      asm.barrierMask |= state.getBarrierMask(anno.value);
+      const mode = anno.mode || "";
+      const strict = mode === "" || mode === "strict";
+      if(strict)asm.barrierMask |= state.getBarrierMask(anno.value);
+      const bit = 1n << BigInt(REG_INDEX_MAP.SIZE + state.getBarrierBit(anno.value));
+      if(mode !== "after")asm.depsTargetMask |= bit; // strict + before: write the tag bit
+      if(mode !== "before")asm.depsSourceMask |= bit; // strict + after: read the tag bit
     }
   }
 }
@@ -585,7 +596,7 @@ export function asmGetReorderIndices(asmList, i)
 
   // collect all registers that where not overwritten by any instruction after us.
   // these need to be checked for writes in the backwards-scan.
-  const writeCheckRegsMask = asm.depsTargetMask & ~lastWriteMask;
+  const writeCheckRegsMask = asm.depsTargetMask & ~lastWriteMask & REAL_REG_MASK;
 
   // go backwards through all instructions before...
   for(let b=i-1; b >= 0; --b)

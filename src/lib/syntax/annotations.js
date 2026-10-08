@@ -28,6 +28,14 @@ export function validateAnnotation(anno) {
     state.throwError("Unknown annotation '"+anno.name+"'!\nExpected on of: "+KNOWN_ANNOTATIONS.join(", ")+"");
   }
 
+  const BARRIER_MODES = ["", "strict", "before", "after"];
+  if(anno.mode && anno.name !== "Barrier") {
+    state.throwError("Annotation '"+anno.name+"' does not take a mode!");
+  }
+  if(anno.name === "Barrier" && !BARRIER_MODES.includes(anno.mode || "")) {
+    state.throwError("Annotation 'Barrier' mode must be one of: strict, before, after (got '"+anno.mode+"')!");
+  }
+
   // string annotations
   if(["Barrier", "AttrLoader", "AttrPatch"].includes(anno.name)) {
     if(typeof anno.value !== "string") {

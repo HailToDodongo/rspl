@@ -248,11 +248,12 @@ var grammar = {
     {"name": "FunctionDefArgs", "symbols": ["FunctonDefArg"], "postprocess": MAP_FIRST},
     {"name": "FunctionDefArgs$subexpression$1", "symbols": ["FunctionDefArgs", "_", (lexer.has("Seperator") ? {type: "Seperator"} : Seperator), "_", "FunctonDefArg"]},
     {"name": "FunctionDefArgs", "symbols": ["FunctionDefArgs$subexpression$1"], "postprocess": d => MAP_FLATTEN_TREE(d[0], 0, 4)},
-    {"name": "FunctonDefArg$ebnf$1", "symbols": ["RegDef"], "postprocess": id},
+    {"name": "FunctonDefArg$ebnf$1", "symbols": ["RegDefPair"], "postprocess": id},
     {"name": "FunctonDefArg$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
     {"name": "FunctonDefArg", "symbols": [(lexer.has("DataType") ? {type: "DataType"} : DataType), "FunctonDefArg$ebnf$1", "_", (lexer.has("VarName") ? {type: "VarName"} : VarName)], "postprocess":  d => ({
         	type: d[0].value,
-        	reg: d[1],
+        	reg: d[1] ? d[1].reg : null,
+        	regFract: d[1] ? d[1].regFract : undefined,
         	name: d[3] && d[3].value
         })},
     {"name": "Expression$subexpression$1", "symbols": ["ExprVarDeclAssign"]},
@@ -265,13 +266,17 @@ var grammar = {
     {"name": "Expression$subexpression$1", "symbols": ["ExprBreak"]},
     {"name": "Expression$subexpression$1", "symbols": ["ExprExit"]},
     {"name": "Expression", "symbols": ["_", "Expression$subexpression$1", (lexer.has("StmEnd") ? {type: "StmEnd"} : StmEnd)], "postprocess": (d) => d[1][0]},
-    {"name": "Annotation$ebnf$1$subexpression$1", "symbols": [(lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "AnnotationArg", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd)]},
+    {"name": "Annotation$ebnf$1$subexpression$1$ebnf$1$subexpression$1", "symbols": ["_", (lexer.has("Seperator") ? {type: "Seperator"} : Seperator), "_", (lexer.has("VarName") ? {type: "VarName"} : VarName)]},
+    {"name": "Annotation$ebnf$1$subexpression$1$ebnf$1", "symbols": ["Annotation$ebnf$1$subexpression$1$ebnf$1$subexpression$1"], "postprocess": id},
+    {"name": "Annotation$ebnf$1$subexpression$1$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "Annotation$ebnf$1$subexpression$1", "symbols": [(lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "_", "AnnotationArg", "Annotation$ebnf$1$subexpression$1$ebnf$1", "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd)]},
     {"name": "Annotation$ebnf$1", "symbols": ["Annotation$ebnf$1$subexpression$1"], "postprocess": id},
     {"name": "Annotation$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
     {"name": "Annotation", "symbols": ["_", (lexer.has("AnnoStart") ? {type: "AnnoStart"} : AnnoStart), (lexer.has("VarName") ? {type: "VarName"} : VarName), "Annotation$ebnf$1"], "postprocess":  d => ({
         	type: "annotation",
         	name: d[2].value,
-        	value: d[3] ? d[3][1] : null,
+        	value: d[3] ? d[3][2] : null,
+        	mode: (d[3] && d[3][3]) ? d[3][3][3].value : "",
         	line: d[1].line
         
         })},
@@ -313,12 +318,12 @@ var grammar = {
     {"name": "ExprVarDeclAssign$ebnf$1$subexpression$1", "symbols": [(lexer.has("KWConst") ? {type: "KWConst"} : KWConst), "__"]},
     {"name": "ExprVarDeclAssign$ebnf$1", "symbols": ["ExprVarDeclAssign$ebnf$1$subexpression$1"], "postprocess": id},
     {"name": "ExprVarDeclAssign$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "ExprVarDeclAssign$ebnf$2", "symbols": ["RegDef"], "postprocess": id},
+    {"name": "ExprVarDeclAssign$ebnf$2", "symbols": ["RegDefPair"], "postprocess": id},
     {"name": "ExprVarDeclAssign$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
     {"name": "ExprVarDeclAssign", "symbols": ["ExprVarDeclAssign$ebnf$1", (lexer.has("DataType") ? {type: "DataType"} : DataType), "ExprVarDeclAssign$ebnf$2", "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "_", "ExprPartAssign"], "postprocess":  d => ({
         	type: "varDeclAssign",
         	varType: d[1].value,
-        	reg: d[2], varName: d[4].value,
+        	...(d[2] || {reg: null}), varName: d[4].value,
         	calc: d[6],
         	isConst: !!d[0],
         	line: d[1].line
@@ -327,19 +332,20 @@ var grammar = {
     {"name": "ExprVarDecl$ebnf$1$subexpression$1", "symbols": [(lexer.has("KWConst") ? {type: "KWConst"} : KWConst), "__"]},
     {"name": "ExprVarDecl$ebnf$1", "symbols": ["ExprVarDecl$ebnf$1$subexpression$1"], "postprocess": id},
     {"name": "ExprVarDecl$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "ExprVarDecl$ebnf$2", "symbols": ["RegDef"], "postprocess": id},
+    {"name": "ExprVarDecl$ebnf$2", "symbols": ["RegDefPair"], "postprocess": id},
     {"name": "ExprVarDecl$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
     {"name": "ExprVarDecl", "symbols": ["ExprVarDecl$ebnf$1", (lexer.has("DataType") ? {type: "DataType"} : DataType), "ExprVarDecl$ebnf$2", "_", "VarList"], "postprocess":  d => ({
         	type: "varDeclMulti",
         	varType: d[1].value,
-        	reg: d[2],
+        	...(d[2] || {reg: null}),
         	varNames: FORCE_ARRAY(d[4]).map(x => x.value),
         	isConst: !!d[0],
         	line: d[1].line
         })},
-    {"name": "ExprVarUndef", "symbols": [(lexer.has("KWUndef") ? {type: "KWUndef"} : KWUndef), "_", (lexer.has("VarName") ? {type: "VarName"} : VarName)], "postprocess":  d => ({
+    {"name": "ExprVarUndef", "symbols": [(lexer.has("KWUndef") ? {type: "KWUndef"} : KWUndef), "_", "VarList"], "postprocess":  d => ({
         	type: "varUndef",
-        	varName: d[2].value,
+        	varName: FORCE_ARRAY(d[2])[0].value,
+        	varNames: FORCE_ARRAY(d[2]).map(x => x.value),
         	line: d[0].line
         })},
     {"name": "ExprFuncCall$ebnf$1", "symbols": []},
@@ -493,6 +499,17 @@ var grammar = {
     {"name": "VarList", "symbols": ["VarList$subexpression$1"], "postprocess": d => MAP_FLATTEN_TREE(d[0], 0, 4)},
     {"name": "IndexDef", "symbols": [(lexer.has("IdxStart") ? {type: "IdxStart"} : IdxStart), "_", "ValueNumeric", "_", (lexer.has("IdxEnd") ? {type: "IdxEnd"} : IdxEnd)], "postprocess": d => d[2][0]},
     {"name": "RegDef", "symbols": [(lexer.has("TypeStart") ? {type: "TypeStart"} : TypeStart), (lexer.has("Registers") ? {type: "Registers"} : Registers), (lexer.has("TypeEnd") ? {type: "TypeEnd"} : TypeEnd)], "postprocess": d => d[1].value},
+    {"name": "RegSlot", "symbols": [(lexer.has("Registers") ? {type: "Registers"} : Registers)], "postprocess": d => ({reg: d[0].value, alias: false})},
+    {"name": "RegSlot", "symbols": [(lexer.has("VarName") ? {type: "VarName"} : VarName), (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd)], "postprocess": (d, l, reject) => d[0].value === "alias" ? ({reg: d[3].value, alias: true}) : reject},
+    {"name": "RegDefPair$ebnf$1$subexpression$1", "symbols": ["_", (lexer.has("Seperator") ? {type: "Seperator"} : Seperator), "_", "RegSlot"]},
+    {"name": "RegDefPair$ebnf$1", "symbols": ["RegDefPair$ebnf$1$subexpression$1"], "postprocess": id},
+    {"name": "RegDefPair$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "RegDefPair", "symbols": [(lexer.has("TypeStart") ? {type: "TypeStart"} : TypeStart), "_", "RegSlot", "RegDefPair$ebnf$1", "_", (lexer.has("TypeEnd") ? {type: "TypeEnd"} : TypeEnd)], "postprocess":  d => ({
+        	reg: d[2].reg,
+        	regAlias: d[2].alias,
+        	regFract: d[3] ? d[3][3].reg : undefined,
+        	regFractAlias: d[3] ? d[3][3].alias : false,
+        }) },
     {"name": "RegNumDef", "symbols": [(lexer.has("TypeStart") ? {type: "TypeStart"} : TypeStart), "ValueNumeric", (lexer.has("TypeEnd") ? {type: "TypeEnd"} : TypeEnd)], "postprocess": d => d[1][0]},
     {"name": "ValueNumeric$subexpression$1", "symbols": [(lexer.has("ValueBin") ? {type: "ValueBin"} : ValueBin)], "postprocess": d =>   parseInt(d[0].value.substring(2).replaceAll("'", ""), 2)},
     {"name": "ValueNumeric$subexpression$1", "symbols": [(lexer.has("ValueFloat") ? {type: "ValueFloat"} : ValueFloat)], "postprocess": d => parseFloat(d[0].value.replaceAll("'", ""))},

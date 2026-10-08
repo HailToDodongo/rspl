@@ -209,18 +209,20 @@ Statements -> (ScopedBlock | LabelDecl | IfStatement | LoopStatement | WhileStat
 FunctionDefArgs -> FunctonDefArg {% MAP_FIRST %}
 			 | (FunctionDefArgs _ %Seperator _ FunctonDefArg) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
 
-FunctonDefArg -> %DataType RegDef:? _ %VarName {% d => ({
+FunctonDefArg -> %DataType RegDefPair:? _ %VarName {% d => ({
 	type: d[0].value,
-	reg: d[1],
+	reg: d[1] ? d[1].reg : null,
+	regFract: d[1] ? d[1].regFract : undefined,
 	name: d[3] && d[3].value
 })%}
 
 Expression ->  _ (ExprVarDeclAssign | ExprVarDecl | ExprVarUndef | ExprVarAssign | ExprFuncCall | ExprGoto | ExprContinue | ExprBreak | ExprExit) %StmEnd {% (d) => d[1][0] %}
 
-Annotation -> _ %AnnoStart %VarName (%ArgsStart AnnotationArg %ArgsEnd):? {% d => ({
+Annotation -> _ %AnnoStart %VarName (%ArgsStart _ AnnotationArg (_ %Seperator _ %VarName):? _ %ArgsEnd):? {% d => ({
 	type: "annotation",
 	name: d[2].value,
-	value: d[3] ? d[3][1] : null,
+	value: d[3] ? d[3][2] : null,
+	mode: (d[3] && d[3][3]) ? d[3][3][3].value : "",
 	line: d[1].line
 
 })%}
@@ -254,10 +256,10 @@ LoopStatement -> _ %KWLoop ScopedBlock (_ %KWWhile _ %ArgsStart ExprCompare _ %A
 })%}
 
 ######## Expressions ########
-ExprVarDeclAssign -> (%KWConst __):? %DataType RegDef:? _ %VarName _ ExprPartAssign {% d => ({
+ExprVarDeclAssign -> (%KWConst __):? %DataType RegDefPair:? _ %VarName _ ExprPartAssign {% d => ({
 	type: "varDeclAssign",
 	varType: d[1].value,
-	reg: d[2], varName: d[4].value,
+	...(d[2] || {reg: null}), varName: d[4].value,
 	calc: d[6],
 	isConst: !!d[0],
 	line: d[1].line
@@ -265,18 +267,19 @@ ExprVarDeclAssign -> (%KWConst __):? %DataType RegDef:? _ %VarName _ ExprPartAss
 
 ExprPartAssign -> %Assignment _ ExprCalcAll {% d => d[2][0] %}
 
-ExprVarDecl -> (%KWConst __):? %DataType RegDef:? _ VarList {% d => ({
+ExprVarDecl -> (%KWConst __):? %DataType RegDefPair:? _ VarList {% d => ({
 	type: "varDeclMulti",
 	varType: d[1].value,
-	reg: d[2],
+	...(d[2] || {reg: null}),
 	varNames: FORCE_ARRAY(d[4]).map(x => x.value),
 	isConst: !!d[0],
 	line: d[1].line
 })%}
 
-ExprVarUndef -> %KWUndef _ %VarName {% d => ({
+ExprVarUndef -> %KWUndef _ VarList {% d => ({
 	type: "varUndef",
-	varName: d[2].value,
+	varName: FORCE_ARRAY(d[2])[0].value,
+	varNames: FORCE_ARRAY(d[2]).map(x => x.value),
 	line: d[0].line
 })%}
 
@@ -394,6 +397,15 @@ IndexDef -> %IdxStart _ ValueNumeric _ %IdxEnd {% d => d[2][0] %}
 
 ######## Registers ########
 RegDef    -> %TypeStart %Registers   %TypeEnd {% d => d[1].value %}
+
+RegSlot   -> %Registers {% d => ({reg: d[0].value, alias: false}) %}
+           | %VarName %ArgsStart _ %VarName _ %ArgsEnd {% (d, l, reject) => d[0].value === "alias" ? ({reg: d[3].value, alias: true}) : reject %}
+RegDefPair -> %TypeStart _ RegSlot (_ %Seperator _ RegSlot):? _ %TypeEnd {% d => ({
+	reg: d[2].reg,
+	regAlias: d[2].alias,
+	regFract: d[3] ? d[3][3].reg : undefined,
+	regFractAlias: d[3] ? d[3][3].alias : false,
+}) %}
 RegNumDef -> %TypeStart ValueNumeric %TypeEnd {% d => d[1][0] %}
 
 ######## Values ########
