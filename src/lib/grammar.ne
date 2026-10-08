@@ -205,7 +205,22 @@ ScopedBlock -> _ %BlockStart Statements _ %BlockEnd {%
 #        Either as a standalone function call, or by assiging something to a variable
 #        The thing that is assigned can be a constant, unary or LR-expression
 
-Statements -> (ScopedBlock | LabelDecl | IfStatement | LoopStatement | WhileStatement | Expression  | Annotation):* {% d => d[0].map(y => y[0]) %}
+Statements -> (ScopedBlock | LabelDecl | IfStatement | LoopStatement | WhileStatement | Expression  | Annotation | MacroDef):* {% d => d[0].map(y => y[0]) %}
+
+MacroDef -> _ %FunctionType _ %VarName %ArgsStart _ FunctionDefArgs:* _ %ArgsEnd ScopedBlock {%
+	(d, l, reject) => d[1].value !== "macro" ? reject : ({
+		type: "macroDef",
+		line: d[1].line,
+		def: {
+			annotations: [],
+			type: "macro",
+			resultType: null,
+			name: d[3].value,
+			args: FORCE_ARRAY(d[6][0]),
+			body: d[9],
+		},
+	})
+%}
 FunctionDefArgs -> FunctonDefArg {% MAP_FIRST %}
 			 | (FunctionDefArgs _ %Seperator _ FunctonDefArg) {% d => MAP_FLATTEN_TREE(d[0], 0, 4) %}
 

@@ -243,8 +243,25 @@ var grammar = {
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["WhileStatement"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["Expression"]},
     {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["Annotation"]},
+    {"name": "Statements$ebnf$1$subexpression$1", "symbols": ["MacroDef"]},
     {"name": "Statements$ebnf$1", "symbols": ["Statements$ebnf$1", "Statements$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "Statements", "symbols": ["Statements$ebnf$1"], "postprocess": d => d[0].map(y => y[0])},
+    {"name": "MacroDef$ebnf$1", "symbols": []},
+    {"name": "MacroDef$ebnf$1", "symbols": ["MacroDef$ebnf$1", "FunctionDefArgs"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "MacroDef", "symbols": ["_", (lexer.has("FunctionType") ? {type: "FunctionType"} : FunctionType), "_", (lexer.has("VarName") ? {type: "VarName"} : VarName), (lexer.has("ArgsStart") ? {type: "ArgsStart"} : ArgsStart), "_", "MacroDef$ebnf$1", "_", (lexer.has("ArgsEnd") ? {type: "ArgsEnd"} : ArgsEnd), "ScopedBlock"], "postprocess": 
+        (d, l, reject) => d[1].value !== "macro" ? reject : ({
+        	type: "macroDef",
+        	line: d[1].line,
+        	def: {
+        		annotations: [],
+        		type: "macro",
+        		resultType: null,
+        		name: d[3].value,
+        		args: FORCE_ARRAY(d[6][0]),
+        		body: d[9],
+        	},
+        })
+        },
     {"name": "FunctionDefArgs", "symbols": ["FunctonDefArg"], "postprocess": MAP_FIRST},
     {"name": "FunctionDefArgs$subexpression$1", "symbols": ["FunctionDefArgs", "_", (lexer.has("Seperator") ? {type: "Seperator"} : Seperator), "_", "FunctonDefArg"]},
     {"name": "FunctionDefArgs", "symbols": ["FunctionDefArgs$subexpression$1"], "postprocess": d => MAP_FLATTEN_TREE(d[0], 0, 4)},
