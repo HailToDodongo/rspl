@@ -346,14 +346,23 @@ function scopedBlockToASMInner(block, args = [], isCommand = false)
   let argIdx = 0;
   for(const arg of args)
   {
-    let reg = arg.reg || "$a"+argIdx;
-    if(isCommand && argIdx >= 4) { // args beyond that live in RAM, fetch them and expect a target register
-      if(!arg.reg)state.throwError("Argument "+argIdx+" '"+arg.name+"' needs a target register!", arg);
-      const totalSize = args.length * 4;
-      res.push(asm("lw", [arg.reg, `%lo(RSPQ_DMEM_BUFFER) - ${totalSize - argIdx*4}(${REG.GP})`]));
+    let reg = arg.reg, regFract = arg.regFract;
+    if(!reg) {
+      if(argIdx < 4) {
+        reg = "$a" + argIdx;
+      } else {
+        const regs = state.allocRegisters(arg.type);
+        reg = regs.reg;
+        if(!regFract)regFract = regs.regFract;
+      }
     }
+    state.declareVar(arg.name, arg.type, reg, false, false, regFract);
 
-    state.declareVar(arg.name, arg.type, reg, false, false, arg.regFract);
+    if(isCommand && argIdx >= 4) {
+      const offset = argIdx * 4 - args.length * 4;
+      const loadOp = {u8: "lbu", s8: "lb", u16: "lhu", s16: "lh"}[arg.type] || "lw";
+      res.push(asm(loadOp, [reg, `%lo(RSPQ_DMEM_BUFFER ${offset < 0 ? "" : "+"} ${offset})(${REG.GP})`]));
+    }
     ++argIdx;
   }
 

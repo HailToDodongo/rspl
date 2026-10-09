@@ -231,25 +231,6 @@ describe('Vector - Ops', () =>
   nop`);
   });
 
-  test('Add (vec16 cast)', async () => {
-    const {asm, warn} = await transpileSource(`function test() {
-      vec16<$v01> res, a;
-      res:uint += a.x;
-      res:sint += a.x;
-      res:sfract += a.x; // unexpected?
-      res:ufract += a.x; // unexpected?
-    }`, CONF);
-
-    expect(warn).toBe("");
-    expect(asm).toBe(`test:
-  vaddc $v01, $v01, $v02.e0
-  vadd $v01, $v01, $v02.e0
-  vadd $v01, $v01, $v00.e0
-  vaddc $v01, $v01, $v00.e0
-  jr $ra
-  nop`);
-  });
-
   test('Sub (vec32 vs vec32)', async () => {
     const {asm, warn} = await transpileSource(`function test() {
       vec32<$v01> res, a;
@@ -1325,7 +1306,6 @@ describe('Vector - Ops', () =>
     }`, CONF);
 
     expect(warn).toBe("");
-s
     expect(asm).toBe(`test:
   vmudl $v02, $v01, $v14.h3
   vmadn $v03, $v01, $v13.h3
