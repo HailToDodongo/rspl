@@ -7,11 +7,11 @@ import opsScalar from "./operations/scalar";
 import opsVector from "./operations/vector";
 import state from "./state";
 import builtins from "./builtins/functions";
-import {isVecReg, REG} from "./syntax/registers.js";
+import {isVecReg, REG, REGS_FORBIDDEN, nextReg} from "./syntax/registers.js";
 import {asm, asmBranch, asmLabel, asmNOP} from "./intsructions/asmWriter.js";
 import {opBranch} from "./operations/branch.js";
 import {callUserFunction} from "./operations/userFunction.js";
-import {isVecType} from "./dataTypes/dataTypes.js";
+import {isVecType, isTwoRegType} from "./dataTypes/dataTypes.js";
 import {POW2_SWIZZLE_VAR} from "./syntax/swizzle.js";
 import {LABEL_CMD_LOOP} from "./builtins/libdragon.js";
 import scalar from "./operations/scalar";
@@ -164,6 +164,8 @@ function calcLRToAsm(calc, varRes, varLeft, varRight)
   }
 }
 
+let coldBlocks = [];
+
 /**
  * @param {ASTIf} st
  * @returns {ASM[]}
@@ -176,6 +178,25 @@ function ifToASM(st)
   const varLeft = state.getRequiredVar(st.compare.left.value, "left", st);
   if(isVecReg(varLeft.reg)) {
     return state.throwError("IF-Statements must use scalar-registers!", st);
+  }
+
+  if(state.getAnnotations("Unlikely").length) {
+    if(st.blockElse)state.throwError("@Unlikely if-statements cannot have an else-block!", st);
+
+    const labelCold = state.generateLabel();
+    const labelJoin = state.generateLabel();
+
+    // invert guard: branch into the cold block when the condition is true
+    const res = opBranch(st.compare, labelCold, true);
+    state.clearAnnotations();
+    res.push(asmLabel(labelJoin));
+
+    state.pushScope();
+    const ifBlock = scopedBlockToASM(st.blockIf);
+    state.popScope();
+
+    coldBlocks.push(asmLabel(labelCold), ...ifBlock, asm("j", [labelJoin]), asmNOP());
+    return res;
   }
 
   const labelElse = state.generateLabel();
@@ -513,6 +534,44 @@ export function ast2asm(ast)
     }
   }
 
+  // Global register variables:
+  {
+    state.func = "(global)";
+    // registers the built-ins
+    const usedRegs = {
+      [REG.ZERO]: "ZERO", [REG.VZERO]: "VZERO", [REG.VSHIFT]: "VSHIFT", [REG.VSHIFT8]: "VSHIFT8",
+      [REG.RA]: "RA", [REG.GP]: "GP", [REG.VTEMP0]: "VTEMP",
+    };
+    const usedNames = new Set();
+    for(const g of ast.globalVars || [])
+    {
+      state.line = g.line || 0;
+      const name = g.varNames[0];
+      if(!g.reg)state.throwError(`Global variable '${name}' must specify a register, e.g. '${g.varType}<$t0> ${name};'`, name);
+      if(g.varNames.length > 1)state.throwError("Global variables must be declared one per statement (each needs its own register)!", name);
+      if(g.hasInit)state.throwError(`Global variable '${name}' cannot have an initializer (no code runs at file scope)!`, name);
+      if(g.regAlias || g.regFractAlias)state.throwError(`Global variable '${name}' cannot alias another variable!`, name);
+      if(usedNames.has(name))state.throwError(`Global variable '${name}' already declared!`, name);
+      usedNames.add(name);
+      if(REGS_FORBIDDEN.includes(g.reg))state.throwError(`Cannot use reserved register '${g.reg}' for a global variable!`, name);
+      if(isVecType(g.varType) && !isVecReg(g.reg))state.throwError("Cannot use scalar register for vector variable!", name);
+      if(!isVecType(g.varType) && isVecReg(g.reg))state.throwError("Cannot use vector register for scalar variable!", name);
+
+      const claimReg = r => {
+        if(usedRegs[r])state.throwError(`Register '${r}' already used for variable '${usedRegs[r]}'!`, name);
+        usedRegs[r] = name;
+      };
+      claimReg(g.reg);
+      let regFract = g.regFract;
+      if(isTwoRegType(g.varType)) {
+        if(!regFract)regFract = nextReg(g.reg);
+        if(!regFract)state.throwError("No next register for two-reg type!", name);
+        claimReg(regFract);
+      }
+      state.declareGlobalVar(name, g.varType, g.reg, g.isConst, regFract);
+    }
+  }
+
   for(const block of ast.functions)
   {
     state.func = block.name || "";
@@ -524,6 +583,7 @@ export function ast2asm(ast)
       state.enterFunction(block.name, block.type, getArgSize(block));
       state.regAllocAllowed = !getAnnotationVal(block.annotations || [], ANNOTATIONS.NoRegAlloc);
 
+      coldBlocks = [];
       const blockAsm = scopedBlockToASM(block.body, block.args, block.type === "command");
       ++state.line;
 
@@ -536,6 +596,9 @@ export function ast2asm(ast)
           blockAsm.push(asm("jr", [REG.RA]), asmNOP());
         }
       }
+      // out-of-line @Unlikely blocks follow the return
+      blockAsm.push(...coldBlocks);
+      coldBlocks = [];
 
       res.push({
         ...block,

@@ -132,9 +132,10 @@ const lexer = moo.compile({
 # Pass your lexer with @lexer:
 @lexer lexer
 
-main -> (_ SectionIncl):* (_ SectionState):* (_ Uniform):* (_ VertexAttribute):* (Function):* (_ SectionIncl):* _ {% d => ({
+main -> (_ SectionIncl):* (_ (SectionState | GlobalVarDecl)):* (_ Uniform):* (_ VertexAttribute):* (Function):* (_ SectionIncl):* _ {% d => ({
 	includes: MAP_TAKE(d[0], 1),
-	states: MAP_TAKE(d[1], 1),
+	states: MAP_TAKE(d[1], 1).map(x => x[0]).filter(x => x.type !== "globalVar"),
+	globalVars: MAP_TAKE(d[1], 1).map(x => x[0]).filter(x => x.type === "globalVar"),
 	uniforms: MAP_TAKE(d[2], 1),
 	attributes: MAP_TAKE(d[3], 1),
 	functions: MAP_TAKE(d[4], 0),
@@ -143,6 +144,17 @@ main -> (_ SectionIncl):* (_ SectionState):* (_ Uniform):* (_ VertexAttribute):*
 
 ######### Include-Section #########
 SectionIncl -> %KWInclude _ %String {% d => d[2].value %}
+
+######### Global register variables #########
+GlobalVarDecl -> (%KWConst __):? %DataType RegDefPair:? _ VarList (_ %Assignment _ ExprCalcAll):? _ %StmEnd {% d => ({
+	type: "globalVar",
+	varType: d[1].value,
+	...(d[2] || {reg: null}),
+	varNames: FORCE_ARRAY(d[4]).map(x => x.value),
+	hasInit: !!d[5],
+	isConst: !!d[0],
+	line: d[1].line
+})%}
 
 ######### State-Section #########
 SectionState -> %VarName _ %BlockStart _ StateVarDef:* %BlockEnd {% d => ({

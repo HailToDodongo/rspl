@@ -48,10 +48,13 @@ export async function transpileSource(source, config, updateCb = undefined)
     }
   }
 
-  source = preprocess(source, defines, config.fileLoader);
+  const origins = [];
+  source = preprocess(source, defines, config.fileLoader, origins);
   //console.timeEnd("Preprocessor");
 
   state.sourceLines = source.split("\n").map((l => l.trim()));
+  state.sourceLinesRaw = source.split("\n");
+  state.sourceOrigins = origins;
   //console.time("parser");
   const astList = parser.feed(source);
   //console.timeEnd("parser");
@@ -62,26 +65,7 @@ export async function transpileSource(source, config, updateCb = undefined)
   const ast = astList.results[0];
   ast.defines = defines;
 
-  try {
   return await transpile(ast, updateCb, config);
-  } catch (e) {
-    if(e.message.includes("Error in") && e.message.includes("line ")) {
-      // add surrounding lines to error message
-      const lineCount = 3;
-      const lines = source.split("\n");
-      const line = parseInt(e.message.match(/line (\d+)/)?.[1]);
-      const start = Math.max(0, line - lineCount);
-      const end = Math.min(lines.length, line + lineCount);
-      const context = lines.slice(start, end)
-        .map((l, i) =>
-          `${line === (start+i+1) ? '>' : ' '}${(start + i + 1).toString().padStart(4, ' ')}: ${l}`
-        )
-        .join("\n");
-
-      e.message += "\n\nSource:\n" + context + "\n";
-    }
-    throw e;
-  }
 }
 
 /**

@@ -22,7 +22,10 @@ const state =
   argSize: 0,
   line: 0,
   outWarn: "",
-  sourceLines: [],
+  sourceLines: [],    // trimmed, for the debug comments in the output
+  sourceLinesRaw: [], // as written, for error context
+  sourceOrigins: [],  // per preprocessed line: {file, line} it came from
+  globalVars: [],     // global reserved registers / variables
 
   /** @type {ScopeStack} */
   scopeStack: [], // function & block scope (variables)
@@ -44,6 +47,7 @@ const state =
     state.outWarn = "";
     state.outInfo = "";
     state.funcMap = {};
+    state.globalVars = [];
     state.barrierMaskMap = {};
     state.barrierBitMap = {};
     state.regAllocAllowed = true;
@@ -56,6 +60,36 @@ const state =
     }
   },
 
+  describeLine: (lineNo) => {
+    if(!lineNo)return "(???)";
+    const loc = state.sourceOrigins[lineNo - 1];
+    if(!loc)return lineNo + "";
+    return loc.line + (loc.file ? ` (${loc.file})` : "");
+  },
+
+  /**
+   * error line with one line of context on both side, e.g.
+   *     11 |   vec32<$v05> a;
+   *  >  12 |   vec16<$v05> b;
+   *     13 | }
+   * @param {number} lineNo preprocessed line number
+   * @return {string}
+   */
+  sourceContext: (lineNo) => {
+    const lines = state.sourceLinesRaw || [];
+    if(!lineNo || !lines.length || lineNo > lines.length)return "";
+    const shownNo = n => state.sourceOrigins[n - 1]?.line || n;
+    const from = Math.max(1, lineNo - 1), to = Math.min(lines.length, lineNo + 1);
+    let width = 1;
+    for(let n = from; n <= to; ++n)width = Math.max(width, (shownNo(n) + "").length);
+    let out = "";
+    for(let n = from; n <= to; ++n) {
+      out += `\n ${n === lineNo ? ">" : " "} ${(shownNo(n) + "").padStart(width, " ")} | ${lines[n - 1]}`;
+    }
+    return out;
+  },
+
+  
   /**
    * @param {string} message
    * @param {any} context
@@ -63,15 +97,17 @@ const state =
    * @returns {never}
    */
   throwError: (message, context = {}) => {
-    const lineStr = state.line === 0 ? "(???)" : state.line+"";
     const funcStr = state.func === "" ? "(???)" : state.func+"";
-    throw new Error(`Error in ${funcStr}, line ${lineStr}: ${message}\n  -> AST: ${JSON.stringify(context)}`);
+    throw new Error(`Error in ${funcStr}, line ${state.describeLine(state.line)}: ${message}${state.sourceContext(state.line)}\n  -> AST: ${JSON.stringify(context)}`);
   },
 
   logWarning: (message, context) => {
-    const lineStr = state.line === 0 ? "(???)" : state.line+"";
     const funcStr = state.func === "" ? "(???)" : state.func+"";
-    state.outWarn += `Warning in ${funcStr}, line ${lineStr}: ${message}\n  -> AST: ${JSON.stringify(context)}\n`;
+    state.outWarn += `Warning in ${funcStr}, line ${state.describeLine(state.line)}: ${message}${state.sourceContext(state.line)}\n  -> AST: ${JSON.stringify(context)}\n`;
+  },
+
+  declareGlobalVar: (name, type, reg, isConst = false, regFract = undefined) => {
+    state.globalVars.push({name, type, reg, isConst, regFract});
   },
 
   logInfo: (message) => {
@@ -108,6 +144,14 @@ const state =
     state.declareVar("RA", "u32", REG.RA, false);
     state.declareVar("GP", "u32", REG.GP, false, true);
     state.declareVar("VTEMP", "vec16", REG.VTEMP0, false, true);
+
+    // Global register variables live in every functions root scope
+    for(const g of state.globalVars) {
+      state.declareVar(g.name, g.type, g.reg, g.isConst, false, g.regFract);
+      const def = state.getScope().varMap[g.name];
+      def.isGlobal = true;
+      if(g.isConst)def.modifyCount = 1;
+    }
   },
 
   leaveFunction: () => {
@@ -375,6 +419,7 @@ const state =
     varName = scope.varAliasMap[varName] || varName;
     const varDef = scope.varMap[varName];
     if(!varDef)state.throwError("Variable "+varName+" not known!");
+    if(varDef.isGlobal)state.throwError(`Cannot undef global register variable '${varName}'!`);
 
     // Refuse while something still aliases one of our registers, otherwise the
     // register would go back to the allocator with the alias still pointing at it.

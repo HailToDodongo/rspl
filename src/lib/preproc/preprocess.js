@@ -22,7 +22,7 @@ export function stripComments(source) {
  * @param {(string) => string} fileLoader function to load included files
  * @return {string} processed source code
  */
-export function preprocess(src, defines = {}, fileLoader = undefined)
+export function preprocess(src, defines = {}, fileLoader = undefined, origins = [], file = "")
 {
   const lines = src.split("\n");
 
@@ -86,7 +86,7 @@ export function preprocess(src, defines = {}, fileLoader = undefined)
       }
       const filePath = lineTrimmed.match(/#include\s+"(.*)"/)[1];
       const fileContent = fileLoader(filePath);
-      srcRes += preprocess(stripComments(fileContent), defines, fileLoader);
+      srcRes += preprocess(stripComments(fileContent), defines, fileLoader, origins, filePath);
 
     } else if(!ignoreLine) {
       // replace all defines
@@ -96,6 +96,7 @@ export function preprocess(src, defines = {}, fileLoader = undefined)
       }
     }
 
+    origins.push({file, line: i + 1});
     srcRes += newLine + "\n";
   }
 
