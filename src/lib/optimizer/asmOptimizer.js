@@ -13,6 +13,7 @@ import {
 } from "./asmScanDeps.js";
 import {dedupeLabels} from "./pattern/dedupeLabels.js";
 import {dedupeJumps} from "./pattern/dedupeJumps.js";
+export {isGeneratedLabel} from "./labels.js";
 import {branchJump} from "./pattern/branchJump.js";
 import {tailCall} from "./pattern/tailCall.js";
 import {evalFunctionCost} from "./eval/evalCost.js";
@@ -91,7 +92,7 @@ function getRandIndex(maxExcl) {
  * @param {number} from index of the instruction to move
  * @param {number} to index of the target instruction
  */
-function relocateElement(arr, from, to)
+export function relocateElement(arr, from, to)
 {
   if(from === to || arr[to].opFlags & OP_FLAG_IS_BRANCH)return;
   const targetIsNOP = arr[to]?.opFlags & OP_FLAG_IS_NOP;
@@ -110,8 +111,10 @@ function relocateElement(arr, from, to)
   {
     //console.log("targetOp IN DELAY", from, to, arr[from].op, targetOp);
     if(targetIsNOP) {
-      // we can effectively switch the instruction as we need a nop anyway
+      // move the op out of the delay slot onto the NOP and leave a NOP in the slot
       arr[to] = arr[from];
+      arr[from] = asmNOP();
+      asmInitDep(arr[from]);
     } else {
       // now we need to move to the target, and insert a NOP into our position
       const instr = arr[from];

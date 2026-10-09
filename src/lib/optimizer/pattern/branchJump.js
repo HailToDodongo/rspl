@@ -7,6 +7,7 @@ import {REG} from "../../syntax/registers.js";
 import state from "../../state.js";
 import {invertBranchOp} from "../../operations/branch.js";
 import {BRANCH_OPS, OP_FLAG_IS_BRANCH, OP_FLAG_IS_NOP} from "../asmScanDeps.js";
+import {isGeneratedLabel} from "../labels.js";
 
 /**
  * If a branch has the form of: " if(cond)goto TARGET; "
@@ -46,7 +47,9 @@ export function branchJump(asmFunc)
         line.op = invertBranchOp(line.op);
         line.args[line.args.length-1] = labelTarget;
 
-        const labelUsed = !!lines.find(l => BRANCH_OPS.includes(l.op) && l.args[l.args.length-1] === labelTemp);
+        // a user label counts as used: it may be a target outside this function
+        const labelUsed = !isGeneratedLabel(asmFunc, labelTemp)
+          || !!lines.find(l => BRANCH_OPS.includes(l.op) && l.args[l.args.length-1] === labelTemp);
 
         // if it was a jal, we need to manually assign the return register
         if(jumpOp === "jal") {
