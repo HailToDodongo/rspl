@@ -319,6 +319,8 @@ export async function asmOptimize(asmFunc, updateCb, config)
   }
 
   const doSleep = typeof window !== "undefined";
+  if(config.optSeed)seed = (config.optSeed >>> 0) || 1;
+  const iterMode = (config.optIters || 0) > 0;
   let costBest = evalFunctionCost(asmFunc);
   asmFunc.cyclesBefore = costBest;
   //const worker = WorkerThreads.getInstance();
@@ -327,7 +329,11 @@ export async function asmOptimize(asmFunc, updateCb, config)
   const costInit = costBest;
   let totalTime = 0;
   let maxTime = config.optimizeTime || 10_000;
-  console.log(`Starting optimization with max. time: ${new Date(maxTime).toISOString().substr(11, 8)}, worker pool size: ${poolSize}`);
+  if(iterMode) {
+    console.log(`Starting optimization with ${config.optIters} iterations, worker pool size: ${poolSize}`);
+  } else {
+    console.log(`Starting optimization with max. time: ${new Date(maxTime).toISOString().substr(11, 8)}, worker pool size: ${poolSize}`);
+  }
 
   let lastRandPick = cloneFunction(asmFunc);
 
@@ -337,9 +343,9 @@ export async function asmOptimize(asmFunc, updateCb, config)
   let i = 0;
   let stepsSinceLastOpt = 0;
   let consecutiveSame = 0;
-  while(totalTime < maxTime)
+  while(iterMode ? (i < config.optIters) : (totalTime < maxTime))
   {
-    if(i !== 0 && (i % 1000) === 0)
+    if(!iterMode && i !== 0 && (i % 1000) === 0)
     {
       const dur = performance.now() - time;
       totalTime += dur;
@@ -347,7 +353,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
       time = performance.now();
     }
 
-    if (performance.now() > timeEnd) {
+    if (!iterMode && performance.now() > timeEnd) {
       console.log(`[${funcName}] Timeout after ${i} iterations.`);
       break;
     }

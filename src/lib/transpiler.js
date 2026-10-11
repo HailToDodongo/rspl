@@ -17,6 +17,40 @@ import {preprocess, stripComments} from "./preproc/preprocess.js";
 import {validateMemory} from "./memory/memoryValidator.js";
 
 const grammar = nearly.Grammar.fromCompiled(grammarDef);
+
+/**
+ * @param {string} source
+ * @param {string} funcName
+ * @return {[number, number]}
+ */
+export function getFunctionStartEnd(source, funcName)
+{
+  const funcIdx = source.indexOf(funcName + ":\n");
+  if(funcIdx === -1) {
+    throw new Error("Function " + funcName + " not found in output file!");
+  }
+  for(let i = funcIdx; i + 1 < source.length; ++i) {
+    if(source[i] === "\n" && /[A-Za-z0-9]/.test(source[i + 1]))return [funcIdx, i];
+  }
+  return [funcIdx, source.length];
+}
+
+/**
+ * @param {string} oldAsm
+ * @param {string} newAsm
+ * @param {string[]} funcNames
+ * @return {string}
+ */
+export function patchAsmFunctions(oldAsm, newAsm, funcNames)
+{
+  let out = oldAsm;
+  for(const name of funcNames) {
+    const posOld = getFunctionStartEnd(out, name);
+    const posNew = getFunctionStartEnd(newAsm, name);
+    out = out.substring(0, posOld[0]) + newAsm.substring(posNew[0], posNew[1]) + out.substring(posOld[1]);
+  }
+  return out;
+}
 /**
  * @param {RSPLConfig} config
  */
