@@ -129,9 +129,10 @@ export function relocateElement(arr, from, to)
       arr[to] = arr[from];
       arr.splice(from, 1);
     } else {
-      // "normal" move, just relocate from A to B
+      // "normal" move, just relocate from A to B (before the item at 'to')
       const instr = arr[from];
       arr.splice(from, 1);
+      if(to > from)--to;
       arr.splice(to, 0, instr);
     }
   }

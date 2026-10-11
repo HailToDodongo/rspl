@@ -502,7 +502,7 @@ function checkAsmBackwardDep(asm, asmPrev) {
 export function asmGetReorderIndices(asmList, i)
 {
   const asm = asmList[i];
-  if(asm.opFlags & OP_FLAG_IS_IMMOVABLE) {
+  if(asm.type !== ASM_TYPE.OP || (asm.opFlags & OP_FLAG_IS_IMMOVABLE)) {
     return [i];
   }
 
@@ -587,10 +587,13 @@ export function asmGetReorderIndices(asmList, i)
     }
   }
 
-  // @TODO:
-  // min-max to array
+  const stopIsTarget = pos < asmList.length
+    && !(pos === f && isPastBranch)
+    && !(asmList[pos].opFlags & OP_FLAG_IS_BRANCH);
+  const hi = stopIsTarget ? pos : pos - 1;
+
   let res = [];
-  for(let r = i; r <= pos-1; ++r) {
+  for(let r = i; r <= hi; ++r) {
     res.push(r);
   }
 
