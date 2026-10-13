@@ -11,6 +11,7 @@ import {
   OP_FLAG_IS_IMMOVABLE,
   OP_FLAG_IS_VECTOR, OP_FLAG_IS_NOP
 } from "./asmScanDeps.js";
+import {buildChains, relocateChain, CHAIN_MOVES} from "./accChains.js";
 import {dedupeLabels} from "./pattern/dedupeLabels.js";
 import {dedupeJumps} from "./pattern/dedupeJumps.js";
 export {isGeneratedLabel} from "./labels.js";
@@ -179,10 +180,11 @@ function optimizeStep(asmFunc)
 {
   let i = 0;
   let reorderIndices = [];
+  const range = {chainMoves: CHAIN_MOVES};
 
   for(let r=0; r<50 && (reorderIndices.length <= 1); ++r) {
     i = getRandIndex(asmFunc.asm.length);
-    reorderIndices = asmGetReorderIndices(asmFunc.asm, i);
+    reorderIndices = asmGetReorderIndices(asmFunc.asm, i, range);
   }
   if(reorderIndices.length <= 1)return;
 
@@ -225,6 +227,11 @@ function optimizeStep(asmFunc)
   }
 
   ++asmFunc.asm[i].debug.reorderCount;
+  
+  if(targetIdx < range.plainLo || targetIdx > range.plainHi) {
+    relocateChain(asmFunc.asm, i, targetIdx);
+    return;
+  }
   relocateElement(asmFunc.asm, i, targetIdx);
 }
 
@@ -319,6 +326,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
   }
 
   const doSleep = typeof window !== "undefined";
+  buildChains(asmFunc.asm);
   if(config.optSeed)seed = (config.optSeed >>> 0) || 1;
   const iterMode = (config.optIters || 0) > 0;
   let costBest = evalFunctionCost(asmFunc);
