@@ -37,11 +37,8 @@ export function evalFunctionCost(asmFunc)
 
   let branchStep = 0;
   let lastLoadPosMask = 0;
-  let regCycleMap = []; // register to stall counter
-
-  for(let i=0; i<64; ++i) {
-    regCycleMap[i] = 0;
-  }
+  // cycle at which the stall of a register ends
+  const regStallEnd = new Int32Array(64);
 
   let didJump = false;
   let inUncondJump = false;
@@ -51,7 +48,6 @@ export function evalFunctionCost(asmFunc)
   let ops = asmFunc.asm.filter(asm => asm.type === ASM_TYPE.OP);
 
   const ticks = (count) => {
-    for(let i=0; i<64; ++i)regCycleMap[i] -= count;
     lastLoadPosMask = lastLoadPosMask >>> count;
     cycle += count;
   };
@@ -67,7 +63,8 @@ export function evalFunctionCost(asmFunc)
 
         // check if one of our source or destination reg as written to in the last instruction
         for(const regSrc of execOp.depsStallSourceIdx) {
-          if(regCycleMap[regSrc] > 0)ticks(regCycleMap[regSrc]);
+          const left = regStallEnd[regSrc] - cycle;
+          if(left > 0)ticks(left);
         }
         // if a store happens exactly two cycles after a load, stall it
         if(lastLoadPosMask & 0b001 && (execOp.opFlags & OP_FLAG_IS_MEM_STALL_STORE)) {
@@ -96,7 +93,7 @@ export function evalFunctionCost(asmFunc)
         // after an unconditional jump nothing in flight matters any more
         if(inUncondJump) {
           lastLoadPosMask = 0;
-          for(let r=0; r<64; ++r)regCycleMap[r] = 0;
+          regStallEnd.fill(0);
           inUncondJump = false;
         }
       }
@@ -104,7 +101,7 @@ export function evalFunctionCost(asmFunc)
       // now "execute" by marking the target regs with stalls
       execOp.debug.cycle = cycle;
       for(const regDst of execOp.depsStallTargetIdx) {
-        regCycleMap[regDst] = execOp.stallLatency;
+        regStallEnd[regDst] = cycle + execOp.stallLatency;
       }
     }
 
