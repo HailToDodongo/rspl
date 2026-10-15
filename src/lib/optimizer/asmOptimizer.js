@@ -309,6 +309,22 @@ function cloneFunction(func) {
   return {...func, asm};
 }
 
+const reorderStats = {iterations: 0, timeMs: 0};
+const ips = (iterations, timeMs) => timeMs > 0 ? Math.round(iterations / (timeMs / 1000)) : 0;
+
+export function resetReorderStats() {
+  reorderStats.iterations = 0;
+  reorderStats.timeMs = 0;
+}
+
+export function printReorderStats() {
+  if(reorderStats.iterations === 0)return;
+  console.log("\n=== Reorder Summary =======================");
+  console.log(`  Total iterations: ${reorderStats.iterations}`);
+  console.log(`  Total time: ${reorderStats.timeMs.toFixed(1)} ms`);
+  console.log(`  Average IPS: ${ips(reorderStats.iterations, reorderStats.timeMs)}`);
+}
+
 /**
  * Optimizes ASM after the initial dependency scan.
  * This will mostly reorder instructions to fill delay-slots,
@@ -346,7 +362,8 @@ export async function asmOptimize(asmFunc, updateCb, config)
   let lastRandPick = cloneFunction(asmFunc);
 
   // Main iteration loop
-  let time = performance.now();
+  const startTime = performance.now();
+  let time = startTime;
   let timeEnd = time + maxTime;
   let i = 0;
   let stepsSinceLastOpt = 0;
@@ -357,7 +374,7 @@ export async function asmOptimize(asmFunc, updateCb, config)
     {
       const dur = performance.now() - time;
       totalTime += dur;
-      console.log(`[${funcName}] Step: ${i}, Left: ${(maxTime - totalTime).toFixed(4)}ms | Time: ${dur.toFixed(4)}s`);
+      console.log(`[${funcName}] Step: ${i}, Left: ${(maxTime - totalTime).toFixed(1)}ms | Cost: ${costBest} | ips: ${ips(i, performance.now() - startTime)}`);
       time = performance.now();
     }
 
@@ -437,4 +454,9 @@ export async function asmOptimize(asmFunc, updateCb, config)
     ++stepsSinceLastOpt;
     if(doSleep)await sleep();
   }
+
+  const elapsed = performance.now() - startTime;
+  reorderStats.iterations += i;
+  reorderStats.timeMs += elapsed;
+  console.log(`[${funcName}] ${i} iterations (${ips(i, elapsed)} ips func, ${ips(reorderStats.iterations, reorderStats.timeMs)} ips cum).`);
 }

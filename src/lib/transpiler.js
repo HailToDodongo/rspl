@@ -10,7 +10,7 @@ import nearly from "nearley";
 import grammarDef from "./grammar.cjs";
 import state from "./state.js";
 import {normalizeASM} from "./asmNormalize.js";
-import {asmOptimize, asmOptimizePattern} from "./optimizer/asmOptimizer.js";
+import {asmOptimize, asmOptimizePattern, printReorderStats, resetReorderStats} from "./optimizer/asmOptimizer.js";
 import {asmInitDeps, asmScanDeps} from "./optimizer/asmScanDeps.js";
 import {evalFunctionCost} from "./optimizer/eval/evalCost.js";
 import {preprocess, stripComments} from "./preproc/preprocess.js";
@@ -162,6 +162,7 @@ export async function transpile(ast, updateCb, config = {})
     const resUnopt = writeASM(ast, functionsAsm, config);
     asmUnoptimized = resUnopt.asm;
     debugUnopt = resUnopt.debug;
+    resetReorderStats();
 
     for(const func of functionsAsm)
     {
@@ -195,6 +196,7 @@ export async function transpile(ast, updateCb, config = {})
         console.log(`- ${func.name.padEnd(longestFuncName, ' ')}: ${func.cyclesBefore.toString().padStart(4, ' ')}  -> ${func.cyclesAfter.toString().padStart(4, ' ')} cycles`);
       }
       console.log("===============================");
+      printReorderStats();
     }
   } else if(config.debugInfo) {
     // When debugInfo is on but optimize is off, still run pattern
