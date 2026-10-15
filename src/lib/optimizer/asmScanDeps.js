@@ -622,16 +622,20 @@ export function asmGetReorderIndices(asmList, i, range = undefined)
     lastWriteMask |= asmNext.depsTargetMask;
   }
 
-  // even though we (may have) found a dependency, we still need to know if something tries to
-  // read from one of our sources. Not doing so would prevent us from reordering the last write of a chain.
-  let fRead = (isPastBranch ? f-2 : f)
-  for(; fRead < asmList.length; ++fRead) {
-    lastReadMask |= asmList[fRead].depsSourceMask;
+  // check if anything we walked over also wrote to a register that we also write to
+  if((lastWriteMask & mover.depsTargetMask) !== 0n)
+  {
+    // even though we (may have) found a dependency, we still need to know if something tries to
+    // read from one of our sources. Not doing so would prevent us from reordering the last write of a chain.
+    let fRead = (isPastBranch ? f-2 : f)
+    for(; fRead < asmList.length; ++fRead) {
+      lastReadMask |= asmList[fRead].depsSourceMask;
 
-    // branches/jumps needs special care, their target can make use of registers set before in code.
-    // The function arguments (if known) are stored in a separate mask
-    if(asmList[fRead].opFlags & OP_FLAG_IS_BRANCH) {
-      lastReadMask |= asmList[fRead].depsArgMask;
+      // branches/jumps needs special care, their target can make use of registers set before in code.
+      // The function arguments (if known) are stored in a separate mask
+      if(asmList[fRead].opFlags & OP_FLAG_IS_BRANCH) {
+        lastReadMask |= asmList[fRead].depsArgMask;
+      }
     }
   }
 
