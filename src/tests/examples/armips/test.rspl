@@ -1,0 +1,45 @@
+
+#define SOME_DEFINE 1
+
+state
+{
+  alignas(16)
+  u8 TEST_123[32];
+}
+
+temp_state 
+{
+  alignas(16)
+  u8 TEST_ABC[32];
+}
+
+command<0> Cmd_Test123()
+{
+  u32 aa = 32;
+}
+
+/**
+
+.rsp 
+
+.create "test.dmem", 0x0000
+  SHIFT: .db 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01
+  .align 2
+.close
+
+.create "test.imem", 0x1000
+  vxor $v00, $v00, $v00  
+  lpv $v31, 0($zero)
+  vmudl $v30, $v31, $v31[7]
+  
+  LOOP:
+    lw $t0, 0($zero)
+    addiu $t0, $t0, 1
+    sw $t0, 0($zero)
+    j LOOP
+    nop
+
+.close
+
+
+ */

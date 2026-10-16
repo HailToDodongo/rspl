@@ -59,6 +59,7 @@ declare global {
         reorder: boolean;
         rspqWrapper: boolean;
         magma: boolean;
+        armips: boolean;
         fileLoader: (path: string) => string;
         defines: Record<string, string>;
         patchFunctions: string[];

@@ -77,6 +77,10 @@ for(let i=3; i<process.argv.length; ++i) {
   if(process.argv[i] === "--magma") {
     config.magma = true;
   }
+  
+  if(process.argv[i] === "--armips") {
+    config.armips = true;
+  }
 }
 
 let lastFileHash = "";
