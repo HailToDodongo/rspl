@@ -137,7 +137,16 @@ export function intReg(varRef) {
  * @returns {*}
  */
 export function fractReg(varRef) {
-  return varRef.type === "vec32" ? nextVecReg(varRef.reg) : REG.VZERO;
+  return varRef.type === "vec32" ? pairReg(varRef) : REG.VZERO;
+}
+
+/**
+ * Second register of a two-register variable
+ * @param {ASTFuncArg} varRef
+ * @returns {string|null}
+ */
+export function pairReg(varRef) {
+  return varRef.regFract || nextVecReg(varRef.reg);
 }
 
 /**
@@ -148,7 +157,7 @@ export function fractReg(varRef) {
  */
 export function getVec32Regs(varRef) {
   if(varRef.type === "vec32") {
-    return [varRef.reg, nextVecReg(varRef.reg)];
+    return [varRef.reg, pairReg(varRef)];
   }
   if(varRef.castType === "ufract" || varRef.castType === "sfract") {
     return [REG.VZERO, varRef.reg];

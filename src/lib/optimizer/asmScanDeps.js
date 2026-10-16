@@ -175,6 +175,8 @@ const LTV_REG_MAP = {
 };
 
 const REG_MASK_MAP = {SIZE: REG_INDEX_MAP.SIZE};
+// bits of the real registers, everything above is @Barrier ordering bits
+const REAL_REG_MASK = (1n << BigInt(REG_INDEX_MAP.SIZE)) - 1n;
 let REG_MASK_ALL = 0n;
 
 for(let reg of Object.keys(REG_INDEX_MAP)) {
@@ -396,10 +398,19 @@ export function asmInitDep(asm)
   asm.depsStallTargetMask0 = tgt0;
   asm.depsStallTargetMask1 = tgt1;
 
+  // Barrier annotations:
+  // - strict: total, nothing can go past each other
+  // - before: write only, must stay before any "after"/"strict"
+  // - after: read only, waits for all "before"/"strict" ops, no "before" op can go below it
   asm.barrierMask = 0;
   for(const anno of asm.annotations) {
     if(anno.name === "Barrier") {
-      asm.barrierMask |= state.getBarrierMask(anno.value);
+      const mode = anno.mode || "";
+      const strict = mode === "" || mode === "strict";
+      if(strict)asm.barrierMask |= state.getBarrierMask(anno.value);
+      const bit = 1n << BigInt(REG_INDEX_MAP.SIZE + state.getBarrierBit(anno.value));
+      if(mode !== "after")asm.depsTargetMask |= bit; // strict + before: write the tag bit
+      if(mode !== "before")asm.depsSourceMask |= bit; // strict + after: read the tag bit
     }
   }
 }
@@ -482,18 +493,79 @@ function checkAsmBackwardDep(asm, asmPrev) {
   return false;
 }
 
+const ACC_IDX = REG_INDEX_MAP["$acc"];
+export const ACC_BIT = 1n << BigInt(ACC_IDX);
+
+/**
+ * Copy of an instruction that ignores its $acc dependency.
+ * Used when a whole chain is moved as one unit
+ * @param {ASM} asm
+ */
+function withoutAcc(asm) {
+  return {...asm,
+    depsSourceMask: asm.depsSourceMask & ~ACC_BIT,
+    depsTargetMask: asm.depsTargetMask & ~ACC_BIT,
+    depsTargetIdx: asm.depsTargetIdx.filter(r => r !== ACC_IDX),
+  };
+}
+
+/**
+ * Filters the positions a chain-member may be moved to when its whole chain follows.
+ * Walks from 'i' into 'step' direction up incl. 'end'.
+ * Not allowed are: crossing one of its own members, landing inside another chain,
+ * landing on a branch, and landing in a delay-slot if there are members to pull behind it.
+ * @param {ASM[]} asmList
+ * @param {number} i position of the member
+ * @param {Object} chain its chain
+ * @param {number} step 1 or -1
+ * @param {number} end last position to check
+ * @return {number[]}
+ */
+function chainLandings(asmList, i, chain, step, end)
+{
+  const res = [];
+  let inside = null; // other chain we are currently crossing
+  let seen = 0; // members of it we passed
+
+  for(let t = i + step; step > 0 ? t <= end : t >= end; t += step)
+  {
+    const other = asmList[t].chain;
+    if(other === chain)break;
+
+    let ok = inside === null;
+    if(other) {
+      seen = (other === inside) ? seen + 1 : 1;
+      inside = (seen === other.size) ? null : other;
+      // forwards we can only land before its first member, backwards before its head
+      ok = step > 0 ? seen === 1 : seen === other.size;
+    }
+
+    const isBranch = asmList[t].opFlags & OP_FLAG_IS_BRANCH;
+    const isDelaySlot = asmList[t-1]?.opFlags & OP_FLAG_IS_BRANCH;
+    if(ok && !isBranch && (!isDelaySlot || chain.size === 1)) {
+      res.push(t);
+    }
+  }
+  return res;
+}
+
 /**
  * Returns the indices where an instruction can be reordered to.
+ * With a 'range' object, the single-instruction range is returned (plainLo/plainHi).
+ * With 'maskAcc' it ignores $acc for the scan, and 'chainMoves' adds targets reachable by moving the chain.
  * @param {ASM[]} asmList
  * @param {number} i
+ * @param {{chainMoves?: boolean, maskAcc?: boolean, plainLo?: number, plainHi?: number}|undefined} range
  * @return {number[]} array of indices
  */
-export function asmGetReorderIndices(asmList, i)
+export function asmGetReorderIndices(asmList, i, range = undefined)
 {
   const asm = asmList[i];
-  if(asm.opFlags & OP_FLAG_IS_IMMOVABLE) {
+  if(asm.type !== ASM_TYPE.OP || (asm.opFlags & OP_FLAG_IS_IMMOVABLE)) {
+    if(range)range.plainLo = range.plainHi = i;
     return [i];
   }
+  const mover = range?.maskAcc ? withoutAcc(asm) : asm;
 
   // Scan ahead...
   let lastWrite = new Array(REG_INDEX_MAP.SIZE);
@@ -538,7 +610,7 @@ export function asmGetReorderIndices(asmList, i)
       }
     }*/
 
-    if(isFilledBranch || isPastBranch || checkAsmBackwardDep(asmNext, asm)) {
+    if(isFilledBranch || isPastBranch || checkAsmBackwardDep(asmNext, mover)) {
       pos = f;
       break;
     }
@@ -550,25 +622,29 @@ export function asmGetReorderIndices(asmList, i)
     lastWriteMask |= asmNext.depsTargetMask;
   }
 
-  // even though we (may have) found a dependency, we still need to know if something tries to
-  // read from one of our sources. Not doing so would prevent us from reordering the last write of a chain.
-  let fRead = (isPastBranch ? f-2 : f)
-  for(; fRead < asmList.length; ++fRead) {
-    lastReadMask |= asmList[fRead].depsSourceMask;
+  // check if anything we walked over also wrote to a register that we also write to
+  if((lastWriteMask & mover.depsTargetMask) !== 0n)
+  {
+    // even though we (may have) found a dependency, we still need to know if something tries to
+    // read from one of our sources. Not doing so would prevent us from reordering the last write of a chain.
+    let fRead = (isPastBranch ? f-2 : f)
+    for(; fRead < asmList.length; ++fRead) {
+      lastReadMask |= asmList[fRead].depsSourceMask;
 
-    // branches/jumps needs special care, their target can make use of registers set before in code.
-    // The function arguments (if known) are stored in a separate mask
-    if(asmList[fRead].opFlags & OP_FLAG_IS_BRANCH) {
-      lastReadMask |= asmList[fRead].depsArgMask;
+      // branches/jumps needs special care, their target can make use of registers set before in code.
+      // The function arguments (if known) are stored in a separate mask
+      if(asmList[fRead].opFlags & OP_FLAG_IS_BRANCH) {
+        lastReadMask |= asmList[fRead].depsArgMask;
+      }
     }
   }
 
   // check if there was an instruction in between which wrote to one of our target registers.
   // if true, fall-back to that position (otherwise register would contain wrong value)
   const readWriteMask = lastReadMask & lastWriteMask;
-  if((readWriteMask & asm.depsTargetMask) !== 0n) // avoid loop by checking mask first
+  if((readWriteMask & mover.depsTargetMask) !== 0n) // avoid loop by checking mask first
   {
-    for(const reg of asm.depsTargetIdx) {
+    for(const reg of mover.depsTargetIdx) {
       let lastWritePos = lastWrite[reg];
       if(lastWritePos && (lastReadMask & (BigInt(1) << BigInt(reg))) !== 0n) {
         pos = Math.min(lastWritePos, pos);
@@ -576,29 +652,47 @@ export function asmGetReorderIndices(asmList, i)
     }
   }
 
-  // @TODO:
-  // min-max to array
+  const stopIsTarget = pos < asmList.length
+    && !(pos === f && isPastBranch)
+    && !(asmList[pos].opFlags & OP_FLAG_IS_BRANCH);
+  const hi = stopIsTarget ? pos : pos - 1;
+
   let res = [];
-  for(let r = i; r <= pos-1; ++r) {
+  for(let r = i; r <= hi; ++r) {
     res.push(r);
   }
 
   // collect all registers that where not overwritten by any instruction after us.
   // these need to be checked for writes in the backwards-scan.
-  const writeCheckRegsMask = asm.depsTargetMask & ~lastWriteMask;
+  const writeCheckRegsMask = mover.depsTargetMask & ~lastWriteMask & REAL_REG_MASK;
 
   // go backwards through all instructions before...
+  let lo = i;
   for(let b=i-1; b >= 0; --b)
   {
     const asmPrev = asmList[b];
 
     if((asmList[b-1]?.opFlags & OP_FLAG_IS_BRANCH) // stop at the delay-slot of a branch, we cannot fill it backwards
-      || checkAsmBackwardDep(asm, asmPrev)
+      || checkAsmBackwardDep(mover, asmPrev)
       || (asmPrev.depsTargetMask & writeCheckRegsMask) !== 0n
     ) {
       break;
     }
     res.push(b);
+    lo = b;
+  }
+
+  if(!range)return res;
+  range.plainLo = lo;
+  range.plainHi = hi;
+
+  // Chain moves: a member of an $acc chain can go further if its whole chain is moved with it.
+  // Those targets are the ones of a scan without $acc, limited to spots where a chain can be re-inserted.
+  if(range.chainMoves && !range.maskAcc && asm.chain?.movable) {
+    const relaxed = {maskAcc: true};
+    asmGetReorderIndices(asmList, i, relaxed);
+    res.push(...chainLandings(asmList, i, asm.chain,  1, relaxed.plainHi).filter(t => t > hi));
+    res.push(...chainLandings(asmList, i, asm.chain, -1, relaxed.plainLo).filter(t => t < lo));
   }
 
   return res;

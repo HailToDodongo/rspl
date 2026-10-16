@@ -10,13 +10,47 @@ import nearly from "nearley";
 import grammarDef from "./grammar.cjs";
 import state from "./state.js";
 import {normalizeASM} from "./asmNormalize.js";
-import {asmOptimize, asmOptimizePattern} from "./optimizer/asmOptimizer.js";
+import {asmOptimize, asmOptimizePattern, printReorderStats, resetReorderStats} from "./optimizer/asmOptimizer.js";
 import {asmInitDeps, asmScanDeps} from "./optimizer/asmScanDeps.js";
 import {evalFunctionCost} from "./optimizer/eval/evalCost.js";
 import {preprocess, stripComments} from "./preproc/preprocess.js";
 import {validateMemory} from "./memory/memoryValidator.js";
 
 const grammar = nearly.Grammar.fromCompiled(grammarDef);
+
+/**
+ * @param {string} source
+ * @param {string} funcName
+ * @return {[number, number]}
+ */
+export function getFunctionStartEnd(source, funcName)
+{
+  const funcIdx = source.indexOf(funcName + ":\n");
+  if(funcIdx === -1) {
+    throw new Error("Function " + funcName + " not found in output file!");
+  }
+  for(let i = funcIdx; i + 1 < source.length; ++i) {
+    if(source[i] === "\n" && /[A-Za-z0-9]/.test(source[i + 1]))return [funcIdx, i];
+  }
+  return [funcIdx, source.length];
+}
+
+/**
+ * @param {string} oldAsm
+ * @param {string} newAsm
+ * @param {string[]} funcNames
+ * @return {string}
+ */
+export function patchAsmFunctions(oldAsm, newAsm, funcNames)
+{
+  let out = oldAsm;
+  for(const name of funcNames) {
+    const posOld = getFunctionStartEnd(out, name);
+    const posNew = getFunctionStartEnd(newAsm, name);
+    out = out.substring(0, posOld[0]) + newAsm.substring(posNew[0], posNew[1]) + out.substring(posOld[1]);
+  }
+  return out;
+}
 /**
  * @param {RSPLConfig} config
  */
@@ -48,10 +82,13 @@ export async function transpileSource(source, config, updateCb = undefined)
     }
   }
 
-  source = preprocess(source, defines, config.fileLoader);
+  const origins = [];
+  source = preprocess(source, defines, config.fileLoader, origins);
   //console.timeEnd("Preprocessor");
 
   state.sourceLines = source.split("\n").map((l => l.trim()));
+  state.sourceLinesRaw = source.split("\n");
+  state.sourceOrigins = origins;
   //console.time("parser");
   const astList = parser.feed(source);
   //console.timeEnd("parser");
@@ -62,26 +99,7 @@ export async function transpileSource(source, config, updateCb = undefined)
   const ast = astList.results[0];
   ast.defines = defines;
 
-  try {
   return await transpile(ast, updateCb, config);
-  } catch (e) {
-    if(e.message.includes("Error in") && e.message.includes("line ")) {
-      // add surrounding lines to error message
-      const lineCount = 3;
-      const lines = source.split("\n");
-      const line = parseInt(e.message.match(/line (\d+)/)?.[1]);
-      const start = Math.max(0, line - lineCount);
-      const end = Math.min(lines.length, line + lineCount);
-      const context = lines.slice(start, end)
-        .map((l, i) =>
-          `${line === (start+i+1) ? '>' : ' '}${(start + i + 1).toString().padStart(4, ' ')}: ${l}`
-        )
-        .join("\n");
-
-      e.message += "\n\nSource:\n" + context + "\n";
-    }
-    throw e;
-  }
 }
 
 /**
@@ -144,6 +162,7 @@ export async function transpile(ast, updateCb, config = {})
     const resUnopt = writeASM(ast, functionsAsm, config);
     asmUnoptimized = resUnopt.asm;
     debugUnopt = resUnopt.debug;
+    resetReorderStats();
 
     for(const func of functionsAsm)
     {
@@ -177,6 +196,7 @@ export async function transpile(ast, updateCb, config = {})
         console.log(`- ${func.name.padEnd(longestFuncName, ' ')}: ${func.cyclesBefore.toString().padStart(4, ' ')}  -> ${func.cyclesAfter.toString().padStart(4, ' ')} cycles`);
       }
       console.log("===============================");
+      printReorderStats();
     }
   } else if(config.debugInfo) {
     // When debugInfo is on but optimize is off, still run pattern

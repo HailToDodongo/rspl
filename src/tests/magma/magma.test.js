@@ -10,6 +10,7 @@ describe('Magma mode', () =>
     {
     }`, CONF);
 
+    expect(warn).toBe("");
     expect(asm).not.toContain("RSPQ_BeginOverlayHeader");
     expect(asm).not.toContain("RSPQ_EndOverlayHeader");
   });
@@ -20,6 +21,7 @@ describe('Magma mode', () =>
     {
     }`, CONF);
 
+    expect(warn).toBe("");
     expect(asm).not.toContain("RSPQ_BeginSavedState");
     expect(asm).not.toContain("RSPQ_EndSavedState");
     expect(asm).not.toContain("RSPQ_EmptySavedState");
@@ -31,6 +33,7 @@ describe('Magma mode', () =>
     {
     }`, CONF);
 
+    expect(warn).toBe("");
     expect(asm).not.toContain(".data");
     expect(asm).not.toContain(".text");
   });
@@ -47,6 +50,7 @@ describe('Magma mode', () =>
       u32<$t0> value = load(VALUE);
     }`, CONF);
 
+    expect(warn).toBe("");
     expect(asm).toContain("lw $t0, %lo(VALUE + 0)");
     expect(asm).not.toContain("VALUE: .ds.b 4");
   });
@@ -63,6 +67,7 @@ describe('Magma mode', () =>
       u32<$t0> value = load(VALUE);
     }`, CONF);
 
+    expect(warn).toBe("");
     expect(asm).toContain("lw $t0, %lo(VALUE + 0)");
     expect(asm).not.toContain("VALUE: .ds.b 4");
   });
@@ -79,6 +84,7 @@ describe('Magma mode', () =>
       u32<$t0> value = load(VALUE);
     }`, CONF);
 
+    expect(warn).toBe("");
     expect(asm).toContain("lw $t0, %lo(VALUE + 0)");
     expect(asm).not.toContain("VALUE: .ds.b 4");
   });

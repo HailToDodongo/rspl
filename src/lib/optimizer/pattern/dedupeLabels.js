@@ -4,46 +4,38 @@
 */
 
 import {ASM_TYPE} from "../../intsructions/asmWriter.js";
-import {BRANCH_OPS} from "../asmScanDeps.js";
+import {isGeneratedLabel} from "../labels.js";
 
 /**
  * De-duplicates labels.
+ * Two adjacent labels may only be dropped if they are compiler generated
  * @param {ASMFunc} asmFunc
  */
 export function dedupeLabels(asmFunc)
 {
-  // de-duplicate labels, first detect consecutive labels...
-  let labelsDelete = [];
-  const labelsReplace = {};
-  let labels = [];
-  for(const asm of asmFunc.asm)
+  const lines = asmFunc.asm;
+  for(let i=0; i+1 < lines.length; ++i)
   {
-    if(asm.type === ASM_TYPE.LABEL) {
-      if(!asm.label.startsWith("__")) {
-        labels.push(asm.label);
-      }
-    } else {
-      if(labels.length > 1) {
-        const newLabel = labels.pop();
-        labelsDelete.push(...labels);
-        for(const label of labels)labelsReplace[label] = [newLabel];
-      }
-      labels = [];
-    }
-  }
+    const a = lines[i], b = lines[i+1];
+    if(a.type !== ASM_TYPE.LABEL || b.type !== ASM_TYPE.LABEL)continue;
+    if(a.label.startsWith("__") || b.label.startsWith("__"))continue;
 
-  // ...now keep the first one, remove the others and patch the references
-  const asmNew = [];
-  for(const asm of asmFunc.asm)
-  {
-    if(labelsDelete.includes(asm.label))continue;
-    if(BRANCH_OPS.includes(asm.op)) {
-      const label = asm.args[asm.args.length-1];
-      if(labelsReplace[label]) {
-        asm.args[asm.args.length-1] = labelsReplace[label][0];
+    let drop;
+    if(isGeneratedLabel(asmFunc, a.label))drop = i;
+    else if(isGeneratedLabel(asmFunc, b.label))drop = i+1;
+    else continue;
+
+    const from = lines[drop].label;
+    const to = lines[drop === i ? i+1 : i].label;
+    for(const asm of lines) {
+      if(asm.labelEnd === from)asm.labelEnd = to;
+      if(asm.args) {
+        for(let k=0; k<asm.args.length; ++k) {
+          if(asm.args[k] === from)asm.args[k] = to;
+        }
       }
     }
-    asmNew.push(asm);
+    lines.splice(drop, 1);
+    --i;
   }
-  asmFunc.asm = asmNew;
 }

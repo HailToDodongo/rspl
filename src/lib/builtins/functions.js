@@ -9,6 +9,7 @@ import {
   isVecReg,
   nextReg,
   nextVecReg,
+  pairReg,
   REG, REG_COP0,
   REG_COP2,
   REGS_VECTOR,
@@ -19,7 +20,7 @@ import opsScalar from "../operations/scalar";
 import opsVector from "../operations/vector";
 import {asm, asmFunction, asmInline, asmNOP} from "../intsructions/asmWriter.js";
 import {isTwoRegType, isVecType, TYPE_SIZE} from "../dataTypes/dataTypes.js";
-import {POW2_SWIZZLE_VAR, SWIZZLE_MAP, SWIZZLE_MAP_KEYS_STR} from "../syntax/swizzle.js";
+import {POW2_SWIZZLE_VAR, SWIZZLE_MAP, SWIZZLE_MAP_KEYS_STR, SWIZZLE_SCALAR_IDX} from "../syntax/swizzle.js";
 import {DMA_FLAGS, LABEL_ASSERT} from "./libdragon.js";
 import scalar from "../operations/scalar";
 
@@ -78,6 +79,53 @@ function store(varRes, args, swizzle, isUnaligned = false)
   if(varSrc.swizzle)state.throwError("Scalar variables cannot use swizzling!", varSrc);
   return opsScalar.opStore(varSrc, args.slice(1));
 }
+
+function byteMem(varRes, args, swizzle, isStore, isLow)
+{
+  const pre = `Builtin ${isStore ? "store" : "load"}_byte_${isLow ? "lo" : "hi"}() `;
+  if(swizzle)state.throwError(pre + "cannot use swizzle!");
+
+  let val, iAddr = 0;
+  if(isStore) {
+    if(varRes)state.throwError(pre + "cannot have a left side!");
+    if(!args.length || args[0].type !== "var")state.throwError(pre + "requires the first argument to be a vector variable!");
+    val = state.getRequiredVar(args[0].value, "arg0");
+    val.swizzle = args[0].swizzle;
+    iAddr = 1;
+  } else {
+    if(!varRes)state.throwError(pre + "needs a left-side!");
+    val = varRes;
+  }
+  assertArgsNoSwizzle(args, iAddr);
+
+  if(!REGS_VECTOR.includes(val.reg))state.throwError(pre + "requires a vector variable!");
+  const lane = val.swizzle && val.swizzle.length === 1 ? SWIZZLE_SCALAR_IDX[val.swizzle] : undefined;
+  if(lane === undefined)state.throwError(pre + "requires a single-lane swizzle (e.g. '.x' or '.W')!");
+  const element = lane * 2 + (isLow ? 1 : 0);
+
+  if(args.length < iAddr + 1 || args.length > iAddr + 2)state.throwError(pre + "requires an address and an optional offset!");
+  let offset = 0;
+  if(args.length === iAddr + 2) {
+    if(args[iAddr + 1].type !== "num")state.throwError(pre + "requires the offset to be a number!");
+    offset = args[iAddr + 1].value;
+    if(offset < -64 || offset > 63)state.throwError(pre + `offset must be in the range -64 to 63, ${offset} given!`);
+  }
+
+  const addrMem = state.getRequiredVarOrMem(args[iAddr].value, "addr");
+  if(addrMem.reg && REGS_VECTOR.includes(addrMem.reg))state.throwError(pre + "requires the address to be a scalar variable!");
+
+  const op = isStore ? "sbv" : "lbv";
+  if(addrMem.reg)return [asm(op, [val.reg, element, offset, addrMem.reg])];
+  return [
+    ...scalar.loadImmediate(REG.AT, "%lo(" + addrMem.name + ")"),
+    asm(op, [val.reg, element, offset, REG.AT]),
+  ];
+}
+
+function load_byte_lo(varRes, args, swizzle)  { return byteMem(varRes, args, swizzle, false, true);  }
+function load_byte_hi(varRes, args, swizzle)  { return byteMem(varRes, args, swizzle, false, false); }
+function store_byte_lo(varRes, args, swizzle) { return byteMem(varRes, args, swizzle, true,  true);  }
+function store_byte_hi(varRes, args, swizzle) { return byteMem(varRes, args, swizzle, true,  false); }
 
 function load_vec_u8(varRes, args, swizzle, isSigned = false) {
   assertArgsNoSwizzle(args);
@@ -338,7 +386,7 @@ function abs(varRes, args, swizzle)
   if(is32Bit && !sameTarget) {
     return [
       asm("vabs", [varRes.reg, varArg.reg, varArg.reg]),
-      asm("vxor", [nextVecReg(varRes.reg), REG.VZERO, nextVecReg(varArg.reg)]),
+      asm("vxor", [pairReg(varRes), REG.VZERO, pairReg(varArg)]),
     ];
   }
   return [asm("vabs", [varRes.reg, varArg.reg, varArg.reg])];
@@ -370,7 +418,7 @@ function clip(varRes, args, swizzle)
   if(is32BitA) {
     return [
       asm("vch", [REG.VTEMP0, varArg0.reg, varArg1.reg + swizzleRight]),
-      asm("vcl", [REG.VTEMP0, nextVecReg(varArg0.reg), nextVecReg(varArg1.reg) + swizzleRight]),
+      asm("vcl", [REG.VTEMP0, pairReg(varArg0), pairReg(varArg1) + swizzleRight]),
       asm("cfc2", [varRes.reg, REG_COP2.VCC]),
     ];
   }
@@ -843,8 +891,8 @@ function swap(varRes, args, swizzle) {
   );
 
   if(isTwoRegType(varA.type)) {
-    const regA = nextReg(varA.reg);
-    const regB = nextReg(varB.reg);
+    const regA = pairReg(varA);
+    const regB = pairReg(varB);
 
     res.push(
       asm(xorOp, [regA, regA, regB]),
@@ -932,6 +980,7 @@ function assert(varRes, args, swizzle) {
 
 export default {
   load, store, load_vec_u8, load_vec_s8, store_vec_u8, store_vec_s8,
+  load_byte_lo, load_byte_hi, store_byte_lo, store_byte_hi,
   load_unaligned, store_unaligned,
   load_transposed, store_transposed, transpose,
   asm: inlineAsm, asm_op, asm_include, print, printf, abs, clip, clear_vcc, get_acc, set_vcc, get_dma_busy,

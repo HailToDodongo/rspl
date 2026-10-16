@@ -39,6 +39,10 @@ function getPrecedingAnnotations(statements, currentStatement)
  */
 function normalizeScopedBlock(block, astState, macros)
 {
+  // Local macros:
+  macros = Object.create(macros);
+  const snapshotMacro = (st, name) => { st._macro = macros[name] || null; };
+
   // convert labels we find into memory variables, this has the same effect as
   // globally setting them as "extern" in the RSPL state.
   for(const st of block.statements) {
@@ -59,6 +63,25 @@ function normalizeScopedBlock(block, astState, macros)
 
     switch (st.type)
     {
+      case "macroDef": {
+        const def = st.def;
+        if(def.resultType != null) {
+          state.throwError("Macros must not specify a result-type (use 'macro' without `< >`)!", st);
+        }
+        if(!def.body) {
+          state.throwError("A local macro needs a body!", st);
+        }
+        if(builtins[def.name]) {
+          state.throwError(`Macro '${def.name}' shadows a builtin function! Please use another name.`);
+        }
+        macros[def.name] = def; // emits nothing
+      } break;
+
+      case "funcCall":
+        snapshotMacro(st, st.func);
+        statements.push(st);
+      break;
+
       case "scopedBlock":
         normalizeScopedBlock(st, astState, macros);
         statements.push(st);
@@ -84,20 +107,33 @@ function normalizeScopedBlock(block, astState, macros)
         if(st.calc) { // ... and ignore empty assignments
           // Duplicate annotations to the assigment
           statements.push(...getPrecedingAnnotations(block.statements, st));
-          statements.push({
+          const assign = {
             type: "varAssignCalc",
             varName: st.varName,
             calc: st.calc,
             assignType: "=",
             line: st.line,
-          });
+          };
+          if(st.calc.type === "calcFunc")snapshotMacro(assign, st.calc.funcName);
+          statements.push(assign);
         }
       break;
 
+      case "varAssignCalc":
+        if(st.calc && st.calc.type === "calcFunc")snapshotMacro(st, st.calc.funcName);
+        statements.push(st);
+      break;
+
       case "varDeclMulti":
+        if(st.regFract && st.varNames.length > 1) {
+          state.throwError("A register pair declares a single variable, declare the others separately!", st.varNames[0]);
+        }
+        if(st.regAlias && st.varNames.length > 1) {
+          state.throwError("An alias declares a single variable, declare the others separately!", st.varNames[0]);
+        }
         let regOffset = 0;
         for(const varName of st.varNames) {
-          const reg = nextReg(st.reg, regOffset);
+          const reg = st.regAlias ? st.reg : nextReg(st.reg, regOffset);
           statements.push({...st, varName, reg, type: "varDecl"});
           regOffset += TYPE_REG_COUNT[st.varType];
         }
@@ -121,6 +157,7 @@ function normalizeScopedBlock(block, astState, macros)
         func: st.calc.funcName,
         args: [{type: "var", value: st.varName}, ...st.calc.args],
         line: st.line,
+        _macro: st._macro,
       };
     }
     return st;
@@ -133,8 +170,9 @@ function normalizeScopedBlock(block, astState, macros)
     switch (st.type)
     {
       case "funcCall":
-        if(macros[st.func]) {
-          const macro = structuredClone(macros[st.func]);
+        const macroDef = st._macro !== undefined ? st._macro : macros[st.func];
+        if(macroDef) {
+          const macro = structuredClone(macroDef);
 
           if(st.args.length !== macro.args.length) {
             state.throwError(`Macro '${st.func}' expects ${macro.args.length} arguments, got ${st.args.length}!`, st);

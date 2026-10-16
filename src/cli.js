@@ -3,7 +3,7 @@
 * @license Apache-2.0
 */
 
-import { transpileSource } from "./lib/transpiler";
+import { transpileSource, patchAsmFunctions } from "./lib/transpiler";
 import { readFileSync, writeFileSync, watch } from "fs";
 import * as path from "path";
 import {initWorker, registerTask, WorkerThreads} from "./lib/workerThreads.js";
@@ -29,19 +29,6 @@ let config = {
   magma: false
 };
 
-function getFunctionStartEnd(source, funcName) {
- const funcIdx = source.search(funcName + ":\n");
-  if(funcIdx === -1) {
-    throw new Error("Function "+funcName+" not found in output file!");
-  }
-  // search for end, each following line starts with 2 spaces and the function ends when a line has none
-  const endIdx = source.substring(funcIdx).search(/\n[A-Za-z0-9]/);
-  if(endIdx === -1) {
-    throw new Error("Function end not found in output file!");
-  }
-  return [funcIdx, funcIdx+endIdx];
-}
-
 for(let i=3; i<process.argv.length; ++i) {
   if(process.argv[i] === "--reorder") {
     config.reorder = true;
@@ -56,8 +43,15 @@ for(let i=3; i<process.argv.length; ++i) {
   if(process.argv[i].startsWith("--opt-time=")) {
     config.optimizeTime = parseInt(process.argv[i].split("=")[1]) * 1000;
   }
-  if(process.argv[i].startsWith("--opt-worker=")) {
+  if(process.argv[i].startsWith("--opt-worker=") || process.argv[i].startsWith("--opt-workers=")) {
     config.optimizeWorker = parseInt(process.argv[i].split("=")[1]);
+  }
+  
+  if(process.argv[i].startsWith("--opt-seed=")) {
+    config.optSeed = parseInt(process.argv[i].split("=")[1]);
+  }
+  if(process.argv[i].startsWith("--opt-iters=")) {
+    config.optIters = parseInt(process.argv[i].split("=")[1]);
   }
 
   if(process.argv[i] === "--no-rspq-wrapper") {
@@ -119,17 +113,9 @@ async function main() {
     }
 
     if(config.patchFunctions.length) {
-      let oldSource = readFileSync(pathOut, "utf8");
-      for(const patchFunc of config.patchFunctions) {
-        if(lastRun)console.log("Patching functions", config.patchFunctions.join(", "));
-
-        const posOld = getFunctionStartEnd(oldSource, patchFunc);
-        const posNew = getFunctionStartEnd(asmRes.asm, patchFunc);
-        oldSource = oldSource.substring(0, posOld[0])
-          + asmRes.asm.substring(posNew[0], posNew[1])
-          + oldSource.substring(posOld[1]);
-      }
-      writeFileSync(pathOut, oldSource);
+      if(lastRun)console.log("Patching functions", config.patchFunctions.join(", "));
+      const oldSource = readFileSync(pathOut, "utf8");
+      writeFileSync(pathOut, patchAsmFunctions(oldSource, asmRes.asm, config.patchFunctions));
     } else {
       writeFileSync(pathOut, asmRes.asm);
     }

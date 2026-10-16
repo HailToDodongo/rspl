@@ -21,8 +21,9 @@ test("Reorder partial load", () => {
 
   const range = asmGetReorderIndices(list, 0);   // where can the dead vmadn (idx 0) go?
   const min = Math.min(...range), max = Math.max(...range);
-  const canLandBetweenLdvs = range.includes(1);   // index 1 == AFTER ldv[0], BEFORE ldv[8]
-  expect(canLandBetweenLdvs).toBe(false);   // this SHOULD hold; it currently FAILS -> bug
+
+  const canLandBetweenLdvs = range.includes(2);
+  expect(canLandBetweenLdvs).toBe(false);
 });
 
 test("Partial load target lanes - aligned offset", () => {
@@ -51,4 +52,18 @@ test("Partial load target lanes - odd offset", () => {
     .toEqual(["$v06.e6", "$v06.e7"]);
   expect(getTargetRegs(asm("lsv", ["$v06", 15, 0, "$s0"])))
     .toEqual(["$v06.e7"]);
+});
+
+// A ".v" source suffix must expand to all 8 lanes
+test("Partial load not movable past .v reader", () => {
+  const list = [
+    asm("ldv",   ["$v04", 8, 0, "$t6"]),          // 0: writes lanes 4-7
+    asm("vmulf", ["$v03", "$v05", "$v04.v"]),     // 1: reads ALL lanes
+    asm("or",    ["$t0", "$zero", "$zero"]),      // 2
+    asm("or",    ["$t1", "$zero", "$zero"]),      // 3
+  ];
+  for(const a of list) { a.annotations = a.annotations || []; asmInitDep(a); }
+  const range = asmGetReorderIndices(list, 0);
+  const canMovePastReader = range.includes(2);
+  expect(canMovePastReader).toBe(false);
 });

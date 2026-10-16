@@ -11,8 +11,10 @@ import {
   OP_FLAG_IS_IMMOVABLE,
   OP_FLAG_IS_VECTOR, OP_FLAG_IS_NOP
 } from "./asmScanDeps.js";
+import {buildChains, relocateChain, CHAIN_MOVES} from "./accChains.js";
 import {dedupeLabels} from "./pattern/dedupeLabels.js";
 import {dedupeJumps} from "./pattern/dedupeJumps.js";
+export {isGeneratedLabel} from "./labels.js";
 import {branchJump} from "./pattern/branchJump.js";
 import {tailCall} from "./pattern/tailCall.js";
 import {evalFunctionCost} from "./eval/evalCost.js";
@@ -91,7 +93,7 @@ function getRandIndex(maxExcl) {
  * @param {number} from index of the instruction to move
  * @param {number} to index of the target instruction
  */
-function relocateElement(arr, from, to)
+export function relocateElement(arr, from, to)
 {
   if(from === to || arr[to].opFlags & OP_FLAG_IS_BRANCH)return;
   const targetIsNOP = arr[to]?.opFlags & OP_FLAG_IS_NOP;
@@ -110,8 +112,10 @@ function relocateElement(arr, from, to)
   {
     //console.log("targetOp IN DELAY", from, to, arr[from].op, targetOp);
     if(targetIsNOP) {
-      // we can effectively switch the instruction as we need a nop anyway
+      // move the op out of the delay slot onto the NOP and leave a NOP in the slot
       arr[to] = arr[from];
+      arr[from] = asmNOP();
+      asmInitDep(arr[from]);
     } else {
       // now we need to move to the target, and insert a NOP into our position
       const instr = arr[from];
@@ -126,9 +130,10 @@ function relocateElement(arr, from, to)
       arr[to] = arr[from];
       arr.splice(from, 1);
     } else {
-      // "normal" move, just relocate from A to B
+      // "normal" move, just relocate from A to B (before the item at 'to')
       const instr = arr[from];
       arr.splice(from, 1);
+      if(to > from)--to;
       arr.splice(to, 0, instr);
     }
   }
@@ -175,10 +180,11 @@ function optimizeStep(asmFunc)
 {
   let i = 0;
   let reorderIndices = [];
+  const range = {chainMoves: CHAIN_MOVES};
 
   for(let r=0; r<50 && (reorderIndices.length <= 1); ++r) {
     i = getRandIndex(asmFunc.asm.length);
-    reorderIndices = asmGetReorderIndices(asmFunc.asm, i);
+    reorderIndices = asmGetReorderIndices(asmFunc.asm, i, range);
   }
   if(reorderIndices.length <= 1)return;
 
@@ -221,6 +227,11 @@ function optimizeStep(asmFunc)
   }
 
   ++asmFunc.asm[i].debug.reorderCount;
+  
+  if(targetIdx < range.plainLo || targetIdx > range.plainHi) {
+    relocateChain(asmFunc.asm, i, targetIdx);
+    return;
+  }
   relocateElement(asmFunc.asm, i, targetIdx);
 }
 
@@ -298,6 +309,22 @@ function cloneFunction(func) {
   return {...func, asm};
 }
 
+const reorderStats = {iterations: 0, timeMs: 0};
+const ips = (iterations, timeMs) => timeMs > 0 ? Math.round(iterations / (timeMs / 1000)) : 0;
+
+export function resetReorderStats() {
+  reorderStats.iterations = 0;
+  reorderStats.timeMs = 0;
+}
+
+export function printReorderStats() {
+  if(reorderStats.iterations === 0)return;
+  console.log("\n=== Reorder Summary =======================");
+  console.log(`  Total iterations: ${reorderStats.iterations}`);
+  console.log(`  Total time: ${reorderStats.timeMs.toFixed(1)} ms`);
+  console.log(`  Average IPS: ${ips(reorderStats.iterations, reorderStats.timeMs)}`);
+}
+
 /**
  * Optimizes ASM after the initial dependency scan.
  * This will mostly reorder instructions to fill delay-slots,
@@ -315,6 +342,9 @@ export async function asmOptimize(asmFunc, updateCb, config)
   }
 
   const doSleep = typeof window !== "undefined";
+  buildChains(asmFunc.asm);
+  if(config.optSeed)seed = (config.optSeed >>> 0) || 1;
+  const iterMode = (config.optIters || 0) > 0;
   let costBest = evalFunctionCost(asmFunc);
   asmFunc.cyclesBefore = costBest;
   //const worker = WorkerThreads.getInstance();
@@ -323,27 +353,32 @@ export async function asmOptimize(asmFunc, updateCb, config)
   const costInit = costBest;
   let totalTime = 0;
   let maxTime = config.optimizeTime || 10_000;
-  console.log(`Starting optimization with max. time: ${new Date(maxTime).toISOString().substr(11, 8)}, worker pool size: ${poolSize}`);
+  if(iterMode) {
+    console.log(`Starting optimization with ${config.optIters} iterations, worker pool size: ${poolSize}`);
+  } else {
+    console.log(`Starting optimization with max. time: ${new Date(maxTime).toISOString().substr(11, 8)}, worker pool size: ${poolSize}`);
+  }
 
   let lastRandPick = cloneFunction(asmFunc);
 
   // Main iteration loop
-  let time = performance.now();
+  const startTime = performance.now();
+  let time = startTime;
   let timeEnd = time + maxTime;
   let i = 0;
   let stepsSinceLastOpt = 0;
   let consecutiveSame = 0;
-  while(totalTime < maxTime)
+  while(iterMode ? (i < config.optIters) : (totalTime < maxTime))
   {
-    if(i !== 0 && (i % 1000) === 0)
+    if(!iterMode && i !== 0 && (i % 1000) === 0)
     {
       const dur = performance.now() - time;
       totalTime += dur;
-      console.log(`[${funcName}] Step: ${i}, Left: ${(maxTime - totalTime).toFixed(4)}ms | Time: ${dur.toFixed(4)}s`);
+      console.log(`[${funcName}] Step: ${i}, Left: ${(maxTime - totalTime).toFixed(1)}ms | Cost: ${costBest} | ips: ${ips(i, performance.now() - startTime)}`);
       time = performance.now();
     }
 
-    if (performance.now() > timeEnd) {
+    if (!iterMode && performance.now() > timeEnd) {
       console.log(`[${funcName}] Timeout after ${i} iterations.`);
       break;
     }
@@ -419,4 +454,9 @@ export async function asmOptimize(asmFunc, updateCb, config)
     ++stepsSinceLastOpt;
     if(doSleep)await sleep();
   }
+
+  const elapsed = performance.now() - startTime;
+  reorderStats.iterations += i;
+  reorderStats.timeMs += elapsed;
+  console.log(`[${funcName}] ${i} iterations (${ips(i, elapsed)} ips func, ${ips(reorderStats.iterations, reorderStats.timeMs)} ips cum).`);
 }

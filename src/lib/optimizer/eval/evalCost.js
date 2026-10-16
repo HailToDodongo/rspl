@@ -9,8 +9,14 @@ import {
   OP_FLAG_IS_BRANCH, OP_FLAG_IS_LIKELY,
   OP_FLAG_IS_MEM_STALL_LOAD,
   OP_FLAG_IS_MEM_STALL_STORE,
-  OP_FLAG_IS_VECTOR, OP_FLAG_LIKELY_BRANCH
+  OP_FLAG_IS_VECTOR, OP_FLAG_LIKELY_BRANCH,
+  REG_INDEX_MAP,
 } from "../asmScanDeps.js";
+
+// VU op using one of them cannot pair with an op touching it
+const CTRL_REG_MASK = (1n << BigInt(REG_INDEX_MAP["$vco"]))
+                    | (1n << BigInt(REG_INDEX_MAP["$vcc"]))
+                    | (1n << BigInt(REG_INDEX_MAP["$vce"]));
 
 // Reference/Docs: https://n64brew.dev/wiki/Reality_Signal_Processor/CPU_Pipeline
 
@@ -31,20 +37,17 @@ export function evalFunctionCost(asmFunc)
 
   let branchStep = 0;
   let lastLoadPosMask = 0;
-  let regCycleMap = []; // register to stall counter
-
-  for(let i=0; i<64; ++i) {
-    regCycleMap[i] = 0;
-  }
+  // cycle at which the stall of a register ends
+  const regStallEnd = new Int32Array(64);
 
   let didJump = false;
+  let inUncondJump = false;
   let cycle = 0;
   let pc = 0;
   /** @type {ASM[]} */
   let ops = asmFunc.asm.filter(asm => asm.type === ASM_TYPE.OP);
 
   const ticks = (count) => {
-    for(let i=0; i<64; ++i)regCycleMap[i] -= count;
     lastLoadPosMask = lastLoadPosMask >>> count;
     cycle += count;
   };
@@ -60,7 +63,8 @@ export function evalFunctionCost(asmFunc)
 
         // check if one of our source or destination reg as written to in the last instruction
         for(const regSrc of execOp.depsStallSourceIdx) {
-          if(regCycleMap[regSrc] > 0)ticks(regCycleMap[regSrc]);
+          const left = regStallEnd[regSrc] - cycle;
+          if(left > 0)ticks(left);
         }
         // if a store happens exactly two cycles after a load, stall it
         if(lastLoadPosMask & 0b001 && (execOp.opFlags & OP_FLAG_IS_MEM_STALL_STORE)) {
@@ -78,17 +82,26 @@ export function evalFunctionCost(asmFunc)
 
       // update where in a branch we are (branch, delay, none)
       branchStep >>>= 1;
-      if(!branchStep && (execOp.opFlags & OP_FLAG_IS_BRANCH) !== 0)branchStep = BRANCH_STEP_BRANCH;
+      if(!branchStep && (execOp.opFlags & OP_FLAG_IS_BRANCH) !== 0) {
+        branchStep = BRANCH_STEP_BRANCH;
+        inUncondJump = ["j", "jal", "jr"].includes(execOp.op);
+      }
 
       // if branch is taken, an unavoidable bubble is inserted
       if(didJump && branchStep === BRANCH_STEP_DELAY) {
         ticks(1); didJump = false;
+        // after an unconditional jump nothing in flight matters any more
+        if(inUncondJump) {
+          lastLoadPosMask = 0;
+          regStallEnd.fill(0);
+          inUncondJump = false;
+        }
       }
 
       // now "execute" by marking the target regs with stalls
       execOp.debug.cycle = cycle;
       for(const regDst of execOp.depsStallTargetIdx) {
-        regCycleMap[regDst] = execOp.stallLatency;
+        regStallEnd[regDst] = cycle + execOp.stallLatency;
       }
     }
 
@@ -114,6 +127,12 @@ export function evalFunctionCost(asmFunc)
       if((opNext.opFlags & OP_FLAG_CTC2_CFC2) && (op.depsTargetMask & ctrlRWMask) !== 0n) {
         canDualIssue = false;
       }
+    }
+
+    if(canDualIssue) {
+      const maskA = (op.opFlags & OP_FLAG_IS_VECTOR) ? (op.depsSourceMask | op.depsTargetMask) : op.depsTargetMask;
+      const maskB = opNext.depsSourceMask | opNext.depsTargetMask;
+      if((maskA & maskB & CTRL_REG_MASK) !== 0n)canDualIssue = false;
     }
 
     execCount = canDualIssue ? 2 : 1;

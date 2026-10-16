@@ -11,6 +11,8 @@ import {
   LABELS,
   nextReg,
   nextVecReg,
+  pairReg,
+  REGS_VECTOR,
   REG as REGS,
   REG, REG_COP2
 } from "../syntax/registers";
@@ -246,12 +248,12 @@ function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSign
   }
 
   if(is32) {
-    res.push(            asm(loadInstr, [nextVecReg(varRes.reg), destOffset,   srcOffset + accessLen, varLoc.reg]));
-    if(dupeLoad)res.push(asm(loadInstr, [nextVecReg(varRes.reg), destOffset+8, srcOffset + accessLen, varLoc.reg]));
+    res.push(            asm(loadInstr, [pairReg(varRes), destOffset,   srcOffset + accessLen, varLoc.reg]));
+    if(dupeLoad)res.push(asm(loadInstr, [pairReg(varRes), destOffset+8, srcOffset + accessLen, varLoc.reg]));
 
     if(alignLoadOp) {
-      res.push(            asm(alignLoadOp, [nextVecReg(varRes.reg), destOffset,   srcOffset + accessLen+0x10, varLoc.reg]));
-      if(dupeLoad)res.push(asm(alignLoadOp, [nextVecReg(varRes.reg), destOffset+8, srcOffset + accessLen+0x10, varLoc.reg]));
+      res.push(            asm(alignLoadOp, [pairReg(varRes), destOffset,   srcOffset + accessLen+0x10, varLoc.reg]));
+      if(dupeLoad)res.push(asm(alignLoadOp, [pairReg(varRes), destOffset+8, srcOffset + accessLen+0x10, varLoc.reg]));
     }
   }
   return res;
@@ -302,9 +304,9 @@ function opStore(varRes, varOffsets, isPackedByte = false, isSigned = true, isUn
   return [...opsLoad,
              asm(storeInstr, [           varRes.reg,  srcOffset, baseOffset            , varLoc.reg]),
    alignOp ? asm(alignOp,    [           varRes.reg,  srcOffset, baseOffset + 0x10     , varLoc.reg]) : null,
-   is32    ? asm(storeInstr, [nextVecReg(varRes.reg), srcOffset, baseOffset + accessLen, varLoc.reg]) : null,
+   is32    ? asm(storeInstr, [pairReg(varRes), srcOffset, baseOffset + accessLen, varLoc.reg]) : null,
    is32 && alignOp
-           ? asm(alignOp,    [nextVecReg(varRes.reg), srcOffset, baseOffset + accessLen + 0x10, varLoc.reg]) : null,
+           ? asm(alignOp,    [pairReg(varRes), srcOffset, baseOffset + accessLen + 0x10, varLoc.reg]) : null,
   ];
 }
 
@@ -318,6 +320,62 @@ function opStoreBytes(varRes, varLoc, isSigned) {
  * @param {ASTFuncArg} varRight
  * @returns {ASM[]}
  */
+const isFractCast = v => v.castType === "ufract" || v.castType === "sfract";
+
+function getVec32RegsForView(varRes, v, opName)
+{
+  const resIsFract = isFractCast(varRes);
+  const resIsInt = varRes.castType === "sint" || varRes.castType === "uint";
+  const vIsVec32 = v.type === "vec32" || v.originalType === "vec32";
+  if(resIsFract && !vIsVec32 && !v.castType)return [REG.VZERO, v.reg];
+  const regs = getVec32Regs(v);
+  if(v.reg !== REG.VZERO) {
+    if(resIsFract && regs[1] === REG.VZERO) {
+      state.throwError(opName + ": integer operand on a fraction view has no effect, cast it with :ufract/:sfract!");
+    }
+    if(resIsInt && regs[0] === REG.VZERO) {
+      state.throwError(opName + ": fraction operand on an integer view has no effect, cast it with :sint/:uint!");
+    }
+  }
+  return regs;
+}
+
+const baseRegOf = arg => (typeof arg === "string" ? arg.split(".")[0] : arg);
+
+/**
+ * vector functions with multiple instruction can use VTEMP for inbetween results.
+ * This tries to use a register from the calculation itself if possible.
+ */
+export function relaxScratchReg(ops, resReg)
+{
+  if(!resReg || !REGS_VECTOR.includes(resReg) || resReg === REG.VTEMP0 || resReg === REG.VZERO) {
+    return ops;
+  }
+
+  for(let i = 0; i < ops.length; ++i) 
+  {
+    const op = ops[i];
+    if(!op || !op.args || !op.args.length || baseRegOf(op.args[0]) !== REG.VTEMP0) {
+      continue;
+    }
+
+    let writtenLater = false;
+    let readAfter = false;
+    for(let k = i + 1; k < ops.length; ++k) 
+    {
+      const later = ops[k];
+      if(!later || !later.args)continue;
+      if(baseRegOf(later.args[0]) === resReg)writtenLater = true;
+      for(const src of later.args.slice(1)) 
+      {
+        if(baseRegOf(src) === resReg)readAfter = true;
+      }
+    }
+    if(writtenLater && !readAfter)op.args[0] = resReg;
+  }
+  return ops;
+}
+
 function opAdd(varRes, varLeft, varRight)
 {
   if(!varRight.reg) {
@@ -341,7 +399,7 @@ function opAdd(varRes, varLeft, varRight)
   }
   const regsDst = getVec32Regs(varRes);
   const regsL = getVec32Regs(varLeft);
-  const regsR = getVec32Regs(varRight);
+  const regsR = getVec32RegsForView(varRes, varRight, "Addition");
 
   //let fractOp = ["sfract", "ufract"].includes(varRes.castType) ? "vadd" : "vaddc";
   let fractOp = "vaddc";
@@ -386,7 +444,7 @@ function opSub(varRes, varLeft, varRight)
 
   return (varRes.type === "vec32")
     ? [
-      asm("vsubc", [nextReg(varRes.reg), fractReg(varLeft), fractReg(varRight) + swizzleRight]),
+      asm("vsubc", [pairReg(varRes), fractReg(varLeft), fractReg(varRight) + swizzleRight]),
       asm("vsub",  [        varRes.reg,        varLeft.reg,      varRight.reg  + swizzleRight]),
     ] : [
       (varRes.castType && varRes.castType.startsWith("s"))
@@ -404,7 +462,13 @@ function opSub(varRes, varLeft, varRight)
  */
 function genericLogicOp(varRes, varLeft, varRight, op) {
   const funcName = op.toUpperCase().substring(1);
-  if(!varRight.reg)state.throwError(funcName + " cannot be done with a constant!");
+  
+  const rightWasConst = !varRight.reg;
+  if(rightWasConst) {
+    const pow2 = POW2_SWIZZLE_VAR[varRight.value];
+    if(!pow2)state.throwError(funcName + " with a constant can only be done with powers of two or zero!");
+    varRight = {...pow2};
+  }
   if(varRes.swizzle || varLeft.swizzle)state.throwError(funcName + " only allows swizzle on the right side!");
   assertVectorVars(varLeft, varRight);
 
@@ -414,8 +478,10 @@ function genericLogicOp(varRes, varLeft, varRight, op) {
   }
 
   const is32 = (varRes.type === "vec32");
+  // an integer constant has zero fraction bits: read the zero lane
+  const fractR = rightWasConst ? REG.VZERO + ".e0" : fractReg(varRight) + swizzleRight;
   return [asm(op, [        varRes.reg,       varLeft.reg,       varRight.reg  + swizzleRight]),
-   is32 ? asm(op, [nextReg(varRes.reg), fractReg(varLeft), fractReg(varRight) + swizzleRight]) : null,
+   is32 ? asm(op, [pairReg(varRes), fractReg(varLeft), fractR]) : null,
   ];
 }
 
@@ -577,6 +643,11 @@ function opBitFlip(varRes, varRight) {
  */
 function opMul(varRes, varLeft, varRight, clearAccum)
 {
+  return relaxScratchReg(opMulImpl(varRes, varLeft, varRight, clearAccum), varRes.reg);
+}
+
+function opMulImpl(varRes, varLeft, varRight, clearAccum)
+{
   if(!varRight.reg) {
     varRight = POW2_SWIZZLE_VAR[varRight.value];
     if(!varRight) {
@@ -596,6 +667,14 @@ function opMul(varRes, varLeft, varRight, clearAccum)
 
   if(swizzleRight === undefined) {
     state.throwError("Unsupported swizzle (supported: "+SWIZZLE_MAP_KEYS_STR+")!", varRes);
+  }
+
+  // in this case vec16 * vec32 is the same as vec32 * vec16, 
+  // and the vec32-first one is one instruction shorter
+  if(varRes.type === "vec32" && varRight.type === "vec32" && varLeft.type === "vec16"
+    && !varRight.swizzle && !isFractCast(varLeft))
+  {
+    return opMulImpl(varRes, varRight, varLeft, clearAccum);
   }
 
   // special-case: multiplying a s1.15 with a 0.16 (fraction of a s16.16)
@@ -664,6 +743,20 @@ function opMul(varRes, varLeft, varRight, clearAccum)
 
   const rightSideIsFraction = ["sfract", "ufract"].includes(varRight.castType);
 
+  // 0.16 fraction (vec16 cast) * vec32:
+  // there is no integer half on the left, so the two integer products are skipped
+  // and the high accumulator is just flushed into the int half
+  if(right32Bit && varLeft.type === "vec16" && leftIsFraction && !varRes.castType
+    && (varRes.type === "vec32" || varRes.type === "vec16"))
+  {
+    const regResFract = resRegs[1] === REGS.VZERO ? REGS.VTEMP0 : resRegs[1];
+    return [
+      asm(fractOp, [REG.VTEMP0, varLeft.reg, fractReg(varRight) + swizzleRight]),
+      asm("vmadn", [regResFract, varLeft.reg,   intReg(varRight) + swizzleRight]),
+      asm("vmadh", [resRegs[0], REGS.VZERO, REGS.VZERO]),
+    ];
+  }
+
   // Full 32-bit multiplication
   if(right32Bit) {
     res.push(
@@ -676,7 +769,7 @@ function opMul(varRes, varLeft, varRight, clearAccum)
   {
     if(varLeft.type === "vec32") {
       res.push(
-        asm(fractOp, [nextVecReg(varRes.reg), fractReg(varLeft), varRight.reg + swizzleRight]),
+        asm(fractOp, [pairReg(varRes), fractReg(varLeft), varRight.reg + swizzleRight]),
         asm("vmadm", [varRes.reg,             varLeft.reg,       varRight.reg + swizzleRight]),
       );
     } else {
@@ -686,7 +779,7 @@ function opMul(varRes, varLeft, varRight, clearAccum)
       );
     }
     res.push(
-      asm("vmadn",   [nextVecReg(varRes.reg), REGS.VZERO,        REGS.VZERO]),
+      asm("vmadn",   [pairReg(varRes), REGS.VZERO,        REGS.VZERO]),
     );
     return res;
   } // 16-Bit multiplication

@@ -5,6 +5,7 @@
 
 import {ASM_TYPE} from "../../intsructions/asmWriter.js";
 import {BRANCH_OPS} from "../asmScanDeps.js";
+import {isGeneratedLabel} from "../labels.js";
 
 /**
  * De-duplicates Jumps
@@ -27,7 +28,8 @@ export function dedupeJumps(asmFunc)
 
         // additionally check if a jump precedes our label.
         // If that is the case we can remove the code itself since no one can reach it anymore.
-        if(asmFunc.asm[i-2]?.op === "j") {
+        // (only for a compiler-generated label: a user label may be a target from elsewhere)
+        if(isGeneratedLabel(asmFunc, asm.label) && asmFunc.asm[i-2]?.op === "j") {
           asmFunc.asm.splice(i, 3); // remove label, jump, delay-slot (always a nop)
           --i;
         }
