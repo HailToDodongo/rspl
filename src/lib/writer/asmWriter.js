@@ -3,37 +3,14 @@
 * @license Apache-2.0
 */
 
-import {TYPE_ALIGNMENT, TYPE_ASM_DEF, TYPE_SIZE} from "./dataTypes/dataTypes.js";
-import state from "./state.js";
-import {ASM_TYPE} from "./intsructions/asmWriter.js";
-import {REGS_SCALAR} from "./syntax/registers.js";
-import {ANNOTATIONS, getAnnotationVal} from "./syntax/annotations.js";
-
-function getAttrLoaderLabel(asm) {
-  if (!asm.attrLoader) return null;
-  return "LOAD_" + asm.attrLoader + asm.debug.lineRSPL;
-}
-
-function getAttrPatchLabel(asm) {
-  if (!asm.attrPatch?.name) return null;
-  return "PATCH_" + asm.attrPatch.name + asm.debug.lineRSPL;
-}
-
-function getAsmLabels(asm) {
-  let labels = "";
-  for(const label of [getAttrLoaderLabel(asm), getAttrPatchLabel(asm)].filter(l => l)) {
-    labels += label + ": ";
-  }
-  return labels;
-}
-
-/**
- * @param {ASM} asm
- * @returns {string}
- */
-function stringifyInstr(asm) {
-  return getAsmLabels(asm) + asm.op + (asm.args.length ? (" " + asm.args.join(", ")) : "");
-}
+import {TYPE_ALIGNMENT, TYPE_ASM_DEF, TYPE_SIZE} from "../dataTypes/dataTypes.js";
+import state from "../state.js";
+import {ASM_TYPE} from "../intsructions/asmWriter.js";
+import {REGS_SCALAR} from "../syntax/registers.js";
+import {ANNOTATIONS, getAnnotationVal} from "../syntax/annotations.js";
+import { writeMagmaHeader } from "./magma.js";
+import {getAsmLabels, getAttrLoaderLabel, getAttrPatchLabel, stringifyInstr} from './utils';
+import { writeRSPQHeader } from "./rspq.js";
 
 /**
  * @param {string[]} incPaths
@@ -90,148 +67,6 @@ function writeStateVar(stateVar, writeLine) {
   return byteSize;
 }
 
-function writeRSPQHeader(ast, functionsAsm, writeLine, writeLines) {
-  writeLines(["", ".data", "  RSPQ_BeginOverlayHeader"]);
-
-  let commandList = [];
-  for(const block of functionsAsm) {
-    if(block.type === "command") {
-      const name = block.nameOverride || block.name;
-      commandList[block.resultType] = "    RSPQ_DefineCommand " + name + ", " + block.argSize;
-    }
-  }
-  for(let i=0; i<commandList.length; ++i) {
-    if(commandList[i] === undefined) {
-      commandList[i] = "    RSPQ_DefineCommand RSPQ_Loop, 4";
-    }
-  }
-
-  if(commandList.includes(undefined))state.throwError("Command list has gaps!", ast);
-
-  writeLines(commandList);
-  writeLines(["  RSPQ_EndOverlayHeader", ""]);
-
-  let totalSaveByteSize = 0;
-
-  const hasState = !!ast.state.find(v => !v.extern);
-  if(hasState) {
-    writeLine("  RSPQ_BeginSavedState");
-    writeLine("    STATE_MEM_START:");
-
-    for(const stateVar of ast.state) {
-      if(stateVar.extern)continue;
-      totalSaveByteSize += writeStateVar(stateVar, writeLine);
-    }
-
-    writeLine("    STATE_MEM_END:");
-    writeLine("  RSPQ_EndSavedState");
-  } else {
-    writeLine("  RSPQ_EmptySavedState");
-  }
-
-  if(ast.stateData.length > 0) {
-    writeLine("");
-    for(const tmpVar of ast.stateData) {
-      if(tmpVar.extern)continue;
-      totalSaveByteSize += writeStateVar(tmpVar, writeLine);
-    }
-  }
-
-  if(ast.stateBss.length > 0) {
-    writeLine("");
-    writeLine(".bss");
-    writeLine("  TEMP_STATE_MEM_START:");
-    for(const tmpVar of ast.stateBss) {
-      if(tmpVar.extern)continue;
-      totalSaveByteSize += writeStateVar(tmpVar, writeLine);
-    }
-    writeLine("  TEMP_STATE_MEM_END:");
-  }
-
-  writeLines(["", ".text", "OVERLAY_CODE_START:", ""]);
-
-  return totalSaveByteSize;
-}
-
-/**
- * 
- * @param {ASMFunc[]} functionsAsm
- */
-function collectAttrLoaders(functionsAsm) {
-  const res = {};
-
-  const addEntry = (attrName) => {
-    if(!res[attrName]) {
-      res[attrName] = {
-        loaders: [],
-        patches: []
-      };
-    }
-  };
-
-  for(const asmFunc of functionsAsm) {
-    for(const asm of asmFunc.asm) {
-      if (asm.attrLoader) {
-        addEntry(asm.attrLoader);
-        res[asm.attrLoader].loaders.push(asm);
-      }
-      if (asm.attrPatch) {
-        addEntry(asm.attrPatch.name);
-        res[asm.attrPatch.name].patches.push(asm);
-      }
-    }
-  }
-  return res;
-}
-
-/**
- * 
- * @param {AST} ast 
- * @param {ASMFunc[]} functionsAsm
- * @param {(line: any) => void} writeLine 
- * @param {(line: any[]) => void} writeLines 
- * @returns 
- */
-function writeMagmaHeader(ast, functionsAsm, writeLine, writeLines) {
-  let totalSaveByteSize = 0;
-
-  writeLines(["", "MgBeginShaderUniforms"]);
-  for(const uniform of ast.uniforms) {
-    writeLine(`  MgBeginUniform ${uniform.name}, ${uniform.binding}`);
-    for(const stateVar of uniform.state) {
-      if(stateVar.extern)continue;
-      totalSaveByteSize += writeStateVar(stateVar, writeLine);
-    }
-    writeLines(["  MgEndUniform", ""]);
-  }
-  writeLines(["MgEndShaderUniforms", ""]);
-
-  const attrLoaders = collectAttrLoaders(functionsAsm);
-  
-  writeLine("MgBeginVertexInput");
-  for(const attribute of ast.attributes) {
-    writeLine(`  MgBeginVertexAttribute ${attribute.binding}, ${attribute.optional ? 1 : 0}`);
-    const loaders = attrLoaders[attribute.name]?.loaders;
-    if(typeof loaders !== 'undefined' && loaders.length > 0) {
-      writeLine("    MgVertexAttributeLoaders " + loaders.map(getAttrLoaderLabel).join(", "));
-    }
-    const patches = attrLoaders[attribute.name]?.patches;
-    if(patches) {
-      for(const patch of patches) {
-        writeLine(`    MgBeginVertexAttributePatch ${getAttrPatchLabel(patch)}`);
-        writeLine(`      ${patch.attrPatch.op || "nop"}`);
-        writeLine("    MgEndVertexAttributePatch");
-      };
-    }
-    writeLines(["  MgEndVertexAttribute", ""]);
-  }
-  writeLines(["MgEndVertexInput", ""]);
-
-  writeLine("MgBeginShader");
-
-  return totalSaveByteSize;
-}
-
 /**
  * Writes the ASM of all functions and the AST into a string.
  * @param {AST} ast
@@ -277,21 +112,23 @@ export function writeASM(ast, functionsAsm, config)
   const preIncs = generateIncs(ast.includes);
   for(const inc of preIncs)writeLine(inc);
 
-  writeLines(["", ".set noreorder", ".set noat", ".set nomacro", ""]);
+  if(!config.armips) {
+    writeLines(["", ".set noreorder", ".set noat", ".set nomacro", ""]);
 
-  REGS_SCALAR.forEach(reg => writeLine("#undef " + reg.substring(1)));
-  REGS_SCALAR.forEach((reg, i) => writeLine(`.equ hex.${reg}, ${i}`));
-  writeLine("#define vco 0");
-  writeLine("#define vcc 1");
-  writeLine("#define vce 2");
+    REGS_SCALAR.forEach(reg => writeLine("#undef " + reg.substring(1)));
+    REGS_SCALAR.forEach((reg, i) => writeLine(`.equ hex.${reg}, ${i}`));
+    writeLine("#define vco 0");
+    writeLine("#define vcc 1");
+    writeLine("#define vce 2");
+  }
 
   let totalSaveByteSize = 0;
   let totalTextSize = 0;
 
   if(config.magma) {
-    totalSaveByteSize += writeMagmaHeader(ast, functionsAsm, writeLine, writeLines);
-  } else {
-    totalSaveByteSize += writeRSPQHeader(ast, functionsAsm, writeLine, writeLines);
+    totalSaveByteSize += writeMagmaHeader(ast, functionsAsm, writeLine, writeLines, writeStateVar);
+  } else if(!config.armips) {
+    totalSaveByteSize += writeRSPQHeader(ast, functionsAsm, writeLine, writeLines, writeStateVar);
   }
 
   if(!config.rspqWrapper) {
@@ -405,11 +242,13 @@ export function writeASM(ast, functionsAsm, config)
     writeLine("");
   }
 
-  REGS_SCALAR.map((reg, i) => "#define " + reg.substring(1) + " $" + i)
-    .filter((_, i) => i !== 1)
-    .forEach(line => writeLine(line));
+  if(!config.armips) {
+    REGS_SCALAR.map((reg, i) => "#define " + reg.substring(1) + " $" + i)
+      .filter((_, i) => i !== 1)
+      .forEach(line => writeLine(line));
 
-  writeLines(["", ".set at", ".set macro"]);
+    writeLines(["", ".set at", ".set macro"]);
+  }
 
   const postIncs = generateIncs(ast.postIncludes);
   for(const inc of postIncs)writeLine(inc);

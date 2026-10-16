@@ -4,7 +4,7 @@
 */
 
 import { ast2asm } from "./ast2asm";
-import { writeASM } from "./asmWriter";
+import { writeASM } from "./writer/asmWriter";
 import {astNormalizeFunctions, astNormalizeState, astNormalizeUniforms, astNormalizeAttributes} from "./astNormalize";
 import nearly from "nearley";
 import grammarDef from "./grammar.cjs";
