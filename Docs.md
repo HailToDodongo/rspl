@@ -604,8 +604,8 @@ vec16 res = 2;
 Since RSPL won't, and can't, safely know if the memory is the same or not.<br>
 In that case adding a barrier will prevent the store from being moved before the load.<br>
 <br>
-A barrier can take an optional second argument setting its mode
-(C++ compiler only):
+A barrier can take an optional second argument setting its mode:
+
 ```c++
 @Barrier("name")          // same as: @Barrier("name", strict)
 @Barrier("name", before)
@@ -638,7 +638,7 @@ The block is moved out-of-line to the end of the current function, and the
 condition is inverted so the common path falls through instead of branching
 over the block.<br>
 This avoids the taken-branch bubble on the hot path, the cold block jumps back
-to the join point on its own. (Note: only supported in the C++ compiler.)<br>
+to the join point on its own.<br>
 Example:
 ```c++
 @Unlikely if(dmaBusy != 0)
