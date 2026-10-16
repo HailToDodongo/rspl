@@ -16,14 +16,14 @@ export const TYPE_SIZE = {
 };
 
 export const TYPE_ASM_DEF = {
-  s8   : {type: "byte", count: 1},
-  u8   : {type: "byte", count: 1},
-  s16  : {type: "half", count: 1},
-  u16  : {type: "half", count: 1},
-  s32  : {type: "word", count: 1},
-  u32  : {type: "word", count: 1},
-  vec16: {type: "half", count: 8},
-  vec32: {type: "half", count: 16},
+  s8   : {type: "byte", typeArmips: 'd8', count: 1},
+  u8   : {type: "byte", typeArmips: 'd8', count: 1},
+  s16  : {type: "half", typeArmips: 'd16', count: 1},
+  u16  : {type: "half", typeArmips: 'd16', count: 1},
+  s32  : {type: "word", typeArmips: 'd32', count: 1},
+  u32  : {type: "word", typeArmips: 'd32', count: 1},
+  vec16: {type: "half", typeArmips: 'd16', count: 8},
+  vec32: {type: "half", typeArmips: 'd16', count: 16},
 };
 
 /** @type {Record<DataType, number>} */

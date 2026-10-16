@@ -11,6 +11,7 @@ import {ANNOTATIONS, getAnnotationVal} from "../syntax/annotations.js";
 import { writeMagmaHeader } from "./magma.js";
 import {getAsmLabels, getAttrLoaderLabel, getAttrPatchLabel, stringifyInstr} from './utils';
 import { writeRSPQHeader } from "./rspq.js";
+import { writeArmipsHeader } from "./armips.js";
 
 /**
  * @param {string[]} incPaths
@@ -135,7 +136,9 @@ export function writeASM(ast, functionsAsm, config)
 
   if(config.magma) {
     totalSaveByteSize += writeMagmaHeader(ast, functionsAsm, writeLine, writeLines, writeStateVar);
-  } else if(!config.armips) {
+  } else if(config.armips) {
+    totalSaveByteSize += writeArmipsHeader(ast, functionsAsm, writeLine, writeLines, writeStateVar);
+  } else {
     totalSaveByteSize += writeRSPQHeader(ast, functionsAsm, writeLine, writeLines, writeStateVar);
   }
 
@@ -244,6 +247,10 @@ export function writeASM(ast, functionsAsm, config)
 
   if(config.magma) {
     writeLine("MgEndShader");
+    writeLine("");
+  } else if(config.armips) {  
+    writeLine("OVERLAY_CODE_END:");
+    writeLine(".close");
     writeLine("");
   } else {
     writeLine("OVERLAY_CODE_END:");

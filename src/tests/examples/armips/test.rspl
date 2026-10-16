@@ -5,6 +5,7 @@ state
 {
   alignas(16)
   u8 TEST_123[32];
+  vec32 AA = {1,2,3,4, 0xFFFF};
 }
 
 temp_state 
