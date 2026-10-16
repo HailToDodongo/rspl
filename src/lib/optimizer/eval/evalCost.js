@@ -10,6 +10,7 @@ import {
   OP_FLAG_IS_MEM_STALL_LOAD,
   OP_FLAG_IS_MEM_STALL_STORE,
   OP_FLAG_IS_VECTOR, OP_FLAG_LIKELY_BRANCH,
+  OP_FLAG_UNCOND_JUMP,
   REG_INDEX_MAP,
 } from "../asmScanDeps.js";
 
@@ -41,7 +42,7 @@ export function evalFunctionCost(asmFunc)
   const regStallEnd = new Int32Array(64);
 
   let didJump = false;
-  let inUncondJump = false;
+  let inUncondJump = 0;
   let cycle = 0;
   let pc = 0;
   /** @type {ASM[]} */
@@ -84,7 +85,7 @@ export function evalFunctionCost(asmFunc)
       branchStep >>>= 1;
       if(!branchStep && (execOp.opFlags & OP_FLAG_IS_BRANCH) !== 0) {
         branchStep = BRANCH_STEP_BRANCH;
-        inUncondJump = ["j", "jal", "jr"].includes(execOp.op);
+        inUncondJump = execOp.opFlags & OP_FLAG_UNCOND_JUMP;
       }
 
       // if branch is taken, an unavoidable bubble is inserted
@@ -94,7 +95,7 @@ export function evalFunctionCost(asmFunc)
         if(inUncondJump) {
           lastLoadPosMask = 0;
           regStallEnd.fill(0);
-          inUncondJump = false;
+          inUncondJump = 0;
         }
       }
 

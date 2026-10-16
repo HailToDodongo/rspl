@@ -12,6 +12,7 @@ import {
   MEM_STALL_LOAD_OPS,
   MEM_STALL_STORE_OPS, OP_FLAG_CTC2_CFC2,
   OP_FLAG_IS_BRANCH,
+  OP_FLAG_UNCOND_JUMP,
   OP_FLAG_IS_IMMOVABLE, OP_FLAG_IS_LIKELY,
   OP_FLAG_IS_LOAD,
   OP_FLAG_IS_MEM_STALL_LOAD, OP_FLAG_IS_MEM_STALL_STORE, OP_FLAG_IS_NOP,
@@ -75,6 +76,7 @@ function getOpInfo(op, type = ASM_TYPE.OP) {
     opFlags: (LOAD_OPS.includes(op) ? OP_FLAG_IS_LOAD : 0)
      | (STORE_OPS.includes(op) ? OP_FLAG_IS_STORE : 0)
      | (BRANCH_OPS.includes(op) ? OP_FLAG_IS_BRANCH : 0)
+     | (["j", "jal", "jr"].includes(op) ? OP_FLAG_UNCOND_JUMP : 0)
      | (IMMOVABLE_OPS.includes(op) ? OP_FLAG_IS_IMMOVABLE : 0)
      | (MEM_STALL_LOAD_OPS.includes(op) ? OP_FLAG_IS_MEM_STALL_LOAD : 0)
      | (MEM_STALL_STORE_OPS.includes(op) ? OP_FLAG_IS_MEM_STALL_STORE : 0)

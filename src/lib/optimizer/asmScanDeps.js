@@ -184,17 +184,18 @@ for(let reg of Object.keys(REG_INDEX_MAP)) {
   REG_MASK_ALL |= REG_MASK_MAP[reg];
 }
 
-export const OP_FLAG_IS_LOAD = 1 << 0;
-export const OP_FLAG_IS_STORE = 1 << 1;
-export const OP_FLAG_IS_BRANCH = 1 << 2;
-export const OP_FLAG_IS_IMMOVABLE = 1 << 3;
-export const OP_FLAG_IS_MEM_STALL_LOAD = 1 << 4;
+export const OP_FLAG_IS_LOAD            = 1 << 0;
+export const OP_FLAG_IS_STORE           = 1 << 1;
+export const OP_FLAG_IS_BRANCH          = 1 << 2;
+export const OP_FLAG_IS_IMMOVABLE       = 1 << 3;
+export const OP_FLAG_IS_MEM_STALL_LOAD  = 1 << 4;
 export const OP_FLAG_IS_MEM_STALL_STORE = 1 << 5;
-export const OP_FLAG_IS_VECTOR = 1 << 6;
-export const OP_FLAG_IS_NOP = 1 << 7;
-export const OP_FLAG_IS_LIKELY = 1 << 8;
-export const OP_FLAG_LIKELY_BRANCH = 1 << 9;
-export const OP_FLAG_CTC2_CFC2 = 1 << 10;
+export const OP_FLAG_IS_VECTOR          = 1 << 6;
+export const OP_FLAG_IS_NOP             = 1 << 7;
+export const OP_FLAG_IS_LIKELY          = 1 << 8;
+export const OP_FLAG_LIKELY_BRANCH      = 1 << 9;
+export const OP_FLAG_CTC2_CFC2          = 1 << 10;
+export const OP_FLAG_UNCOND_JUMP        = 1 << 11;
 
 /**
  *
