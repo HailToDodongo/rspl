@@ -97,14 +97,22 @@ export function writeASM(ast, functionsAsm, config)
     state.line += lines.length;
   };
 
-  writeLine("## Auto-generated file, transpiled with RSPL");
+  const comment = config.armips 
+     ? (txt => " // " + txt)
+     : (txt => " ## " + txt);
+
+  const define = config.armips
+    ? (name, v) => `${name} equ ${v ?? '1'}`.trim()
+    : (name, v) => `#define ${name} ${v}`.trim();
+
+  writeLine(comment("Auto-generated file, transpiled with RSPL").trim());
 
   if(ast.defines) {
     for(const [name, def] of Object.entries(ast.defines)) {
       if (!def.value) {
-        writeLine(`#define ${name}`);
+        writeLine(define(name, ''));
       } else {
-        writeLine(`#define ${name} ${def.value}`);
+        writeLine(define(name, def.value));
       }
     }
   }
@@ -177,15 +185,15 @@ export function writeASM(ast, functionsAsm, config)
             cycleStr = (stars + asm.debug.cycle.toString()).padStart(6, ' ');
           }
 
-          debugInfo += ` ## L:${asm.debug.lineRSPL.toString().padEnd(4, ' ')} | ${cycleStr} | ${state.sourceLines[asm.debug.lineRSPL - 1] || ''}`;
+          debugInfo += comment(`L:${asm.debug.lineRSPL.toString().padEnd(4, ' ')} | ${cycleStr} | ${state.sourceLines[asm.debug.lineRSPL - 1] || ''}`);
         }
 
         if (asm.funcArgs && asm.funcArgs.length) {
-          debugInfo += " ## Args: " + asm.funcArgs.join(", ");
+          debugInfo += comment("Args: " + asm.funcArgs.join(", "));
         }
 
         if (asm.barrierMask) {
-          debugInfo += " ## Barrier: 0x" + asm.barrierMask.toString(16).toUpperCase();
+          debugInfo += comment("Barrier: 0x" + asm.barrierMask.toString(16).toUpperCase());
         }
       }
 
