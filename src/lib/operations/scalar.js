@@ -102,7 +102,7 @@ function opMove(varRes, varRight)
  */
 function opLoad(varRes, varLoc, varOffset)
 {
-  const offsetStr = varOffset.type === "num" ? varOffset.value : `%lo(${varOffset.name})`;
+  const offsetStr = varOffset.type === "num" ? varOffset.value : state.target.labelAddr(varOffset.name);
   const loadOp = {
     u8:  "lbu", s8:  "lb",
     u16: "lhu", s16: "lh",
@@ -114,7 +114,7 @@ function opLoad(varRes, varLoc, varOffset)
   }
 
   if(varOffset.type !== "num")state.throwError("Load args cannot both be consts!");
-  return [asm(loadOp, [varRes.reg, `%lo(${varLoc.name} + ${offsetStr})`])];
+  return [asm(loadOp, [varRes.reg, state.target.labelAddr(varLoc.name, offsetStr)])];
 }
 
 /**
@@ -135,7 +135,7 @@ function opStore(varRes, varOffsets)
   }
 
   let offsetStr = offsets.map(v => v.value).join(" + ");
-  if(offsets.some(o => o.type !== "num"))offsetStr = `%lo(${offsetStr})`;
+  if(offsets.some(o => o.type !== "num"))offsetStr = state.target.labelAddr(offsetStr);
 
   const baseReg = varLoc.reg || REG.ZERO;
   const op = {

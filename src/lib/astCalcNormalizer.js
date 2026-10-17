@@ -282,7 +282,7 @@ export function astCalcPartsToASM(st)
           type: "calcLR", op,
           left: lastLeft,
           swizzleLeft: lastLeftSwizzle,
-          right: stateVar ? {type: 'num', value: `%lo(${part.val.value})`} : part.val,
+          right: stateVar ? {type: 'num', value: state.target.labelAddr(part.val.value)} : part.val,
           swizzleRight: part.swizzle,
         },
         assignType: "=",

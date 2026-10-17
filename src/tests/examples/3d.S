@@ -221,7 +221,7 @@ T3DCmd_VertLoad:
   andi $s6, $a2, 65535
   addiu $s5, $s6, 36
   ori $s3, $zero, %lo(LIGHT_DIR_COLOR)
-  lbu $s2, %lo(ACTIVE_LIGHT_SIZE + 0)
+  lbu $s2, %lo(ACTIVE_LIGHT_SIZE)
   addu $s2, $s2, $s3
   jal DMAWaitIdle
   vmadn $v14, $v00, $v00
@@ -295,7 +295,7 @@ T3DCmd_VertLoad:
   vrcph $v08.e3, $v08.e7
   vrcpl $v09.e7, $v09.e7
   vrcph $v08.e7, $v00.e7
-  lbu $k1, %lo(USE_FOG + 0)
+  lbu $k1, %lo(USE_FOG)
   vaddc $v06, $v09, $v11.e2
   vadd $v05, $v08, $v11.e1
   vmudn $v06, $v06, $v11.e0
@@ -386,12 +386,12 @@ triToScreenSpace:
   jr $ra
   addiu $s6, $s6, 65500
 T3DCmd_TriDraw:
-  addiu $v1, $gp, %lo(RSPQ_DMEM_BUFFER)  -6
+  addiu $v1, $gp, %lo(RSPQ_DMEM_BUFFER  -6)
   ori $sp, $zero, %lo(RSPQ_Loop)
   jal RDPQ_Triangle_Send_Async
   srl $a2, $a1, 16
   bne $v1, $zero, LABEL_T3DCmd_TriDraw_0006
-  lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET + 0)
+  lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET)
   xori $s7, $s7, 176
   j RSPQ_Loop
   sh $s7, %lo(RDPQ_TRI_BUFF_OFFSET)($zero)
@@ -577,7 +577,7 @@ T3DCmd_LightCount:
   j RSPQ_Loop
   sb $a0, %lo(ACTIVE_LIGHT_SIZE)($zero)
 T3DCmd_RenderMode:
-  lbu $s7, %lo(RDPQ_OTHER_MODES + 0)
+  lbu $s7, %lo(RDPQ_OTHER_MODES)
   andi $s7, $s7, 56
   or $a1, $a1, $s7
   sw $a1, %lo(TRI_COMMAND)($zero)
@@ -679,7 +679,7 @@ T3DCmd_MatrixStack:
   andi $s7, $a1, 1
   andi $s6, $a1, 2
   sra $a1, $a1, 16
-  lw $s5, %lo(MATRIX_STACK_PTR + 0)
+  lw $s5, %lo(MATRIX_STACK_PTR)
   addu $s5, $s5, $a1
   bne $s6, $zero, RSPQ_Loop
   sw $s5, %lo(MATRIX_STACK_PTR)($zero)

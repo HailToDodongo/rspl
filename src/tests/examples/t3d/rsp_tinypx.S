@@ -149,7 +149,7 @@ TPXCmd_SyncT3D:
   ori $s4, $zero, %lo(RDP_BUFF)                      ## L:821  |     15 | dma_out_async(RDP_BUFF, addrRDRAM, 64);
   addiu $t2, $zero, -32768                           ## L:821  |     16 | dma_out_async(RDP_BUFF, addrRDRAM, 64);
   jal DMAExec                                        ## L:821  |     17 | dma_out_async(RDP_BUFF, addrRDRAM, 64); ## Args: $t0, $t1, $s0, $s4, $t2
-  lw $s0, %lo(MATRIX_STACK_PTR + 0)                  ## L:820  |    *19 | u32<$s0> addrRDRAM = load(MATRIX_STACK_PTR);
+  lw $s0, %lo(MATRIX_STACK_PTR)                      ## L:820  |    *19 | u32<$s0> addrRDRAM = load(MATRIX_STACK_PTR);
   or $s0, $zero, $a1                                 ## L:827  |     20 | dma_in(SCREEN_SCALE_OFFSET, rdramScreen);
   ori $t0, $zero, 15                                 ## L:827  |     21 | dma_in(SCREEN_SCALE_OFFSET, rdramScreen);
   ori $s4, $zero, %lo(SCREEN_SCALE_OFFSET)           ## L:827  |     22 | dma_in(SCREEN_SCALE_OFFSET, rdramScreen);
@@ -201,7 +201,7 @@ TPXCmd_DrawColor:
   addiu $at, $zero, 4095                             ## L:1211 |     42 | screenMax.w = 0b1111'1111'1111;
   mtc2 $at, $v15.e3                                  ## L:1211 |    *44 | screenMax.w = 0b1111'1111'1111;
   lw $s2, %lo(RDPQ_SCISSOR_RECT + 4)                 ## L:1212 |     45 | u32 extMax = load(RDPQ_SCISSOR_RECT, 4);
-  lw $s1, %lo(RDPQ_SCISSOR_RECT + 0)                 ## L:1213 |     46 | u32 extMin = load(RDPQ_SCISSOR_RECT, 0);
+  lw $s1, %lo(RDPQ_SCISSOR_RECT)                     ## L:1213 |     46 | u32 extMin = load(RDPQ_SCISSOR_RECT, 0);
   srl $t4, $s2, 12                                   ## L:1215 |    *48 | temp1 = extMax >> 12;
   mtc2 $t4, $v15.e0                                  ## L:1216 |     49 | screenMax.x = temp1;  screenMax.X = temp1;
   mtc2 $t4, $v15.e4                                  ## L:1216 |     50 | screenMax.x = temp1;  screenMax.X = temp1;
@@ -533,7 +533,7 @@ T3DCmd_MatrixStack:
   andi $s7, $a0, 1                                   ## L:1005 |      ^ | u16 doMultiply = stackAdvance & 0b01;
   andi $s6, $a0, 2                                   ## L:1006 |      2 | u16 onlyStackMove = stackAdvance & 0b10;
   lh $a0, %lo(RSPQ_DMEM_BUFFER  -7)($gp)             ## L:1008 |      3 | stackAdvance:s16 = load_arg(1);
-  lw $s5, %lo(MATRIX_STACK_PTR + 0)                  ## L:1010 |      4 | s32 stackPtr = load(MATRIX_STACK_PTR);
+  lw $s5, %lo(MATRIX_STACK_PTR)                      ## L:1010 |      4 | s32 stackPtr = load(MATRIX_STACK_PTR);
   addu $s5, $s5, $a0                                 ## L:1011 |    **7 | stackPtr += stackAdvance;
   bne $s6, $zero, RSPQ_Loop                          ## L:1015 |      8 | if(onlyStackMove)exit;
   sw $s5, %lo(MATRIX_STACK_PTR)($zero)               ## L:1012 |    *10 | store(stackPtr, MATRIX_STACK_PTR);
@@ -618,7 +618,7 @@ TPXCmd_DrawTextured:
   addiu $at, $zero, 4095                             ## L:1211 |     42 | screenMax.w = 0b1111'1111'1111;
   mtc2 $at, $v15.e3                                  ## L:1211 |    *44 | screenMax.w = 0b1111'1111'1111;
   lw $s2, %lo(RDPQ_SCISSOR_RECT + 4)                 ## L:1212 |     45 | u32 extMax = load(RDPQ_SCISSOR_RECT, 4);
-  lw $s1, %lo(RDPQ_SCISSOR_RECT + 0)                 ## L:1213 |     46 | u32 extMin = load(RDPQ_SCISSOR_RECT, 0);
+  lw $s1, %lo(RDPQ_SCISSOR_RECT)                     ## L:1213 |     46 | u32 extMin = load(RDPQ_SCISSOR_RECT, 0);
   srl $t4, $s2, 12                                   ## L:1215 |    *48 | temp1 = extMax >> 12;
   mtc2 $t4, $v15.e0                                  ## L:1216 |     49 | screenMax.x = temp1;  screenMax.X = temp1;
   mtc2 $t4, $v15.e4                                  ## L:1216 |     50 | screenMax.x = temp1;  screenMax.X = temp1;
@@ -648,7 +648,7 @@ TPXCmd_DrawTextured:
   LABEL_TPXCmd_DrawTextured_0014:
   vxor $v12, $v00, $v00.e0                           ## L:1143 |     80 | vec16 texMirrorMask = 0;
   vxor $v11, $v00, $v00.e0                           ## L:1144 |     81 | vec16 texMirrorCompare = 0;
-  lhu $s1, %lo(TILE_COUNT + 0)                       ## L:1147 |      ^ | u16 tiles = load(TILE_COUNT);
+  lhu $s1, %lo(TILE_COUNT)                           ## L:1147 |      ^ | u16 tiles = load(TILE_COUNT);
   addu $fp, $s1, $s1                                 ## L:1148 |   **84 | u16 tilesEnd = tiles + tiles;
   vmov $v12.e5, $v30.e7                              ## L:1150 |      ^ | texMirrorMask.Y = 1;
   vmov $v12.e1, $v30.e7                              ## L:1151 |     85 | texMirrorMask.y = 1;
@@ -663,7 +663,7 @@ TPXCmd_DrawTextured:
   vmov $v12.e3, $v29.e3                              ## L:1162 | ***104 | texMirrorMask.w = VTEMP.w;
   vor $v11, $v00, $v29.e2                            ## L:1163 |    105 | texMirrorCompare = VTEMP.z;
   jal DMAWaitIdle                                    ## L:1166 |      ^ | dma_await();
-  lh $s2, %lo(TEX_OFFSET + 0)                        ## L:1141 |   *107 | s16 texOffset = load(TEX_OFFSET);
+  lh $s2, %lo(TEX_OFFSET)                            ## L:1141 |   *107 | s16 texOffset = load(TEX_OFFSET);
   bgez $a1, LABEL_TPXCmd_DrawTextured_0015           ## L:1171 |    108 | if(rdramAddr < 0) {
   nop                                                ## L:1171 |   *110 | if(rdramAddr < 0) {
   lqv $v08, 0, 0, $s6                                ## L:606  |    111 | vec16 posStart = load(ptrIn, 0x00);

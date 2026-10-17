@@ -34,7 +34,7 @@ function test()
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  lw $t0, %lo(FOO + 0)
+  lw $t0, %lo(FOO)
   bne $t0, $zero, LABEL_test_0001
   nop
   LABEL_test_0002:
@@ -64,8 +64,8 @@ function test()
 
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  lw $t0, %lo(FOO + 0)
-  lw $t1, %lo(FOO + 0)
+  lw $t0, %lo(FOO)
+  lw $t1, %lo(FOO)
   sltu $at, $t0, $t1
   bne $at, $zero, LABEL_test_0001
   nop

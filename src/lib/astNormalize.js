@@ -224,7 +224,7 @@ function normalizeScopedBlock(block, astState, macros)
         const stateVar = astState.find(s => s.varName === st.calc.right.value);
         if(stateVar) {
           st.calc.type = st.calc.type === "calcLR" ? "calcLR" : "calcNum";
-          st.calc.right = {type: 'num', value: `%lo(${st.calc.right.value})`};
+          st.calc.right = {type: 'num', value: state.target.labelAddr(st.calc.right.value)};
           isVarR = false;
         }
       } else {

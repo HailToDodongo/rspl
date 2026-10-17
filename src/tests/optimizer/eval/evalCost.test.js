@@ -425,7 +425,7 @@ describe('Eval - Cost', () =>
 
   test('Branch - filled + stall (scalar)', async () => {
     const lines = textToAsmLines(`
-      lw $a0, %lo(SCREEN_SIZE_VEC + 0)
+      lw $a0, %lo(SCREEN_SIZE_VEC)
       beq $zero, $zero, LABEL_A
       addiu $a0, $a0, 1
     `);

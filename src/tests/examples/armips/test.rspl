@@ -1,11 +1,15 @@
 
 #define SOME_DEFINE 1
+#define COLOR_BUFF 12340
 
 state
 {
   alignas(16)
   u8 TEST_123[32];
   vec32 AA = {1,2,3,4, 0xFFFF};
+  u32 ITERATIONS;
+  vec32 OFFSET;
+  vec32 SCALE;
 }
 
 temp_state 
@@ -14,9 +18,62 @@ temp_state
   u8 TEST_ABC[32];
 }
 
-command<0> Cmd_Test123()
+command<0> Cmd_Test123(u32 ptrScreen, u32 sizeXY, u32 isOddLine)
 {
-  u32 aa = 32;
+  u32<$s4> _; // reserved for dma stuff
+
+  const u32 maxIter = load(ITERATIONS);
+  s32 sizeY = sizeXY & 0xFFFF;
+
+  // bytes to copy per batch, a batch is a screen-line
+  u32 copySize = sizeXY >> 16;
+  copySize *= 2; // 2-bytes per pixel
+
+  // internal buffer in DMEM, start/end for a single batch
+  u32 colorBuff = COLOR_BUFF;
+  const u32 colorBuffEnd = colorBuff + copySize;
+
+  const vec32 posScale = load(SCALE);
+  const vec32 offset = load(OFFSET);
+
+  vec32 incX = 0;
+  incX:sint.x = 4;
+  incX:sint.z = 4;
+  incX:sint.X = 4;
+  incX:sint.Z = 4;
+
+  vec32 incY = 0;
+  incY:sint.y = 2;
+  incY:sint.w = 2;
+  incY:sint.Y = 2;
+  incY:sint.W = 2;
+
+  incX *= posScale;
+  incY *= posScale;
+
+  vec32 pos = 0;
+  //pos:sint.x = 0;
+  pos:sint.z = 1;
+  pos:sint.X = 2;
+  pos:sint.Z = 3;
+
+  if(isOddLine) {
+    ptrScreen += copySize;
+    pos:sint.y = 1;
+    pos:sint.w = 1;
+    pos:sint.Y = 1;
+    pos:sint.W = 1;
+  }
+
+  pos *= posScale;
+  pos += offset;
+
+  // mask used in complexMul() & mandelbrot loop as a color mask
+  vec16 maskOddEven = 0;
+  maskOddEven.y = 0xFFFF;
+  maskOddEven.w = maskOddEven.y;
+  maskOddEven.Y = maskOddEven.y;
+  maskOddEven.W = maskOddEven.y;
 }
 
 /**

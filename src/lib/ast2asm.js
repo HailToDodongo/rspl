@@ -382,7 +382,7 @@ function scopedBlockToASMInner(block, args = [], isCommand = false)
     if(isCommand && argIdx >= 4) {
       const offset = argIdx * 4 - args.length * 4;
       const loadOp = {u8: "lbu", s8: "lb", u16: "lhu", s16: "lh"}[arg.type] || "lw";
-      res.push(asm(loadOp, [reg, `%lo(RSPQ_DMEM_BUFFER ${offset < 0 ? "" : "+"} ${offset})(${REG.GP})`]));
+      res.push(asm(loadOp, [reg, state.target.labelAddr('RSPQ_DMEM_BUFFER', offset) + `(${REG.GP})`]));
     }
     ++argIdx;
   }

@@ -159,7 +159,7 @@ MgBeginVertexInput
 MgEndVertexInput
 
 MgBeginShader
-  addiu $t0, $gp, %lo(RSPQ_DMEM_BUFFER)  -6          ## L:146  |      ^ | u32 inputs_ptr = get_cmd_address(0x2);
+  addiu $t0, $gp, %lo(RSPQ_DMEM_BUFFER  -6)          ## L:146  |      ^ | u32 inputs_ptr = get_cmd_address(0x2);
   ori $at, $zero, %lo(MG_VERTEX_SIZE)                ## L:147  |      2 | vec16 vvtx_size = load(MG_VERTEX_SIZE).xyzw;
   ldv $v01, 0, 0, $at                                ## L:147  |      3 | vec16 vvtx_size = load(MG_VERTEX_SIZE).xyzw;
   ldv $v02, 0, 0, $t0                                ## L:148  |      4 | vec16 vinputs = load(inputs_ptr).xyzw;
@@ -173,7 +173,7 @@ MgBeginShader
   lhu $s7, %lo(RSPQ_SCRATCH_MEM + 2)                 ## L:158  |     17 | @Barrier("inputs0") vtx_out0_ptr = load(RSPQ_SCRATCH_MEM, 0x2); ## Barrier: 0x1
   lhu $t1, %lo(RSPQ_SCRATCH_MEM + 4)                 ## L:160  |     18 | @Barrier("inputs0") vertices_size = load(RSPQ_SCRATCH_MEM, 0x4); ## Barrier: 0x1
   lw $t2, %lo(RSPQ_SCRATCH_MEM + 8)                  ## L:162  |     19 | @Barrier("inputs1") buffer_offset = load(RSPQ_SCRATCH_MEM, 0x8); ## Barrier: 0x2
-  lw $s0, %lo(MG_VERTEX_BUFFER + 0)                  ## L:164  |     20 | u32<$s0> vtx_buffer = load(MG_VERTEX_BUFFER);
+  lw $s0, %lo(MG_VERTEX_BUFFER)                      ## L:164  |     20 | u32<$s0> vtx_buffer = load(MG_VERTEX_BUFFER);
   addu $s0, $s0, $t2                                 ## L:165  |   **23 | vtx_buffer += buffer_offset;
   andi $t3, $t2, 7                                   ## L:167  |     24 | u32 misalignment = buffer_offset & 0x7;
   addu $t0, $t1, $t3                                 ## L:168  |     25 | dma_size = vertices_size + misalignment;
@@ -184,7 +184,7 @@ MgBeginShader
   addiu $t2, $zero, 12                               ## L:175  |     30 | dma_in(vtx_in0_ptr, vtx_buffer, dma_size);
   jal DMAExec                                        ## L:175  |     31 | dma_in(vtx_in0_ptr, vtx_buffer, dma_size); ## Args: $t0, $t1, $s0, $s4, $t2
   addiu $t0, $t0, -1                                 ## L:175  |    *33 | dma_in(vtx_in0_ptr, vtx_buffer, dma_size);
-  lhu $t8, %lo(MG_VERTEX_SIZE + 0)                   ## L:177  |     34 | vtx_size = load(MG_VERTEX_SIZE);
+  lhu $t8, %lo(MG_VERTEX_SIZE)                       ## L:177  |     34 | vtx_size = load(MG_VERTEX_SIZE);
   sll $t9, $t8, 1                                    ## L:178  |   **37 | vtx_size2 = vtx_size * 2;
   addu $s6, $s4, $t1                                 ## L:180  |     38 | vtx_in_end = vtx_in0_ptr + vertices_size;
   addiu $s7, $s7, %lo(MG_VERTEX_CACHE)               ## L:181  |     39 | vtx_out0_ptr += MG_VERTEX_CACHE;
@@ -228,11 +228,11 @@ MgBeginShader
   ori $at, $zero, %lo(TEXTURING_OFFSET)              ## L:216  |     77 | vtexoffset.xy = load(TEXTURING_OFFSET).xy;
   llv $v17, 0, 0, $at                                ## L:216  |     78 | vtexoffset.xy = load(TEXTURING_OFFSET).xy;
   llv $v17, 8, 0, $at                                ## L:217  |     79 | vtexoffset.XY = load(TEXTURING_OFFSET).xy;
-  lbu $t0, %lo(LIGHTING_HAS_POINTS + 0)              ## L:219  |     80 | u8 has_points = load(LIGHTING_HAS_POINTS);
+  lbu $t0, %lo(LIGHTING_HAS_POINTS)                  ## L:219  |     80 | u8 has_points = load(LIGHTING_HAS_POINTS);
   ori $at, $zero, %lo(FOG_PARAMS)                    ## L:223  |     81 | vfog_parms = load(FOG_PARAMS).xyzwxyzw;
   ldv $v18, 0, 0, $at                                ## L:223  |     82 | vfog_parms = load(FOG_PARAMS).xyzwxyzw;
   ldv $v18, 8, 0, $at                                ## L:223  |     83 | vfog_parms = load(FOG_PARAMS).xyzwxyzw;
-  lbu $t1, %lo(FOG_MASK + 0)                         ## L:224  |     84 | u8 fog_mask = load(FOG_MASK);
+  lbu $t1, %lo(FOG_MASK)                             ## L:224  |     84 | u8 fog_mask = load(FOG_MASK);
   addu $t2, $s4, $t8                                 ## L:226  |     85 | u16 vtx_in1_ptr = vtx_in0_ptr + vtx_size;
   addiu $t3, $s7, 40                                 ## L:227  |     86 | u16 vtx_out1_ptr = vtx_out0_ptr + 40;
   ori $t4, $zero, %lo(MG_SCRATCH_MEM)                ## L:229  |     87 | u16 prev_out0 = MG_SCRATCH_MEM;
@@ -333,7 +333,7 @@ MgBeginShader
   vmadn $v25, $v25, $v15.v                           ## L:355  |   *204 | vpos_clip = vpos_clip +* vviewscale;
   vmadh $v24, $v24, $v15.v                           ## L:355  |    205 | vpos_clip = vpos_clip +* vviewscale;
   beq $t0, $zero, LABEL_mgfx_0001                    ## L:363  |      ^ | if (has_points != 0)
-  lbu $sp, %lo(LIGHTING_COUNT + 0)                   ## L:291  |   *207 | u8 light_count = load(LIGHTING_COUNT);
+  lbu $sp, %lo(LIGHTING_COUNT)                       ## L:291  |   *207 | u8 light_count = load(LIGHTING_COUNT);
   ori $fp, $zero, %lo(MATRICES_MV)                   ## L:366  |    208 | u16 addr = MATRICES_MV;
   ldv $v01, 0, 0, $fp                                ## L:127  |    209 | m0:sint   = load(address, 0x00).xyzwxyzw;
   ldv $v01, 8, 0, $fp                                ## L:127  |    210 | m0:sint   = load(address, 0x00).xyzwxyzw;

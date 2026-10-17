@@ -196,12 +196,12 @@ OVERLAY_CODE_START:
 
 .align 3
 CLIPPING_CODE_TARGET:
-  lhu $t0, %lo(CLIP_CODE_SIZE + 0)                   ## L:306  |      ^ | u16<$t0> codeSize = load(CLIP_CODE_SIZE);
+  lhu $t0, %lo(CLIP_CODE_SIZE)                       ## L:306  |      ^ | u16<$t0> codeSize = load(CLIP_CODE_SIZE);
   sb $t0, %lo(CLIP_CODE_ADDR)($zero)                 ## L:309  |    **4 | store(codeSize:u8, CLIP_CODE_ADDR);
   addiu $t0, $t0, -1                                 ## L:313  |      5 | dma_in(targetImem, codeAddr, codeSize);
   addiu $t2, $zero, 12                               ## L:313  |      6 | dma_in(targetImem, codeAddr, codeSize);
   jal DMAExec                                        ## L:313  |      7 | dma_in(targetImem, codeAddr, codeSize); ## Args: $t0, $t1, $s0, $s4, $t2
-  lw $s0, %lo(CLIP_CODE_ADDR + 0)                    ## L:305  |     *9 | u32<$s0> codeAddr = load(CLIP_CODE_ADDR);
+  lw $s0, %lo(CLIP_CODE_ADDR)                        ## L:305  |     *9 | u32<$s0> codeAddr = load(CLIP_CODE_ADDR);
   j CLIPPING_CODE_TARGET                             ## L:314  |     10 | goto CLIPPING_CODE_TARGET;
   nop                                                ## L:314  |    *12 | goto CLIPPING_CODE_TARGET;
 T3DCmd_VertLoad:
@@ -245,7 +245,7 @@ T3DCmd_VertLoad:
   ldv $v10, 8, 0, $at                                ## L:362  |     43 | vec16 normScaleW = load(NORM_SCALE_W).xyzwxyzw;
   andi $s6, $a2, 65535                               ## L:364  |     44 | u32 ptrBuffA = addressInOut & 0xFFFF;
   addiu $s5, $s6, 65500                              ## L:365  |     45 | u32 ptrBuffB = ptrBuffA - 36;
-  lbu $s2, %lo(ACTIVE_LIGHT_SIZE + 0)                ## L:369  |     46 | u8 ptrLightEnd = load(ACTIVE_LIGHT_SIZE);
+  lbu $s2, %lo(ACTIVE_LIGHT_SIZE)                    ## L:369  |     46 | u8 ptrLightEnd = load(ACTIVE_LIGHT_SIZE);
   addiu $s2, $s2, %lo(LIGHT_DIR_COLOR)               ## L:370  |   **49 | ptrLightEnd += LIGHT_DIR_COLOR;
   ori $at, $zero, %lo(UV_GEN_PARAMS)                 ## L:374  |     50 | uvGenArgs.XYZW = load(UV_GEN_PARAMS).xyzw;
   ldv $v09, 8, 0, $at                                ## L:374  |     51 | uvGenArgs.XYZW = load(UV_GEN_PARAMS).xyzw;
@@ -254,10 +254,10 @@ T3DCmd_VertLoad:
   ori $at, $zero, %lo(UV_GEN_PARAMS)                 ## L:376  |     54 | uvGenArgs.xy = load(UV_GEN_PARAMS).xy;
   llv $v09, 0, 0, $at                                ## L:376  |     55 | uvGenArgs.xy = load(UV_GEN_PARAMS).xy;
   llv $v09, 4, 0, $at                                ## L:377  |     56 | uvGenArgs.zw = load(UV_GEN_PARAMS).xy;
-  lbu $s1, %lo(FOG_STORE_OFFSET + 0)                 ## L:379  |     57 | u8 fogStoreOffset = load(FOG_STORE_OFFSET);
+  lbu $s1, %lo(FOG_STORE_OFFSET)                     ## L:379  |     57 | u8 fogStoreOffset = load(FOG_STORE_OFFSET);
   addiu $s6, $s6, 65464                              ## L:380  |     58 | ptrBuffA -= 72;
-  lbu $k0, %lo(TRI_COMMAND + 0)                      ## L:385  |     59 | u8 isUnlit = load(TRI_COMMAND);
-  lbu $s0, %lo(CLIP_CODE_ORG_ADDR + 0)               ## L:389  |     60 | u8<$s0> baseTileMask = load(CLIP_CODE_ORG_ADDR);
+  lbu $k0, %lo(TRI_COMMAND)                          ## L:385  |     59 | u8 isUnlit = load(TRI_COMMAND);
+  lbu $s0, %lo(CLIP_CODE_ORG_ADDR)                   ## L:389  |     60 | u8<$s0> baseTileMask = load(CLIP_CODE_ORG_ADDR);
   jal DMAWaitIdle                                    ## L:393  |     61 | dma_await();
   vmov $v11.e6, $v11.e2                              ## L:360  |    *63 | fogScaleOffset.Z = fogScaleOffset.z;
   lqv $v08, 0, 0, $s4                                ## L:396  |     64 | vec16 pos = load(prt3d, 0x00);
@@ -269,7 +269,7 @@ T3DCmd_VertLoad:
   or $t9, $zero, $zero                               ## L:417  |     74 | u8 mvMatrixLoaded = 0;
   addiu $s6, $s6, 72                                 ## L:419  |     75 | ptrBuffA += 72;
   addiu $s5, $s5, 72                                 ## L:420  |     76 | ptrBuffB += 72;
-  lhu $k1, %lo(VERTEX_FX_FUNC + 0)                   ## L:421  |     77 | vertexFxFunc = load(VERTEX_FX_FUNC);
+  lhu $k1, %lo(VERTEX_FX_FUNC)                       ## L:421  |     77 | vertexFxFunc = load(VERTEX_FX_FUNC);
   vmulf $v29, $v20, $v07.h0                          ## L:425  |      ^ | VTEMP:sfract = matN0:sfract  * norm.xxxxXXXX;
   vmacf $v29, $v19, $v07.h1                          ## L:426  |     78 | VTEMP:sfract = matN1:sfract +* norm.yyyyYYYY;
   vmacf $v07, $v18, $v07.h2                          ## L:427  |     79 | norm         = matN2:sfract +* norm.zzzzZZZZ;
@@ -560,7 +560,7 @@ T3DCmd_LightSet:
   j RSPQ_Loop                                        ## L:804  |      6 | }
   sw $a1, 4($a0)                                     ## L:803  |     *8 | store(rgba8, addr, 4);
 T3DCmd_RenderMode:
-  lbu $s7, %lo(RDPQ_OTHER_MODES + 0)                 ## L:815  |      ^ | u8 mipmap = load(RDPQ_OTHER_MODES);
+  lbu $s7, %lo(RDPQ_OTHER_MODES)                     ## L:815  |      ^ | u8 mipmap = load(RDPQ_OTHER_MODES);
   andi $s7, $s7, 56                                  ## L:816  |    **4 | mipmap &= 0x38;
   or $a1, $a1, $s7                                   ## L:817  |      5 | triCommand |= mipmap;
   sw $a1, %lo(TRI_COMMAND)($zero)                    ## L:819  |      6 | store(triCommand, TRI_COMMAND);
@@ -662,7 +662,7 @@ T3DCmd_MatrixStack:
   andi $s7, $a0, 1                                   ## L:915  |      ^ | u16 doMultiply = stackAdvance & 0b01;
   andi $s6, $a0, 2                                   ## L:916  |      2 | u16 onlyStackMove = stackAdvance & 0b10;
   lh $a0, %lo(RSPQ_DMEM_BUFFER  -7)($gp)             ## L:918  |      3 | stackAdvance:s16 = load_arg(1);
-  lw $s5, %lo(MATRIX_STACK_PTR + 0)                  ## L:920  |      4 | s32 stackPtr = load(MATRIX_STACK_PTR);
+  lw $s5, %lo(MATRIX_STACK_PTR)                      ## L:920  |      4 | s32 stackPtr = load(MATRIX_STACK_PTR);
   addu $s5, $s5, $a0                                 ## L:921  |    **7 | stackPtr += stackAdvance;
   bne $s6, $zero, RSPQ_Loop                          ## L:925  |      8 | if(onlyStackMove)exit;
   sw $s5, %lo(MATRIX_STACK_PTR)($zero)               ## L:922  |    *10 | store(stackPtr, MATRIX_STACK_PTR);
@@ -745,7 +745,7 @@ T3DCmd_TriDraw_Strip:
   bne $v1, $zero, LABEL_T3DCmd_TriDraw_Strip_0016    ## L:1084 |   **17 | vertAddr = get_dma_busy();
   nop                                                ## L:1084 |    *19 | vertAddr = get_dma_busy();
   STRIP_LOOP_NEW:
-  lbu $v0, %lo(FACE_CULLING + 0)                     ## L:1088 |     20 | faceCull = load(FACE_CULLING);
+  lbu $v0, %lo(FACE_CULLING)                         ## L:1088 |     20 | faceCull = load(FACE_CULLING);
   addiu $s4, $s4, 2                                  ## L:1089 |     21 | prtDmem += 2;
   STRIP_LOOP_NEXT:
   beq $s4, $s2, STRIP_LOOP_END                       ## L:1092 |     22 | if(prtDmem == prtDmemEnd)goto STRIP_LOOP_END;
@@ -761,21 +761,21 @@ T3DCmd_TriDraw_Strip:
   bgez $s2, RSPQ_Loop                                ## L:1111 |     35 | if(prtDmemEnd >= 0)goto RSPQ_Loop;
   ori $ra, $zero, %lo(RSPQ_Loop)                     ## L:1108 |    *37 | RA = RSPQ_Loop;
 T3DCmd_TriSync:
-  lbu $s7, %lo(CLIP_CODE_ADDR + 0)                   ## L:1121 |      ^ | u8 clipLoaded = load(CLIP_CODE_ADDR);
+  lbu $s7, %lo(CLIP_CODE_ADDR)                       ## L:1121 |      ^ | u8 clipLoaded = load(CLIP_CODE_ADDR);
   beq $s7, $zero, RDPQ_Triangle_Send_End             ## L:1125 |    **4 | if(!clipLoaded)goto RDPQ_Triangle_Send_End;
   ori $s4, $zero, %lo(CLIPPING_CODE_TARGET)          ## L:1122 |     *6 | u32<$s4> targetImem = CLIPPING_CODE_TARGET;
-  lhu $t0, %lo(CLIP_CODE_SIZE + 0)                   ## L:1128 |      7 | u16<$t0> codeSize = load(CLIP_CODE_SIZE);
+  lhu $t0, %lo(CLIP_CODE_SIZE)                       ## L:1128 |      7 | u16<$t0> codeSize = load(CLIP_CODE_SIZE);
   addiu $t0, $t0, -1                                 ## L:1131 |   **10 | dma_in_async(targetImem, codeAddr, codeSize);
   or $t2, $zero, $zero                               ## L:1131 |     11 | dma_in_async(targetImem, codeAddr, codeSize);
   jal DMAExec                                        ## L:1131 |     12 | dma_in_async(targetImem, codeAddr, codeSize); ## Args: $t0, $t1, $s0, $s4, $t2
-  lw $s0, %lo(CLIP_CODE_ORG_ADDR + 0)                ## L:1127 |    *14 | u32<$s0> codeAddr = load(CLIP_CODE_ORG_ADDR);
+  lw $s0, %lo(CLIP_CODE_ORG_ADDR)                    ## L:1127 |    *14 | u32<$s0> codeAddr = load(CLIP_CODE_ORG_ADDR);
   sb $zero, %lo(CLIP_CODE_ADDR)($zero)               ## L:1134 |     15 | store(ZERO:u8, CLIP_CODE_ADDR);
   j RDPQ_Triangle_Send_End                           ## L:1135 |     16 | goto RDPQ_Triangle_Send_End;
   ori $ra, $zero, %lo(RSPQ_Loop)                     ## L:1133 |    *18 | RA = RSPQ_Loop;
 T3DCmd_TriDraw_Seq:
   andi $s4, $a1, 65535                               ## L:1143 |      ^ | u8<$s4> baseVtxEnd = endIndex & 0xFFFF;
   andi $s2, $a0, 65535                               ## L:1144 |      2 | u16<$s2> baseVtx = sizeAndIndex & 0xFFFF;
-  lbu $v0, %lo(FACE_CULLING + 0)                     ## L:1146 |      3 | u8<$v0> faceCull = load(FACE_CULLING);
+  lbu $v0, %lo(FACE_CULLING)                         ## L:1146 |      3 | u8<$v0> faceCull = load(FACE_CULLING);
   srl $s1, $a1, 16                                   ## L:1147 |      4 | u16<$s1> isQuad = endIndex >> 16;
   addiu $v1, $s1, 108                                ## L:1148 |      5 | u16<$v1> vtxIncr = isQuad + (36 * 3);
   SEQ_LOOP_NEXT:

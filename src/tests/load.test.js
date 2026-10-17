@@ -24,7 +24,7 @@ describe('Load', () =>
   lw $t1, 0($t0)
   lw $t1, 16($t0)
   lw $t1, %lo(TEST_CONST)($t0)
-  lw $t1, %lo(TEST_CONST + 0)
+  lw $t1, %lo(TEST_CONST)
   lw $t1, %lo(TEST_CONST + 16)
   jr $ra
   nop`);

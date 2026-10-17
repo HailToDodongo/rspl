@@ -113,7 +113,7 @@
 
 T3DCmd_TriDraw:
     srl a2, a1, 16
-    lbu v0, %lo(FACE_CULLING + 0);
+    lbu v0, %lo(FACE_CULLING)    ;
 
     .func RDPQ_Triangle_Send_Async
 RDPQ_Triangle_Send_Async:
@@ -722,10 +722,10 @@ rdpq_triangle_change_buffer_done:
     # slow-path in RDPQ_Send.
 rdpq_triangle_change_buffer:
     move a3, ra
-    lw rdram_cur, %lo(RDPQ_DYNAMIC_BUFFERS) + 4
-    lw t1, %lo(RDPQ_DYNAMIC_BUFFERS) + 0
-    sw rdram_cur, %lo(RDPQ_DYNAMIC_BUFFERS) + 0
-    sw t1, %lo(RDPQ_DYNAMIC_BUFFERS) + 4
+    lw rdram_cur, %lo(RDPQ_DYNAMIC_BUFFERS + 4)
+    lw t1, %lo(RDPQ_DYNAMIC_BUFFERS + 0)
+    sw rdram_cur, %lo(RDPQ_DYNAMIC_BUFFERS + 0)
+    sw t1, %lo(RDPQ_DYNAMIC_BUFFERS + 4)
 
     # We are going to call RSPQCmd_RdpSetBuffer. Since it's going to destroy
     # t0-t3, we need to save prim_size (t3). Notice that we rely on the fact

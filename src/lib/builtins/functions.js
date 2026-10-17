@@ -117,7 +117,7 @@ function byteMem(varRes, args, swizzle, isStore, isLow)
   const op = isStore ? "sbv" : "lbv";
   if(addrMem.reg)return [asm(op, [val.reg, element, offset, addrMem.reg])];
   return [
-    ...scalar.loadImmediate(REG.AT, "%lo(" + addrMem.name + ")"),
+    ...scalar.loadImmediate(REG.AT, state.target.labelAddr(addrMem.name)),
     asm(op, [val.reg, element, offset, REG.AT]),
   ];
 }
@@ -610,7 +610,7 @@ function get_cmd_address(varRes, args, swizzle) {
   offset -= state.argSize;
 
   return [
-    asm("addiu", [varRes.reg, REG.GP, `%lo(RSPQ_DMEM_BUFFER) ${offset < 0 ? '' : '+'} ${offset}`])
+    asm("addiu", [varRes.reg, REG.GP, state.target.labelAddr('RSPQ_DMEM_BUFFER', offset)])
   ];
 }
 
@@ -794,14 +794,14 @@ function genericDMA(varRes, args, swizzle, builtinName, dmaName) {
     if(targetMem.reg) {
       if(targetMem.reg !== REG.S4)state.throwError("Builtin "+builtinName+"() requires dest. var to be in $s4!", args);
     } else {
-      sizeLoadOps.push(asm("ori", [REG.S4, REG.ZERO, "%lo("+targetMem.name+")"]));
+      sizeLoadOps.push(asm("ori", [REG.S4, REG.ZERO, state.target.labelAddr(targetMem.name)]));
     }
 
   } else { // ...as a fallback, use the declared state size (incl. array size)
     const targetSize = TYPE_SIZE[targetMem.type] * (targetMem.arraySize || 1);
     sizeLoadOps = [
       asm("ori", [REG.T0, REG.ZERO, DMA_SIZE(targetSize, 1)]),
-      asm("ori", [REG.S4, REG.ZERO, "%lo("+targetMem.name+")"]),
+      asm("ori", [REG.S4, REG.ZERO, state.target.labelAddr(targetMem.name)]),
     ];
   }
 

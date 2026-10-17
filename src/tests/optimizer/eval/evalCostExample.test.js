@@ -80,7 +80,7 @@ function linesToCycles(lines)
 
 const TRI_RSPL_SEG0 = `
 [  0] srl $a2, $a1, 16
-[  1] lbu $v0, %lo(FACE_CULLING + 0)
+[  1] lbu $v0, %lo(FACE_CULLING)
 [  2] mtc2 $a1, $v02.e3
 [  3] llv $v02, 0, 0, $a1
 [  4] llv $v01, 0, 0, $a0
@@ -94,7 +94,7 @@ const TRI_RSPL_SEG0 = `
 [  8] addiu $at, $zero, 255
 [  9] lhu $t3, 6($a0)
 [ 10] mtc2 $a0, $v01.e3
-[ 11] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET + 0)
+[ 11] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET)
 [ 11] vor $v08, $v00, $v03.e1
 [ 12] or $t3, $t3, $t4
 [ 13] or $t3, $t3, $t5
@@ -115,7 +115,7 @@ const TRI_RSPL_SEG0 = `
 [ 22] vmrg $v01, $v01, $v03
 [ 23] vge $v08, $v09, $v10
 [ 23] andi $t4, $t3, 7936
-[ 24] lw $a3, %lo(TRI_COMMAND + 0)
+[ 24] lw $a3, %lo(TRI_COMMAND)
 [ 24] vmrg $v03, $v04, $v05
 [ 25] vlt $v07, $v09, $v10
 [ 25] ssv $v06, 0, 6, $s3
@@ -244,7 +244,7 @@ const TRI_RSPL_SEG0 = `
 [ 90] sdv $v15, 8, 16, $s3
 [ 90] vmulf $v06, $v06, $v15.h2
 [ 91] vmulf $v04, $v04, $v15.h0
-[ 91] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING + 0)
+[ 91] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING)
 [ 92] lsv $v09, 12, 16, $s3
 [ 92] vmulf $v03, $v03, $v15.h1
 [ 93] lsv $v10, 12, 18, $s3
@@ -261,7 +261,7 @@ const TRI_RSPL_SEG1 = `
 [  2] ssv $v23, 4, 10, $s3
 [  2] vmrg $v11, $v11, $v06
 [  3] vmrg $v09, $v09, $v04
-[  3] lw $a0, %lo(RDPQ_CURRENT + 0)
+[  3] lw $a0, %lo(RDPQ_CURRENT)
 [  4] ssv $v20, 8, 12, $s3
 [  4] vaddc $v17, $v17, $v23.e0
 [  5] vadd $v16, $v16, $v22.e0
@@ -272,7 +272,7 @@ const TRI_RSPL_SEG1 = `
 const TRI_RSPL_SEG2 = `
 [  0] vsubc $v29, $v00, $v00
 [  1] vsub $v12, $v10, $v09.v
-[  1] lw $a2, %lo(RDPQ_SENTINEL + 0)
+[  1] lw $a2, %lo(RDPQ_SENTINEL)
 [  2] vsub $v13, $v11, $v09.v
 [  2] addu $t3, $t3, $t6
 [  3] vmudn $v19, $v19, $v30.e5
@@ -622,7 +622,7 @@ const TRI_REF_SEG1 = `
 
 const TRI_RSPL2_SEG0 = `
 [  0] srl $a2, $a1, 16
-[  1] lbu $v0, %lo(FACE_CULLING + 0)
+[  1] lbu $v0, %lo(FACE_CULLING)
 [  1] vsubc $v27, $v00, $v30.v
 [  2] mtc2 $a1, $v02.e3
 [  3] llv $v01, 0, 0, $a0
@@ -638,7 +638,7 @@ const TRI_RSPL2_SEG0 = `
 [ 11] or $t3, $t3, $t4
 [ 11] vaddc $v12, $v00, $v30.e7
 [ 12] vge $v09, $v06, $v07
-[ 12] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET + 0)
+[ 12] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET)
 [ 13] vor $v08, $v00, $v03.e1
 [ 13] mtc2 $a2, $v03.e3
 [ 14] vmrg $v04, $v01, $v02
@@ -663,7 +663,7 @@ const TRI_RSPL2_SEG0 = `
 [ 26] vmrg $v02, $v04, $v05
 [ 27] cfc2 $t2, $vcc
 [ 28] bne $t4, $zero, RDPQ_Triangle_Clip  # unlikely
-[ 29] lw $a3, %lo(TRI_COMMAND + 0)
+[ 29] lw $a3, %lo(TRI_COMMAND)
 [ 30] xor $t0, $t0, $t1
 [ 30] vsubc $v05, $v02, $v01.v
 [ 31] xor $t0, $t0, $t2
@@ -771,7 +771,7 @@ const TRI_RSPL2_SEG0 = `
 [ 83] llv $v04, 8, 12, $a0
 [ 84] addu $t5, $t5, $t4
 [ 84] vmudl $v09, $v09, $v31.e6
-[ 85] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING + 0)
+[ 85] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING)
 [ 85] vmudl $v11, $v11, $v31.e6
 [ 86] vmudl $v15, $v15, $v31.e0
 [ 86] mfc0 $t1, COP0_DMA_BUSY
@@ -795,7 +795,7 @@ const TRI_RSPL2_SEG0 = `
 [ 95] bne $t1, $zero, LABEL_RDPQ_Triangle_Send_Async_0006  # unlikely
 [ 96] addu $t6, $t6, $t5
 [ 97] vmrg $v09, $v09, $v04
-[ 97] lw $a0, %lo(RDPQ_CURRENT + 0)
+[ 97] lw $a0, %lo(RDPQ_CURRENT)
 [ 98] vmrg $v10, $v10, $v03
 [ 98] ssv $v22, 4, 8, $s3
 [ 99] srl $t3, $t3, 4
@@ -811,7 +811,7 @@ const TRI_RSPL2_SEG0 = `
 const TRI_RSPL2_SEG1 = `
 [  0] vsubc $v29, $v00, $v00
 [  1] vsub $v12, $v10, $v09.v
-[  1] lw $a2, %lo(RDPQ_SENTINEL + 0)
+[  1] lw $a2, %lo(RDPQ_SENTINEL)
 [  2] addu $t3, $t3, $t6
 [  2] vsub $v13, $v11, $v09.v
 [  3] subu $t3, $t3, $s3
@@ -889,7 +889,7 @@ const TRI_RSPL2_SEG1 = `
 `;
 
 const TRI_RSPL3_SEG0 = `
-[  0] lbu $v0, %lo(FACE_CULLING + 0)
+[  0] lbu $v0, %lo(FACE_CULLING)
 [  1] srl $a2, $a1, 16
 [  1] vsubc $v27, $v00, $v30.v
 [  2] llv $v01, 0, 0, $a0
@@ -907,7 +907,7 @@ const TRI_RSPL3_SEG0 = `
 [ 11] or $t3, $t3, $t4
 [ 11] vor $v08, $v00, $v03.e1
 [ 12] vge $v09, $v06, $v07
-[ 12] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET + 0)
+[ 12] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET)
 [ 13] vmrg $v04, $v01, $v02
 [ 13] mtc2 $a2, $v03.e3
 [ 14] vlt $v06, $v06, $v07
@@ -925,7 +925,7 @@ const TRI_RSPL3_SEG0 = `
 [ 21] vmrg $v01, $v01, $v03
 [ 22] vge $v08, $v09, $v10
 [ 22] addiu $s3, $s7, %lo(CLIP_BUFFER_TMP)
-[ 23] lw $a3, %lo(TRI_COMMAND + 0)
+[ 23] lw $a3, %lo(TRI_COMMAND)
 [ 23] vmrg $v03, $v04, $v05
 [ 24] vlt $v07, $v09, $v10
 [ 24] ssv $v06, 0, 6, $s3
@@ -1038,7 +1038,7 @@ const TRI_RSPL3_SEG0 = `
 [ 81] vmudl $v09, $v09, $v31.e6
 [ 81] mtc2 $t0, $v24.e3
 [ 82] vmudl $v11, $v11, $v31.e6
-[ 82] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING + 0)
+[ 82] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING)
 [ 83] lsv $v11, 14, 4, $a2
 [ 83] vmudl $v10, $v10, $v31.e6
 [ 84] vmudl $v15, $v15, $v31.e0
@@ -1063,7 +1063,7 @@ const TRI_RSPL3_SEG0 = `
 [ 93] bne $t1, $zero, LABEL_RDPQ_Triangle_Send_Async_0006  # unlikely
 [ 94] andi $t3, $a3, 256
 [ 95] vmrg $v09, $v09, $v04
-[ 95] lw $a0, %lo(RDPQ_CURRENT + 0)
+[ 95] lw $a0, %lo(RDPQ_CURRENT)
 [ 96] ssv $v22, 4, 8, $s3
 [ 96] vmrg $v10, $v10, $v03
 [ 97] vmrg $v11, $v11, $v06
@@ -1082,7 +1082,7 @@ const TRI_RSPL3_SEG1 = `
 [  1] vsub $v12, $v10, $v09.v
 [  2] vsub $v13, $v11, $v09.v
 [  3] vmudn $v19, $v19, $v30.e5
-[  3] lw $a2, %lo(RDPQ_SENTINEL + 0)
+[  3] lw $a2, %lo(RDPQ_SENTINEL)
 [  4] mtc0 $a0, COP0_DMA_RAMADDR
 [  4] vmadh $v18, $v18, $v30.e5
 [  5] addu $t3, $t3, $t6
@@ -1173,7 +1173,7 @@ const TRI_RSPL4_SEG0 = `
 [  9] or $t3, $t3, $t4
 [  9] vor $v08, $v00, $v03.e1
 [ 10] vge $v09, $v06, $v07
-[ 10] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET + 0)
+[ 10] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET)
 [ 11] vmrg $v04, $v01, $v02
 [ 11] mtc2 $a2, $v03.e3
 [ 12] or $t3, $t3, $t5
@@ -1192,7 +1192,7 @@ const TRI_RSPL4_SEG0 = `
 [ 19] vmrg $v01, $v01, $v03
 [ 20] vge $v08, $v09, $v10
 [ 21] vmrg $v03, $v04, $v05
-[ 21] lw $a3, %lo(TRI_COMMAND + 0)
+[ 21] lw $a3, %lo(TRI_COMMAND)
 [ 22] vlt $v07, $v09, $v10
 [ 22] ssv $v06, 0, 6, $s3
 [ 23] vmrg $v02, $v04, $v05
@@ -1310,7 +1310,7 @@ const TRI_RSPL4_SEG0 = `
 [ 82] vmudl $v15, $v15, $v31.e0
 [ 82] ctc2 $at, $vcc
 [ 83] vmudl $v29, $v21, $v26.e4
-[ 83] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING + 0)
+[ 83] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING)
 [ 84] lsv $v11, 14, 4, $a2
 [ 84] vmadm $v29, $v20, $v26.e4
 [ 85] vmadn $v17, $v21, $v25.e4
@@ -1329,7 +1329,7 @@ const TRI_RSPL4_SEG0 = `
 [ 92] bne $t1, $zero, LABEL_RDPQ_Triangle_Send_Async_0006  # unlikely
 [ 93] vmudn $v23, $v23, $v31.e1
 [ 94] vmrg $v09, $v09, $v04
-[ 94] lw $a0, %lo(RDPQ_CURRENT + 0)
+[ 94] lw $a0, %lo(RDPQ_CURRENT)
 [ 95] ssv $v22, 4, 8, $s3
 [ 95] vmrg $v11, $v11, $v06
 [ 96] vmrg $v10, $v10, $v03
@@ -1344,7 +1344,7 @@ const TRI_RSPL4_SEG0 = `
 
 const TRI_RSPL4_SEG1 = `
 [  0] vsubc $v29, $v00, $v00
-[  0] lw $a2, %lo(RDPQ_SENTINEL + 0)
+[  0] lw $a2, %lo(RDPQ_SENTINEL)
 [  1] vsub $v12, $v10, $v09.v
 [  2] vsub $v13, $v11, $v09.v
 [  3] vmudn $v19, $v19, $v30.e5
@@ -1440,7 +1440,7 @@ const TRI_RSPL5_SEG0 = `
 [  9] or $t3, $t3, $t4
 [  9] vor $v08, $v00, $v03.e1
 [ 10] vge $v09, $v06, $v07
-[ 10] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET + 0)
+[ 10] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET)
 [ 11] vmrg $v04, $v01, $v02
 [ 11] mtc2 $a2, $v03.e3
 [ 12] or $t3, $t3, $t5
@@ -1459,7 +1459,7 @@ const TRI_RSPL5_SEG0 = `
 [ 19] vmrg $v01, $v01, $v03
 [ 20] vge $v08, $v09, $v10
 [ 21] vmrg $v03, $v04, $v05
-[ 21] lw $a3, %lo(TRI_COMMAND + 0)
+[ 21] lw $a3, %lo(TRI_COMMAND)
 [ 22] vlt $v07, $v09, $v10
 [ 22] ssv $v06, 0, 6, $s3
 [ 23] vmrg $v02, $v04, $v05
@@ -1577,7 +1577,7 @@ const TRI_RSPL5_SEG0 = `
 [ 82] vmudl $v15, $v15, $v31.e0
 [ 82] ctc2 $at, $vcc
 [ 83] vmudl $v29, $v21, $v26.e4
-[ 83] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING + 0)
+[ 83] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING)
 [ 84] lsv $v11, 14, 4, $a2
 [ 84] vmadm $v29, $v20, $v26.e4
 [ 85] vmadn $v17, $v21, $v25.e4
@@ -1596,7 +1596,7 @@ const TRI_RSPL5_SEG0 = `
 [ 92] bne $t1, $zero, LABEL_RDPQ_Triangle_Send_Async_0006  # unlikely
 [ 93] vmudn $v23, $v23, $v31.e1
 [ 94] vmrg $v09, $v09, $v04
-[ 94] lw $a0, %lo(RDPQ_CURRENT + 0)
+[ 94] lw $a0, %lo(RDPQ_CURRENT)
 [ 95] ssv $v22, 4, 8, $s3
 [ 95] vmrg $v11, $v11, $v06
 [ 96] vmrg $v10, $v10, $v03
@@ -1611,7 +1611,7 @@ const TRI_RSPL5_SEG0 = `
 
 const TRI_RSPL5_SEG1 = `
 [  0] vsubc $v29, $v00, $v00
-[  0] lw $a2, %lo(RDPQ_SENTINEL + 0)
+[  0] lw $a2, %lo(RDPQ_SENTINEL)
 [  1] vsub $v12, $v10, $v09.v
 [  2] vsub $v13, $v11, $v09.v
 [  3] vmudn $v19, $v19, $v30.e5
@@ -1691,7 +1691,7 @@ OK: 2 segments, 260 instructions total
 `;
 
 const TRI_RSPL6_SEG0 = `
-[  0] lbu $v0, %lo(FACE_CULLING + 0)
+[  0] lbu $v0, %lo(FACE_CULLING)
 [  1] srl $a2, $a1, 16
 [  2] llv $v01, 0, 0, $a0
 [  3] mtc2 $a1, $v02.e3
@@ -1709,7 +1709,7 @@ const TRI_RSPL6_SEG0 = `
 [ 11] or $t3, $t3, $t4
 [ 11] vor $v08, $v00, $v03.e1
 [ 12] vge $v09, $v06, $v07
-[ 12] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET + 0)
+[ 12] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET)
 [ 13] vmrg $v04, $v01, $v02
 [ 13] mtc2 $a2, $v03.e3
 [ 14] or $t3, $t3, $t5
@@ -1728,7 +1728,7 @@ const TRI_RSPL6_SEG0 = `
 [ 21] vmrg $v01, $v01, $v03
 [ 22] vge $v08, $v09, $v10
 [ 23] vmrg $v03, $v04, $v05
-[ 23] lw $a3, %lo(TRI_COMMAND + 0)
+[ 23] lw $a3, %lo(TRI_COMMAND)
 [ 24] vlt $v07, $v09, $v10
 [ 24] ssv $v06, 0, 6, $s3
 [ 25] vmrg $v02, $v04, $v05
@@ -1846,7 +1846,7 @@ const TRI_RSPL6_SEG0 = `
 [ 84] vmudl $v15, $v15, $v31.e0
 [ 84] ctc2 $at, $vcc
 [ 85] vmudl $v29, $v21, $v26.e4
-[ 85] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING + 0)
+[ 85] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING)
 [ 86] lsv $v11, 14, 4, $a2
 [ 86] vmadm $v29, $v20, $v26.e4
 [ 87] vmadn $v17, $v21, $v25.e4
@@ -1865,7 +1865,7 @@ const TRI_RSPL6_SEG0 = `
 [ 94] bne $t1, $zero, LABEL_RDPQ_Triangle_Send_Async_0006  # unlikely
 [ 95] vmudn $v23, $v23, $v31.e1
 [ 96] vmrg $v09, $v09, $v04
-[ 96] lw $a0, %lo(RDPQ_CURRENT + 0)
+[ 96] lw $a0, %lo(RDPQ_CURRENT)
 [ 97] ssv $v22, 4, 8, $s3
 [ 97] vmrg $v10, $v10, $v03
 [ 98] vmrg $v11, $v11, $v06
@@ -1880,7 +1880,7 @@ const TRI_RSPL6_SEG0 = `
 
 const TRI_RSPL6_SEG1 = `
 [  0] vsubc $v29, $v00, $v00
-[  0] lw $a2, %lo(RDPQ_SENTINEL + 0)
+[  0] lw $a2, %lo(RDPQ_SENTINEL)
 [  1] vsub $v12, $v10, $v09.v
 [  2] vsub $v13, $v11, $v09.v
 [  3] vmudn $v19, $v19, $v30.e5
@@ -1960,7 +1960,7 @@ OK: 2 segments, 262 instructions total
 `;
 
 const TRI_RSPL7_SEG0 = `
-[  0] lbu $v0, %lo(FACE_CULLING + 0)
+[  0] lbu $v0, %lo(FACE_CULLING)
 [  1] srl $a2, $a1, 16
 [  1] vsubc $v27, $v00, $v30.v
 [  2] llv $v01, 0, 0, $a0
@@ -1978,7 +1978,7 @@ const TRI_RSPL7_SEG0 = `
 [ 11] or $t3, $t3, $t4
 [ 11] vor $v08, $v00, $v03.e1
 [ 12] vge $v09, $v06, $v07
-[ 12] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET + 0)
+[ 12] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET)
 [ 13] vmrg $v04, $v01, $v02
 [ 13] mtc2 $a2, $v03.e3
 [ 14] vlt $v06, $v06, $v07
@@ -1996,7 +1996,7 @@ const TRI_RSPL7_SEG0 = `
 [ 21] vmrg $v01, $v01, $v03
 [ 22] vge $v08, $v09, $v10
 [ 22] addiu $s3, $s7, %lo(CLIP_BUFFER_TMP)
-[ 23] lw $a3, %lo(TRI_COMMAND + 0)
+[ 23] lw $a3, %lo(TRI_COMMAND)
 [ 23] vmrg $v03, $v04, $v05
 [ 24] vlt $v07, $v09, $v10
 [ 24] ssv $v06, 0, 6, $s3
@@ -2109,7 +2109,7 @@ const TRI_RSPL7_SEG0 = `
 [ 81] vmudl $v09, $v09, $v31.e6
 [ 81] mtc2 $t0, $v24.e3
 [ 82] vmudl $v11, $v11, $v31.e6
-[ 82] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING + 0)
+[ 82] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING)
 [ 83] lsv $v11, 14, 4, $a2
 [ 83] vmudl $v10, $v10, $v31.e6
 [ 84] vmudl $v15, $v15, $v31.e0
@@ -2134,7 +2134,7 @@ const TRI_RSPL7_SEG0 = `
 [ 93] bne $t1, $zero, LABEL_RDPQ_Triangle_Send_Async_0006  # unlikely
 [ 94] andi $t3, $a3, 256
 [ 95] vmrg $v09, $v09, $v04
-[ 95] lw $a0, %lo(RDPQ_CURRENT + 0)
+[ 95] lw $a0, %lo(RDPQ_CURRENT)
 [ 96] ssv $v22, 4, 8, $s3
 [ 96] vmrg $v10, $v10, $v03
 [ 97] vmrg $v11, $v11, $v06
@@ -2153,7 +2153,7 @@ const TRI_RSPL7_SEG1 = `
 [  1] vsub $v12, $v10, $v09.v
 [  2] vsub $v13, $v11, $v09.v
 [  3] vmudn $v19, $v19, $v30.e5
-[  3] lw $a2, %lo(RDPQ_SENTINEL + 0)
+[  3] lw $a2, %lo(RDPQ_SENTINEL)
 [  4] mtc0 $a0, COP0_DMA_RAMADDR
 [  4] vmadh $v18, $v18, $v30.e5
 [  5] addu $t3, $t3, $t6
@@ -2245,7 +2245,7 @@ const TRI_JAL_SEG0 = `
 [  9] or $t3, $t3, $t4
 [  9] vor $v08, $v00, $v03.e1
 [ 10] vge $v09, $v06, $v07
-[ 10] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET + 0)
+[ 10] lhu $s7, %lo(RDPQ_TRI_BUFF_OFFSET)
 [ 11] vmrg $v04, $v01, $v02
 [ 11] mtc2 $a2, $v03.e3
 [ 12] or $t3, $t3, $t5
@@ -2264,7 +2264,7 @@ const TRI_JAL_SEG0 = `
 [ 19] vmrg $v01, $v01, $v03
 [ 20] vge $v08, $v09, $v10
 [ 21] vmrg $v03, $v04, $v05
-[ 21] lw $a3, %lo(TRI_COMMAND + 0)
+[ 21] lw $a3, %lo(TRI_COMMAND)
 [ 22] vlt $v07, $v09, $v10
 [ 22] ssv $v06, 0, 6, $s3
 [ 23] vmrg $v02, $v04, $v05
@@ -2380,7 +2380,7 @@ const TRI_JAL_SEG0 = `
 [ 81] addu $t5, $t5, $t4
 [ 81] vmudl $v11, $v11, $v31.e6
 [ 82] vmudl $v15, $v15, $v31.e0
-[ 82] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING + 0)
+[ 82] lbu $t0, %lo(RDPQ_SYNCFULL_ONGOING)
 [ 83] vmudl $v29, $v21, $v26.e4
 [ 83] mfc0 $t1, COP0_DMA_BUSY
 [ 84] lsv $v11, 14, 4, $a2
@@ -2402,7 +2402,7 @@ const TRI_JAL_SEG0 = `
 [ 92] lsv $v11, 12, 20, $s3
 [ 93] ssv $v22, 4, 8, $s3
 [ 93] vmrg $v09, $v09, $v04
-[ 94] lw $a0, %lo(RDPQ_CURRENT + 0)
+[ 94] lw $a0, %lo(RDPQ_CURRENT)
 [ 94] vmrg $v10, $v10, $v03
 [ 95] ssv $v23, 4, 10, $s3
 [ 96] srl $t3, $t3, 4
@@ -2425,7 +2425,7 @@ const TRI_JAL_SEG0 = `
 [105] vmudh $v29, $v12, $v24.e1
 [105] ssv $v21, 4, 30, $s3
 [106] vmadh $v29, $v13, $v24.e3
-[106] lw $a2, %lo(RDPQ_SENTINEL + 0)
+[106] lw $a2, %lo(RDPQ_SENTINEL)
 [107] vsar $v03, COP2_ACC_HI
 [107] mtc0 $a0, COP0_DMA_RAMADDR
 [108] addu $a0, $a0, $t3

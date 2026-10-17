@@ -3,6 +3,7 @@
 * @license Apache-2.0
 */
 import {getAsmLabels, getAttrLoaderLabel, getAttrPatchLabel, stringifyInstr} from '../writer/utils';
+import rspq from './rspq';
 
 /**
  * 
@@ -85,6 +86,7 @@ export function writeHeader(ast, functionsAsm, writeLines, writeStateVar) {
 
 /** @type {Target} */
 const target = {
-  writeHeader
+  writeHeader,
+  labelAddr: rspq.labelAddr
 };
 export default target;

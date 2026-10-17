@@ -196,7 +196,7 @@ function opLoad(varRes, varLoc, varOffset, swizzle, isPackedByte = false, isSign
   }
   if(!varLoc.reg) {
     if(varLoc.name) {
-      res.push(...opsScalar.loadImmediate(REG.AT, "%lo(" +varLoc.name + ")"));
+      res.push(...opsScalar.loadImmediate(REG.AT, state.target.labelAddr(varLoc.name)));
       varLoc = {type: "num", reg: REG.AT};
     } else {
       state.throwError("Load base-address must be a variable!");
@@ -274,7 +274,7 @@ function opStore(varRes, varOffsets, isPackedByte = false, isSigned = true, isUn
   const opsLoad = [];
   if(!varLoc.reg) {
     varLoc.reg = REG.AT;
-    opsLoad.push(...opsScalar.loadImmediate(varLoc.reg, "%lo(" +varLoc.name + ")"));
+    opsLoad.push(...opsScalar.loadImmediate(varLoc.reg, state.target.labelAddr(varLoc.name)));
   }
 
   let baseOffset = 0;

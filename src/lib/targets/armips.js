@@ -78,8 +78,23 @@ function writeHeader(ast, functionsAsm, writeLines)
   return totalSaveByteSize;
 }
 
+/**
+ * @param {string} label 
+ * @param {number} offset 
+ * @returns {string}
+ */
+function labelAddr(label, offset = 0)
+{
+  offset = parseInt(offset) || 0;
+  if(offset != 0) {
+    return `%lo(${label} ${offset < 0 ? "" : "+"} ${offset})`;
+  }
+  return `%lo(${label})`;
+}
+
 /** @type {Target} */
 const target = {
-  writeHeader
+  writeHeader,
+  labelAddr
 };
 export default target;

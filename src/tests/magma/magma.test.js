@@ -51,7 +51,7 @@ describe('Magma mode', () =>
     }`, CONF);
 
     expect(warn).toBe("");
-    expect(asm).toContain("lw $t0, %lo(VALUE + 0)");
+    expect(asm).toContain("lw $t0, %lo(VALUE)");
     expect(asm).not.toContain("VALUE: .ds.b 4");
   });
 
@@ -68,7 +68,7 @@ describe('Magma mode', () =>
     }`, CONF);
 
     expect(warn).toBe("");
-    expect(asm).toContain("lw $t0, %lo(VALUE + 0)");
+    expect(asm).toContain("lw $t0, %lo(VALUE)");
     expect(asm).not.toContain("VALUE: .ds.b 4");
   });
 
@@ -85,7 +85,7 @@ describe('Magma mode', () =>
     }`, CONF);
 
     expect(warn).toBe("");
-    expect(asm).toContain("lw $t0, %lo(VALUE + 0)");
+    expect(asm).toContain("lw $t0, %lo(VALUE)");
     expect(asm).not.toContain("VALUE: .ds.b 4");
   });
 

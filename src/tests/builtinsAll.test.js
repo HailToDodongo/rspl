@@ -403,7 +403,7 @@ describe('Builtins - get_cmd_address()', () => {
     }`, CONF);
     expect(warn).toBe("");
     expect(asm).toBe(`test:
-  addiu $t1, $gp, %lo(RSPQ_DMEM_BUFFER) + 12
+  addiu $t1, $gp, %lo(RSPQ_DMEM_BUFFER + 12)
   jr $ra
   nop`);
   });
