@@ -43,15 +43,15 @@ function collectAttrLoaders(functionsAsm) {
  * @param {(line: any[]) => void} writeLines 
  * @returns 
  */
-export function writeMagmaHeader(ast, functionsAsm, writeLine, writeLines, writeStateVar) {
+export function writeMagmaHeader(ast, functionsAsm, writeLines, writeStateVar) {
   let totalSaveByteSize = 0;
 
   writeLines(["", "MgBeginShaderUniforms"]);
   for(const uniform of ast.uniforms) {
-    writeLine(`  MgBeginUniform ${uniform.name}, ${uniform.binding}`);
+    writeLines(`  MgBeginUniform ${uniform.name}, ${uniform.binding}`);
     for(const stateVar of uniform.state) {
       if(stateVar.extern)continue;
-      totalSaveByteSize += writeStateVar(stateVar, writeLine);
+      totalSaveByteSize += writeStateVar(stateVar, writeLines);
     }
     writeLines(["  MgEndUniform", ""]);
   }
@@ -59,26 +59,26 @@ export function writeMagmaHeader(ast, functionsAsm, writeLine, writeLines, write
 
   const attrLoaders = collectAttrLoaders(functionsAsm);
   
-  writeLine("MgBeginVertexInput");
+  writeLines("MgBeginVertexInput");
   for(const attribute of ast.attributes) {
-    writeLine(`  MgBeginVertexAttribute ${attribute.binding}, ${attribute.optional ? 1 : 0}`);
+    writeLines(`  MgBeginVertexAttribute ${attribute.binding}, ${attribute.optional ? 1 : 0}`);
     const loaders = attrLoaders[attribute.name]?.loaders;
     if(typeof loaders !== 'undefined' && loaders.length > 0) {
-      writeLine("    MgVertexAttributeLoaders " + loaders.map(getAttrLoaderLabel).join(", "));
+      writeLines("    MgVertexAttributeLoaders " + loaders.map(getAttrLoaderLabel).join(", "));
     }
     const patches = attrLoaders[attribute.name]?.patches;
     if(patches) {
       for(const patch of patches) {
-        writeLine(`    MgBeginVertexAttributePatch ${getAttrPatchLabel(patch)}`);
-        writeLine(`      ${patch.attrPatch.op || "nop"}`);
-        writeLine("    MgEndVertexAttributePatch");
+        writeLines(`    MgBeginVertexAttributePatch ${getAttrPatchLabel(patch)}`);
+        writeLines(`      ${patch.attrPatch.op || "nop"}`);
+        writeLines("    MgEndVertexAttributePatch");
       };
     }
     writeLines(["  MgEndVertexAttribute", ""]);
   }
   writeLines(["MgEndVertexInput", ""]);
 
-  writeLine("MgBeginShader");
+  writeLines("MgBeginShader");
 
   return totalSaveByteSize;
 }

@@ -4,7 +4,7 @@
 */
 import {getAsmLabels, getAttrLoaderLabel, getAttrPatchLabel, stringifyInstr} from './utils';
 
-export function writeRSPQHeader(ast, functionsAsm, writeLine, writeLines, writeStateVar) 
+export function writeRSPQHeader(ast, functionsAsm, writeLines, writeStateVar) 
 {
   writeLines(["", ".data", "  RSPQ_BeginOverlayHeader"]);
 
@@ -30,37 +30,37 @@ export function writeRSPQHeader(ast, functionsAsm, writeLine, writeLines, writeS
 
   const hasState = !!ast.state.find(v => !v.extern);
   if(hasState) {
-    writeLine("  RSPQ_BeginSavedState");
-    writeLine("    STATE_MEM_START:");
+    writeLines("  RSPQ_BeginSavedState");
+    writeLines("    STATE_MEM_START:");
 
     for(const stateVar of ast.state) {
       if(stateVar.extern)continue;
-      totalSaveByteSize += writeStateVar(stateVar, writeLine);
+      totalSaveByteSize += writeStateVar(stateVar, writeLines);
     }
 
-    writeLine("    STATE_MEM_END:");
-    writeLine("  RSPQ_EndSavedState");
+    writeLines("    STATE_MEM_END:");
+    writeLines("  RSPQ_EndSavedState");
   } else {
-    writeLine("  RSPQ_EmptySavedState");
+    writeLines("  RSPQ_EmptySavedState");
   }
 
   if(ast.stateData.length > 0) {
-    writeLine("");
+    writeLines("");
     for(const tmpVar of ast.stateData) {
       if(tmpVar.extern)continue;
-      totalSaveByteSize += writeStateVar(tmpVar, writeLine);
+      totalSaveByteSize += writeStateVar(tmpVar, writeLines);
     }
   }
 
   if(ast.stateBss.length > 0) {
-    writeLine("");
-    writeLine(".bss");
-    writeLine("  TEMP_STATE_MEM_START:");
+    writeLines("");
+    writeLines(".bss");
+    writeLines("  TEMP_STATE_MEM_START:");
     for(const tmpVar of ast.stateBss) {
       if(tmpVar.extern)continue;
-      totalSaveByteSize += writeStateVar(tmpVar, writeLine);
+      totalSaveByteSize += writeStateVar(tmpVar, writeLines);
     }
-    writeLine("  TEMP_STATE_MEM_END:");
+    writeLines("  TEMP_STATE_MEM_END:");
   }
 
   writeLines(["", ".text", "OVERLAY_CODE_START:", ""]);

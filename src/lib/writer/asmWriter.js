@@ -36,7 +36,7 @@ function alignToExp(align) {
   return alignPow;
 }
 
-function writeStateVar(stateVar, writeLine) {
+function writeStateVar(stateVar, writeLines) {
   const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
   const byteSize = TYPE_SIZE[stateVar.varType] * arraySize;
   let align = TYPE_ALIGNMENT[stateVar.varType];
@@ -49,11 +49,11 @@ function writeStateVar(stateVar, writeLine) {
   const values = stateVar.value || [];
 
   if(align > 0) {
-    writeLine(`    .align ${align}`);
+    writeLines(`    .align ${align}`);
   }
 
   if(values.length === 0) {
-    writeLine(`    ${stateVar.varName}: .ds.b ${byteSize}`);
+    writeLines(`    ${stateVar.varName}: .ds.b ${byteSize}`);
   } else {
     const asmType = TYPE_ASM_DEF[stateVar.varType];
     const data = new Array(asmType.count * arraySize).fill(0);
@@ -63,7 +63,7 @@ function writeStateVar(stateVar, writeLine) {
     for(let i=0; i<values.length; ++i) {
       data[i] = values[i];
     }
-    writeLine(`    ${stateVar.varName}: .${asmType.type} ${data.join(", ")}`);
+    writeLines(`    ${stateVar.varName}: .${asmType.type} ${data.join(", ")}`);
   }
   return byteSize;
 }
@@ -88,14 +88,15 @@ export function writeASM(ast, functionsAsm, config)
     sizeIMEM: 0,
   };
 
-  const writeLine = line => {
-    res.asm += line + "\n";
-    ++state.line;
-  }
   const writeLines = lines => {
-    if(lines.length === 0)return;
-    res.asm += lines.join("\n") + "\n";
-    state.line += lines.length;
+    if(Array.isArray(lines)) {
+      if(lines.length === 0)return;
+      res.asm += lines.join("\n") + "\n";
+      state.line += lines.length;
+    } else {
+      res.asm += lines + "\n";
+      ++state.line;
+    }
   };
 
   const comment = config.armips 
@@ -106,40 +107,40 @@ export function writeASM(ast, functionsAsm, config)
     ? (name, v) => `${name} equ ${v ?? '1'}`.trim()
     : (name, v) => `#define ${name} ${v}`.trim();
 
-  writeLine(comment("Auto-generated file, transpiled with RSPL").trim());
+  writeLines(comment("Auto-generated file, transpiled with RSPL").trim());
 
   if(ast.defines) {
     for(const [name, def] of Object.entries(ast.defines)) {
       if (!def.value) {
-        writeLine(define(name, ''));
+        writeLines(define(name, ''));
       } else {
-        writeLine(define(name, def.value));
+        writeLines(define(name, def.value));
       }
     }
   }
 
   const preIncs = generateIncs(ast.includes);
-  for(const inc of preIncs)writeLine(inc);
+  for(const inc of preIncs)writeLines(inc);
 
   if(!config.armips) {
     writeLines(["", ".set noreorder", ".set noat", ".set nomacro", ""]);
 
-    REGS_SCALAR.forEach(reg => writeLine("#undef " + reg.substring(1)));
-    REGS_SCALAR.forEach((reg, i) => writeLine(`.equ hex.${reg}, ${i}`));
-    writeLine("#define vco 0");
-    writeLine("#define vcc 1");
-    writeLine("#define vce 2");
+    REGS_SCALAR.forEach(reg => writeLines("#undef " + reg.substring(1)));
+    REGS_SCALAR.forEach((reg, i) => writeLines(`.equ hex.${reg}, ${i}`));
+    writeLines("#define vco 0");
+    writeLines("#define vcc 1");
+    writeLines("#define vce 2");
   }
 
   let totalSaveByteSize = 0;
   let totalTextSize = 0;
 
   if(config.magma) {
-    totalSaveByteSize += writeMagmaHeader(ast, functionsAsm, writeLine, writeLines, writeStateVar);
+    totalSaveByteSize += writeMagmaHeader(ast, functionsAsm, writeLines, writeStateVar);
   } else if(config.armips) {
-    totalSaveByteSize += writeArmipsHeader(ast, functionsAsm, writeLine, writeLines, writeStateVar);
+    totalSaveByteSize += writeArmipsHeader(ast, functionsAsm, writeLines, writeStateVar);
   } else {
-    totalSaveByteSize += writeRSPQHeader(ast, functionsAsm, writeLine, writeLines, writeStateVar);
+    totalSaveByteSize += writeRSPQHeader(ast, functionsAsm, writeLines, writeStateVar);
   }
 
   if(!config.rspqWrapper) {
@@ -151,9 +152,9 @@ export function writeASM(ast, functionsAsm, config)
     if(block.asm.length === 0)return;
 
     const align = getAnnotationVal(block.annotations, ANNOTATIONS.Align, 0) || 0;
-    if (align) writeLine(`.align ${alignToExp(align)}`);
+    if (align) writeLines(`.align ${alignToExp(align)}`);
 
-    if (block.type !== "shader") writeLine(block.name + ":");
+    if (block.type !== "shader") writeLines(block.name + ":");
 
     let lastAsm = block.asm[0] || null;
     for (const asm of block.asm) {
@@ -211,8 +212,8 @@ export function writeASM(ast, functionsAsm, config)
       // ASM Text output
       switch (asm.type) {
         case ASM_TYPE.INLINE:
-        case ASM_TYPE.OP: writeLine(`  ${tag}${stringifyInstr(asm).padEnd(debugInfo ? 50 : 0, ' ')}${debugInfo}`); break;
-        case ASM_TYPE.LABEL: writeLine(`  ${tag}${asm.label}:`); break;
+        case ASM_TYPE.OP: writeLines(`  ${tag}${stringifyInstr(asm).padEnd(debugInfo ? 50 : 0, ' ')}${debugInfo}`); break;
+        case ASM_TYPE.LABEL: writeLines(`  ${tag}${asm.label}:`); break;
         default: state.throwError("Unknown ASM type: " + asm.type, asm);
       }
 
@@ -241,32 +242,32 @@ export function writeASM(ast, functionsAsm, config)
     writeFunction(block);
   }
 
-  writeLine("");
+  writeLines("");
 
   if(!config.rspqWrapper)return res;
 
   if(config.magma) {
-    writeLine("MgEndShader");
-    writeLine("");
+    writeLines("MgEndShader");
+    writeLines("");
   } else if(config.armips) {  
-    writeLine("OVERLAY_CODE_END:");
-    writeLine(".close");
-    writeLine("");
+    writeLines("OVERLAY_CODE_END:");
+    writeLines(".close");
+    writeLines("");
   } else {
-    writeLine("OVERLAY_CODE_END:");
-    writeLine("");
+    writeLines("OVERLAY_CODE_END:");
+    writeLines("");
   }
 
   if(!config.armips) {
     REGS_SCALAR.map((reg, i) => "#define " + reg.substring(1) + " $" + i)
       .filter((_, i) => i !== 1)
-      .forEach(line => writeLine(line));
+      .forEach(line => writeLines(line));
 
     writeLines(["", ".set at", ".set macro"]);
   }
 
   const postIncs = generateIncs(ast.postIncludes);
-  for(const inc of postIncs)writeLine(inc);
+  for(const inc of postIncs)writeLines(inc);
 
   res.sizeDMEM = totalSaveByteSize;
   res.sizeIMEM = totalTextSize;

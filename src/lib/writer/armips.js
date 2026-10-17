@@ -5,7 +5,7 @@
 import { TYPE_ALIGNMENT, TYPE_ASM_DEF, TYPE_SIZE } from '../dataTypes/dataTypes';
 import {getAsmLabels, getAttrLoaderLabel, getAttrPatchLabel, stringifyInstr} from './utils';
 
-function writeStateVar(stateVar, writeLine) {
+function writeStateVar(stateVar, writeLines) {
   const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
   const byteSize = TYPE_SIZE[stateVar.varType] * arraySize;
   let align = TYPE_ALIGNMENT[stateVar.varType];
@@ -16,11 +16,11 @@ function writeStateVar(stateVar, writeLine) {
   const values = stateVar.value || [];
 
   if(align > 0) {
-    writeLine(`    .align ${align}`);
+    writeLines(`    .align ${align}`);
   }
 
   if(values.length === 0) {
-    writeLine(`    ${stateVar.varName}: .fill ${byteSize},0`);
+    writeLines(`    ${stateVar.varName}: .fill ${byteSize},0`);
   } else {
     const asmType = TYPE_ASM_DEF[stateVar.varType];
     const data = new Array(asmType.count * arraySize).fill(0);
@@ -30,41 +30,41 @@ function writeStateVar(stateVar, writeLine) {
     for(let i=0; i<values.length; ++i) {
       data[i] = values[i];
     }
-    writeLine(`    ${stateVar.varName}: .${asmType.typeArmips} ${data.join(", ")}`);
+    writeLines(`    ${stateVar.varName}: .${asmType.typeArmips} ${data.join(", ")}`);
   }
   return byteSize;
 }
 
-export function writeArmipsHeader(ast, functionsAsm, writeLine, writeLines) 
+export function writeArmipsHeader(ast, functionsAsm, writeLines) 
 {
   writeLines(['', ".rsp", '.create "dmem", 0x0000']);
 
   let totalSaveByteSize = 0;
-  writeLine("  STATE_MEM_START:");
+  writeLines("  STATE_MEM_START:");
 
   for(const stateVar of ast.state) {
     if(stateVar.extern)continue;
-    totalSaveByteSize += writeStateVar(stateVar, writeLine);
+    totalSaveByteSize += writeStateVar(stateVar, writeLines);
   }
 
-  writeLine("  STATE_MEM_END:");
+  writeLines("  STATE_MEM_END:");
 
   if(ast.stateData.length > 0) {
-    writeLine("");
+    writeLines("");
     for(const tmpVar of ast.stateData) {
       if(tmpVar.extern)continue;
-      totalSaveByteSize += writeStateVar(tmpVar, writeLine);
+      totalSaveByteSize += writeStateVar(tmpVar, writeLines);
     }
   }
 
   if(ast.stateBss.length > 0) {
-    writeLine("");
-    writeLine("  TEMP_STATE_MEM_START:");
+    writeLines("");
+    writeLines("  TEMP_STATE_MEM_START:");
     for(const tmpVar of ast.stateBss) {
       if(tmpVar.extern)continue;
-      totalSaveByteSize += writeStateVar(tmpVar, writeLine);
+      totalSaveByteSize += writeStateVar(tmpVar, writeLines);
     }
-    writeLine("  TEMP_STATE_MEM_END:");
+    writeLines("  TEMP_STATE_MEM_END:");
   }
 
   writeLines([
