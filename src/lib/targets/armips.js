@@ -78,6 +78,8 @@ function writeHeader(ast, functionsAsm, writeLines)
   return totalSaveByteSize;
 }
 
-export default {
+/** @type {Target} */
+const target = {
   writeHeader
 };
+export default target;

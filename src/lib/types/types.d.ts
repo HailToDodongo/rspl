@@ -66,7 +66,13 @@ declare global {
         debugInfo: boolean;
     };
 
+    
+    type WriteLines = (lines: string | string[]) => void;
+    type WriteStateVar = (stateVar: ASTState, writeLines: WriteLines) => number;
+
     type Target = {
-      writeHeader: (ast, functionsAsm, writeLines, writeStateVar) => number;
-    }
+        writeHeader: (ast: AST, functionsAsm: ASMFunc[], writeLines: WriteLines, writeStateVar: WriteStateVar) => number;
+    };
 }
+
+export {};
