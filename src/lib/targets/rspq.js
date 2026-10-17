@@ -82,9 +82,18 @@ function labelAddr(label, offset = 0)
   return `%lo(${label})`;
 }
 
+/**
+ * @param {ASM} asm
+ * @returns {string}
+ */
+function writeInstr(asm) {
+  return getAsmLabels(asm) + asm.op + (asm.args.length ? (" " + asm.args.join(", ")) : "");
+}
+
 /** @type {Target} */
 const target = {
   writeHeader,
-  labelAddr
+  labelAddr,
+  writeInstr
 };
 export default target;

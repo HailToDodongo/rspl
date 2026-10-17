@@ -3,7 +3,34 @@
 * @license Apache-2.0
 */
 import { TYPE_ALIGNMENT, TYPE_ASM_DEF, TYPE_SIZE } from '../dataTypes/dataTypes';
-import {getAsmLabels, getAttrLoaderLabel, getAttrPatchLabel, stringifyInstr} from '../writer/utils';
+import { LOAD_OPS_VECTOR, STORE_OPS } from '../optimizer/asmScanDeps';
+import {getAsmLabels} from '../writer/utils';
+import state from '../state.js';
+
+// vector loads/stores that have the "reg[element], offset(base)" syntax
+const MEM_OPS_VECTOR = [...LOAD_OPS_VECTOR, ...STORE_OPS.filter(op => op.length === 3 && op.endsWith("v"))];
+
+const ELEMENT_MAP = {
+  v: "",
+  q0: "[0q]", q1: "[1q]",
+  h0: "[0h]", h1: "[1h]", h2: "[2h]", h3: "[3h]",
+  e0: "[0]", e1: "[1]", e2: "[2]", e3: "[3]",
+  e4: "[4]", e5: "[5]", e6: "[6]", e7: "[7]",
+};
+
+/**
+ * map lanes to armips "$v01.e0" => "$v01[0]"
+ * @param {string} arg
+ * @returns {string}
+ */
+function elementArg(arg)
+{
+  if(typeof arg !== "string" || !arg.startsWith("$") || !arg.includes("."))return arg;
+  const [reg, element] = arg.split(".");
+  const mapped = ELEMENT_MAP[element];
+  if(mapped === undefined)state.throwError(`Unknown vector element '${element}' in '${arg}'!`);
+  return reg + mapped;
+}
 
 function writeStateVar(stateVar, writeLines) {
   const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
@@ -87,14 +114,35 @@ function labelAddr(label, offset = 0)
 {
   offset = parseInt(offset) || 0;
   if(offset != 0) {
-    return `%lo(${label} ${offset < 0 ? "" : "+"} ${offset})`;
+    return `lo(${label} ${offset < 0 ? "" : "+"} ${offset})`;
   }
-  return `%lo(${label})`;
+  return `lo(${label})`;
+}
+
+/**
+ * @param {ASM} asm
+ * @returns {string}
+ */
+function writeInstr(asm) 
+{
+  let args = "";
+  const a = asm.args;
+  if(a)
+  {
+    if(MEM_OPS_VECTOR.includes(asm.op)) {
+      args = `${a[0]}[${a[1]}], ${a[2]}(${a[3]})`;
+    } else {
+      args = a.map(elementArg).join(", ");
+    }
+  }
+
+  return getAsmLabels(asm) + asm.op + ' ' + args;
 }
 
 /** @type {Target} */
 const target = {
   writeHeader,
-  labelAddr
+  labelAddr,
+  writeInstr
 };
 export default target;

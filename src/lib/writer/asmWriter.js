@@ -207,7 +207,9 @@ export function writeASM(ast, functionsAsm)
       // ASM Text output
       switch (asm.type) {
         case ASM_TYPE.INLINE:
-        case ASM_TYPE.OP: writeLines(`  ${tag}${stringifyInstr(asm).padEnd(debugInfo ? 50 : 0, ' ')}${debugInfo}`); break;
+        case ASM_TYPE.OP: 
+          writeLines(`  ${tag}${state.target.writeInstr(asm).padEnd(debugInfo ? 50 : 0, ' ')}${debugInfo}`); 
+        break;
         case ASM_TYPE.LABEL: writeLines(`  ${tag}${asm.label}:`); break;
         default: state.throwError("Unknown ASM type: " + asm.type, asm);
       }
