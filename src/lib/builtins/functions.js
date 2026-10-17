@@ -765,6 +765,11 @@ function DMA_SIZE(width, height) {
 }
 
 function genericDMA(varRes, args, swizzle, builtinName, dmaName) {
+
+  if(state.config.armips) {
+    state.throwError("DMA functions wrappers are only available in libdragon!", varRes);
+  }
+
   assertArgsNoSwizzle(args);
   if(swizzle)state.throwError("Builtin "+builtinName+"() cannot use swizzle!", varRes);
   if(varRes)state.throwError("Builtin "+builtinName+"() cannot have a left side!", varRes);

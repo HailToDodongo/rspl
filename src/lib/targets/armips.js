@@ -3,12 +3,15 @@
 * @license Apache-2.0
 */
 import { TYPE_ALIGNMENT, TYPE_ASM_DEF, TYPE_SIZE } from '../dataTypes/dataTypes';
-import { LOAD_OPS_VECTOR, STORE_OPS } from '../optimizer/asmScanDeps';
+import { LOAD_OPS_SCALAR, LOAD_OPS_VECTOR, STORE_OPS } from '../optimizer/asmScanDeps';
 import {getAsmLabels} from '../writer/utils';
 import state from '../state.js';
 
 // vector loads/stores that have the "reg[element], offset(base)" syntax
 const MEM_OPS_VECTOR = [...LOAD_OPS_VECTOR, ...STORE_OPS.filter(op => op.length === 3 && op.endsWith("v"))];
+// scalar loads/stores always need a base register
+const MEM_OPS_SCALAR = [...LOAD_OPS_SCALAR, ...STORE_OPS.filter(op => op.length === 2)];
+const HAS_BASE_REG = /\(\$\w+\)$/;
 
 const ELEMENT_MAP = {
   v: "",
@@ -131,6 +134,8 @@ function writeInstr(asm)
   {
     if(MEM_OPS_VECTOR.includes(asm.op)) {
       args = `${a[0]}[${a[1]}], ${a[2]}(${a[3]})`;
+    } else if(MEM_OPS_SCALAR.includes(asm.op) && !HAS_BASE_REG.test(a[1])) {
+      args = `${a[0]}, ${a[1]}($zero)`;
     } else {
       args = a.map(elementArg).join(", ");
     }
