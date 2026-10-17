@@ -21,6 +21,26 @@ const ELEMENT_MAP = {
   e4: "[4]", e5: "[5]", e6: "[6]", e7: "[7]",
 };
 
+// See: https://github.com/Kingcom/armips/blob/62adab4ef30da765f5cf22a451eb08a59c54dc8b/Archs/MIPS/MipsParser.cpp#L103
+const COP0_REG = {
+  COP0_DMA_SPADDR:   "sp_mem_addr",  // 0
+  COP0_DMA_RAMADDR:  "sp_dram_addr", // 1
+  COP0_DMA_READ:     "sp_rd_len",    // 2
+  COP0_DMA_WRITE:    "sp_wr_len",    // 3
+  COP0_SP_STATUS:    "sp_status",    // 4
+  COP0_DMA_FULL:     "sp_dma_full",  // 5
+  COP0_DMA_BUSY:     "sp_dma_busy",  // 6
+  COP0_SEMAPHORE:    "sp_semaphore", // 7
+  COP0_DP_START:     "dpc_start",    // 8
+  COP0_DP_END:       "dpc_end",      // 9
+  COP0_DP_CURRENT:   "dpc_current",  // 10
+  COP0_DP_STATUS:    "dpc_status",   // 11
+  COP0_DP_CLOCK:     "dpc_clock",    // 12
+  COP0_DP_BUSY:      "dpc_bufbusy",  // 13
+  COP0_DP_PIPE_BUSY: "dpc_pipebusy", // 14
+  COP0_DP_TMEM_BUSY: "dpc_tmem",     // 15
+};
+
 /**
  * map lanes to armips "$v01.e0" => "$v01[0]"
  * @param {string} arg
@@ -136,6 +156,10 @@ function writeInstr(asm)
       args = `${a[0]}[${a[1]}], ${a[2]}(${a[3]})`;
     } else if(MEM_OPS_SCALAR.includes(asm.op) && !HAS_BASE_REG.test(a[1])) {
       args = `${a[0]}, ${a[1]}($zero)`;
+    } else if(asm.op === "mtc0" || asm.op === "mfc0") {
+      const reg = COP0_REG[a[1]];
+      if(!reg)state.throwError(`Unknown COP0 register '${a[1]}'!`);
+      args = `${a[0]}, ${reg}`;
     } else {
       args = a.map(elementArg).join(", ");
     }
