@@ -30,7 +30,13 @@ let config = {
   armips: false
 };
 
-for(let i=3; i<process.argv.length; ++i) {
+let inputFile = undefined;
+
+for(let i=2; i<process.argv.length; ++i) {
+  if(!process.argv[i].startsWith("-")) {
+    inputFile = process.argv[i];
+    continue;
+  }
   if(process.argv[i] === "--reorder") {
     config.reorder = true;
   }
@@ -84,13 +90,20 @@ for(let i=3; i<process.argv.length; ++i) {
   }
 }
 
+if(!inputFile) {
+  console.error("Usage: rspl <input.rspl> [-o <output.S>] [--reorder] [--optimize] [--watch] [--armips] [--magma]\n"
+    + "            [--no-rspq-wrapper] [--patch <func,...>] [-D <name>=<value>]\n"
+    + "            [--opt-time=<sec>] [--opt-seed=<n>] [--opt-iters=<n>]");
+  process.exit(1);
+}
+
 let lastFileHash = "";
 
 async function main() {
   registerTask("reorder", reorderTask);
   if(initWorker())return;
 
-  const source = readFileSync(process.argv[2], "utf8");
+  const source = readFileSync(inputFile, "utf8");
 
   const fileHash = crypto.createHash('md5').update(source).digest('hex');
   if(fileHash === lastFileHash) {
@@ -99,12 +112,12 @@ async function main() {
   }
   lastFileHash = fileHash;
 
-  const pathOut = config.output ?? process.argv[2].replace(".rspl", "") + ".S";
+  const pathOut = config.output ?? inputFile.replace(".rspl", "") + ".S";
 
   const selfPath = process.argv.find(arg => arg.includes(".mjs"));
   //const worker = new WorkerThreads(config.optimizeWorker, selfPath);
 
-  const sourceBaseDir = path.dirname(process.argv[2]);
+  const sourceBaseDir = path.dirname(inputFile);
   config.fileLoader =  filePath => readFileSync(path.join(sourceBaseDir, filePath), "utf8");
 
   const finalizeASM = (asmRes, lastRun = false) => {
@@ -136,10 +149,10 @@ async function main() {
 }
 
 if(config.watch) {
-  console.log("Watching for changes on: " + process.argv[2]);
+  console.log("Watching for changes on: " + inputFile);
   let lastChangeTime = 0;
   let isRunning = false;
-  watch(process.argv[2], (eventType, filename) =>
+  watch(inputFile, (eventType, filename) =>
   {
     if(isRunning || eventType !== "change")return;
     if(Date.now() - lastChangeTime < 100)return;
