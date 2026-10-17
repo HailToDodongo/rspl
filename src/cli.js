@@ -113,7 +113,9 @@ async function main() {
   }
   lastFileHash = fileHash;
 
-  const pathOut = config.output ?? inputFile.replace(".rspl", "") + ".S";
+  
+  const outExt = config.armips ? ".rsp" : ".S";
+  const pathOut = config.output ?? inputFile.replace(/\.rspl$/, "") + outExt;
 
   const selfPath = process.argv.find(arg => arg.includes(".mjs"));
   //const worker = new WorkerThreads(config.optimizeWorker, selfPath);
