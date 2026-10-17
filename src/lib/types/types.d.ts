@@ -60,6 +60,7 @@ declare global {
         rspqWrapper: boolean;
         magma: boolean;
         armips: boolean;
+        outputName?: string;
         fileLoader: (path: string) => string;
         defines: Record<string, string>;
         patchFunctions: string[];

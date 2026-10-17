@@ -104,6 +104,7 @@ async function main() {
   if(initWorker())return;
 
   const source = readFileSync(inputFile, "utf8");
+  config.outputName = path.basename(inputFile, path.extname(inputFile));
 
   const fileHash = crypto.createHash('md5').update(source).digest('hex');
   if(fileHash === lastFileHash) {

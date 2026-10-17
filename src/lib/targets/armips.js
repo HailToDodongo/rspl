@@ -87,7 +87,8 @@ function writeStateVar(stateVar, writeLines) {
 
 function writeHeader(ast, functionsAsm, writeLines) 
 {
-  writeLines(['', ".rsp", '.create "dmem", 0x0000']);
+  const name = state.config.outputName || "rsp";
+  writeLines(['', ".rsp", `.create "${name}.dmem", 0x0000`]);
 
   let totalSaveByteSize = 0;
   writeLines("  STATE_MEM_START:");
@@ -119,7 +120,7 @@ function writeHeader(ast, functionsAsm, writeLines)
 
   writeLines([
     '.close', '',
-    '.create "imem", 0x1000', 
+    `.create "${name}.imem", 0x1000`,
     "OVERLAY_CODE_START:", 
     "RSPQ_Loop:",
     ""
