@@ -2,9 +2,9 @@
 * @copyright 2026 - Max Bebök
 * @license Apache-2.0
 */
-import {getAsmLabels, getAttrLoaderLabel, getAttrPatchLabel, stringifyInstr} from './utils';
+import {getAsmLabels, getAttrLoaderLabel, getAttrPatchLabel, stringifyInstr} from '../writer/utils';
 
-export function writeRSPQHeader(ast, functionsAsm, writeLines, writeStateVar) 
+export function writeHeader(ast, functionsAsm, writeLines, writeStateVar) 
 {
   writeLines(["", ".data", "  RSPQ_BeginOverlayHeader"]);
 
@@ -67,3 +67,7 @@ export function writeRSPQHeader(ast, functionsAsm, writeLines, writeStateVar)
 
   return totalSaveByteSize;
 }
+
+export default {
+  writeHeader
+};

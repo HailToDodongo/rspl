@@ -3,7 +3,7 @@
 * @license Apache-2.0
 */
 import { TYPE_ALIGNMENT, TYPE_ASM_DEF, TYPE_SIZE } from '../dataTypes/dataTypes';
-import {getAsmLabels, getAttrLoaderLabel, getAttrPatchLabel, stringifyInstr} from './utils';
+import {getAsmLabels, getAttrLoaderLabel, getAttrPatchLabel, stringifyInstr} from '../writer/utils';
 
 function writeStateVar(stateVar, writeLines) {
   const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
@@ -35,7 +35,7 @@ function writeStateVar(stateVar, writeLines) {
   return byteSize;
 }
 
-export function writeArmipsHeader(ast, functionsAsm, writeLines) 
+function writeHeader(ast, functionsAsm, writeLines) 
 {
   writeLines(['', ".rsp", '.create "dmem", 0x0000']);
 
@@ -77,3 +77,7 @@ export function writeArmipsHeader(ast, functionsAsm, writeLines)
 
   return totalSaveByteSize;
 }
+
+export default {
+  writeHeader
+};

@@ -15,6 +15,9 @@ import {asmInitDeps, asmScanDeps} from "./optimizer/asmScanDeps.js";
 import {evalFunctionCost} from "./optimizer/eval/evalCost.js";
 import {preprocess, stripComments} from "./preproc/preprocess.js";
 import {validateMemory} from "./memory/memoryValidator.js";
+import rspq from "./targets/rspq.js";
+import magma from "./targets/magma.js";
+import armips from "./targets/armips.js";
 
 const grammar = nearly.Grammar.fromCompiled(grammarDef);
 
@@ -112,6 +115,10 @@ export async function transpile(ast, updateCb, config = {})
   state.reset();
   normalizeConfig(config);
   state.config = config; // everything below reads it from here
+
+  state.target = rspq;
+  if(config.magma)state.target = magma;
+  if(config.armips)state.target = armips;
 
   ast.state = astNormalizeState(ast);
   ast.uniforms = astNormalizeUniforms(ast);

@@ -65,4 +65,8 @@ declare global {
         patchFunctions: string[];
         debugInfo: boolean;
     };
+
+    type Target = {
+      writeHeader: (ast, functionsAsm, writeLines, writeStateVar) => number;
+    }
 }

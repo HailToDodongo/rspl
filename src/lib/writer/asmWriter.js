@@ -8,10 +8,11 @@ import state from "../state.js";
 import {ASM_TYPE} from "../intsructions/asmWriter.js";
 import {REGS_SCALAR} from "../syntax/registers.js";
 import {ANNOTATIONS, getAnnotationVal} from "../syntax/annotations.js";
-import { writeMagmaHeader } from "./magma.js";
 import {getAsmLabels, getAttrLoaderLabel, getAttrPatchLabel, stringifyInstr} from './utils';
-import { writeRSPQHeader } from "./rspq.js";
-import { writeArmipsHeader } from "./armips.js";
+
+import rspq from "../targets/rspq.js";
+import armips from "../targets/armips.js";
+import magma from "../targets/magma.js";
 
 /**
  * @param {string[]} incPaths
@@ -135,14 +136,8 @@ export function writeASM(ast, functionsAsm)
   let totalSaveByteSize = 0;
   let totalTextSize = 0;
 
-  if(config.magma) {
-    totalSaveByteSize += writeMagmaHeader(ast, functionsAsm, writeLines, writeStateVar);
-  } else if(config.armips) {
-    totalSaveByteSize += writeArmipsHeader(ast, functionsAsm, writeLines, writeStateVar);
-  } else {
-    totalSaveByteSize += writeRSPQHeader(ast, functionsAsm, writeLines, writeStateVar);
-  }
-
+  totalSaveByteSize += state.target.writeHeader(ast, functionsAsm, writeLines, writeStateVar);
+  
   if(!config.rspqWrapper) {
     state.line = 1;
     res.asm = "";

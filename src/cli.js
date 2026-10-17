@@ -26,7 +26,8 @@ let config = {
   patchFunctions: [],
   watch: false,
   debugInfo: true,
-  magma: false
+  magma: false,
+  armips: false
 };
 
 for(let i=3; i<process.argv.length; ++i) {

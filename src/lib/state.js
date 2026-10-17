@@ -13,6 +13,7 @@ import {
 } from "./syntax/registers.js";
 import {isVecType, isTwoRegType, TYPE_SIZE, SCALAR_TYPES, VEC_CASTS} from "./dataTypes/dataTypes.js";
 import {validateAnnotation} from "./syntax/annotations.js";
+import rspq from "./targets/rspq.js";
 
 const state =
 {
@@ -37,6 +38,9 @@ const state =
 
   /** @type {Record<string, FuncDef>} */
   funcMap: {}, // function names to function objects
+
+  /** @type {Target} target */
+  target: rspq,
 
   reset() {
     state.config = {};

@@ -2,7 +2,7 @@
 * @copyright 2026 - Max Bebök
 * @license Apache-2.0
 */
-import {getAsmLabels, getAttrLoaderLabel, getAttrPatchLabel, stringifyInstr} from './utils';
+import {getAsmLabels, getAttrLoaderLabel, getAttrPatchLabel, stringifyInstr} from '../writer/utils';
 
 /**
  * 
@@ -43,7 +43,7 @@ function collectAttrLoaders(functionsAsm) {
  * @param {(line: any[]) => void} writeLines 
  * @returns 
  */
-export function writeMagmaHeader(ast, functionsAsm, writeLines, writeStateVar) {
+export function writeHeader(ast, functionsAsm, writeLines, writeStateVar) {
   let totalSaveByteSize = 0;
 
   writeLines(["", "MgBeginShaderUniforms"]);
@@ -82,3 +82,7 @@ export function writeMagmaHeader(ast, functionsAsm, writeLines, writeStateVar) {
 
   return totalSaveByteSize;
 }
+
+export default {
+  writeHeader
+};
