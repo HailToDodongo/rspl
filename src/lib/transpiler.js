@@ -111,13 +111,14 @@ export async function transpile(ast, updateCb, config = {})
 {
   state.reset();
   normalizeConfig(config);
+  state.config = config; // everything below reads it from here
 
-  ast.state = astNormalizeState(ast, config);
-  ast.uniforms = astNormalizeUniforms(ast, config);
-  ast.attributes = astNormalizeAttributes(ast, config);
-  validateMemory(ast, ast.states, config);
+  ast.state = astNormalizeState(ast);
+  ast.uniforms = astNormalizeUniforms(ast);
+  ast.attributes = astNormalizeAttributes(ast);
+  validateMemory(ast, ast.states);
 
-  ast.functions = astNormalizeFunctions(ast, config);
+  ast.functions = astNormalizeFunctions(ast);
   const functionsAsm = ast2asm(ast);
 
   for(const func of functionsAsm) {
@@ -127,7 +128,7 @@ export async function transpile(ast, updateCb, config = {})
   let debugUnopt = {};
 
   const generateASM = () => {
-    const {asm, debug, sizeDMEM, sizeIMEM} = writeASM(ast, functionsAsm, config);
+    const {asm, debug, sizeDMEM, sizeIMEM} = writeASM(ast, functionsAsm);
   //console.timeEnd("writeASM");
 
     const usageImemPercent = sizeDMEM / 4096 * 100;
@@ -154,12 +155,12 @@ export async function transpile(ast, updateCb, config = {})
     {
       if(config.patchFunctions.length && !config.patchFunctions.includes(func.name))continue;
 
-      writeASM(ast, functionsAsm, config);
+      writeASM(ast, functionsAsm);
       asmInitDeps(func);
       asmScanDeps(func); // debugging only
     }
 
-    const resUnopt = writeASM(ast, functionsAsm, config);
+    const resUnopt = writeASM(ast, functionsAsm);
     asmUnoptimized = resUnopt.asm;
     debugUnopt = resUnopt.debug;
     resetReorderStats();
@@ -178,7 +179,7 @@ export async function transpile(ast, updateCb, config = {})
           func.asm = structuredClone(bestFunc.asm);
           func.cyclesAfter = bestFunc.cyclesAfter;
           return updateCb(generateASM());
-        } : undefined, config);
+        } : undefined);
         if(config.reorder)console.timeEnd("asmOptimize");
 
         asmScanDeps(func); // debugging only

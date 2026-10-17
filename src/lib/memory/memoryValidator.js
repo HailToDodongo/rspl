@@ -12,9 +12,8 @@ const STATE_NAMES = ["state", "data", "bss"];
  * validates state memory
  * @param {AST} ast
  * @param {Array<{name: string; vars: ASTState[]}>} states
- * @param {RSPLConfig} config
  */
-export const validateMemory = (ast, states, config) =>
+export const validateMemory = (ast, states) =>
 {
   state.func = "state";
 
@@ -53,7 +52,7 @@ export const validateMemory = (ast, states, config) =>
   let currentAddr = 0;
   let lastVar = stateVars[0];
   for(const stateVar of stateVars) {
-    if (config.magma && !stateVar.extern) {
+    if (state.config.magma && !stateVar.extern) {
       state.throwError("Only extern states are allowed when compiling for magma!", stateVar);
     }
 

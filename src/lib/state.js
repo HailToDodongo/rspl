@@ -16,6 +16,8 @@ import {validateAnnotation} from "./syntax/annotations.js";
 
 const state =
 {
+  /** @type {RSPLConfig} active config */
+  config: {},
   nextLabelId: 0,
   func: "",
   funcType: "",
@@ -37,6 +39,7 @@ const state =
   funcMap: {}, // function names to function objects
 
   reset() {
+    state.config = {};
     state.nextLabelId = 0;
     state.func = "";
     state.funcType = "";

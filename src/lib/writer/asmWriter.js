@@ -72,11 +72,11 @@ function writeStateVar(stateVar, writeLines) {
  * Writes the ASM of all functions and the AST into a string.
  * @param {AST} ast
  * @param {ASMFunc[]} functionsAsm
- * @param {RSPLConfig} config
  * @returns {ASMOutput}
  */
-export function writeASM(ast, functionsAsm, config)
+export function writeASM(ast, functionsAsm)
 {
+  const config = state.config;
   state.func = "(ASM)";
   state.line = 0;
 

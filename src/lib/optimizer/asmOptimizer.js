@@ -22,6 +22,7 @@ import {dedupeImmediate} from "./pattern/dedupeImm.js";
 import {mergeSequence} from "./pattern/mergeSequence.js";
 import {removeDeadCode} from "./pattern/removeDeadCode.js";
 import {sleep} from "../utils.js";
+import state from "../state.js";
 import {commandAlias} from "./pattern/commandAlias.js";
 import {assertCompare} from "./pattern/assertCompare.js";
 //import {registerTask, WorkerThreads} from "../workerThreads.js";
@@ -331,10 +332,10 @@ export function printReorderStats() {
  * interleave vector instructions, and minimize stalls.
  * @param {ASMFunc} asmFunc
  * @param {function|undefined} updateCb
- * @param {RSPLConfig} config
  */
-export async function asmOptimize(asmFunc, updateCb, config)
+export async function asmOptimize(asmFunc, updateCb)
 {
+  const config = state.config;
   const funcName = asmFunc.name || "(???)";
   if(!config.reorder) {
     fillDelaySlots(asmFunc);

@@ -258,10 +258,9 @@ function normalizeScopedBlock(block, astState, macros)
 
 /**
  * @param {AST} ast
- * @param {RSPLConfig} config
  * @returns {ASTFunc[]}
  */
-export function astNormalizeFunctions(ast, config)
+export function astNormalizeFunctions(ast)
 {
   const astFunctions = ast.functions;
 
@@ -286,7 +285,7 @@ export function astNormalizeFunctions(ast, config)
     }
 
     if(block.type === "command") {
-      if(config.magma) {
+      if(state.config.magma) {
         state.throwError("Commands must not be defined when compiling for magma (define a 'shader' instead)!", block);
       }
       if(block.resultType === null) {
@@ -305,7 +304,7 @@ export function astNormalizeFunctions(ast, config)
     }
 
     if(block.type === "shader") {
-      if(!config.magma) {
+      if(!state.config.magma) {
         state.throwError("Shaders are only allowed when compiling for magma (pass '--magma' on the command line)!", block);
       }
       if(shaderCount > 0) {
@@ -321,7 +320,7 @@ export function astNormalizeFunctions(ast, config)
     }
   }
 
-  if(config.magma && shaderCount === 0) {
+  if(state.config.magma && shaderCount === 0) {
     state.throwError("Exactly one shader must be defined when compiling for magma (use 'shader')!");
   }
 
@@ -338,10 +337,9 @@ export function astNormalizeFunctions(ast, config)
 
 /**
  * @param {AST} ast
- * @param {RSPLConfig} config
  * @returns {ASTState[]}
  */
-export function astNormalizeState(ast, config)
+export function astNormalizeState(ast)
 {
   const astState = ast.state;
   return astState;
@@ -349,10 +347,9 @@ export function astNormalizeState(ast, config)
 
 /**
  * @param {AST} ast
- * @param {RSPLConfig} config
  * @returns {ASTUniform[]}
  */
-export function astNormalizeUniforms(ast, config)
+export function astNormalizeUniforms(ast)
 {
   const astUniforms = ast.uniforms;
 
@@ -360,7 +357,7 @@ export function astNormalizeUniforms(ast, config)
   const usedBindingNumbers = new Set(astUniforms.map(u => u.binding));
 
   for(const uniform of astUniforms) {
-    if(!config.magma) {
+    if(!state.config.magma) {
       state.throwError("Uniforms are only allowed when compiling for magma (pass '--magma' on the command line)!", uniform);
     }
     if(typeof uniform.binding === 'number') {
@@ -380,10 +377,9 @@ export function astNormalizeUniforms(ast, config)
 
 /**
  * @param {AST} ast
- * @param {RSPLConfig} config
  * @returns {ASTAttribute[]}
  */
-export function astNormalizeAttributes(ast, config)
+export function astNormalizeAttributes(ast)
 {
   const astAttributes = ast.attributes;
 
@@ -391,7 +387,7 @@ export function astNormalizeAttributes(ast, config)
   const usedInputNumbers = new Set(astAttributes.map(u => u.binding));
 
   for(const attribute of astAttributes) {
-    if (!config.magma) {
+    if (!state.config.magma) {
       state.throwError("Attributes are only allowed when compiling for magma (pass '--magma' on the command line)!", attribute);
     }
     if(typeof attribute.binding == 'number') {
