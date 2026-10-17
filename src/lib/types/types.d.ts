@@ -75,6 +75,7 @@ declare global {
         writeHeader: (ast: AST, functionsAsm: ASMFunc[], writeLines: WriteLines, writeStateVar: WriteStateVar) => number;
         labelAddr: (label: string, offset: number) => string;
         writeInstr: (asm: ASM) => string;
+        labelQueue: string;
     };
 }
 

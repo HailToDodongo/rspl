@@ -121,8 +121,7 @@ function writeHeader(ast, functionsAsm, writeLines)
   writeLines([
     '.close', '',
     `.create "${name}.imem", 0x1000`,
-    "OVERLAY_CODE_START:", 
-    "RSPQ_Loop:",
+    "OVERLAY_CODE_START:",
     ""
   ]);
 
@@ -173,6 +172,7 @@ function writeInstr(asm)
 const target = {
   writeHeader,
   labelAddr,
-  writeInstr
+  writeInstr,
+  labelQueue: 'Queue'
 };
 export default target;

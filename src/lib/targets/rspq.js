@@ -94,6 +94,7 @@ function writeInstr(asm) {
 const target = {
   writeHeader,
   labelAddr,
-  writeInstr
+  writeInstr,
+  labelQueue: 'RSPQ_Loop'
 };
 export default target;

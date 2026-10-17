@@ -2,9 +2,8 @@
 * @copyright 2024 - Max Bebök
 * @license Apache-2.0
 */
+import state from "../../state.js";
 import {OP_FLAG_IS_NOP} from "../asmScanDeps.js";
-
-const KNOWN_END_JUMPS = ["RSPQ_Loop"];
 
 /**
  * If a return to the main loop happens right after a function call,
@@ -22,6 +21,9 @@ const KNOWN_END_JUMPS = ["RSPQ_Loop"];
 export function tailCall(asmFunc)
 {
   if(asmFunc.type !== "command")return; // only works when one level deep
+
+  const KNOWN_END_JUMPS = [state.target.labelQueue];
+
   const lines = asmFunc.asm;
   for(let i=0; i<lines.length; ++i)
   {

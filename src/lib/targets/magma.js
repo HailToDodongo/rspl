@@ -88,6 +88,7 @@ export function writeHeader(ast, functionsAsm, writeLines, writeStateVar) {
 const target = {
   writeHeader,
   labelAddr: rspq.labelAddr,
-  writeInstr: rspq.writeInstr
+  writeInstr: rspq.writeInstr,
+  labelQueue: rspq.labelQueue,
 };
 export default target;

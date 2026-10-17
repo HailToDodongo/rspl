@@ -13,7 +13,6 @@ import {opBranch} from "./operations/branch.js";
 import {callUserFunction} from "./operations/userFunction.js";
 import {isVecType, isTwoRegType} from "./dataTypes/dataTypes.js";
 import {POW2_SWIZZLE_VAR} from "./syntax/swizzle.js";
-import {LABEL_CMD_LOOP} from "./builtins/libdragon.js";
 import scalar from "./operations/scalar";
 import {ANNOTATIONS, getAnnotationVal} from "./syntax/annotations.js";
 import {astCalcPartsToASM} from "./astCalcNormalizer.js";
@@ -470,7 +469,7 @@ function scopedBlockToASMInner(block, args = [], isCommand = false)
       } break;
 
       case "exit": {
-        res.push(asm("j", [LABEL_CMD_LOOP]), asmNOP());
+        res.push(asm("j", [state.target.labelQueue]), asmNOP());
       } break;
 
       case "continue": {
@@ -591,7 +590,7 @@ export function ast2asm(ast)
 
       if(needsReturn) {
         if(["command", "shader"].includes(block.type)) {
-          blockAsm.push(asm("j", [LABEL_CMD_LOOP]), asmNOP());
+          blockAsm.push(asm("j", [state.target.labelQueue]), asmNOP());
         } else {
           blockAsm.push(asm("jr", [REG.RA]), asmNOP());
         }

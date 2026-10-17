@@ -32,5 +32,4 @@ export const DMA_FLAGS = {
   DMA_OUT      : 0xFFFF8000 | SP_STATUS.DMA_BUSY | SP_STATUS.DMA_FULL,
 };
 
-export const LABEL_CMD_LOOP = "RSPQ_Loop";
 export const LABEL_ASSERT = "assertion_failed";
