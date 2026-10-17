@@ -277,6 +277,9 @@ export function astNormalizeFunctions(ast)
     }
   }
 
+  let nextCommandIndex = 0;
+  const commandByIndex = {};
+
   for(const block of astFunctions) {
     if(!["function", "command", "macro", "shader"].includes(block.type) || !block.body)continue;
 
@@ -288,9 +291,11 @@ export function astNormalizeFunctions(ast)
       if(state.config.magma) {
         state.throwError("Commands must not be defined when compiling for magma (define a 'shader' instead)!", block);
       }
-      if(block.resultType === null) {
-        state.throwError("Commands must specify an index (e.g. 'command<4>')!", block);
-      }
+      if(block.resultType === null)block.resultType = nextCommandIndex;
+      const other = commandByIndex[block.resultType];
+      if(other)state.throwError(`Command index ${block.resultType} is already used by '${other}'!`, block);
+      commandByIndex[block.resultType] = block.name;
+      nextCommandIndex = block.resultType + 1;
     }
 
     if(block.type === "macro") {
