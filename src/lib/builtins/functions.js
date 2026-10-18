@@ -365,7 +365,7 @@ function inlineAsm(varRes, args, swizzle) {
     }
   }
 
-  return [asmInline(str, ["# inline-ASM"])];
+  return [asmInline(str, [state.config.armips ? "// inline-ASM" : "# inline-ASM"])];
 }
 
 /**

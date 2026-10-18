@@ -266,6 +266,8 @@ export function writeASM(ast, functionsAsm)
   const postIncs = generateIncs(ast.postIncludes);
   for(const inc of postIncs)writeLines(inc);
 
+  if(state.target.writeFooter)state.target.writeFooter(ast, functionsAsm, writeLines);
+
   res.sizeDMEM = totalSaveByteSize;
   res.sizeIMEM = totalTextSize;
   return res;

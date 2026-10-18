@@ -129,6 +129,28 @@ function writeHeader(ast, functionsAsm, writeLines)
 }
 
 /**
+ * Lets armips generate a C header with the addresses of all memory variables and functions/commands
+ * @param {AST} ast
+ * @param {ASMFunc[]} functionsAsm
+ * @param {WriteLines} writeLines
+ */
+function writeFooter(ast, functionsAsm, writeLines)
+{
+  const name = state.config.outputName || "rsp";
+  const symbols = [
+    ...[...ast.state, ...ast.stateData, ...ast.stateBss].filter(v => !v.extern).map(v => v.varName),
+    ...functionsAsm.filter(f => ["function", "command"].includes(f.type) && f.asm.length > 0).map(f => f.name),
+  ];
+  const width = Math.max(...symbols.map(s => s.length), 0);
+
+  writeLines([`.create "${name}.h", 0`]);
+  for(const sym of symbols) {
+    writeLines(`  .ascii "  constexpr uint32_t ${sym.padEnd(width)} = 0x", tohex(${sym}, 4), ";", 10`);
+  }
+  writeLines([".close", ""]);
+}
+
+/**
  * @param {string} label 
  * @param {number} offset 
  * @returns {string}
@@ -173,6 +195,7 @@ const target = {
   writeHeader,
   labelAddr,
   writeInstr,
-  labelQueue: 'Queue'
+  labelQueue: 'Queue',
+  writeFooter
 };
 export default target;
