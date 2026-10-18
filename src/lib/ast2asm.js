@@ -450,9 +450,9 @@ function scopedBlockToASMInner(block, args = [], isCommand = false)
       break;
 
       case "goto" : {
-        // check if we jump to a label or variable
-        const refJump = state.getVarReg(st.label) || st.label;
-        res.push(asm("j", [refJump]), asmNOP());
+        // a variable holds the address, a label is jumped to directly
+        const reg = state.getVarReg(st.label);
+        res.push(reg ? asm("jr", [reg]) : asm("j", [st.label]), asmNOP());
       } break;
       case "if"   : res.push(...ifToASM(st));           break;
       case "while": res.push(...whileToASM(st));        break;

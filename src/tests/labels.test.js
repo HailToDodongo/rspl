@@ -60,4 +60,21 @@ function test()
     expect(warn).toBe("");
     expect(asm).toContain("%lo(MY_TARGET)");
   });
+
+  test('Goto through a register variable is a jr', async () => {
+    const {asm, warn} = await transpileSource(`
+function test(u32<$t2> arg0, u32<$t3> target)
+{
+  if(arg0 == 0) {
+    loop {}
+  }
+  goto target;
+}
+`, CONF);
+    expect(warn).toBe("");
+    expect(asm).toContain("jr $t3");
+    
+    expect(asm).not.toContain("j $t3");
+    expect(asm).not.toContain(", $t3\n");
+  });
 });
