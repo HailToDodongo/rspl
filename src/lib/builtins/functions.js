@@ -522,6 +522,9 @@ function get_rdp_current(varRes, args, swizzle) {
 function get_ticks(varRes, args, swizzle) {
   return generic_mfc0_read(varRes, args, swizzle, "get_ticks", REG_COP0.DP_CLOCK);
 }
+function get_rsp_status(varRes, args, swizzle) {
+  return generic_mfc0_read(varRes, args, swizzle, "set_rsp_status", REG_COP0.SP_STATUS);
+}
 
 function set_rdp_start(varRes, args, swizzle) {
   return generic_mfc0_write(varRes, args, swizzle, "set_rdp_dpc_start", REG_COP0.DP_START);
@@ -994,7 +997,7 @@ export default {
   set_rdp_start, set_rdp_end, set_rdp_current,
   set_dma_addr_rsp, set_dma_addr_rdram, set_dma_write, set_dma_read,
   dma_in, dma_out, dma_in_async, dma_out_async, dma_await,
-  set_rsp_status,
+  set_rsp_status, get_rsp_status,
   invert_half, invert_half_sqrt, invert, swap, select,
   get_cmd_address, get_vcc, max, min, load_arg,
   assert
