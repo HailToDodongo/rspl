@@ -95,6 +95,7 @@ const target = {
   writeHeader,
   labelAddr,
   writeInstr,
-  labelQueue: 'RSPQ_Loop'
+  labelQueue: 'RSPQ_Loop',
+  alignDirective: (bytes) => `.align ${Math.log2(bytes)}`
 };
 export default target;

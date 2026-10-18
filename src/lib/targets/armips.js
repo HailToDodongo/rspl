@@ -58,7 +58,8 @@ function elementArg(arg)
 function writeStateVar(stateVar, writeLines) {
   const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
   const byteSize = TYPE_SIZE[stateVar.varType] * arraySize;
-  let align = TYPE_ALIGNMENT[stateVar.varType];
+  // armips aligns in bytes
+  let align = 1 << TYPE_ALIGNMENT[stateVar.varType];
   if(stateVar.align !== 0) {
     align = stateVar.align;
   }
@@ -196,6 +197,7 @@ const target = {
   labelAddr,
   writeInstr,
   labelQueue: 'Queue',
-  writeFooter
+  writeFooter,
+  alignDirective: (bytes) => `.align ${bytes}`
 };
 export default target;

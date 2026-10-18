@@ -147,7 +147,10 @@ export function writeASM(ast, functionsAsm)
     if(block.asm.length === 0)return;
 
     const align = getAnnotationVal(block.annotations, ANNOTATIONS.Align, 0) || 0;
-    if (align) writeLines(`.align ${alignToExp(align)}`);
+    if (align) {
+      alignToExp(align);
+      writeLines(state.target.alignDirective(align));
+    }
 
     if (block.type !== "shader") writeLines(block.name + ":");
 

@@ -90,5 +90,6 @@ const target = {
   labelAddr: rspq.labelAddr,
   writeInstr: rspq.writeInstr,
   labelQueue: rspq.labelQueue,
+  alignDirective: (bytes) => `.align ${Math.log2(bytes)}`
 };
 export default target;
