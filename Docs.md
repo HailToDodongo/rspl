@@ -802,9 +802,11 @@ Similar to the ones above, there are function to read/write to the MFC0 register
 - `get_rdp_start()` 
 - `get_rdp_end()`
 - `get_rdp_current()`
+- `get_rdp_status()`
 - `set_rdp_start(int value)`
 - `set_rdp_end(int value)`
 - `set_rdp_current(int value)`
+- `set_rdp_status(int value)`
 - `set_dma_addr_rsp(int value)`
 - `set_dma_addr_rdram(int value)`
 - `set_dma_write(int value)`

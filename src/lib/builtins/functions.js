@@ -519,6 +519,9 @@ function get_rdp_end(varRes, args, swizzle) {
 function get_rdp_current(varRes, args, swizzle) {
   return generic_mfc0_read(varRes, args, swizzle, "get_rdp_dpc_current", REG_COP0.DP_CURRENT);
 }
+function get_rdp_status(varRes, args, swizzle) {
+  return generic_mfc0_read(varRes, args, swizzle, "get_rdp_status", REG_COP0.DP_STATUS);
+}
 function get_ticks(varRes, args, swizzle) {
   return generic_mfc0_read(varRes, args, swizzle, "get_ticks", REG_COP0.DP_CLOCK);
 }
@@ -534,6 +537,9 @@ function set_rdp_end(varRes, args, swizzle) {
 }
 function set_rdp_current(varRes, args, swizzle) {
   return generic_mfc0_write(varRes, args, swizzle, "set_rdp_dpc_current", REG_COP0.DP_CURRENT);
+}
+function set_rdp_status(varRes, args, swizzle) {
+  return generic_mfc0_write(varRes, args, swizzle, "set_rdp_status", REG_COP0.DP_STATUS);
 }
 function set_dma_addr_rsp(varRes, args, swizzle) {
   return generic_mfc0_write(varRes, args, swizzle, "set_dma_addr_rsp", REG_COP0.DMA_SPADDR);
@@ -993,8 +999,8 @@ export default {
   load_transposed, store_transposed, transpose,
   asm: inlineAsm, asm_op, asm_include, print, printf, abs, clip, clear_vcc, get_acc, set_vcc, get_dma_busy,
   get_acc_high, get_acc_mid, get_acc_low,
-  get_rdp_start, get_rdp_end, get_rdp_current, get_ticks,
-  set_rdp_start, set_rdp_end, set_rdp_current,
+  get_rdp_start, get_rdp_end, get_rdp_current, get_rdp_status, get_ticks,
+  set_rdp_start, set_rdp_end, set_rdp_current, set_rdp_status,
   set_dma_addr_rsp, set_dma_addr_rdram, set_dma_write, set_dma_read,
   dma_in, dma_out, dma_in_async, dma_out_async, dma_await,
   set_rsp_status, get_rsp_status,

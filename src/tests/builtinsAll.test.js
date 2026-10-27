@@ -47,6 +47,7 @@ testMfc0Read("get_dma_busy", "COP0_DMA_BUSY");
 testMfc0Read("get_rdp_start", "COP0_DP_START");
 testMfc0Read("get_rdp_end", "COP0_DP_END");
 testMfc0Read("get_rdp_current", "COP0_DP_CURRENT");
+testMfc0Read("get_rdp_status", "COP0_DP_STATUS");
 
 // ============================================================================
 // MTC0 Writes
@@ -102,6 +103,7 @@ function testMtc0Write(name, cop0Reg) {
 testMtc0Write("set_rdp_start", "COP0_DP_START");
 testMtc0Write("set_rdp_end", "COP0_DP_END");
 testMtc0Write("set_rdp_current", "COP0_DP_CURRENT");
+testMtc0Write("set_rdp_status", "COP0_DP_STATUS");
 testMtc0Write("set_dma_addr_rsp", "COP0_DMA_SPADDR");
 testMtc0Write("set_dma_addr_rdram", "COP0_DMA_RAMADDR");
 testMtc0Write("set_dma_write", "COP0_DMA_WRITE");
