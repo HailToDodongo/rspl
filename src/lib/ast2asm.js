@@ -13,7 +13,6 @@ import {opBranch} from "./operations/branch.js";
 import {callUserFunction} from "./operations/userFunction.js";
 import {isVecType, isTwoRegType} from "./dataTypes/dataTypes.js";
 import {POW2_SWIZZLE_VAR} from "./syntax/swizzle.js";
-import scalar from "./operations/scalar";
 import {ANNOTATIONS, getAnnotationVal} from "./syntax/annotations.js";
 import {astCalcPartsToASM} from "./astCalcNormalizer.js";
 
@@ -68,18 +67,9 @@ function calcToAsm(calc, varRes)
     case "calcCompare": {
       const varLeft = state.getRequiredVar(calc.left, "left", calc);
       if(!isVecType(varRes.type)) {
-        /** @type {ASTFuncArg} */
-        let varRight;
-        if(calc.right.type === "num") {
-          if(calc.right.value === 0) {
-            varRight = {type: varLeft.type, reg: REG.ZERO};
-          } else {
-            varRight = {type: varLeft.type, reg: REG.AT};
-            scalar.loadImmediate(varRight.reg, calc.right.value);
-          }
-        } else {
-          varRight = state.getRequiredVar(calc.right.value, "right", calc);
-        }
+        const varRight = calc.right.type === "num"
+          ? {type: varLeft.type, value: calc.right.value}
+          : state.getRequiredVar(calc.right.value, "right", calc);
 
         return opsScalar.opCompare(varRes, varLeft, varRight, calc.op, calc.ternary);
       }

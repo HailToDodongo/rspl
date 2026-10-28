@@ -336,13 +336,35 @@ function opDiv(varRes, varLeft, varRight) {
   return opShiftRight(varRes, varLeft, {type: 'u32', value: shiftVal}, varLeft.type.startsWith("u"));
 }
 
+/**
+ * Scalar compare into a variable (0 or 1)
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight var or constant
+ * @param {string} op
+ */
 function opCompare(varRes, varLeft, varRight, op, ternary) {
-  switch(op) {
-    case "<": return [asm("slt", [varRes.reg, varLeft.reg, varRight.reg])];
-    case ">": return [asm("slt", [varRes.reg, varRight.reg, varLeft.reg])];
+  if(op !== "<" && op !== ">") {
+    state.throwError("Compare op '"+op+"' not implemented yet! (@TODO)");
+  }
+  const signed = isSigned(varLeft.type);
+  const isImmediate = varRight.reg === undefined;
+
+  if(op === "<" && isImmediate && u32InS16Range(varRight.value >>> 0)) {
+    return [asm(signed ? "slti" : "sltiu", [varRes.reg, varLeft.reg, varRight.value])];
   }
 
-  state.throwError("Compare op '"+op+"' not implemented yet! (@TODO)");
+  const res = [];
+  let regRight = varRight.reg;
+  if(isImmediate) {
+    regRight = varRight.value === 0 ? REG.ZERO : REG.AT;
+    if(regRight === REG.AT)res.push(...loadImmediate(REG.AT, varRight.value));
+  }
+
+  // "a > b" is "b < a"
+  const [regA, regB] = op === "<" ? [varLeft.reg, regRight] : [regRight, varLeft.reg];
+  res.push(asm(signed ? "slt" : "sltu", [varRes.reg, regA, regB]));
+  return res;
 }
 
 export default {
