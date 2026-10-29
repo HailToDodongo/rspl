@@ -19,7 +19,7 @@ export function callUserFunction(name, args)
       state.throwError("Function "+name+" not known!");
     }
     userFunc = {
-      name: state.getVarReg(name),
+      reg: state.getVarReg(name),
       args: [],
       isRelative: false
     };
@@ -52,6 +52,9 @@ export function callUserFunction(name, args)
   }
 
   const regsArg = userFunc.args.map(arg => arg.reg);
-  res.push(asmFunction(userFunc.name, regsArg, isRelative), asmNOP());
+  // a variable holds the address, a function is called by name
+  res.push(userFunc.reg
+    ? asm("jalr", [userFunc.reg])
+    : asmFunction(userFunc.name, regsArg, isRelative), asmNOP());
   return res;
 }

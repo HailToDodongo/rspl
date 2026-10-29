@@ -77,4 +77,20 @@ function test(u32<$t2> arg0, u32<$t3> target)
     expect(asm).not.toContain("j $t3");
     expect(asm).not.toContain(", $t3\n");
   });
+
+  test('Calling a register variable is a jalr', async () => {
+    const {asm, warn} = await transpileSource(`
+function test(u32<$t3> target)
+{
+  target();
+}
+`, CONF);
+    expect(warn).toBe("");
+    expect(asm).toBe(
+`test:
+  jalr $t3
+  nop
+  jr $ra
+  nop`);
+  });
 });

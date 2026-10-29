@@ -383,7 +383,7 @@ T3DCmd_VertLoad:
   vand $v07, $v17, $v08.h3                           ## L:569  | ***205 | norm = normMask & pos.wwwwWWWW;
   vmudn $v07, $v07, $v16.v                           ## L:570  | ***209 | norm *= normShift;
   addiu $s4, $s4, 32                                 ## L:572  |      ^ | prt3d += 0x20;
-  jal $k1                                            ## L:574  |    210 | vertexFxFunc();
+  jalr $k1                                           ## L:574  |    210 | vertexFxFunc();
   ssv $v13, 6, 32, $s6                               ## L:524  |   *212 | store(screenSize.w, ptrBuffA, 0x20);
 VertexFX_None:
   slv $v03, 4, 12, $s5                               ## L:592  |      ^ | store(uv.zw, ptrBuffB, 0x0C);

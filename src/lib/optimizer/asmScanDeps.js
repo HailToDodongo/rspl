@@ -24,7 +24,7 @@ export const PARTIAL_LOAD_OPS = ["lbv", "lsv", "llv", "ldv", "lrv"];
 // ops that load from RAM, r/w register access
 export const LOAD_OPS = [...LOAD_OPS_SCALAR, ...LOAD_OPS_VECTOR];
 
-export const BRANCH_OPS = ["beq", "bne", "bgezal", "bltzal", "bgez", "bltz", "blez", "bgtz", "j", "jr", "jal"];
+export const BRANCH_OPS = ["beq", "bne", "bgezal", "bltzal", "bgez", "bltz", "blez", "bgtz", "j", "jr", "jal", "jalr"];
 
 // ops that don't write to any register
 export const READ_ONLY_OPS = [...BRANCH_OPS, ...STORE_OPS, "mtc0"];
@@ -287,7 +287,7 @@ export function getTargetRegs(line) {
 /** @param {ASM} line */
 export function getSourceRegs(line)
 {
-  if(["jr", "mtc2", "mtc0", "ctc2"].includes(line.op)) {
+  if(["jr", "jalr", "mtc2", "mtc0", "ctc2"].includes(line.op)) {
     return [line.args[0]];
   }
   if((line.opFlags & OP_FLAG_IS_BRANCH) && line.op.startsWith("b")) {
