@@ -343,27 +343,73 @@ function opDiv(varRes, varLeft, varRight) {
  * @param {ASTFuncArg} varRight var or constant
  * @param {string} op
  */
-function opCompare(varRes, varLeft, varRight, op, ternary) {
-  if(op !== "<" && op !== ">") {
-    state.throwError("Compare op '"+op+"' not implemented yet! (@TODO)");
-  }
+/**
+ * Scalar compare into a variable (0 or 1)
+ * @param {ASTFuncArg} varRes
+ * @param {ASTFuncArg} varLeft
+ * @param {ASTFuncArg} varRight var or constant
+ * @param {string} op
+ */
+function opCompare(varRes, varLeft, varRight, op) {
   const signed = isSigned(varLeft.type);
-  const isImmediate = varRight.reg === undefined;
-
-  if(op === "<" && isImmediate && u32InS16Range(varRight.value >>> 0)) {
-    return [asm(signed ? "slti" : "sltiu", [varRes.reg, varLeft.reg, varRight.value])];
-  }
-
+  const isImm = varRight.reg === undefined;
+  const value = varRight.value;
+  const slt = signed ? "slt" : "sltu";
+  const slti = signed ? "slti" : "sltiu";
+  const fits = v => u32InS16Range(v >>> 0);
   const res = [];
-  let regRight = varRight.reg;
-  if(isImmediate) {
-    regRight = varRight.value === 0 ? REG.ZERO : REG.AT;
-    if(regRight === REG.AT)res.push(...loadImmediate(REG.AT, varRight.value));
-  }
 
-  // "a > b" is "b < a"
-  const [regA, regB] = op === "<" ? [varLeft.reg, regRight] : [regRight, varLeft.reg];
-  res.push(asm(signed ? "slt" : "sltu", [varRes.reg, regA, regB]));
+  // right side as a register, loading a constant if needed
+  const regRight = () => {
+    if(!isImm)return varRight.reg;
+    if(value === 0)return REG.ZERO;
+    res.push(...loadImmediate(REG.AT, value));
+    return REG.AT;
+  };
+  // the result is 0 or 1, flipping the low bit negates it
+  const negate = () => res.push(asm("xori", [varRes.reg, varRes.reg, 1]));
+
+  switch(op) {
+    case "<":
+    case ">=": // !(a < b)
+      if(isImm && fits(value)) {
+        res.push(asm(slti, [varRes.reg, varLeft.reg, value]));
+      } else {
+        res.push(asm(slt, [varRes.reg, varLeft.reg, regRight()]));
+      }
+      if(op === ">=")negate();
+    break;
+
+    case ">":
+    case "<=": // !(b < a)
+      if(op === "<=" && isImm && (signed || value >= 0) && fits(value + 1)) {
+        res.push(asm(slti, [varRes.reg, varLeft.reg, value + 1])); // a <= imm  ==  a < imm+1
+        break;
+      }
+      res.push(asm(slt, [varRes.reg, regRight(), varLeft.reg]));
+      if(op === "<=")negate();
+    break;
+
+    case "==":
+    case "!=": {
+      let regDiff = varLeft.reg;
+      if(isImm && value === 0) {
+        // nothing to do
+      } else if(isImm && u32InU16Range(value >>> 0)) {
+        res.push(asm("xori", [varRes.reg, varLeft.reg, value]));
+        regDiff = varRes.reg;
+      } else {
+        res.push(asm("xor", [varRes.reg, varLeft.reg, regRight()]));
+        regDiff = varRes.reg;
+      }
+      res.push(op === "=="
+        ? asm("sltiu", [varRes.reg, regDiff, 1])      // diff < 1
+        : asm("sltu", [varRes.reg, REG.ZERO, regDiff]) // 0 < diff
+      );
+    } break;
+
+    default: state.throwError("Unknown compare op '"+op+"'!");
+  }
   return res;
 }
 

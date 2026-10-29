@@ -475,6 +475,7 @@ The following operations are available for scalar types:
 - Arithmetic: `+`, `-`, `*`, `/`, `<<`, `>>`
 - Bitwise: `&`, `|`, `^`, `~`, `>>>`
 - Assignment: `=`
+- Compare: `<`, `>`, `<=`, `>=`, `==`, `!=`
 
 Note: `*` and `/` is only supported with `2^x` contants (which use a shift instead).<br>
 This is a hardware limitation.<br>
@@ -483,6 +484,16 @@ The shorthand operators for all (e.g. `+=`) are also available.
 The right-shift instruction `>>` will by default decide between an arithmetic or logical shift based on the data-type.<br>
 If you want to force a logical shift, you can use the `>>>` operator.<br>
 Note that the automatic detection of the type is not available for vector operations.
+
+A compare stores `1` or `0` into the target and decides between a signed and unsigned compare by the type of the left side.<br>
+`<` and `>` take one instruction, the other operators need one more.
+
+```c++
+u32 a, b;
+u8 res = a < b;
+res = a >= 10;
+res = a == b;
+```
 
 Inside `if`-statements, you have to use one of the following comparison-operators:
 - `==`, `!=`, `>`, `<`, `>=`, `<=`
