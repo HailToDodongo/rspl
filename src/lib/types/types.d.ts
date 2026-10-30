@@ -78,6 +78,8 @@ declare global {
         alignDirective: (bytes: number) => string;
         writeFooter?: (ast: AST, functionsAsm: ASMFunc[], writeLines: WriteLines) => void;
         labelQueue: string;
+        cmdArgRegs: number; // number of command args passed in $a0, $a1...
+        cmdArgAddr: (offset: number, argSize: number) => string; // $gp-relative address of a byte-offset into the current command
     };
 }
 

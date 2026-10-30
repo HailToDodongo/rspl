@@ -368,10 +368,8 @@ function scopedBlockToASMInner(block, args = [], isCommand = false)
     }
     state.declareVar(arg.name, arg.type, reg, false, false, regFract);
 
-    if(isCommand && argIdx >= 4) {
-      const offset = argIdx * 4 - args.length * 4;
-      const loadOp = {u8: "lbu", s8: "lb", u16: "lhu", s16: "lh"}[arg.type] || "lw";
-      res.push(asm(loadOp, [reg, state.target.labelAddr('RSPQ_DMEM_BUFFER', offset) + `(${REG.GP})`]));
+    if(isCommand && argIdx >= state.target.cmdArgRegs) {
+      res.push(...opsScalar.opLoadCmdArg({reg, type: arg.type}, argIdx * 4, args.length * 4));
     }
     ++argIdx;
   }

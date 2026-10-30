@@ -96,6 +96,9 @@ const target = {
   labelAddr,
   writeInstr,
   labelQueue: 'RSPQ_Loop',
-  alignDirective: (bytes) => `.align ${Math.log2(bytes)}`
+  alignDirective: (bytes) => `.align ${Math.log2(bytes)}`,
+  cmdArgRegs: 4,
+  // $gp points past the end of the current command
+  cmdArgAddr: (offset, argSize) => labelAddr('RSPQ_DMEM_BUFFER', offset - argSize),
 };
 export default target;

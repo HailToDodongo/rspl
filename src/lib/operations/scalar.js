@@ -100,14 +100,16 @@ function opMove(varRes, varRight)
  * @param {ASTFuncArg} varOffset
  * @returns {ASM[]}
  */
+const LOAD_OP = {
+  u8:  "lbu", s8:  "lb",
+  u16: "lhu", s16: "lh",
+  u32: "lw",  s32: "lw", // no "lwu", 32bit CPU
+};
+
 function opLoad(varRes, varLoc, varOffset)
 {
   const offsetStr = varOffset.type === "num" ? varOffset.value : state.target.labelAddr(varOffset.name);
-  const loadOp = {
-    u8:  "lbu", s8:  "lb",
-    u16: "lhu", s16: "lh",
-    u32: "lw",  s32: "lw", // no "lwu", 32bit CPU
-  }[varRes.type];
+  const loadOp = LOAD_OP[varRes.type];
 
   if(varLoc.reg) {
     return [asm(loadOp, [varRes.reg, `${offsetStr}(${varLoc.reg})`])];
@@ -115,6 +117,19 @@ function opLoad(varRes, varLoc, varOffset)
 
   if(varOffset.type !== "num")state.throwError("Load args cannot both be consts!");
   return [asm(loadOp, [varRes.reg, state.target.labelAddr(varLoc.name, offsetStr)])];
+}
+
+/**
+ * Loads from the current command's data, offset is in bytes from the start of the command
+ * @param {ASTFuncArg} varRes
+ * @param {number} offset
+ * @param {number} argSize
+ * @returns {ASM[]}
+ */
+function opLoadCmdArg(varRes, offset, argSize)
+{
+  const loadOp = LOAD_OP[varRes.type] || "lw";
+  return [asm(loadOp, [varRes.reg, state.target.cmdArgAddr(offset, argSize) + `(${REG.GP})`])];
 }
 
 /**
@@ -414,6 +429,6 @@ function opCompare(varRes, varLeft, varRight, op) {
 }
 
 export default {
-  opMove, opLoad, opStore, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opNOR, opXOR, opBitFlip,
+  opMove, opLoad, opLoadCmdArg, opStore, opAdd, opSub, opMul, opDiv, opShiftLeft, opShiftRight, opAnd, opOr, opNOR, opXOR, opBitFlip,
   loadImmediate, opCompare
 };

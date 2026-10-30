@@ -614,12 +614,11 @@ function get_cmd_address(varRes, args, swizzle) {
   if(args.length === 1 && args[0].type !== "num")state.throwError("Builtin get_cmd_address() requires the argument to be a number!", args[0]);
   if(isVecReg(varRes.reg))state.throwError("Builtin get_cmd_address() must be assigned to a scalar variable!", varRes);
 
-  let offset = args.length === 1 ? args[0].value : 0;
+  const offset = args.length === 1 ? args[0].value : 0;
   if(offset < 0 || offset > 256)state.throwError("Builtin get_cmd_address() requires the argument to be a number between 0 and 256!", args[0]);
-  offset -= state.argSize;
 
   return [
-    asm("addiu", [varRes.reg, REG.GP, state.target.labelAddr('RSPQ_DMEM_BUFFER', offset)])
+    asm("addiu", [varRes.reg, REG.GP, state.target.cmdArgAddr(offset, state.argSize)])
   ];
 }
 
@@ -637,15 +636,10 @@ function load_arg(varRes, args, swizzle) {
   if(args.length === 1 && args[0].type !== "num")state.throwError("Builtin load_arg() requires the argument to be a number!", args[0]);
   if(isVecReg(varRes.reg))state.throwError("Builtin load_arg() must be assigned to a scalar variable!", varRes);
 
-  let offset = args.length === 1 ? args[0].value : 0;
+  const offset = args.length === 1 ? args[0].value : 0;
   if(offset < 0 || offset > 256)state.throwError("Builtin load_arg() requires the argument to be a number between 0 and 256!", args[0]);
-  offset -= state.argSize;
 
-  return opsScalar.opLoad(
-    varRes,
-    {reg: REG.GP},
-    {type: 'str', name: `RSPQ_DMEM_BUFFER ${offset < 0 ? '' : '+'} ${offset}`}
-  );
+  return opsScalar.opLoadCmdArg(varRes, offset, state.argSize);
 }
 
 function max(varRes, args, swizzle) {

@@ -205,6 +205,9 @@ const target = {
   writeInstr,
   labelQueue: 'Queue',
   writeFooter,
-  alignDirective: (bytes) => `.align ${bytes}`
+  alignDirective: (bytes) => `.align ${bytes}`,
+  cmdArgRegs: 2,
+  // $gp points to the start of the current command
+  cmdArgAddr: (offset) => `${offset}`,
 };
 export default target;

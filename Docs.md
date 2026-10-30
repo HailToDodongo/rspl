@@ -415,6 +415,7 @@ The other difference is that the jump at the end will return to libdragons comma
 
 As for arguments, the first 4 can omit the register declaration since they are assumed to be `$a0` to `$a3`.<br>
 Anything beyond that needs a register, and will cause an instruction to be emitted which loads them from memory.<br>
+With `--armips` only the first 2 arguments are in registers, the rest is loaded relative to `$gp`, which points to the start of the command.<br>
 A command could look like this:
 ```c++
 command<3> Cmd_MatrixRead(u32 _, u32 addressMat)
