@@ -22,6 +22,9 @@ const ELEMENT_MAP = {
 };
 
 // See: https://github.com/Kingcom/armips/blob/62adab4ef30da765f5cf22a451eb08a59c54dc8b/Archs/MIPS/MipsParser.cpp#L103
+// vsar selects the accumulator part through the element field (8, 9, 10)
+const ACC_ELEMENT = {COP2_ACC_HI: 0, COP2_ACC_MD: 1, COP2_ACC_LO: 2};
+
 const COP0_REG = {
   COP0_DMA_SPADDR:   "sp_mem_addr",  // 0
   COP0_DMA_RAMADDR:  "sp_dram_addr", // 1
@@ -179,6 +182,10 @@ function writeInstr(asm)
       args = `${a[0]}[${a[1]}], ${a[2]}(${a[3]})`;
     } else if(MEM_OPS_SCALAR.includes(asm.op) && !HAS_BASE_REG.test(a[1])) {
       args = `${a[0]}, ${a[1]}($zero)`;
+    } else if(asm.op === "vsar") {
+      const acc = ACC_ELEMENT[a[1]];
+      if(acc === undefined)state.throwError(`Unknown accumulator part '${a[1]}'!`);
+      args = `${a[0]}, $v00, $v00[${acc}]`;
     } else if(asm.op === "mtc0" || asm.op === "mfc0") {
       const reg = COP0_REG[a[1]];
       if(!reg)state.throwError(`Unknown COP0 register '${a[1]}'!`);
