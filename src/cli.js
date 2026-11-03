@@ -4,6 +4,7 @@
 */
 
 import { transpileSource, patchAsmFunctions } from "./lib/transpiler";
+import state from "./lib/state.js";
 import { readFileSync, writeFileSync, watch } from "fs";
 import * as path from "path";
 import {initWorker, registerTask, WorkerThreads} from "./lib/workerThreads.js";
@@ -136,7 +137,7 @@ async function main() {
     if(config.patchFunctions.length) {
       if(lastRun)console.log("Patching functions", config.patchFunctions.join(", "));
       const oldSource = readFileSync(pathOut, "utf8");
-      writeFileSync(pathOut, patchAsmFunctions(oldSource, asmRes.asm, config.patchFunctions));
+      writeFileSync(pathOut, patchAsmFunctions(oldSource, asmRes.asm, config.patchFunctions, state.target.patchRegions()));
     } else {
       writeFileSync(pathOut, asmRes.asm);
     }

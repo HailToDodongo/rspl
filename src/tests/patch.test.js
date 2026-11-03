@@ -5,7 +5,7 @@ import {transpileSource} from "../lib/transpiler";
 // only the named functions are optimized and spliced into an existing file
 
 const getFunctionStartEnd = (source, funcName) => transpiler.getFunctionStartEnd(source, funcName);
-const patchAsmFunctions = (oldAsm, newAsm, funcNames) => transpiler.patchAsmFunctions(oldAsm, newAsm, funcNames);
+const patchAsmFunctions = (oldAsm, newAsm, funcNames, regions) => transpiler.patchAsmFunctions(oldAsm, newAsm, funcNames, regions);
 
 function funcBody(source, funcName) {
   const start = source.indexOf(funcName + ":\n");
@@ -109,6 +109,24 @@ describe('Patch', () =>
   test('missing in target file throws', () => {
     expect(() => patchAsmFunctions(OLD_ASM, NEW_ASM, ["funcD"]))
       .toThrow("Function funcD not found in output file!");
+  });
+
+  test('sections are replaced as a whole', () => {
+    const OLD = "## header\n.data\n  old state\n.text\nfuncA:\n  old a1\n\n.create \"x.h\"\n  old sym\n.close\n";
+    const NEW = "## header\n.data\n  new state\n  more state\n.text\nfuncA:\n  new a1\n\n.create \"x.h\"\n.closed\n.close";
+    const regions = [["\n.data\n", "\n.text"], ["\n.create \"x.h\"", "\n.close"]];
+    const out = patchAsmFunctions(OLD, NEW, [], regions);
+    expect(out).toBe("## header\n.data\n  new state\n  more state\n.text\nfuncA:\n  old a1\n\n.create \"x.h\"\n.closed\n.close\n");
+  });
+
+  test('section missing in the new output is left alone', () => {
+    const out = patchAsmFunctions(OLD_ASM, NEW_ASM, ["funcB"], [["\n.data\n", "\n.text"]]);
+    expect(out).toBe(patchAsmFunctions(OLD_ASM, NEW_ASM, ["funcB"]));
+  });
+
+  test('section missing in the old file throws', () => {
+    expect(() => patchAsmFunctions("funcA:\n  old\n", "\n.data\n  s\n.text\nfuncA:\n  new\n", [], [["\n.data\n", "\n.text"]]))
+      .toThrow("Section .data not found in output file!");
   });
 
   test('restrict optimization to listed functions', async () => {

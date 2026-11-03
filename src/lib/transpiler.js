@@ -39,17 +39,44 @@ export function getFunctionStartEnd(source, funcName)
 }
 
 /**
+ * @param {string} source
+ * @param {PatchRegion} region
+ * @return {[number, number]|undefined}
+ */
+function getRegionStartEnd(source, [markerStart, markerEnd])
+{
+  const start = source.indexOf(markerStart);
+  if(start === -1)return undefined;
+  let end = start + markerStart.length;
+  for(;;) {
+    end = source.indexOf(markerEnd, end);
+    if(end === -1)throw new Error("Section " + markerStart.trim() + " has no end in output file!");
+    end += markerEnd.length;
+    if(end === source.length || source[end] === "\n")return [start, end];
+  }
+}
+
+/**
+ * Replaces the named functions and the given sections (e.g. state) of an existing output file
  * @param {string} oldAsm
  * @param {string} newAsm
  * @param {string[]} funcNames
+ * @param {PatchRegion[]} regions
  * @return {string}
  */
-export function patchAsmFunctions(oldAsm, newAsm, funcNames)
+export function patchAsmFunctions(oldAsm, newAsm, funcNames, regions = [])
 {
   let out = oldAsm;
   for(const name of funcNames) {
     const posOld = getFunctionStartEnd(out, name);
     const posNew = getFunctionStartEnd(newAsm, name);
+    out = out.substring(0, posOld[0]) + newAsm.substring(posNew[0], posNew[1]) + out.substring(posOld[1]);
+  }
+  for(const region of regions) {
+    const posNew = getRegionStartEnd(newAsm, region);
+    if(!posNew)continue;
+    const posOld = getRegionStartEnd(out, region);
+    if(!posOld)throw new Error("Section " + region[0].trim() + " not found in output file!");
     out = out.substring(0, posOld[0]) + newAsm.substring(posNew[0], posNew[1]) + out.substring(posOld[1]);
   }
   return out;

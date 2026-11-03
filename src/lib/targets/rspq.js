@@ -100,5 +100,6 @@ const target = {
   cmdArgRegs: 4,
   // $gp points past the end of the current command
   cmdArgAddr: (offset, argSize) => labelAddr('RSPQ_DMEM_BUFFER', offset - argSize),
+  patchRegions: () => [["\n.data\n", "\n.text"]],
 };
 export default target;

@@ -93,5 +93,6 @@ const target = {
   alignDirective: (bytes) => `.align ${Math.log2(bytes)}`,
   cmdArgRegs: rspq.cmdArgRegs,
   cmdArgAddr: rspq.cmdArgAddr,
+  patchRegions: () => [["\nMgBeginShaderUniforms\n", "\nMgEndShaderUniforms"]],
 };
 export default target;

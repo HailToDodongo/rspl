@@ -8,7 +8,7 @@ import state from "../state.js";
 import {ASM_TYPE} from "../intsructions/asmWriter.js";
 import {REGS_SCALAR} from "../syntax/registers.js";
 import {ANNOTATIONS, getAnnotationVal} from "../syntax/annotations.js";
-import {getAsmLabels, getAttrLoaderLabel, getAttrPatchLabel, stringifyInstr} from './utils';
+import {getAsmLabels, getAttrLoaderLabel, getAttrPatchLabel, getTagLabel, stringifyInstr} from './utils';
 
 import rspq from "../targets/rspq.js";
 import armips from "../targets/armips.js";
@@ -199,13 +199,8 @@ export function writeASM(ast, functionsAsm)
         }
       }
 
-      let tag = '';
-      for (const ann of asm.annotations) {
-        if (ann.name === ANNOTATIONS.Tag) {
-          tag = `TAG_${ann.value}: `;
-          break;
-        }
-      }
+      const tagLabel = getTagLabel(asm);
+      const tag = tagLabel ? tagLabel + ": " : "";
 
       // ASM Text output
       switch (asm.type) {

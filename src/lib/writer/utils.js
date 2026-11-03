@@ -3,6 +3,14 @@
 * @license Apache-2.0
 */
 
+import {ANNOTATIONS} from "../syntax/annotations.js";
+
+/** label of a statement marked with @Tag("name") */
+export function getTagLabel(asm) {
+  const tag = asm.annotations?.find(ann => ann.name === ANNOTATIONS.Tag);
+  return tag ? "TAG_" + tag.value : null;
+}
+
 export function getAttrLoaderLabel(asm) {
   if (!asm.attrLoader) return null;
   return "LOAD_" + asm.attrLoader + asm.debug.lineRSPL;

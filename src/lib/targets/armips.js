@@ -4,7 +4,8 @@
 */
 import { TYPE_ALIGNMENT, TYPE_ASM_DEF, TYPE_SIZE } from '../dataTypes/dataTypes';
 import { LOAD_OPS_SCALAR, LOAD_OPS_VECTOR, STORE_OPS } from '../optimizer/asmScanDeps';
-import {getAsmLabels} from '../writer/utils';
+import {getAsmLabels, getTagLabel} from '../writer/utils';
+import {isGeneratedLabel} from '../optimizer/labels';
 import state from '../state.js';
 
 // vector loads/stores that have the "reg[element], offset(base)" syntax
@@ -141,10 +142,26 @@ function writeHeader(ast, functionsAsm, writeLines)
 function writeFooter(ast, functionsAsm, writeLines)
 {
   const name = state.config.outputName || "rsp";
-  const symbols = [
-    ...[...ast.state, ...ast.stateData, ...ast.stateBss].filter(v => !v.extern).map(v => v.varName),
-    ...functionsAsm.filter(f => ["function", "command"].includes(f.type) && f.asm.length > 0).map(f => f.name),
-  ];
+  const varNames = vars => vars.filter(v => !v.extern).map(v => v.varName);
+
+  const symbols = ["STATE_MEM_START", ...varNames(ast.state), "STATE_MEM_END", ...varNames(ast.stateData)];
+  if(ast.stateBss.length > 0) {
+    symbols.push("TEMP_STATE_MEM_START", ...varNames(ast.stateBss), "TEMP_STATE_MEM_END");
+  }
+
+  symbols.push("OVERLAY_CODE_START");
+  for(const func of functionsAsm) {
+    if(!["function", "command"].includes(func.type) || func.asm.length === 0)continue;
+    symbols.push(func.name);
+    // labels and tags written by the user, the generated labels are internal
+    for(const asm of func.asm) {
+      if(asm.label && !isGeneratedLabel(func, asm.label))symbols.push(asm.label);
+      const tag = getTagLabel(asm);
+      if(tag && !symbols.includes(tag))symbols.push(tag);
+    }
+  }
+  symbols.push("OVERLAY_CODE_END");
+
   const width = Math.max(...symbols.map(s => s.length), 0);
 
   writeLines([`.create "${name}.h", 0`]);
@@ -209,5 +226,12 @@ const target = {
   cmdArgRegs: 2,
   // $gp points to the start of the current command
   cmdArgAddr: (offset) => `${offset}`,
+  patchRegions: () => {
+    const name = state.config.outputName || "rsp";
+    return [
+      [`\n.create "${name}.dmem"`, "\n.close"],
+      [`\n.create "${name}.h"`, "\n.close"],
+    ];
+  },
 };
 export default target;

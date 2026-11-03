@@ -51,4 +51,27 @@ describe('armips', () =>
     expect(asm).toContain("lhu $t0, 6($gp)");
     expect(asm).toContain("addiu $t1, $gp, 8");
   });
+
+  test('Symbol header lists sections, memory, functions and user labels', async () => {
+    const {asm, warn} = await transpileSource(`
+      state { u32 VALUE; }
+      temp_state { u32 SCRATCH; }
+      function test() {
+        u32 x = 0;
+        AGAIN:
+        @Tag("STEP") x += 1;
+        if(x != 4)goto AGAIN;
+        loop { x += 1; } while(x != 8)
+      }
+    `, {armips: true, rspqWrapper: true});
+
+    expect(warn).toBe("");
+    const header = asm.substring(asm.indexOf('.create "rsp.h"'));
+    const symbols = [...header.matchAll(/tohex\((\w+), 4\)/g)].map(m => m[1]);
+    expect(symbols).toEqual([
+      "STATE_MEM_START", "VALUE", "STATE_MEM_END",
+      "TEMP_STATE_MEM_START", "SCRATCH", "TEMP_STATE_MEM_END",
+      "OVERLAY_CODE_START", "test", "AGAIN", "TAG_STEP", "OVERLAY_CODE_END",
+    ]);
+  });
 });

@@ -70,6 +70,7 @@ declare global {
     
     type WriteLines = (lines: string | string[]) => void;
     type WriteStateVar = (stateVar: ASTState, writeLines: WriteLines) => number;
+    type PatchRegion = [string, string];
 
     type Target = {
         writeHeader: (ast: AST, functionsAsm: ASMFunc[], writeLines: WriteLines, writeStateVar: WriteStateVar) => number;
@@ -80,6 +81,7 @@ declare global {
         labelQueue: string;
         cmdArgRegs: number; // number of command args passed in $a0, $a1...
         cmdArgAddr: (offset: number, argSize: number) => string; // $gp-relative address of a byte-offset into the current command
+        patchRegions: () => PatchRegion[]; // sections updated besides the functions in patch mode
     };
 }
 
