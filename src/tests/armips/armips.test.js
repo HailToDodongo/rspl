@@ -20,6 +20,23 @@ describe('armips', () =>
     expect(asm).not.toContain("COP2_ACC");
   });
 
+  test('mtc2/mfc2 lanes are byte offsets', async () => {
+    const {asm, warn} = await transpileSource(`
+      function test() {
+        vec16<$v03> v;
+        u32<$a2> a;
+        v.w = a;
+        v.x = a;
+        a = v.Z;
+      }
+    `, CONF);
+
+    expect(warn).toBe("");
+    expect(asm).toContain("mtc2 $a2, $v03[6]");
+    expect(asm).toContain("mtc2 $a2, $v03[0]");
+    expect(asm).toContain("mfc2 $a2, $v03[12]");
+  });
+
   test('Command args past $a0-$a1 are loaded relative to $gp', async () => {
     const {asm, warn} = await transpileSource(`
       command Cmd_Test(u32 a, u32 b, u32 c, u8 d, u32<$s5> e)

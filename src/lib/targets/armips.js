@@ -59,6 +59,20 @@ function elementArg(arg)
   return reg + mapped;
 }
 
+/**
+ * mtc2/mfc2 use a byte offset for the lane index
+ * @param {string} arg vector register with optional ".e?" lane
+ * @returns {string}
+ */
+function laneByteArg(arg)
+{
+  if(!arg.includes("."))return arg;
+  const [reg, element] = arg.split(".");
+  const lane = /^e[0-7]$/.test(element) ? parseInt(element[1]) : undefined;
+  if(lane === undefined)state.throwError(`Lane '${element}' in '${arg}' must be a single element!`);
+  return `${reg}[${lane * 2}]`;
+}
+
 function writeStateVar(stateVar, writeLines) {
   const arraySize = stateVar.arraySize.reduce((a, b) => a * b, 1) || 1;
   const byteSize = TYPE_SIZE[stateVar.varType] * arraySize;
@@ -199,6 +213,8 @@ function writeInstr(asm)
       args = `${a[0]}[${a[1]}], ${a[2]}(${a[3]})`;
     } else if(MEM_OPS_SCALAR.includes(asm.op) && !HAS_BASE_REG.test(a[1])) {
       args = `${a[0]}, ${a[1]}($zero)`;
+    } else if(asm.op === "mtc2" || asm.op === "mfc2") {
+      args = `${a[0]}, ${laneByteArg(a[1])}`;
     } else if(asm.op === "vsar") {
       const acc = ACC_ELEMENT[a[1]];
       if(acc === undefined)state.throwError(`Unknown accumulator part '${a[1]}'!`);
