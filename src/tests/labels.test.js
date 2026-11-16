@@ -61,6 +61,25 @@ function test()
     expect(asm).toContain("%lo(MY_TARGET)");
   });
 
+  test('Conditional goto as the first op', async () => {
+    const {asm, warn} = await transpileSource(`function test(u32<$t0> a)
+{
+  if(a == 0)goto END;
+  a = 1;
+  END:
+}
+`, {...CONF, optimize: true});
+    expect(warn).toBe("");
+    expect(asm).toBe(
+`test:
+  beq $t0, $zero, END
+  nop
+  addiu $t0, $zero, 1
+  END:
+  jr $ra
+  nop`);
+  });
+
   test('Goto through a register variable is a jr', async () => {
     const {asm, warn} = await transpileSource(`
 function test(u32<$t2> arg0, u32<$t3> target)

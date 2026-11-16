@@ -4,8 +4,7 @@
 */
 
 import {ASM_TYPE} from "../../intsructions/asmWriter.js";
-import {BRANCH_OPS, OP_FLAG_IS_NOP} from "../asmScanDeps.js";
-import {REG} from "../../syntax/registers.js";
+import {OP_FLAG_IS_NOP, OP_FLAG_UNCOND_JUMP} from "../asmScanDeps.js";
 
 /**
  * Removes dead-code, currently code at the end of a function if an early jump is present.
@@ -31,22 +30,19 @@ export function removeDeadCode(asmFunc)
     }
   }*/
 
-  // iterate instructions in reverse and see when we hit an unconditional jump
-  // then remove all instructions after that
-  let lastSafeIndex = -1;
-  // a function always ends with a jump+delay, skip those
-  for(let i=lines.length-1-2; i>=0; --i)
+  // a function normally ends with a jump+delay, skip those
+  let i = lines.length - 1;
+  if(lines[i-1]?.opFlags & OP_FLAG_UNCOND_JUMP)i -= 2;
+
+  // walk back over trailing NOPs, an unconditional jump before them makes the rest unreachable
+  for(; i >= 0; --i)
   {
     const asm = lines[i];
-
+    if(asm.type === ASM_TYPE.LABEL)return; // code after a label is reachable
     if(["j", "jr"].includes(asm.op)) {
-      lastSafeIndex = i; // incl. delay-slot
-      break;
+      lines.splice(i+2); // keep the delay-slot
+      return;
     }
-    if(asm.opFlags & OP_FLAG_IS_NOP)continue;
-    break;
+    if(!(asm.opFlags & OP_FLAG_IS_NOP))return;
   }
-
-  if(lastSafeIndex < 0)return;
-  lines.splice(lastSafeIndex+2);
 }

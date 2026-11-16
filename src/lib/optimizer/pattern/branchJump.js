@@ -65,7 +65,7 @@ export function branchJump(asmFunc)
           }
         }
 
-        i-=2;
+        i = Math.max(i-2, -1);
       }
     }
 

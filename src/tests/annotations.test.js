@@ -77,6 +77,55 @@ caller:
   nop`);
   });
 
+  test('NoReturn keeps code after a label after early jump', async () => {
+    const {asm, warn} = await transpileSource(`function other() {}
+    @NoReturn
+    function test() {
+      u32<$t0> a;
+      if(a == 0)goto END;
+      RA = END;
+      goto other;
+      END:
+      RA = 0x1234;
+    }`, {...CONF, optimize: true});
+
+    expect(warn).toBe("");
+    expect(asm).toBe(
+`other:
+  jr $ra
+  nop
+test:
+  beq $t0, $zero, END
+  nop
+  j other
+  ori $ra, $zero, %lo(END)
+  END:
+  addiu $ra, $zero, 4660`);
+  });
+
+  test('NoReturn with a jump at the end', async () => {
+    const {asm, warn} = await transpileSource(`function other() {}
+    @NoReturn
+    function test() {
+      goto other;
+    }
+    function tail() {
+      goto other;
+    }`, {...CONF, optimize: true});
+
+    expect(warn).toBe("");
+    expect(asm).toBe(
+`other:
+  jr $ra
+  nop
+test:
+  j other
+  nop
+tail:
+  j other
+  nop`);
+  });
+
   test('Tag', async () => {
     const {asm, warn} = await transpileSource(`function test_tag() {
     u32<$t0> a;
